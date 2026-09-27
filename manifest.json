@@ -1,0 +1,57 @@
+{
+  "name": "AKIRA V3.5 BESTIAL - Voz, Vision, Busqueda",
+  "short_name": "AKIRA V3.5",
+  "description": "AKIRA V3.5 BESTIAL con vision multimodal, busqueda web DuckDuckGo, voz STT/TTS, memoria hibrida 10M+100K - Creado por Jhon Grimm Bogota - 100% Gratis",
+  "start_url": "/a/",
+  "scope": "/a/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#6366f1",
+  "background_color": "#0b0b0e",
+  "categories": [
+    "productivity",
+    "ai",
+    "chat",
+    "assistant"
+  ],
+  "icons": [
+    {
+      "src": "https://akira-empresa.onrender.com/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://akira-empresa.onrender.com/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nuevo Chat",
+      "short_name": "Chat",
+      "description": "Iniciar nuevo chat con AKIRA",
+      "url": "/a/?new=1",
+      "icons": [
+        {
+          "src": "https://akira-empresa.onrender.com/static/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Membrana Obsidian",
+      "short_name": "Membrana",
+      "description": "Ver membrana de neuronas",
+      "url": "/a/?section=obsidian",
+      "icons": [
+        {
+          "src": "https://akira-empresa.onrender.com/static/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
