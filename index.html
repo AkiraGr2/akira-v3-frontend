@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>AKIRA V3.5 BESTIAL COMPLETO • 27 Sep 2026</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#6366f1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AKIRA V3.5">
+<link rel="apple-touch-icon" href="https://akira-empresa.onrender.com/static/icon-192.png">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://unpkg.com/force-graph@1.43.0/dist/force-graph.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0b0b0e;--sidebar:#121216;--border:#23232a;--text:#ececf1;--muted:#8a8a93;--accent:#6366f1}
+body{background:var(--bg);color:var(--text);font-family:Geist,Inter,sans-serif;height:100dvh;overflow:hidden;display:flex}
+.sidebar{width:280px;min-width:280px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:12px;gap:8px;z-index:20;transition:transform .3s ease}
+.brand{display:flex;align-items:center;gap:10px;padding:8px 6px}
+.orb-wrap{width:36px;height:36px} .orb{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 30% 25%, #10b981 0%, #6366f1 55%, #8b5cf6 90%);box-shadow:0 0 0 1px rgba(255,255,255,.12), 0 0 20px rgba(99,102,241,.45)}
+.brand h1{font-size:14px;font-weight:700;letter-spacing:.2px} .brand p{font-size:10px;color:var(--muted)}
+.btn-new{display:flex;align-items:center;gap:8px;background:#1e1e26;border:1px solid #2a2a36;color:#fff;padding:10px 12px;border-radius:10px;font-size:13px;cursor:pointer;width:100%}
+.btn-new:hover{background:#24242f}
+.nav{display:flex;flex-direction:column;gap:2px;margin-top:6px} 
+.nav-btn{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;border:1px solid transparent;color:var(--muted);font-size:13px;cursor:pointer;background:transparent;width:100%;text-align:left} 
+.nav-btn:hover{background:#1c1c22;color:var(--text)} 
+.nav-btn.active{background:#1e1e26;color:#fff;border-color:#2a2a36}
+.history{flex:1;overflow-y:auto;margin-top:10px;display:flex;flex-direction:column;gap:2px}
+.history-title{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);padding:6px 10px;margin-top:8px}
+.hist-item{padding:7px 10px;border-radius:8px;font-size:12.5px;color:var(--muted);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-item:hover{background:#1a1a22;color:#ddd}
+.model-selector{margin-top:auto;background:#17171d;border:1px solid var(--border);border-radius:12px;padding:10px;position:relative}
+.model-current{display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.model-current b{font-size:12px}
+.model-current span{font-size:10px;color:var(--muted)}
+.model-dropdown{display:none;position:absolute;bottom:52px;left:0;right:0;background:#1e1e26;border:1px solid #2a2a36;border-radius:12px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.5);z-index:50;max-height:320px;overflow-y:auto}
+.model-dropdown.open{display:block}
+.model-option{padding:9px 10px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.model-option:hover{background:#24242f;border-color:#2a2a36}
+.model-option .name{font-size:12.5px;font-weight:600;display:flex;justify-content:space-between}
+.model-option .desc{font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.3}
+.model-option.active{border-color:var(--accent);background:#1e1e2a}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:radial-gradient(900px 400px at 50% -10%, rgba(99,102,241,.12), transparent), var(--bg);min-width:0}
+.topbar{height:48px;min-height:48px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 12px 0 18px;background:rgba(11,11,14,.9);backdrop-filter:blur(8px);gap:8px}
+.topbar .left{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.hamburger{display:none;width:36px;height:36px;border-radius:8px;background:#1e1e26;border:1px solid #2a2a36;color:#fff;align-items:center;justify-content:center;cursor:pointer;font-size:18px;flex-shrink:0}
+.topbar .model-pill{font-size:11px;background:#1e1e26;border:1px solid #2a2a36;padding:4px 10px;border-radius:20px;display:flex;gap:6px;align-items:center;flex-shrink:0;white-space:nowrap}
+.section{display:none;flex:1;overflow-y:auto;padding:0} .section.active{display:flex;flex-direction:column}
+.chat-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.msgs{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.msgs-inner{max-width:760px;margin:0 auto;width:100%;padding:24px 18px 12px}
+.msg-row{display:flex;gap:12px;padding:14px 0}
+.msg-row.user{flex-direction:row-reverse}
+.msg-row.user .bubble{background:#24242d;border-radius:18px 18px 4px 18px;padding:11px 15px;max-width:72%;font-size:14.2px;word-break:break-word}
+.msg-row.akira .avatar{width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 30% 25%, #10b981, #6366f1);flex-shrink:0}
+.msg-row.akira .bubble{flex:1;font-size:14.5px;line-height:1.65;min-width:0;word-break:break-word}
+.typing{display:flex;gap:4px} .typing span{width:5px;height:5px;border-radius:50%;background:var(--muted);animation:typ 1.4s infinite} @keyframes typ{0%,80%,100%{opacity:.3}40%{opacity:1}}
+.input-bar{padding:14px 16px 16px;background:linear-gradient(transparent, var(--bg) 30%);flex-shrink:0}
+.input-container{max-width:760px;margin:0 auto;width:100%}
+.input-inner{background:#1c1c22;border:1px solid #2a2a36;border-radius:16px;padding:8px 8px 8px 14px;display:flex;align-items:flex-end;gap:8px;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+.input-inner textarea{flex:1;background:transparent;border:none;color:var(--text);font-size:14.5px;resize:none;outline:none;max-height:160px;min-height:26px;font-family:Geist,Inter,sans-serif;padding:5px 0;line-height:1.5}
+.btn-icon{width:30px;height:30px;border-radius:8px;background:transparent;border:1px solid transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;flex-shrink:0}
+.btn-icon:hover{background:#24242f;color:#fff}
+.btn-send{width:32px;height:32px;border-radius:50%;background:#fff;color:#000;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700;flex-shrink:0}
+.input-footer{max-width:760px;margin:8px auto 0;width:100%;display:flex;justify-content:space-between;font-size:10px;color:var(--muted);padding:0 4px;gap:8px}
+.obsidian-wrap{height:100%;display:flex;flex-direction:column;gap:12px;padding:18px} .obsidian-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#15151a;border:1px solid var(--border);border-radius:12px;padding:10px 12px} .obsidian-toolbar input{background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;min-width:200px;flex:1;outline:none} #graph{flex:1;min-height:520px;background:#0a0a0e;border-radius:14px;border:1px solid var(--border);position:relative;overflow:hidden}
+.badge{font-size:10px;padding:2px 6px;border-radius:10px;background:#1e1e26;border:1px solid #2a2a36}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:90;backdrop-filter:blur(2px)}
+.overlay.open{display:block}
+
+/* ====== RESPONSIVE - TELEFONO ====== */
+@media (max-width: 768px){
+  body{height:100dvh}
+  .hamburger{display:flex}
+  .sidebar{
+    position:fixed;
+    left:0;top:0;
+    height:100dvh;
+    width:84%;max-width:320px;
+    transform:translateX(-100%);
+    z-index:100;
+    box-shadow: 10px 0 30px rgba(0,0,0,.5);
+  }
+  .sidebar.open{transform:translateX(0)}
+  .topbar{padding:0 10px;height:52px}
+  .topbar .left span{font-size:11px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .topbar .model-pill{font-size:10px;padding:3px 8px}
+  .msgs-inner{padding:16px 12px 8px;max-width:100%}
+  .msg-row{padding:10px 0;gap:8px}
+  .msg-row.user .bubble{max-width:85%;font-size:14px;padding:10px 13px}
+  .msg-row.akira .bubble{font-size:14px;line-height:1.55}
+  .input-bar{padding:10px 10px calc(10px + env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--border)}
+  .input-inner{border-radius:14px;padding:6px 6px 6px 12px}
+  .input-inner textarea{font-size:15px}
+  .input-footer{font-size:9px}
+  .obsidian-wrap{padding:10px}
+  #graph{min-height:60vh}
+}
+
+/* Tablet pequeño */
+@media (min-width: 769px) and (max-width: 1024px){
+  .sidebar{width:260px;min-width:260px}
+  .msgs-inner{max-width:90%}
+}
+
+/* Desktop grande */
+@media (min-width: 1280px){
+  .msgs-inner{max-width:820px}
+}
+</style></head>
+<body>
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+<div class="sidebar" id="sidebar">
+  <div class="brand"><div class="orb-wrap"><div class="orb" id="orb"></div></div><div><h1>AKIRA V3</h1><p>FIX 3.5 • 10M+100K • 27-09-26</p></div></div>
+  <button class="btn-new" onclick="newChat(); closeSidebar()">+ Nuevo Chat Bestial</button>
+  <div class="nav">
+    <button class="nav-btn active" onclick="showSection('chat'); closeSidebar()">💬 Chat Bestial</button>
+    <button class="nav-btn" onclick="showSection('obsidian'); closeSidebar()">🧠 Membrana Obsidian</button>
+    <button class="nav-btn" onclick="showSection('levels'); closeSidebar()">🚀 Niveles</button>
+    <button class="nav-btn" onclick="showSection('keys'); closeSidebar()">🔑 Mi API Key</button>
+  </div>
+  <div class="history">
+    <div class="history-title">Historial local (100K)</div>
+    <div id="historyList"><div class="hist-item" style="color:#555">Tus chats se guardan en IndexedDB</div></div>
+  </div>
+  <div class="model-selector" id="modelSelector">
+    <div class="model-current" onclick="toggleModelDropdown()">
+      <div><b id="currentModelName">AKIRA V3 HÍBRIDO</b><div style="font-size:10px;color:var(--muted)" id="currentModelDesc">Gemini 3.5 Flash-Lite • 10M+100K • FIX 27-09-2026</div></div>
+      <span>▼</span>
+    </div>
+    <div class="model-dropdown" id="modelDropdown">
+      <div class="model-option active" onclick="selectModel('v3')">
+        <div class="name"><span>AKIRA V3 HÍBRIDO</span><span style="font-size:9px;background:#10b981;color:#000;padding:2px 6px;border-radius:10px">ACTUAL</span></div>
+        <div class="desc">FIX 2026-09-27 • 12 modelos probados (3.5-flash-lite, 3.6, 3.0) + lista dinámica. R2 10M + 100K local. 100% Gratis</div>
+      </div>
+      <div class="model-option" onclick="selectModel('v3_5')">
+        <div class="name"><span>V3.5 BESTIAL</span><span style="font-size:9px;background:#6366f1;color:#fff;padding:2px 6px;border-radius:10px">INCLUIDO</span></div>
+        <div class="desc">Voz STT/TTS Web Speech, Visión multimodal, Búsqueda DuckDuckGo, PWA</div>
+      </div>
+      <div class="model-option" onclick="selectModel('v4')">
+        <div class="name"><span>V4 COLECTIVO</span><span style="font-size:9px;background:#f59e0b;color:#000;padding:2px 6px;border-radius:10px">PRÓXIMO</span></div>
+        <div class="desc">Avatar que crece: bebé→niño→bestia→dios. GitHub Actions optimiza memoria</div>
+      </div>
+      <div class="model-option" onclick="selectModel('v5')">
+        <div class="name"><span>V5 DIOS</span><span style="font-size:9px;background:#8a8a93;color:#fff;padding:2px 6px;border-radius:10px">FUTURO</span></div>
+        <div class="desc">Three.js 3D, clon voz ElevenLabs, agentes autónomos, R2 300GB</div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:11px;padding:6px 4px"><span style="color:var(--muted)">Neuronas</span><span id="neuronCount">0</span></div>
+  <div style="display:flex;gap:6px"><span class="badge" id="localCount">Local 0</span><span class="badge" id="sharedCount">Shared 0</span></div>
+</div>
+<div class="main">
+  <div class="topbar">
+    <div class="left">
+      <button class="hamburger" id="hamburger" onclick="toggleSidebar()">☰</button>
+      <span style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">AKIRA V3 HÍBRIDO BESTIAL • Bogotá</span>
+    </div>
+    <div class="model-pill"><span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block"></span><span id="topModel">V3.5 COMPLETO • Bestial</span></div>
+  </div>
+  <div id="chatSection" class="section active chat-wrap">
+    <div class="msgs" id="msgs"><div class="msgs-inner" id="msgsInner"><div class="msg-row akira"><div class="avatar"></div><div class="bubble">Soy AKIRA V3 HIBRIDO FIX 3.5 (27 Sep 2026) ✅. Modelos nuevos: gemini-3.5-flash-lite GA 21 julio 2026. R2 restaurado, login owner funcionando. Pregúntame algo y verás la membrana Obsidian.</div></div></div></div>
+    <div class="input-bar">
+      <div class="input-container">
+        <div id="imagePreview" style="display:none;margin-bottom:8px;position:relative;background:#1c1c22;border:1px solid #2a2a36;border-radius:12px;padding:8px">
+          <img id="previewImg" style="max-height:120px;max-width:100%;border-radius:8px;display:block">
+          <button onclick="clearImagePreview()" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:12px">✕</button>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px" id="previewInfo">Imagen lista para enviar</div>
+        </div>
+        <div class="input-inner"><textarea id="msg" placeholder="Pregúntale algo a AKIRA..." rows="1"></textarea><button class="btn-icon" onclick="document.getElementById('imageInput').click()" title="Subir imagen">📷</button><button class="btn-icon" id="voiceToggleBtn" onclick="toggleVoice()" title="Activar/Desactivar voz">🔊</button><button class="btn-icon" onclick="startVoice()" title="Hablar (STT)">🎤</button><button class="btn-send" onclick="sendMsg()">↑</button></div>
+        <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImageSelect(event)">
+        <div class="input-footer"><span id="footerInfo">V3.5 VISION+SEARCH • 3.5 Flash-Lite multimodal • Bogotá</span><span>↵ enviar • 📷 vision • 🔍 search • 🎤 voz • 📱 PWA</span></div>
+      </div>
+    </div>
+  </div>
+  <div id="obsidianSection" class="section"><div class="obsidian-wrap"><div class="obsidian-toolbar"><input id="graphSearch" placeholder="Buscar neurona..." oninput="filterGraph(this.value)"><button class="nav-btn" onclick="resetGraph()" style="width:auto;padding:6px 12px">Reset</button><span style="font-size:11px;color:var(--muted)">Azul=100K local • Dorado=10M compartido</span></div><div id="graph"></div></div></div>
+  <div id="levelsSection" class="section"><div style="padding:20px;max-width:800px;margin:0 auto;width:100%"><h2>🚀 Subidas de Nivel AKIRA</h2><div id="levelsList" style="margin-top:16px;display:flex;flex-direction:column;gap:12px"></div></div></div>
+  <div id="keysSection" class="section"><div style="padding:20px;max-width:600px;margin:0 auto;width:100%">
+    <h3>👤 Login Google</h3>
+    <p style="font-size:12px;color:var(--muted);margin-top:6px">Inicia sesión para que AKIRA recuerde tu API key y tu memoria 100K en la nube. Es gratis.</p>
+    <div id="g_id_onload"
+         data-client_id="148150327312-7k5g3go06tat9gv61c8v0rbbedcusoqn.apps.googleusercontent.com"
+         data-context="signin"
+         data-callback="handleCredentialResponse"
+         data-auto_prompt="false">
+    </div>
+    <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large" data-logo_alignment="left" style="margin-top:12px"></div>
+    <div id="userInfo" style="margin-top:12px;font-size:12px;display:none;background:#16161b;border:1px solid var(--border);border-radius:8px;padding:10px"></div>
+    <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
+    <h3>🔑 Mi API Key (BYOK)</h3><p style="font-size:12px;color:var(--muted);margin-top:6px">Pega tu key AIza... o AQ... Se guarda solo en tu celular.</p><input id="apiKeyInput" placeholder="AIza... o AQ..." style="width:100%;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:10px;color:#fff;margin-top:10px"><button class="nav-btn" onclick="saveKey()" style="margin-top:10px;width:auto;padding:8px 14px;background:#1e1e26">Guardar Local</button></div></div>
+</div>
+<script>
+// Backend URL fijo
+if(!localStorage.getItem("akira_backend_url") || localStorage.getItem("akira_backend_url").includes("tu-app")){
+  localStorage.setItem("akira_backend_url", "https://akira-empresa.onrender.com");
+}
+let currentVersion = localStorage.getItem("akira_version") || "v3";
+
+// Responsive sidebar
+
+async function handleCredentialResponse(response){
+  try{
+    const credential = response.credential;
+    const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
+    const r = await fetch(backend + "/api/auth/google", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({credential})
+    });
+    const d = await r.json();
+    if(d.error){ alert("Error login: "+d.error); return; }
+    localStorage.setItem("akira_user_id", d.user_id);
+    localStorage.setItem("akira_user_email", d.email);
+    localStorage.setItem("akira_is_owner", d.is_owner ? "1" : "0");
+    const info = document.getElementById("userInfo");
+    if(info){
+      info.style.display="block";
+      info.innerHTML = `✅ Logueado como <b>${d.email}</b><br>Owner: ${d.is_owner ? "👑 SÍ (ilimitado)" : "Usuario normal (15/h)"}<br>Has key: ${d.has_key ? "✅" : "❌ pon tu key abajo"}`;
+    }
+    // Si es owner, no necesita key
+    if(d.is_owner){
+      addMsg(`👑 Bienvenido Creador ${d.email} - Tienes acceso ilimitado y no necesitas poner key.`, "akira");
+    } else {
+      addMsg(`✅ Login OK como ${d.email} - Ahora pon tu API key abajo para chatear ilimitado.`, "akira");
+    }
+    showSection('chat');
+  }catch(e){
+    console.error(e);
+    alert("Error en login Google: "+e.message);
+  }
+}
+
+function toggleSidebar(){
+  document.getElementById("sidebar").classList.toggle("open");
+  document.getElementById("overlay").classList.toggle("open");
+}
+function closeSidebar(){
+  document.getElementById("sidebar").classList.remove("open");
+  document.getElementById("overlay").classList.remove("open");
+}
+function toggleModelDropdown(){
+  document.getElementById("modelDropdown").classList.toggle("open");
+}
+function selectModel(v){
+  currentVersion = v;
+  localStorage.setItem("akira_version", v);
+  const map = {
+    v3: {name:"AKIRA V3 HÍBRIDO", desc:"Gemini 3.5 Flash-Lite • 10M+100K • FIX 27-09-2026", top:"V3.5 COMPLETO • Bestial"},
+    v3_5: {name:"V3.5 BESTIAL", desc:"Voz + Visión + Búsqueda • Gratis", top:"V3.5 • Voz y Visión"},
+    v4: {name:"V4 COLECTIVO", desc:"Próximo • Avatar evolutivo", top:"V4 • Próximo"},
+    v5: {name:"V5 DIOS", desc:"Futuro • 3D + Agentes", top:"V5 • Futuro"}
+  };
+  const m = map[v] || map.v3;
+  document.getElementById("currentModelName").textContent = m.name;
+  document.getElementById("currentModelDesc").textContent = m.desc;
+  document.getElementById("topModel").textContent = m.top;
+  document.getElementById("footerInfo").textContent = m.desc + " • Bogotá";
+  document.getElementById("modelDropdown").classList.remove("open");
+  if(v!=="v3"){
+    addMsg(`🔜 Cambiaste a ${m.name}. Roadmap guardado. Sigues en V3 base.`, "akira");
+  }
+}
+function newChat(){
+  if(confirm("¿Nuevo chat? Historial queda en memoria local.")){
+    document.getElementById("msgsInner").innerHTML = `<div class="msg-row akira"><div class="avatar"></div><div class="bubble">Nuevo chat iniciado. Soy AKIRA ${document.getElementById("currentModelName").textContent}. ¿En qué te ayudo, Jhon?</div></div>`;
+    closeSidebar();
+  }
+}
+document.addEventListener("click", e=>{
+  const sel = document.getElementById("modelSelector");
+  if(sel && !sel.contains(e.target)) {
+    const dd = document.getElementById("modelDropdown");
+    if(dd) dd.classList.remove("open");
+  }
+});
+// Auto-resize textarea like Claude
+const ta = document.getElementById('msg');
+if(ta){
+  ta.addEventListener('input', ()=>{
+    ta.style.height='auto';
+    ta.style.height=Math.min(ta.scrollHeight,160)+'px';
+  });
+}
+
+// PWA Service Worker registration - V3.5 BESTIAL
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').then(reg=>{
+      console.log('✅ SW registrado V3.5 BESTIAL:', reg.scope);
+    }).catch(e=> console.log('❌ SW error:', e));
+  });
+}
+
+window.addEventListener("DOMContentLoaded", ()=>{
+  if(currentVersion!=="v3") selectModel(currentVersion);
+  // Detect device
+  const isMobile = window.innerWidth <= 768;
+  console.log("AKIRA Responsive - isMobile:", isMobile);
+});
+</script>
+<script src="js/hybrid_sync.js"></script>
+<script src="js/obsidian_membrane.js"></script>
+<script src="js/akira_brain.js"></script>
+</body></html>
