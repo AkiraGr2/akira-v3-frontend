@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Akira</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link rel="manifest" href="manifest.json?v=akira">
+<meta name="theme-color" content="#6366f1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://akira-empresa.onrender.com https://akiragr2.github.io https://accounts.google.com https://*.googleapis.com https://*.gstatic.com https://unpkg.com https://fonts.googleapis.com https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://accounts.google.com https://unpkg.com https://*.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; connect-src 'self' https://akira-empresa.onrender.com https://accounts.google.com https://*.googleapis.com https://api.duckduckgo.com https://*.wikipedia.org https://api.groq.com https://api.tavily.com https://r.jina.ai https://image.pollinations.ai https://wttr.in; frame-src https://accounts.google.com;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Akira">
+<link rel="apple-touch-icon" href="https://akira-empresa.onrender.com/static/icon-192.png">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://unpkg.com/force-graph@1.43.0/dist/force-graph.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0b0b0e;--sidebar:rgba(18,18,22,0.9);--border:#23232a;--text:#ececf1;--muted:#8a8a93;--accent:#6366f1}
+body{background:var(--bg);color:var(--text);font-family:Geist,Inter,sans-serif;height:100dvh;overflow:hidden;display:flex}
+.sidebar{width:280px;min-width:280px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:12px;gap:8px;z-index:20;transition:transform .3s ease}
+.brand{display:flex;align-items:center;gap:10px;padding:8px 6px}
+.orb{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 30% 25%, #10b981 0%, #6366f1 55%, #8b5cf6 90%);box-shadow:0 0 0 1px rgba(255,255,255,.12), 0 0 20px rgba(99,102,241,.45)}
+.brand h1{font-size:16px;font-weight:700} .brand p{font-size:11px;color:var(--muted)}
+.btn-new{display:flex;align-items:center;gap:8px;background:#1e1e26;border:1px solid #2a2a36;color:#fff;padding:11px 12px;border-radius:10px;font-size:13.5px;cursor:pointer;width:100%;font-weight:600}
+.btn-new:hover{background:#24242f}
+.nav{display:flex;flex-direction:column;gap:3px;margin-top:8px} 
+.nav-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;border:1px solid transparent;color:var(--muted);font-size:13.5px;cursor:pointer;background:transparent;width:100%;text-align:left} 
+.nav-btn:hover{background:#1c1c22;color:var(--text)} 
+.nav-btn.active{background:#1e1e26;color:#fff;border-color:#2a2a36}
+.history{flex:1;overflow-y:auto;margin-top:12px;display:flex;flex-direction:column;gap:2px}
+.history-title{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);padding:6px 10px;margin-top:8px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:radial-gradient(900px 400px at 50% -10%, rgba(99,102,241,.12), transparent), var(--bg);min-width:0}
+.topbar{height:52px;min-height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 12px 0 18px;background:rgba(11,11,14,.95);backdrop-filter:blur(8px);gap:8px}
+.hamburger{display:none;width:38px;height:38px;border-radius:9px;background:#1e1e26;border:1px solid #2a2a36;color:#fff;align-items:center;justify-content:center;cursor:pointer;font-size:18px}
+.topbar .model-pill{font-size:12px;background:#1e1e26;border:1px solid #2a2a36;padding:5px 12px;border-radius:20px;display:flex;gap:6px;align-items:center;font-weight:600}
+.section{display:none;flex:1;overflow-y:auto;padding:0} .section.active{display:flex;flex-direction:column}
+.chat-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.msgs{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.msgs-inner{max-width:780px;margin:0 auto;width:100%;padding:28px 20px 16px}
+.msg-row{display:flex;gap:12px;padding:16px 0;animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.msg-row.user{flex-direction:row-reverse}
+.msg-row.user .bubble{background:#24242d;border-radius:18px 18px 4px 18px;padding:12px 16px;max-width:72%;font-size:14.5px;word-break:break-word;line-height:1.5}
+.msg-row.akira .avatar{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 30% 25%, #10b981, #6366f1);flex-shrink:0}
+.msg-row.akira .bubble{flex:1;font-size:15px;line-height:1.7;min-width:0;word-break:break-word}
+.input-bar{padding:14px;border-top:1px solid var(--border);background:rgba(11,11,14,.95)}
+.input-inner{max-width:780px;margin:0 auto;display:flex;gap:8px;align-items:end;position:relative}
+#msg{flex:1;background:#1e1e26;border:1px solid #2a2a36;border-radius:14px;padding:13px 14px;color:#fff;resize:none;min-height:48px;max-height:160px;font-family:inherit;font-size:14.5px;outline:none}
+.icon-btn{width:48px;height:48px;border-radius:14px;background:#1e1e26;border:1px solid #2a2a36;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px}
+.send-btn{width:48px;height:48px;border-radius:14px;background:var(--accent);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 15px rgba(99,102,241,.3)}
+.quick-actions{max-width:780px;margin:10px auto 0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.quick-btn{font-size:12px;background:#1e1e26;border:1px solid #2a2a36;color:#fff;padding:7px 14px;border-radius:20px;cursor:pointer}
+#imagePreview{position:absolute;bottom:62px;left:0;background:#1e1e26;border:1px solid #2a2a36;border-radius:12px;padding:8px;display:none;z-index:5}
+@media(max-width:768px){.sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);width:280px;z-index:30} .sidebar.open{transform:translateX(0)} .hamburger{display:flex} .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:15} .overlay.open{display:block}}
+</style>
+</head><body>
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+<div class="sidebar" id="sidebar">
+  <div class="brand"><div class="orb" id="orb"></div><div><h1>Akira</h1><p>Colmena Activa • Siempre Responde</p></div></div>
+  <button class="btn-new" onclick="newChat()">+ Nuevo Chat</button>
+  <div class="nav">
+    <button class="nav-btn active" id="btn-chat" onclick="showSection('chat')">💬 Chat</button>
+    <button class="nav-btn" id="btn-membrane" onclick="showSection('membrane')">🧠 Membrana</button>
+    <button class="nav-btn" id="btn-levels" onclick="showSection('levels')">🚀 Niveles</button>
+    <button class="nav-btn" id="btn-keys" onclick="showSection('keys')">🔑 Mi API Key</button>
+  </div>
+  <div class="history" id="history"><div class="history-title">Historial Local (100K)</div><div style="font-size:11.5px;color:var(--muted);padding:6px 10px">Tus chats se guardan en IndexedDB + R2.</div></div>
+  <div style="margin-top:auto;background:#17171d;border:1px solid var(--border);border-radius:12px;padding:11px"><b style="font-size:13px">Akira</b><br><span style="font-size:11px;color:var(--muted)">Blindado multi-proveedor • Siempre responde</span></div>
+</div>
+<div class="main">
+  <div class="topbar"><div style="display:flex;align-items:center;gap:10px"><button class="hamburger" onclick="toggleSidebar()">☰</button><span class="model-pill">Akira • Colmena + Tavily + IMG + VID</span></div><button id="streamToggleBtn" style="font-size:11px;background:#1e1e26;border:1px solid #2a2a36;color:#fff;padding:6px 12px;border-radius:20px;cursor:pointer">⚡ Stream ON</button></div>
+  <div id="chatSection" class="section active"><div class="chat-wrap"><div class="msgs" id="msgs"><div class="msgs-inner" id="msgsInner"><div class="msg-row akira"><div class="avatar"></div><div class="bubble">Soy <b>Akira</b> - Colmena Activa 🧠✅<br><br>Blindado multi-proveedor: 9 modelos Gemini 3.8 + 6 Groq + OpenRouter + emergencia local<br>Siempre responde, nunca pantalla negra<br>Tavily Real, Upload PDF, Create File, Imagen FREE, Video FREE, Streaming, 100K<br><br>Backend: Akira Live<br>Prueba: "piensa en un hecho perturbador"<br><br>Si ves esto ya estás en Akira sin versiones 🎉</div></div></div></div>
+      <div class="input-bar"><div class="input-inner"><div id="imagePreview"><img id="previewImg" style="width:80px;height:80px;object-fit:cover;border-radius:8px"><div id="previewInfo" style="font-size:10px;color:var(--muted)"></div><button onclick="clearImagePreview()" style="font-size:10px;background:#ef4444;border:none;color:#fff;padding:3px 7px;border-radius:6px;margin-top:5px;width:100%">Quitar</button></div><textarea id="msg" placeholder="Pregúntale algo a Akira..." rows="1"></textarea><input type="file" id="imageInput" accept="image/jpeg,image/jpg,image/png,image/webp" style="display:none"><input type="file" id="fileInput" accept=".pdf,.txt,.md,.csv,.json" style="display:none"><button class="icon-btn" onclick="document.getElementById('imageInput').click()" title="Lente / Imagen">🖼️</button><button class="icon-btn" onclick="startVoice()" title="Voz / Audio">🎤</button><button class="icon-btn" onclick="document.getElementById('fileInput').click()" title="Archivo">📄</button><button class="send-btn" onclick="sendMsg()" title="Enviar">↑</button></div><div class="quick-actions"><button class="quick-btn" onclick="generateImageAkira()">🎨 Imagen</button><button class="quick-btn" onclick="generateVideoAkira()">🎬 Video</button><button class="quick-btn" onclick="createFileAkira()">📝 Archivo</button><button class="quick-btn" onclick="document.getElementById('msg').value='piensa en un hecho perturbador'; sendMsg()">🤯 Perturbador</button></div></div>
+    </div>
+  </div>
+  <div id="membraneSection" class="section"><div style="padding:22px;max-width:900px;margin:0 auto;width:100%"><h2>🧠 Membrana</h2><div id="graph" style="width:100%;height:420px;background:#0e0e12;border:1px solid var(--border);border-radius:14px;margin-top:16px"><canvas id="membraneCanvas" style="width:100%;height:100%"></canvas></div><div id="membraneStats" style="margin-top:14px;font-size:12.5px;color:var(--muted)"></div></div></div>
+  <div id="levelsSection" class="section"><div style="padding:22px;max-width:800px;margin:0 auto;width:100%"><h2>🚀 Niveles</h2><div id="levelsList" style="margin-top:18px;display:flex;flex-direction:column;gap:12px"></div></div></div>
+  <div id="keysSection" class="section"><div style="padding:22px;max-width:600px;margin:0 auto;width:100%"><h3>👤 Login Google</h3><div id="g_id_onload" data-client_id="148150327312-7k5g3go06tat9gv61c8v0rbbedcusoqn.apps.googleusercontent.com" data-context="signin" data-callback="handleCredentialResponse" data-auto_prompt="false"></div><div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large" style="margin-top:14px"></div><div id="userInfo" style="margin-top:14px;font-size:13px;display:none;background:#16161b;border:1px solid var(--border);border-radius:10px;padding:12px"></div><hr style="margin:24px 0;border:none;border-top:1px solid var(--border)"><h3>🔑 Mi API Key</h3><input id="apiKeyInput" placeholder="AIza... o gsk_..." style="width:100%;background:#0e0e12;border:1px solid var(--border);border-radius:10px;padding:12px;color:#fff;margin-top:12px"><div style="display:flex;gap:8px;margin-top:10px"><button class="quick-btn" onclick="saveKey()">💾 Guardar</button><button class="quick-btn" onclick="testKeys()">🧪 Probar</button></div><div id="keyStatus" style="margin-top:12px;font-size:12px;color:var(--muted)"></div><hr style="margin:24px 0;border:none;border-top:1px solid var(--border)"><h3>🔧 Puente</h3><div id="bridgeStatus" style="margin-top:12px;background:#16161b;border:1px solid var(--border);border-radius:10px;padding:14px;font-size:12.5px;color:var(--muted)">Verificando...</div></div></div>
+</div>
+<script>
+if(!localStorage.getItem("akira_backend_url")) localStorage.setItem("akira_backend_url", "https://akira-empresa.onrender.com");
+function showSection(name){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));const sec=document.getElementById(name+'Section');const btn=document.getElementById('btn-'+name);if(sec)sec.classList.add('active');if(btn)btn.classList.add('active');closeSidebar();if(name==='membrane')setTimeout(()=>{countNeuronas();},100);if(name==='levels')renderLevels();if(name==='keys')checkBridge();}
+function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}
+function closeSidebar(){document.getElementById("sidebar").classList.remove("open");document.getElementById("overlay").classList.remove("open");}
+function newChat(){if(confirm("¿Nuevo chat?")){document.getElementById('msgsInner').innerHTML=`<div class="msg-row akira"><div class="avatar"></div><div class="bubble">Nuevo chat Akira.</div></div>`;}}
+async function handleCredentialResponse(r){try{const c=r.credential;const b=localStorage.getItem("akira_backend_url");const re=await fetch(b+"/api/auth/google",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({credential:c})});const d=await re.json();if(d.error){alert(d.error);return;}localStorage.setItem("akira_user_id",d.user_id);localStorage.setItem("akira_user_email",d.email);localStorage.setItem("akira_is_owner",d.is_owner?"1":"0");const i=document.getElementById("userInfo");if(i){i.style.display="block";i.innerHTML=`✅ ${d.email} Owner:${d.is_owner?"👑":"no"}`;}addMsg(`Bienvenido ${d.email} a Akira`,"akira");showSection('chat');}catch(e){alert(e.message);}}
+async function checkBridge(){const el=document.getElementById('bridgeStatus');if(!el)return;const backend=localStorage.getItem("akira_backend_url");el.innerHTML='⏳ Verificando '+backend+'...';try{const r=await fetch(backend+'/health',{cache:'no-store'});const d=await r.json();const r2=await fetch(backend+'/api/tools',{cache:'no-store'}).then(x=>x.json()).catch(()=>({tools:[]}));el.innerHTML=`✅ Puente OK<br>• ${backend}<br>• ${d.version}<br>• Membrana: ${JSON.stringify(d.membrana||{})}<br>• Tools: ${(r2.tools||[]).length}`;}catch(e){el.innerHTML=`❌ ${e.message}`;}}
+async function testKeys(){const el=document.getElementById('keyStatus');const key=document.getElementById('apiKeyInput').value.trim()||localStorage.getItem('akira_user_key')||'';if(!key){el.textContent='❌ No key';return;}el.textContent='⏳ Probando...';const backend=localStorage.getItem("akira_backend_url");try{const r=await fetch(backend+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'test',user_api_key:key})});const d=await r.json();el.textContent=d.response?`✅ OK: ${d.response.slice(0,80)}`:`❌ ${JSON.stringify(d).slice(0,120)}`;}catch(e){el.textContent='❌ '+e.message;}}
+document.addEventListener("DOMContentLoaded",()=>{const ta=document.getElementById('msg');if(ta){ta.addEventListener('input',()=>{ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,160)+'px';});ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}});}const sb=document.getElementById("streamToggleBtn");if(sb){const us=localStorage.getItem("akira_stream")!=="0";sb.textContent=us?"⚡ Stream ON":"🐢 OFF";sb.onclick=()=>{const cur=localStorage.getItem("akira_stream")!=="0";localStorage.setItem("akira_stream",cur?"0":"1");sb.textContent=cur?"🐢 OFF":"⚡ Stream ON";};}checkBridge();if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js?v=akira').then(reg=>reg.update()).catch(()=>{});});}});
+</script>
+<script src="js/hybrid_sync.js?v=akira"></script>
+<script src="js/obsidian_membrane.js?v=akira"></script>
+<script src="js/akira_brain.js?v=akira"></script>
+</body></html>
