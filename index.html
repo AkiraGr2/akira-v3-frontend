@@ -162,31 +162,41 @@ body{background:var(--bg);color:var(--text);font-family:Geist,Inter,sans-serif;h
             <button class="quick-btn" onclick="smPatch()">✏️ Modificar</button>
             <button class="quick-btn" onclick="smReset()">🧹 Limpiar vista</button>
           </div>
-          <pre id="smOutput" style="margin-top:10px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:10px;color:#8a8a93;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-word">Sin datos todavía. Toca "Leer" para consultar el self-model.</pre>
+          <pre id="smOutput" style="margin-top:10px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:10px;color:#8a8a93;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-word">Sin datos todavía.</pre>
         </div>
         <div style="margin-top:16px;background:#16161b;border:1px solid var(--border);border-radius:12px;padding:14px">
           <h4>🌐 Fase 6 — Grafo + Aprendizaje</h4>
-          <p style="font-size:11px;color:var(--muted);margin-top:6px">Crea nodos, aristas y aprendizajes reales. Verifica que sobreviven al reinicio.</p>
+          <p style="font-size:11px;color:var(--muted);margin-top:6px">Crea nodos, aristas y aprendizajes reales.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
             <button class="quick-btn" onclick="f6TestFull()">🧪 Test completo</button>
             <button class="quick-btn" onclick="f6ReadAll()">📖 Leer todo</button>
             <button class="quick-btn" onclick="f6Reset()">🧹 Limpiar vista</button>
           </div>
-          <pre id="f6Output" style="margin-top:10px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:10px;color:#8a8a93;max-height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word">Sin datos. Toca "Test completo" para crear y verificar.</pre>
+          <pre id="f6Output" style="margin-top:10px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:10px;color:#8a8a93;max-height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word">Sin datos.</pre>
         </div>
         <div style="margin-top:16px;background:#16161b;border:1px solid var(--border);border-radius:12px;padding:14px">
           <h4>🧠 Fase 7 — Ciclo Cognitivo</h4>
-          <p style="font-size:11px;color:var(--muted);margin-top:6px">Ejecuta un ciclo cognitivo completo de 9 etapas (observe → interpret → reason → decide → act → observe_result → evaluate → learn → update_self_model). Cada etapa queda persistida como evento.</p>
-          <div style="margin-top:10px">
-            <input id="f7Message" placeholder="Mensaje para el ciclo..." style="width:100%;background:#0e0e12;border:1px solid var(--border);border-radius:10px;padding:10px;color:#fff;font-size:13px">
-          </div>
+          <p style="font-size:11px;color:var(--muted);margin-top:6px">Ejecuta un ciclo cognitivo de 9 etapas.</p>
+          <div style="margin-top:10px"><input id="f7Message" placeholder="Mensaje para el ciclo..." style="width:100%;background:#0e0e12;border:1px solid var(--border);border-radius:10px;padding:10px;color:#fff;font-size:13px"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
             <button class="quick-btn" onclick="f7Run()">▶️ Ejecutar ciclo</button>
             <button class="quick-btn" onclick="f7ReadLast()">📖 Leer último</button>
             <button class="quick-btn" onclick="f7ListCycles()">📚 Listar</button>
             <button class="quick-btn" onclick="f7Reset()">🧹 Limpiar vista</button>
           </div>
-          <pre id="f7Output" style="margin-top:10px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word">Sin datos. Escribe un mensaje y toca "Ejecutar ciclo".</pre>
+          <pre id="f7Output" style="margin-top:10px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word">Sin datos.</pre>
+        </div>
+        <div style="margin-top:16px;background:#16161b;border:1px solid var(--border);border-radius:12px;padding:14px">
+          <h4>🛠️ Fase 8 — Tool Registry</h4>
+          <p style="font-size:11px;color:var(--muted);margin-top:6px">Herramientas reales invocables. Cada invocación queda registrada.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="quick-btn" onclick="f8ListTools()">📋 Listar tools</button>
+            <button class="quick-btn" onclick="f8TestInvoke()">▶️ Probar web_search</button>
+            <button class="quick-btn" onclick="f8MemorySave()">💾 Guardar memoria</button>
+            <button class="quick-btn" onclick="f8ListInvocations()">📜 Invocaciones</button>
+            <button class="quick-btn" onclick="f8Reset()">🧹 Limpiar vista</button>
+          </div>
+          <pre id="f8Output" style="margin-top:10px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word">Sin datos. Toca "Listar tools" para empezar.</pre>
         </div>
         <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="quick-btn" onclick="clearLocalDB()">🗑️ Limpiar DB local</button><button class="quick-btn" onclick="forceSyncR2()">☁️ Forzar Sync R2</button><button class="quick-btn" onclick="exportBackup()">💾 Export Backup</button></div>
       </div>
@@ -261,8 +271,7 @@ async function checkBridgeSimple(){
   try{
     const r=await fetch(backend+'/health',{cache:'no-store'});
     if(r.ok){
-      simple.textContent="Conectado";
-      simple.style.color="#10b981";
+      simple.textContent="Conectado"; simple.style.color="#10b981";
       if(detail) detail.textContent="Akira está en línea y listo.";
     }else{
       simple.textContent="Desconectado";
@@ -270,7 +279,7 @@ async function checkBridgeSimple(){
     }
   }catch(e){
     simple.textContent="Conectando...";
-    if(detail) detail.textContent="Despertando backend (Render free 15-30s)...";
+    if(detail) detail.textContent="Despertando backend...";
   }
 }
 async function checkBridgeAdmin(){
@@ -283,7 +292,7 @@ async function checkBridgeAdmin(){
   try{
     const r=await fetch(backend+'/health',{cache:'no-store'});
     const d=await r.json();
-    const r2=await fetch(backend+'/api/tools',{cache:'no-store'}).then(x=>x.json()).catch(()=>({tools:[{name:'membrana'},{name:'identity_filter'}]}));
+    const r2=await fetch(backend+'/api/tools',{cache:'no-store'}).then(x=>x.json()).catch(()=>({tools:[{name:'membrana'}]}));
     el.innerHTML=`✅ Puente OK<br>• ${backend}<br>• ${d.version}<br>• Membrana: ${JSON.stringify(d.membrana||{})}<br>• Tools: ${(r2.tools||[]).length}`;
     if(memEl) memEl.textContent=JSON.stringify(d.membrana||{}, null, 2);
     if(toolsEl) toolsEl.textContent=(r2.tools||[]).map(t=>t.name).join(", ") || "7 tools";
@@ -315,255 +324,198 @@ async function smGet(){
     const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
     const r=await fetch(b+"/api/v8/self",{headers:akiraAuthHeaders(),cache:"no-store"});
     const d=await r.json();
-    if(!d.ok){out.textContent='❌ '+(d.reason||'error')+'\n\n'+JSON.stringify(d,null,2);return;}
+    if(!d.ok){out.textContent='❌ '+(d.reason||'error');return;}
     const sm=d.self_model||{};
-    const resumen={
-      version: sm.version,
-      id: sm.id,
-      identity: sm.identity,
-      purpose: sm.purpose,
-      capabilities_count: (sm.capabilities||[]).length,
+    out.textContent='✅ GET /api/v8/self\n\n'+JSON.stringify({
+      version: sm.version, id: sm.id, identity: sm.identity, purpose: sm.purpose,
       capabilities_verified: (sm.capabilities||[]).filter(c=>c.status==='verified').length,
       capabilities_not_implemented: (sm.capabilities||[]).filter(c=>c.status==='not_implemented').length,
-      tools_count: (sm.tools||[]).length,
-      models: sm.models,
-      uncertainties: sm.uncertainties,
-      current_state: sm.current_state,
-      updated_at: sm.updated_at
-    };
-    out.textContent='✅ GET /api/v8/self\n\n'+JSON.stringify(resumen,null,2);
+      current_state: sm.current_state, updated_at: sm.updated_at
+    },null,2);
   }catch(e){out.textContent='❌ '+e.message;}
 }
-
 async function smPatch(){
   const out=document.getElementById('smOutput');
   if(!out) return;
-  out.textContent='⏳ Modificando self-model...';
+  out.textContent='⏳ Modificando...';
   try{
     const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
     const r0=await fetch(b+"/api/v8/self",{headers:akiraAuthHeaders(),cache:"no-store"});
     const d0=await r0.json();
-    if(!d0.ok||!d0.self_model){out.textContent='❌ No se pudo leer el self-model antes de modificar.';return;}
-    const currentVersion=d0.self_model.version;
+    if(!d0.ok||!d0.self_model){out.textContent='❌ No se pudo leer.';return;}
     const stamp=new Date().toISOString().slice(0,16).replace('T',' ');
-    const nuevas=[
-      "prueba persistencia fase 5 ("+stamp+")",
-      ...(d0.self_model.uncertainties||[]).slice(0,4)
-    ];
-    const r=await fetch(b+"/api/v8/self",{
-      method:'PATCH',
-      headers:akiraAuthHeaders(),
-      body:JSON.stringify({changes:{uncertainties:nuevas},expected_version:currentVersion})
-    });
+    const nuevas=["prueba fase 5 ("+stamp+")",...(d0.self_model.uncertainties||[]).slice(0,4)];
+    const r=await fetch(b+"/api/v8/self",{method:'PATCH',headers:akiraAuthHeaders(),
+      body:JSON.stringify({changes:{uncertainties:nuevas},expected_version:d0.self_model.version})});
     const d=await r.json();
-    if(!d.ok){out.textContent='❌ PATCH falló: '+(d.reason||'error')+'\n\n'+JSON.stringify(d,null,2);return;}
-    out.textContent='✅ PATCH OK — version '+currentVersion+' → '+d.self_model.version+'\n\nNuevas incertidumbres:\n'+JSON.stringify(d.self_model.uncertainties,null,2)+'\n\nAhora: en Render haz "Manual Deploy", espera 1-3 min, y toca "Leer" otra vez. La version debe seguir en '+d.self_model.version+' y tu texto debe aparecer en uncertainties.';
+    if(!d.ok){out.textContent='❌ '+(d.reason||'error');return;}
+    out.textContent='✅ version '+d0.self_model.version+' → '+d.self_model.version;
   }catch(e){out.textContent='❌ '+e.message;}
 }
-
-function smReset(){
-  const out=document.getElementById('smOutput');
-  if(out) out.textContent='Sin datos todavía. Toca "Leer" para consultar el self-model.';
-}
+function smReset(){const out=document.getElementById('smOutput');if(out)out.textContent='Sin datos.';}
 
 async function f6TestFull(){
   const out=document.getElementById('f6Output');
   if(!out) return;
-  out.textContent='⏳ Ejecutando test completo Fase 6...';
+  out.textContent='⏳ Ejecutando test Fase 6...';
   const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
-  const H=akiraAuthHeaders();
-  const log=[];
+  const H=akiraAuthHeaders();const log=[];
   try{
-    let r=await fetch(b+"/api/v8/graph/node",{method:'POST',headers:H,body:JSON.stringify({
-      node_type:'concept', label:'Fase 6 — Grafo y aprendizaje',
-      description:'Nodo de prueba para validar Fase 6',
-      weight:2.0, confidence:0.8, idempotency_key:'f6_test_node_a'
-    })});
-    let d=await r.json();
-    if(!d.ok){out.textContent='❌ Falló crear nodo A: '+JSON.stringify(d);return;}
-    const nodeA=d.node.id;
-    log.push('1) Node A: '+nodeA+' ('+d.outcome+')');
-
-    r=await fetch(b+"/api/v8/graph/node",{method:'POST',headers:H,body:JSON.stringify({
-      node_type:'skill', label:'Persistencia real',
-      description:'Habilidad verificada en Akira',
-      weight:1.5, confidence:0.9, idempotency_key:'f6_test_node_b'
-    })});
-    d=await r.json();
-    if(!d.ok){out.textContent='❌ Falló crear nodo B: '+JSON.stringify(d);return;}
-    const nodeB=d.node.id;
-    log.push('2) Node B: '+nodeB+' ('+d.outcome+')');
-
-    r=await fetch(b+"/api/v8/graph/edge",{method:'POST',headers:H,body:JSON.stringify({
-      from_node:nodeA, to_node:nodeB, relation_type:'uses',
-      weight:1.5, confidence:0.7, origin:'f6_test',
-      idempotency_key:'f6_test_edge_ab'
-    })});
-    d=await r.json();
-    if(!d.ok){out.textContent='❌ Falló crear edge: '+JSON.stringify(d);return;}
-    const edgeId=d.edge.id;
-    log.push('3) Edge A→B: '+edgeId+' ('+d.outcome+')');
-
-    r=await fetch(b+"/api/v8/learning",{method:'POST',headers:H,body:JSON.stringify({
-      source:'fase6_test',
-      event:'Primera prueba end-to-end de persistencia de aprendizaje',
-      lesson:'El sistema puede guardar, recuperar y reutilizar aprendizajes a traves de reinicios.',
-      knowledge_nodes:[nodeA, nodeB],
-      relationships:[edgeId],
-      confidence:0.85,
-      outcome:'success',
-      idempotency_key:'f6_test_learning_1'
-    })});
-    d=await r.json();
-    if(!d.ok){out.textContent='❌ Falló crear learning: '+JSON.stringify(d);return;}
-    const learningId=d.learning.id;
-    localStorage.setItem('f6_learning_id', learningId);
-    log.push('4) Learning: '+learningId+' ('+d.outcome+', reuse='+d.learning.reuse_count+')');
-
+    let r=await fetch(b+"/api/v8/graph/node",{method:'POST',headers:H,body:JSON.stringify({node_type:'concept',label:'Fase 6 — Grafo',weight:2.0,confidence:0.8,idempotency_key:'f6_test_node_a'})});
+    let d=await r.json(); if(!d.ok){out.textContent='❌ '+JSON.stringify(d);return;}
+    const nodeA=d.node.id; log.push('1) Node A: '+nodeA);
+    r=await fetch(b+"/api/v8/graph/node",{method:'POST',headers:H,body:JSON.stringify({node_type:'skill',label:'Persistencia real',weight:1.5,confidence:0.9,idempotency_key:'f6_test_node_b'})});
+    d=await r.json(); if(!d.ok){out.textContent='❌ '+JSON.stringify(d);return;}
+    const nodeB=d.node.id; log.push('2) Node B: '+nodeB);
+    r=await fetch(b+"/api/v8/graph/edge",{method:'POST',headers:H,body:JSON.stringify({from_node:nodeA,to_node:nodeB,relation_type:'uses',weight:1.5,confidence:0.7,origin:'f6_test',idempotency_key:'f6_test_edge_ab'})});
+    d=await r.json(); if(!d.ok){out.textContent='❌ '+JSON.stringify(d);return;}
+    log.push('3) Edge: '+d.edge.id);
+    r=await fetch(b+"/api/v8/learning",{method:'POST',headers:H,body:JSON.stringify({source:'fase6_test',event:'Prueba end-to-end',lesson:'El sistema persiste aprendizaje.',knowledge_nodes:[nodeA,nodeB],confidence:0.85,outcome:'success',idempotency_key:'f6_test_learning_1'})});
+    d=await r.json(); if(!d.ok){out.textContent='❌ '+JSON.stringify(d);return;}
+    const learningId=d.learning.id; localStorage.setItem('f6_learning_id',learningId);
+    log.push('4) Learning: '+learningId+' reuse='+d.learning.reuse_count);
     r=await fetch(b+"/api/v8/learning/"+encodeURIComponent(learningId)+"/reuse",{method:'POST',headers:H});
-    d=await r.json();
-    if(!d.ok){out.textContent='❌ Falló reuse: '+JSON.stringify(d);return;}
-    log.push('5) Reuse registrado: reuse_count='+d.learning.reuse_count+', last_reused_at='+d.learning.last_reused_at);
-
-    r=await fetch(b+"/api/v8/graph/related/"+encodeURIComponent(nodeA)+"?direction=both",{headers:H});
-    d=await r.json();
-    if(!d.ok){out.textContent='❌ Falló related: '+JSON.stringify(d);return;}
-    log.push('6) Related de A: '+d.edges.length+' edges, '+d.neighbors.length+' neighbors');
-
-    out.textContent='✅ TEST COMPLETO OK\n\n'+log.join('\n')+'\n\nAhora: haz "Manual Deploy" en Render, espera 1-3 min, y toca "Leer todo". El reuse_count debe seguir en 1.';
+    d=await r.json(); if(!d.ok){out.textContent='❌ '+JSON.stringify(d);return;}
+    log.push('5) Reuse: '+d.learning.reuse_count);
+    out.textContent='✅ TEST FASE 6 OK\n\n'+log.join('\n');
   }catch(e){out.textContent='❌ '+e.message;}
 }
-
 async function f6ReadAll(){
   const out=document.getElementById('f6Output');
   if(!out) return;
-  out.textContent='⏳ Leyendo estado actual del grafo y aprendizajes...';
+  const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+  const learningId=localStorage.getItem('f6_learning_id');
+  if(!learningId){out.textContent='❌ Corre primero "Test completo".';return;}
+  out.textContent='⏳ Leyendo...';
   try{
-    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
-    const H=akiraAuthHeaders();
-    const learningId=localStorage.getItem('f6_learning_id');
-    const lines=[];
-    if(learningId){
-      let r=await fetch(b+"/api/v8/learning/"+encodeURIComponent(learningId),{headers:H,cache:"no-store"});
-      let d=await r.json();
-      if(d.ok){
-        lines.push('LEARNING:');
-        lines.push('  id: '+d.learning.id);
-        lines.push('  lesson: '+d.learning.lesson.slice(0,120));
-        lines.push('  reuse_count: '+d.learning.reuse_count);
-        lines.push('  last_reused_at: '+d.learning.last_reused_at);
-        lines.push('  outcome: '+d.learning.outcome);
-        lines.push('  confidence: '+d.learning.confidence);
-        lines.push('  created_at: '+d.learning.created_at);
-        lines.push('  updated_at: '+d.learning.updated_at);
-      } else {
-        lines.push('LEARNING: no encontrado ('+(d.reason||'?')+')');
-      }
-    } else {
-      lines.push('LEARNING: sin ID guardado. Corre primero "Test completo".');
-    }
-    out.textContent='✅ LECTURA\n\n'+lines.join('\n');
+    const r=await fetch(b+"/api/v8/learning/"+encodeURIComponent(learningId),{headers:akiraAuthHeaders(),cache:"no-store"});
+    const d=await r.json();
+    if(!d.ok){out.textContent='❌ '+(d.reason||'error');return;}
+    out.textContent='✅ LEARNING\n\nid: '+d.learning.id+'\nlesson: '+d.learning.lesson.slice(0,120)+'\nreuse_count: '+d.learning.reuse_count+'\nlast_reused_at: '+d.learning.last_reused_at+'\ncreated_at: '+d.learning.created_at;
   }catch(e){out.textContent='❌ '+e.message;}
 }
+function f6Reset(){const out=document.getElementById('f6Output');if(out)out.textContent='Sin datos.';}
 
-function f6Reset(){
-  const out=document.getElementById('f6Output');
-  if(out) out.textContent='Sin datos. Toca "Test completo" para crear y verificar.';
-}
-
-// ===== V8-Fase7: ciclo cognitivo =====
 async function f7Run(){
   const out=document.getElementById('f7Output');
   const msgInput=document.getElementById('f7Message');
   if(!out) return;
-  const msg=(msgInput?msgInput.value.trim():'')||'Hola Akira, ejecuta un ciclo cognitivo de prueba.';
-  out.textContent='⏳ Ejecutando ciclo cognitivo (9 etapas)...';
+  const msg=(msgInput?msgInput.value.trim():'')||'Hola Akira, ejecuta un ciclo.';
+  out.textContent='⏳ Ejecutando ciclo (9 etapas)...';
   try{
     const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
-    const r=await fetch(b+"/api/v8/cognitive/cycle",{
-      method:'POST',
-      headers:akiraAuthHeaders(),
-      body:JSON.stringify({trigger:'panel_manual', input:{message:msg}})
-    });
+    const r=await fetch(b+"/api/v8/cognitive/cycle",{method:'POST',headers:akiraAuthHeaders(),
+      body:JSON.stringify({trigger:'panel_manual',input:{message:msg}})});
     const d=await r.json();
-    if(!d.ok){out.textContent='❌ Falló: '+(d.reason||'error')+'\n\n'+JSON.stringify(d,null,2);return;}
-    const cycleId=d.cycle_id;
-    localStorage.setItem('f7_last_cycle_id', cycleId);
-    const lines=[];
-    lines.push('✅ CICLO COMPLETO');
-    lines.push('cycle_id: '+cycleId);
-    lines.push('status: '+d.cycle.status);
-    lines.push('current_stage: '+d.cycle.current_stage);
-    lines.push('events_count: '+d.events_count);
-    lines.push('learning_id: '+(d.learning_id||'—'));
-    lines.push('');
-    lines.push('ETAPAS REGISTRADAS:');
+    if(!d.ok){out.textContent='❌ '+(d.reason||'error');return;}
+    localStorage.setItem('f7_last_cycle_id',d.cycle_id);
+    const lines=['✅ CICLO COMPLETO','cycle_id: '+d.cycle_id,'status: '+d.cycle.status,
+      'events_count: '+d.events_count,'learning_id: '+(d.learning_id||'—'),'','ETAPAS:'];
     for(const ev of (d.events||[])){
       const t=(ev.created_at||'').slice(11,19);
       lines.push('  ['+t+'] '+ev.stage.padEnd(20)+' '+ev.status);
     }
-    lines.push('');
-    lines.push('RESPUESTA:');
+    lines.push('','RESPUESTA:');
     lines.push((d.answer||'').slice(0,300));
-    out.textContent=lines.join('\n')+'\n\nAhora: haz "Manual Deploy", espera 1-3 min, y toca "Leer último" para verificar persistencia.';
+    out.textContent=lines.join('\n');
   }catch(e){out.textContent='❌ '+e.message;}
 }
-
 async function f7ReadLast(){
   const out=document.getElementById('f7Output');
   if(!out) return;
+  const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+  const cycleId=localStorage.getItem('f7_last_cycle_id');
+  if(!cycleId){out.textContent='❌ Corre primero un ciclo.';return;}
   out.textContent='⏳ Leyendo último ciclo...';
   try{
-    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
-    const cycleId=localStorage.getItem('f7_last_cycle_id');
-    if(!cycleId){out.textContent='❌ No hay cycle_id guardado. Ejecuta primero un ciclo.';return;}
     const r=await fetch(b+"/api/v8/cognitive/cycle/"+encodeURIComponent(cycleId),{headers:akiraAuthHeaders(),cache:"no-store"});
     const d=await r.json();
-    if(!d.ok){out.textContent='❌ '+(d.reason||'error')+'\n\n'+JSON.stringify(d,null,2);return;}
-    const lines=[];
-    lines.push('✅ LECTURA CICLO (tras reinicio)');
-    lines.push('cycle_id: '+d.cycle.id);
-    lines.push('trigger: '+d.cycle.trigger);
-    lines.push('status: '+d.cycle.status);
-    lines.push('current_stage: '+d.cycle.current_stage);
-    lines.push('started_at: '+d.cycle.started_at);
-    lines.push('completed_at: '+d.cycle.completed_at);
-    lines.push('events_count: '+d.events_count);
-    lines.push('');
-    lines.push('EVENTOS (persistidos):');
+    if(!d.ok){out.textContent='❌ '+(d.reason||'error');return;}
+    const lines=['✅ LECTURA CICLO','cycle_id: '+d.cycle.id,'status: '+d.cycle.status,
+      'events_count: '+d.events_count,'','EVENTOS:'];
     for(const ev of (d.events||[])){
       const t=(ev.created_at||'').slice(11,19);
-      lines.push('  ['+t+'] '+ev.stage.padEnd(20)+' '+ev.status+'  data='+JSON.stringify(ev.data||{}).slice(0,80));
+      lines.push('  ['+t+'] '+ev.stage.padEnd(20)+' '+ev.status);
     }
     out.textContent=lines.join('\n');
   }catch(e){out.textContent='❌ '+e.message;}
 }
-
 async function f7ListCycles(){
   const out=document.getElementById('f7Output');
   if(!out) return;
-  out.textContent='⏳ Listando últimos ciclos...';
+  out.textContent='⏳ Listando ciclos...';
   try{
     const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
     const r=await fetch(b+"/api/v8/cognitive/cycles?limit=10",{headers:akiraAuthHeaders(),cache:"no-store"});
     const d=await r.json();
     if(!d.ok){out.textContent='❌ '+(d.reason||'error');return;}
-    const lines=['✅ ÚLTIMOS CICLOS ('+d.count+')'];
-    for(const c of (d.cycles||[])){
-      lines.push('- '+c.id+' | '+c.trigger+' | '+c.status+' | '+c.current_stage);
-    }
+    const lines=['✅ CICLOS ('+d.count+')'];
+    for(const c of (d.cycles||[])) lines.push('- '+c.id+' | '+c.trigger+' | '+c.status);
     out.textContent=lines.join('\n');
   }catch(e){out.textContent='❌ '+e.message;}
 }
+function f7Reset(){const out=document.getElementById('f7Output');if(out)out.textContent='Sin datos.';}
 
-function f7Reset(){
-  const out=document.getElementById('f7Output');
-  if(out) out.textContent='Sin datos. Escribe un mensaje y toca "Ejecutar ciclo".';
+async function f8ListTools(){
+  const out=document.getElementById('f8Output');
+  if(!out) return;
+  out.textContent='⏳ Listando tools...';
+  try{
+    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+    const r=await fetch(b+"/api/v8/tools",{headers:akiraAuthHeaders(),cache:"no-store"});
+    const d=await r.json();
+    if(!d.ok){out.textContent='❌ '+(d.reason||'error');return;}
+    const lines=['✅ TOOLS ('+d.count+')'];
+    for(const t of (d.tools||[])) lines.push('- '+t.name+' ['+t.category+'] '+t.status);
+    out.textContent=lines.join('\n');
+  }catch(e){out.textContent='❌ '+e.message;}
 }
+async function f8TestInvoke(){
+  const out=document.getElementById('f8Output');
+  if(!out) return;
+  out.textContent='⏳ Invocando web_search...';
+  try{
+    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+    const r=await fetch(b+"/api/v8/tools/web_search/invoke",{method:'POST',headers:akiraAuthHeaders(),
+      body:JSON.stringify({inputs:{query:'Akira V8 cognitive architecture'}})});
+    const d=await r.json();
+    if(!d.ok){out.textContent='❌ '+(d.reason||'error')+'\n\n'+JSON.stringify(d.error||d,null,2);return;}
+    out.textContent='✅ web_search OK\n\nduration_ms: '+d.duration_ms+'\nresult: '+(d.outputs.result||'').slice(0,300);
+  }catch(e){out.textContent='❌ '+e.message;}
+}
+async function f8MemorySave(){
+  const out=document.getElementById('f8Output');
+  if(!out) return;
+  const stamp=new Date().toISOString().slice(0,19);
+  out.textContent='⏳ Guardando memoria via tool...';
+  try{
+    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+    const r=await fetch(b+"/api/v8/tools/memory_save/invoke",{method:'POST',headers:akiraAuthHeaders(),
+      body:JSON.stringify({inputs:{content:'Prueba Fase 8 via tool registry ('+stamp+')',memory_type:'episodic'}})});
+    const d=await r.json();
+    if(!d.ok){out.textContent='❌ '+(d.reason||'error')+'\n\n'+JSON.stringify(d.error||d,null,2);return;}
+    out.textContent='✅ memory_save OK\n\nduration_ms: '+d.duration_ms+'\nid: '+d.outputs.id+'\noutcome: '+d.outputs.outcome;
+  }catch(e){out.textContent='❌ '+e.message;}
+}
+async function f8ListInvocations(){
+  const out=document.getElementById('f8Output');
+  if(!out) return;
+  out.textContent='⏳ Leyendo invocaciones...';
+  try{
+    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+    const r=await fetch(b+"/api/v8/tools/invocations?limit=20",{headers:akiraAuthHeaders(),cache:"no-store"});
+    const d=await r.json();
+    if(!d.ok){out.textContent='❌ '+(d.reason||'error');return;}
+    const lines=['✅ INVOCACIONES ('+d.count+')'];
+    for(const i of (d.invocations||[])) lines.push('- '+(i.created_at||'').slice(11,19)+' | '+i.tool_name+' | '+i.status+' | '+i.duration_ms+'ms');
+    out.textContent=lines.join('\n');
+  }catch(e){out.textContent='❌ '+e.message;}
+}
+function f8Reset(){const out=document.getElementById('f8Output');if(out)out.textContent='Sin datos.';}
 
 async function adminCheckSession(){
   const status=document.getElementById('adminLoginStatus');
-  if(status) status.textContent="Verificando sesión en el servidor...";
+  if(status) status.textContent="Verificando...";
   try{
     const b=localStorage.getItem("akira_backend_url");
     const r=await fetch(b+"/api/v8/me",{headers:akiraAuthHeaders(),cache:"no-store"});
@@ -574,36 +526,22 @@ async function adminCheckSession(){
       document.getElementById("adminPanel").style.display="block";
       setTimeout(()=>{ countNeuronas(); if(window.initMembraneGraph) initMembraneGraph(); if(window.initOfficeFloor) initOfficeFloor(); renderLevels(); checkBridgeAdmin(); },100);
     }else{
-      if(status) status.textContent=md.authenticated?"⛔ Tu sesión no es de propietario.":"⚠️ Sin sesión firmada. Inicia sesión con Google en Cuenta.";
+      if(status) status.textContent=md.authenticated?"⛔ No eres propietario.":"⚠️ Inicia sesión con Google en Cuenta.";
     }
-  }catch(e){
-    if(status) status.textContent="⚠️ No se pudo verificar la sesión (servidor no disponible).";
-  }
+  }catch(e){if(status) status.textContent="⚠️ Servidor no disponible.";}
 }
-function adminLogout(){
-  document.getElementById("adminLogin").style.display="block";
-  document.getElementById("adminPanel").style.display="none";
-}
+function adminLogout(){document.getElementById("adminLogin").style.display="block";document.getElementById("adminPanel").style.display="none";}
 async function clearLocalDB(){
   if(!confirm("¿Borrar DB local?")) return;
-  try{
-    const req=indexedDB.deleteDatabase("AKIRA_V3_HIBRIDO");
-    req.onsuccess=()=>{alert("DB borrada"); location.reload();};
-  }catch(e){alert(e.message);}
+  try{const req=indexedDB.deleteDatabase("AKIRA_V3_HIBRIDO");req.onsuccess=()=>{alert("DB borrada");location.reload();};}catch(e){alert(e.message);}
 }
 async function forceSyncR2(){
-  try{
-    const backend=localStorage.getItem("akira_backend_url");
-    const r=await fetch(backend+"/api/brain/shared");
-    const d=await r.json();
-    alert("R2 OK: "+JSON.stringify(d.membrana||d).slice(0,200));
-  }catch(e){alert(e.message);}
+  try{const backend=localStorage.getItem("akira_backend_url");const r=await fetch(backend+"/api/brain/shared");const d=await r.json();alert("R2 OK: "+JSON.stringify(d.membrana||d).slice(0,200));}catch(e){alert(e.message);}
 }
 function exportBackup(){
   getNeuronasLocales().then(data=>{
     const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");
+    const url=URL.createObjectURL(blob);const a=document.createElement("a");
     a.href=url;a.download="akira_backup_"+Date.now()+".json";a.click();
   });
 }
@@ -611,13 +549,11 @@ async function generateUpwork(){
   const desc=document.getElementById("upworkDesc").value.trim();
   if(!desc){alert("Pega descripcion");return;}
   const out=document.getElementById("upworkResult");
-  out.style.display="block";
-  out.textContent="⏳ Akira generando propuesta...";
+  out.style.display="block";out.textContent="⏳ Generando propuesta...";
   try{
     const backend=localStorage.getItem("akira_backend_url");
-    const r=await fetch(backend+"/api/chat",{method:"POST",headers:akiraAuthHeaders(),body:JSON.stringify({message:`Genera propuesta Upwork profesional para: ${desc.slice(0,1000)} - en español e ingles, corta, directa, con valor, firma Grimm`})});
-    const d=await r.json();
-    out.textContent=d.response||"Sin respuesta";
+    const r=await fetch(backend+"/api/chat",{method:"POST",headers:akiraAuthHeaders(),body:JSON.stringify({message:`Genera propuesta Upwork para: ${desc.slice(0,1000)}`})});
+    const d=await r.json();out.textContent=d.response||"Sin respuesta";
   }catch(e){out.textContent="Error: "+e.message;}
 }
 document.addEventListener("DOMContentLoaded",async()=>{
@@ -628,10 +564,7 @@ document.addEventListener("DOMContentLoaded",async()=>{
       const regs = await navigator.serviceWorker.getRegistrations();
       for(const r of regs){
         const url = r.active?.scriptURL || r.scope || "";
-        if(url.includes("/sw.js") && !url.includes("akira-v3-frontend")){
-          await r.unregister();
-          console.log("SW viejo borrado", url);
-        }
+        if(url.includes("/sw.js") && !url.includes("akira-v3-frontend")){await r.unregister();}
       }
     }catch(e){}
     window.addEventListener('load',()=>{
