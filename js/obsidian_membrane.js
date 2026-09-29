@@ -1,5 +1,5 @@
 // AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V5.1
-// Fix: Pixi con tamaño fijo basado en el PNG. CSS lo escala. Sin ResizeObserver.
+// Fix: Pixi con tamano fijo basado en el PNG. CSS lo escala.
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const PIXI_CDN = "https://unpkg.com/pixi.js@7.4.2/dist/pixi.min.js";
@@ -292,10 +292,10 @@ function drawMembrane() {
   membraneAnimId = requestAnimationFrame(drawMembrane);
 }
 
-function addNeuroraToGraph() { /* no-op */ }
+function addNeuronaToGraph() { /* no-op */ }
 
 // ===========================================================================
-// OFICINA — Pixi.js con tamaño fijo
+// OFICINA — Pixi.js con tamano fijo
 // ===========================================================================
 
 let pixiApp = null;
@@ -305,16 +305,16 @@ let officeLastFetch = 0;
 let officeFetching = false;
 let officeError = null;
 let officeChipLayer = null;
+let officeResizeHooked = false;
 const OFFICE_REFRESH_MS = 5000;
 
-// Posiciones fijas de los chips en el canvas de 1024×896
-// (franja central-superior, encima del área de escritorios)
+// Posiciones fijas de los chips en el canvas 1024x896
 const CHIP_POSITIONS = [
-  [100, 260],
-  [280, 260],
-  [460, 260],
-  [640, 260],
-  [820, 260],
+  [140, 300],
+  [340, 300],
+  [540, 300],
+  [740, 300],
+  [940, 300],
 ];
 
 async function ensurePixiLoaded() {
@@ -331,24 +331,21 @@ async function ensurePixiLoaded() {
 async function initOfficeFloor() {
   const canvas = document.getElementById("officeCanvas");
   if (!canvas) return;
-
   const parent = canvas.parentElement;
 
-  // Esperar a que el contenedor tenga tamaño real
   const ok = await _waitForSize(parent, 3000);
-  if (!ok) {
-    return;
-  }
+  if (!ok) return;
 
   const loaded = await ensurePixiLoaded();
   if (!loaded) {
-    parent.innerHTML = '<div style="color:#ef4444;padding:20px;font-family:monospace;text-align:center">No se pudo cargar Pixi.js</div>';
+    parent.insertAdjacentHTML("beforeend",
+      '<div style="color:#ef4444;padding:20px;font-family:monospace;text-align:center">No se pudo cargar Pixi.js</div>');
     return;
   }
 
-  // Ya inicializado: solo redimensionar la vista CSS
   if (pixiApp) {
     _fitOfficeCanvas();
+    refreshOffice(true);
     return;
   }
 
@@ -364,7 +361,6 @@ async function initOfficeFloor() {
     autoDensity: false,
   });
 
-  // Quitar estilos inline que pueden chocar con CSS
   canvas.removeAttribute("style");
   canvas.style.display = "block";
   canvas.style.maxWidth = "100%";
@@ -391,8 +387,10 @@ async function initOfficeFloor() {
 
   _fitOfficeCanvas();
 
-  // Reintentar ajustar tamaño cada vez que cambie el tamaño de la ventana
-  window.addEventListener("resize", _fitOfficeCanvas);
+  if (!officeResizeHooked) {
+    officeResizeHooked = true;
+    window.addEventListener("resize", _fitOfficeCanvas);
+  }
 
   refreshOffice(true);
 }
@@ -456,13 +454,16 @@ function syncAgentChips() {
 
   officeAgents.forEach((a, i) => {
     seen.add(a.name);
-    let chip = officeChipLayer.children.find(c => c._akiraName === a.name);
+    let chip = null;
+    for (const c of officeChipLayer.children) {
+      if (c._akiraName === a.name) { chip = c; break; }
+    }
     if (!chip) {
-      const c = createChip(a);
-      c.container._akiraName = a.name;
-      officeChipLayer.addChild(c.container);
-      chip = c.container;
-      chip._chipRefs = c;
+      const refs = createChip(a);
+      refs.container._akiraName = a.name;
+      officeChipLayer.addChild(refs.container);
+      chip = refs.container;
+      chip._chipRefs = refs;
     }
     const refs = chip._chipRefs;
     refs.nameText.text = a.name || "?";
@@ -484,7 +485,6 @@ function syncAgentChips() {
     chip.y = pos[1];
   });
 
-  // Eliminar chips de agentes que ya no existen
   for (let k = officeChipLayer.children.length - 1; k >= 0; k--) {
     const c = officeChipLayer.children[k];
     if (c._akiraName && !seen.has(c._akiraName)) {
@@ -542,7 +542,6 @@ document.addEventListener("DOMContentLoaded", function () {
   }, 500);
 });
 
-// Permitir reinicialización cuando el usuario entra a la sección
 window.addEventListener("akira:section-shown", function (ev) {
   const section = ev && ev.detail && ev.detail.section;
   if (section === "office" && document.getElementById("officeCanvas")) {
@@ -560,5 +559,5 @@ window.AkiraMembrane = {
   refreshOffice: refreshOffice,
   addOfficeLog: addOfficeLog,
   updateOfficeStats: updateOfficeStats,
-  addNeuronaToGraph: addNeuroraToGraph,
+  addNeuronaToGraph: addNeuronaToGraph,
 };
