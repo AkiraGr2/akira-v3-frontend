@@ -1,14 +1,21 @@
-// AKIRA ULTRA V2.4 - SW AUTO-BORRADO - 102/100 - Nunca se queda pegado en vieja
-const CACHE_NAME = 'akira-v24-102-100-20260927';
-const OLD_CACHES = ['akira-v22', 'akira-v2', 'akira-ultra', 'akira-cache', 'workbox-precache'];
+// AKIRA ULTRA V2.5 - SW SIN INTERCEPTAR BACKEND
+// V8-Fase9-fix: el SW SOLO cachea assets del mismo origen (HTML, JS, CSS, imagenes).
+// Deja pasar sin tocar cualquier peticion al backend (akira-empresa.onrender.com)
+// o a APIs externas. Antes interceptaba TODO y rompia el header Authorization.
+
+const CACHE_NAME = 'akira-v25-20260929';
+const OLD_CACHES = ['akira-v22', 'akira-v2', 'akira-ultra', 'akira-cache', 'workbox-precache', 'akira-v24-102-100-20260927'];
+
+// Rutas que SI podemos cachear (mismo origen, assets estaticos)
+const CACHEABLE_EXTENSIONS = ['.html', '.js', '.css', '.png', '.jpg', '.jpeg', '.svg', '.woff', '.woff2', '.ico', '.json', '.webmanifest'];
 
 self.addEventListener('install', (event) => {
-  console.log('🔥 SW V2.4 instalando -', CACHE_NAME);
+  console.log('🔥 SW V2.5 instalando -', CACHE_NAME);
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('🚀 SW V2.4 activando - borrando caches viejas V2.2');
+  console.log('🚀 SW V2.5 activando - borrando caches viejas');
   event.waitUntil((async () => {
     const keys = await caches.keys();
     for (let key of keys) {
@@ -23,26 +30,48 @@ self.addEventListener('activate', (event) => {
       }
     }
     await self.clients.claim();
-    console.log('✅ SW V2.4 activo, cache vieja borrada');
-    const clients = await self.clients.matchAll({type: 'window'});
-    for (let client of clients) {
-      client.postMessage({type: 'AKIRA_UPDATED', version: 'V2.4 102/100'});
-    }
+    console.log('✅ SW V2.5 activo');
   })());
 });
 
+function _isSameOrigin(url){
+  try { return new URL(url).origin === self.location.origin; } catch(e){ return false; }
+}
+
+function _isCacheableAsset(url){
+  try {
+    const u = new URL(url);
+    if (u.origin !== self.location.origin) return false;
+    const path = u.pathname.toLowerCase();
+    // No cachear el propio sw.js
+    if (path.endsWith('/sw.js')) return false;
+    return CACHEABLE_EXTENSIONS.some(ext => path.endsWith(ext));
+  } catch(e){ return false; }
+}
+
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-  if (url.pathname.endsWith('.html') || url.pathname.includes('akira_brain.js') || url.pathname.includes('hybrid_sync.js') || url.pathname.includes('obsidian_membrane.js')) {
-    event.respondWith(
-      fetch(event.request, {cache: 'no-store', headers: {'Cache-Control': 'no-cache'}})
-        .then(response => { return response; })
-        .catch(() => { return caches.match(event.request); })
-    );
+  const req = event.request;
+
+  // V8-Fase9-fix: NO interceptar nada que no sea GET (POST/PATCH/OPTIONS/etc pasan directo)
+  if (req.method !== 'GET') {
+    return; // dejar pasar sin interceptar
+  }
+
+  // V8-Fase9-fix: NO interceptar peticiones a otro origen (backend, APIs externas)
+  if (!_isSameOrigin(req.url)) {
+    return; // dejar pasar sin interceptar
+  }
+
+  // V8-Fase9-fix: NO interceptar si no es un asset cacheable
+  if (!_isCacheableAsset(req.url)) {
     return;
   }
+
+  // Para assets del mismo origen: red primero, cache si falla
   event.respondWith(
-    fetch(event.request, {cache: 'no-store'}).catch(() => caches.match(event.request))
+    fetch(req, {cache: 'no-store'})
+      .then(response => response)
+      .catch(() => caches.match(req))
   );
 });
 
@@ -50,5 +79,3 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
   if (event.data && event.data.type === 'CLEAR_CACHE') caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
 });
-
-// v2-kill /home/code-interpreter
