@@ -1,9 +1,14 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V4.1 - FIX FISICA MEMBRANA
-// Fix: reset de fuerzas por frame (bug de acumulacion) + caps de fuerza y velocidad.
-// Membrana -> GET /api/v8/graph/overview  (Fase 6)
-// Oficina  -> GET /api/v8/agents          (Fase 9)
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V5.0
+// Membrana: force layout + datos reales (Fase 6). Igual a V4.1.
+// Oficina: Pixi.js + escena Pixel Office de 2dPig (CC0).
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
+const PIXI_CDN = "https://unpkg.com/pixi.js@7.4.2/dist/pixi.min.js";
+const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
+
+// ===========================================================================
+// MEMBRANA
+// ===========================================================================
 
 let membraneCanvas, membraneCtx;
 let membraneNodes = [], membraneEdges = [];
@@ -14,14 +19,7 @@ let membraneError = null;
 let membraneCounts = { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
 let membranePhysicsOn = true;
 
-let officeCanvas, officeCtx, officeAnimId = null;
-let officeAgents = [];
-let officeLastFetch = 0;
-let officeFetching = false;
-let officeError = null;
-
 const MEMBRANE_REFRESH_MS = 7000;
-const OFFICE_REFRESH_MS = 5000;
 
 const NODE_TYPE_COLORS = {
   concept:    "#8b5cf6",
@@ -36,15 +34,6 @@ const NODE_TYPE_COLORS = {
   mission:    "#fb923c",
 };
 
-const AGENT_ROLE_EMOJI = {
-  researcher: "🔍",
-  memorizer: "📚",
-  graph_builder: "🕸️",
-  learner: "🧠",
-  internal: "👁️",
-  generic: "🤖",
-};
-
 const AGENT_ROLE_COLOR = {
   researcher: "#06b6d4",
   memorizer: "#8b5cf6",
@@ -52,6 +41,15 @@ const AGENT_ROLE_COLOR = {
   learner: "#10b981",
   internal: "#a78bfa",
   generic: "#6366f1",
+};
+
+const AGENT_ROLE_EMOJI = {
+  researcher: "🔍",
+  memorizer: "📚",
+  graph_builder: "🕸️",
+  learner: "🧠",
+  internal: "👁️",
+  generic: "🤖",
 };
 
 function _authHeaders() {
@@ -69,16 +67,14 @@ async function _fetchJson(url) {
   return await r.json();
 }
 
-// ===========================================================================
-// MEMBRANA
-// ===========================================================================
-
 function initMembraneGraph() {
   membraneCanvas = document.getElementById("membraneCanvas");
   if (!membraneCanvas) return;
-  membraneCtx = membraneCanvas.getContext("2d");
   const parent = membraneCanvas.parentElement;
   const rect = parent.getBoundingClientRect();
+  if (rect.width < 50 || rect.height < 50) return;
+
+  membraneCtx = membraneCanvas.getContext("2d");
   membraneCanvas.width = Math.max(320, Math.floor(rect.width));
   membraneCanvas.height = Math.max(320, Math.floor(rect.height));
   membraneCtx.imageSmoothingEnabled = false;
@@ -104,9 +100,7 @@ async function refreshMembrane(force) {
       membraneNodes = (data.nodes || []).map((n, i) => {
         const prev = prevById.get(n.id);
         const r = 8 + Math.min((n.reuse_count || 0) * 1.5, 12) + Math.min((n.weight || 0) * 1.2, 8);
-        if (prev) {
-          return Object.assign({}, prev, n, { r: r, fx: 0, fy: 0 });
-        }
+        if (prev) return Object.assign({}, prev, n, { r: r, fx: 0, fy: 0 });
         const total = Math.max((data.nodes || []).length, 1);
         const angle = (i / total) * Math.PI * 2;
         const radius = 60 + (i % 3) * 40;
@@ -131,18 +125,14 @@ async function refreshMembrane(force) {
   }
 }
 
-// FIX V4.1: reset de fuerzas por frame + caps. Sin esto, las fuerzas
-// se acumulaban de por vida y los nodos salian disparados.
 function stepMembranePhysics() {
   const W = membraneCanvas.width, H = membraneCanvas.height;
   const cx = W / 2, cy = H / 2;
   const n = membraneNodes.length;
   if (n === 0) return;
 
-  // 1) RESET de fuerzas. Causa raiz del bug anterior.
   for (const nd of membraneNodes) { nd.fx = 0; nd.fy = 0; }
 
-  // 2) Repulsion con cap de fuerza
   const rep = 2500;
   const minD = 40;
   const maxRepForce = 6;
@@ -161,7 +151,6 @@ function stepMembranePhysics() {
     }
   }
 
-  // 3) Atraccion por aristas (spring suave)
   const springK = 0.004;
   const restLen = 140;
   const byId = new Map(membraneNodes.map(nd => [nd.id, nd]));
@@ -176,14 +165,12 @@ function stepMembranePhysics() {
     b.fx -= fx; b.fy -= fy;
   }
 
-  // 4) Gravedad suave al centro
   const gk = 0.012;
   for (const nd of membraneNodes) {
     nd.fx += (cx - nd.x) * gk;
     nd.fy += (cy - nd.y) * gk;
   }
 
-  // 5) Aplicar con damping + cap de velocidad
   const damp = 0.7;
   const maxV = 8;
   for (const nd of membraneNodes) {
@@ -320,22 +307,209 @@ function drawMembrane() {
 function addNeuronaToGraph() { /* no-op */ }
 
 // ===========================================================================
-// OFICINA
+// OFICINA — Pixi.js
 // ===========================================================================
 
-function initOfficeFloor() {
-  officeCanvas = document.getElementById("officeCanvas");
-  if (!officeCanvas) return;
-  officeCtx = officeCanvas.getContext("2d");
-  const parent = officeCanvas.parentElement;
-  const rect = parent.getBoundingClientRect();
-  officeCanvas.width = Math.max(400, Math.floor(rect.width));
-  officeCanvas.height = Math.max(400, Math.floor(rect.height));
-  officeCtx.imageSmoothingEnabled = false;
+let pixiApp = null;
+let officeBgSprite = null;
+let officeAgentChips = {};
+let officeAgents = [];
+let officeLastFetch = 0;
+let officeFetching = false;
+let officeError = null;
+const OFFICE_REFRESH_MS = 5000;
 
-  if (officeAnimId) cancelAnimationFrame(officeAnimId);
-  drawOffice();
+const CHIP_POSITIONS = [
+  [0.14, 0.72],
+  [0.32, 0.72],
+  [0.50, 0.72],
+  [0.68, 0.72],
+  [0.86, 0.72],
+];
+
+async function ensurePixiLoaded() {
+  if (window.PIXI) return true;
+  return new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = PIXI_CDN;
+    s.onload = () => resolve(!!window.PIXI);
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+
+async function initOfficeFloor() {
+  const canvas = document.getElementById("officeCanvas");
+  if (!canvas) return;
+  const parent = canvas.parentElement;
+  const rect = parent.getBoundingClientRect();
+  if (rect.width < 50 || rect.height < 50) return;
+
+  const loaded = await ensurePixiLoaded();
+  if (!loaded) {
+    const ctx = canvas.getContext("2d");
+    canvas.width = Math.max(320, Math.floor(rect.width));
+    canvas.height = Math.max(320, Math.floor(rect.height));
+    ctx.fillStyle = "#0b0b0e"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#ef4444";
+    ctx.font = "14px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("No se pudo cargar Pixi.js", canvas.width/2, canvas.height/2);
+    return;
+  }
+
+  PIXI.BaseTexture.defaultOptions.scaleMode = PIXI.SCALE_MODES.NEAREST;
+
+  if (!pixiApp) {
+    const w = Math.max(320, Math.floor(rect.width));
+    const h = Math.max(320, Math.floor(rect.height));
+
+    pixiApp = new PIXI.Application({
+      view: canvas,
+      width: w,
+      height: h,
+      background: 0x0b0b0e,
+      antialias: false,
+      resolution: 1,
+      autoDensity: true,
+    });
+
+    try {
+      const bgTex = await PIXI.Assets.load(OFFICE_BG_URL);
+      officeBgSprite = new PIXI.Sprite(bgTex);
+      pixiApp.stage.addChild(officeBgSprite);
+    } catch (e) {
+      officeError = "No se pudo cargar fondo";
+    }
+
+    const ro = new ResizeObserver(() => {
+      if (!pixiApp) return;
+      const r = parent.getBoundingClientRect();
+      const nw = Math.max(320, Math.floor(r.width));
+      const nh = Math.max(320, Math.floor(r.height));
+      pixiApp.renderer.resize(nw, nh);
+      layoutOffice();
+    });
+    ro.observe(parent);
+  } else {
+    pixiApp.renderer.resize(
+      Math.max(320, Math.floor(rect.width)),
+      Math.max(320, Math.floor(rect.height))
+    );
+  }
+
+  layoutOffice();
   refreshOffice(true);
+}
+
+function layoutOffice() {
+  if (!pixiApp) return;
+  const W = pixiApp.renderer.width / pixiApp.renderer.resolution;
+  const H = pixiApp.renderer.height / pixiApp.renderer.resolution;
+
+  if (officeBgSprite) {
+    const texW = officeBgSprite.texture.width;
+    const texH = officeBgSprite.texture.height;
+    const scale = Math.min(W / texW, H / texH);
+    officeBgSprite.scale.set(scale);
+    officeBgSprite.x = (W - texW * scale) / 2;
+    officeBgSprite.y = (H - texH * scale) / 2;
+  }
+
+  repositionAgentChips(W, H);
+}
+
+function createChip(agent) {
+  const container = new PIXI.Container();
+  const roleColor = AGENT_ROLE_COLOR[agent.role] || "#6366f1";
+  const colorInt = parseInt(roleColor.slice(1), 16);
+
+  const bg = new PIXI.Graphics();
+  bg.beginFill(0x0b0b0e, 0.92);
+  bg.lineStyle(2, colorInt, 1);
+  bg.drawRoundedRect(-72, -24, 144, 48, 6);
+  bg.endFill();
+  container.addChild(bg);
+
+  const dot = new PIXI.Graphics();
+  dot.beginFill(colorInt, 1);
+  dot.drawCircle(-58, 0, 6);
+  dot.endFill();
+  container.addChild(dot);
+
+  const nameText = new PIXI.Text(agent.name || "?", {
+    fontFamily: "monospace",
+    fontSize: 13,
+    fill: 0xffffff,
+    fontWeight: "bold",
+  });
+  nameText.x = -46;
+  nameText.y = -16;
+  container.addChild(nameText);
+
+  const statusText = new PIXI.Text(agent.status || "idle", {
+    fontFamily: "monospace",
+    fontSize: 10,
+    fill: 0x8a8a93,
+  });
+  statusText.x = -46;
+  statusText.y = 2;
+  container.addChild(statusText);
+
+  return { container, dot, nameText, statusText, bg };
+}
+
+function syncAgentChips() {
+  if (!pixiApp) return;
+  const W = pixiApp.renderer.width / pixiApp.renderer.resolution;
+  const H = pixiApp.renderer.height / pixiApp.renderer.resolution;
+  const seen = new Set();
+
+  officeAgents.forEach((a, i) => {
+    seen.add(a.name);
+    let chip = officeAgentChips[a.name];
+    if (!chip) {
+      chip = createChip(a);
+      pixiApp.stage.addChild(chip.container);
+      officeAgentChips[a.name] = chip;
+    } else {
+      chip.nameText.text = a.name || "?";
+      chip.statusText.text = a.status || "idle";
+      const roleColor = AGENT_ROLE_COLOR[a.role] || "#6366f1";
+      const colorInt = parseInt(roleColor.slice(1), 16);
+      chip.dot.clear();
+      chip.dot.beginFill(colorInt, 1);
+      chip.dot.drawCircle(-58, 0, 6);
+      chip.dot.endFill();
+      chip.bg.clear();
+      chip.bg.beginFill(0x0b0b0e, 0.92);
+      chip.bg.lineStyle(2, colorInt, 1);
+      chip.bg.drawRoundedRect(-72, -24, 144, 48, 6);
+      chip.bg.endFill();
+    }
+    const pos = CHIP_POSITIONS[i % CHIP_POSITIONS.length];
+    chip.container.x = pos[0] * W;
+    chip.container.y = pos[1] * H;
+  });
+
+  Object.keys(officeAgentChips).forEach(name => {
+    if (!seen.has(name)) {
+      const c = officeAgentChips[name].container;
+      if (c.parent) c.parent.removeChild(c);
+      c.destroy({ children: true });
+      delete officeAgentChips[name];
+    }
+  });
+}
+
+function repositionAgentChips(W, H) {
+  officeAgents.forEach((a, i) => {
+    const chip = officeAgentChips[a.name];
+    if (!chip) return;
+    const pos = CHIP_POSITIONS[i % CHIP_POSITIONS.length];
+    chip.container.x = pos[0] * W;
+    chip.container.y = pos[1] * H;
+  });
 }
 
 async function refreshOffice(force) {
@@ -346,224 +520,15 @@ async function refreshOffice(force) {
   try {
     const data = await _fetchJson("/api/v8/agents");
     if (data && data.ok) {
-      const W = officeCanvas ? officeCanvas.width : 800;
-      const H = officeCanvas ? officeCanvas.height : 600;
-      const list = data.agents || [];
-      const cols = W >= 720 ? 3 : 2;
-      const rows = Math.ceil(list.length / cols);
-      const cellW = W / cols;
-      const cellH = H / (rows + 0.5);
-
-      const prevByName = new Map(officeAgents.map(a => [a.name, a]));
-      officeAgents = list.map((a, i) => {
-        const prev = prevByName.get(a.name);
-        const col = i % cols;
-        const row = Math.floor(i / cols);
-        const slotX = cellW * (col + 0.5);
-        const slotY = cellH * (row + 0.9);
-        return Object.assign({}, prev || {}, a, {
-          x: prev ? prev.x : slotX,
-          y: prev ? prev.y : slotY,
-          tx: slotX,
-          ty: slotY,
-          slotIndex: i,
-          wobble: (prev && prev.wobble) || Math.random() * Math.PI * 2,
-        });
-      });
+      officeAgents = data.agents || [];
       officeError = null;
+      syncAgentChips();
     }
   } catch (e) {
     officeError = String(e && e.message ? e.message : e);
   } finally {
     officeFetching = false;
   }
-}
-
-function drawOfficeFloor(ctx, W, H) {
-  ctx.fillStyle = "#14141a";
-  ctx.fillRect(0, 0, W, H);
-
-  const T = 32;
-  for (let y = 0; y < H; y += T) {
-    for (let x = 0; x < W; x += T) {
-      const dark = ((x / T) + (y / T)) % 2 === 0;
-      ctx.fillStyle = dark ? "#181820" : "#1b1b25";
-      ctx.fillRect(x, y, T, T);
-      ctx.strokeStyle = "rgba(40, 40, 52, 0.6)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x + 0.5, y + 0.5, T - 1, T - 1);
-    }
-  }
-
-  ctx.fillStyle = "#0f0f14";
-  ctx.fillRect(0, 0, W, 56);
-  ctx.fillStyle = "#1e1e26";
-  ctx.fillRect(0, 52, W, 4);
-  for (let x = 30; x < W - 60; x += 120) {
-    ctx.fillStyle = "#1a1a24";
-    ctx.fillRect(x, 12, 70, 32);
-    ctx.fillStyle = "#4ECDC4";
-    ctx.globalAlpha = 0.35;
-    ctx.fillRect(x + 4, 16, 28, 24);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = "#FFD93D";
-    ctx.globalAlpha = 0.25;
-    ctx.fillRect(x + 36, 16, 30, 24);
-    ctx.globalAlpha = 1;
-  }
-}
-
-function drawDesk(ctx, cx, cy, color) {
-  ctx.fillStyle = "rgba(0,0,0,0.4)";
-  ctx.fillRect(cx - 60, cy + 30, 120, 8);
-
-  ctx.fillStyle = "#2a2a36";
-  ctx.fillRect(cx - 56, cy - 4, 8, 34);
-  ctx.fillRect(cx + 48, cy - 4, 8, 34);
-
-  ctx.fillStyle = "#3a3a4a";
-  ctx.fillRect(cx - 60, cy - 8, 120, 12);
-  ctx.fillStyle = "#4a4a5e";
-  ctx.fillRect(cx - 60, cy - 8, 120, 3);
-
-  ctx.fillStyle = "#1a1a24";
-  ctx.fillRect(cx - 22, cy - 34, 44, 28);
-  ctx.fillStyle = color;
-  ctx.globalAlpha = 0.7;
-  ctx.fillRect(cx - 19, cy - 31, 38, 22);
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = "#2a2a36";
-  ctx.fillRect(cx - 6, cy - 6, 12, 4);
-}
-
-function drawAgentAvatar(ctx, x, y, color, emoji, status) {
-  const bob = status === "busy" ? Math.sin(Date.now() * 0.01) * 1.5 : 0;
-
-  ctx.fillStyle = "rgba(0,0,0,0.5)";
-  ctx.beginPath();
-  ctx.ellipse(x, y + 30, 18, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  const topY = y - 26 + bob;
-
-  ctx.fillStyle = color;
-  ctx.fillRect(x - 12, topY + 22, 24, 26);
-  ctx.fillStyle = "rgba(0,0,0,0.25)";
-  ctx.fillRect(x + 6, topY + 22, 6, 26);
-
-  ctx.fillStyle = "#ffd9b3";
-  ctx.fillRect(x - 11, topY + 4, 22, 20);
-  ctx.fillStyle = "rgba(0,0,0,0.15)";
-  ctx.fillRect(x + 5, topY + 4, 6, 20);
-
-  ctx.fillStyle = "#2a2a36";
-  ctx.fillRect(x - 11, topY + 2, 22, 6);
-  ctx.fillRect(x - 11, topY + 2, 4, 12);
-  ctx.fillRect(x + 7, topY + 2, 4, 12);
-
-  ctx.fillStyle = "#0b0b0e";
-  ctx.fillRect(x - 6, topY + 14, 4, 4);
-  ctx.fillRect(x + 2, topY + 14, 4, 4);
-
-  ctx.font = "14px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(emoji, x, topY + 35);
-  ctx.textBaseline = "alphabetic";
-
-  let ledColor = "#8a8a93";
-  if (status === "busy") ledColor = "#facc15";
-  else if (status === "error") ledColor = "#ef4444";
-  else if (status === "idle") ledColor = "#22c55e";
-
-  ctx.fillStyle = ledColor;
-  ctx.globalAlpha = 0.4;
-  ctx.beginPath();
-  ctx.arc(x + 22, topY - 4, 8, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = ledColor;
-  ctx.fillRect(x + 18, topY - 8, 8, 8);
-  ctx.strokeStyle = "#0b0b0e";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x + 18, topY - 8, 8, 8);
-}
-
-function drawAgentLabel(ctx, x, y, name, role, status) {
-  ctx.textAlign = "center";
-  ctx.font = "bold 11px monospace";
-  const nameW = ctx.measureText(name).width;
-  ctx.fillStyle = "rgba(11, 11, 14, 0.9)";
-  ctx.fillRect(x - nameW / 2 - 5, y - 10, nameW + 10, 14);
-  ctx.fillStyle = "#ececf1";
-  ctx.fillText(name, x, y);
-
-  ctx.font = "9px monospace";
-  ctx.fillStyle = "#8a8a93";
-  ctx.fillText(role, x, y + 12);
-
-  let ledColor = "#22c55e";
-  if (status === "busy") ledColor = "#facc15";
-  else if (status === "error") ledColor = "#ef4444";
-  ctx.fillStyle = ledColor;
-  ctx.fillRect(x - 20, y + 18, 6, 6);
-  ctx.font = "9px monospace";
-  ctx.textAlign = "left";
-  ctx.fillText(status, x - 12, y + 24);
-  ctx.textAlign = "center";
-}
-
-function drawOffice() {
-  if (!officeCtx) return;
-  const W = officeCanvas.width, H = officeCanvas.height;
-
-  drawOfficeFloor(officeCtx, W, H);
-
-  if (officeError) {
-    officeCtx.fillStyle = "#8a8a93";
-    officeCtx.font = "12px monospace";
-    officeCtx.textAlign = "center";
-    officeCtx.fillText("Oficina: " + officeError, W / 2, H / 2);
-    officeAnimId = requestAnimationFrame(drawOffice);
-    return;
-  }
-
-  if (!officeAgents.length) {
-    officeCtx.fillStyle = "#8a8a93";
-    officeCtx.font = "12px monospace";
-    officeCtx.textAlign = "center";
-    officeCtx.fillText("Oficina vacia — sin agentes reales en /api/v8/agents", W / 2, H / 2);
-    refreshOffice(false);
-    officeAnimId = requestAnimationFrame(drawOffice);
-    return;
-  }
-
-  for (const a of officeAgents) {
-    const status = a.status || "idle";
-    const color = AGENT_ROLE_COLOR[a.role] || "#6366f1";
-    const emoji = AGENT_ROLE_EMOJI[a.role] || "🤖";
-
-    if (status === "busy") {
-      a.wobble += 0.05;
-      a.x += (a.tx + Math.sin(a.wobble) * 6 - a.x) * 0.06;
-      a.y += (a.ty + Math.cos(a.wobble * 0.7) * 4 - a.y) * 0.06;
-    } else {
-      a.x += (a.tx - a.x) * 0.08;
-      a.y += (a.ty - a.y) * 0.08;
-    }
-
-    drawDesk(officeCtx, a.x, a.y - 20, color);
-    drawAgentAvatar(officeCtx, a.x + 34, a.y - 4, color, emoji, status);
-    drawAgentLabel(officeCtx, a.x + 34, a.y + 60, a.name || "?", a.role || "?", status);
-  }
-
-  officeCtx.textAlign = "left";
-  officeCtx.font = "11px monospace";
-  officeCtx.fillStyle = "#8a8a93";
-  officeCtx.fillText(officeAgents.length + " agentes activos", 12, 84);
-
-  refreshOffice(false);
-  officeAnimId = requestAnimationFrame(drawOffice);
 }
 
 function addOfficeLog(text, type) {
@@ -590,7 +555,14 @@ function updateOfficeStats() {
 
 window.addEventListener("resize", function () {
   if (document.getElementById("membraneCanvas")) initMembraneGraph();
-  if (document.getElementById("officeCanvas")) initOfficeFloor();
+  if (document.getElementById("officeCanvas") && pixiApp) {
+    const parent = document.getElementById("officeCanvas").parentElement;
+    const rect = parent.getBoundingClientRect();
+    if (rect.width > 50 && rect.height > 50) {
+      pixiApp.renderer.resize(Math.floor(rect.width), Math.floor(rect.height));
+      layoutOffice();
+    }
+  }
 });
 
 document.addEventListener("DOMContentLoaded", function () {
