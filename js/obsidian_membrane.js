@@ -1,8 +1,11 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V3.0 - DATOS REALES
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V3.1 - DATOS REALES
 // Cierra H-10. Cumple D009: el Office muestra estados reales, no actividad simulada.
 // Membrana -> GET /api/v8/graph/overview  (Fase 6: graph_nodes + graph_edges)
 // Oficina  -> GET /api/v8/agents          (Fase 9: 5 agentes reales)
 // Refresco: Membrana 7s, Oficina 5s. Sin simulacion, sin agentes inventados.
+// V3.1: usa AKIRA_API_BASE para llamar al backend real (el panel vive en GitHub Pages).
+
+const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 
 let membraneCanvas, membraneCtx;
 let membraneNodes = [], membraneEdges = [];
@@ -58,7 +61,6 @@ const AGENT_ROLE_COLOR = {
 // ---------------------------------------------------------------------------
 
 function _authHeaders() {
-  // akiraAuthHeaders() esta definido en akira_brain.js / hybrid_sync.js (B1 VERIFICADO)
   if (typeof window.akiraAuthHeaders === "function") {
     try { return window.akiraAuthHeaders(); } catch (_) { return {}; }
   }
@@ -66,8 +68,10 @@ function _authHeaders() {
 }
 
 async function _fetchJson(url) {
+  // Si la URL es relativa, la resolvemos contra el backend real.
+  const full = url.indexOf("http") === 0 ? url : (AKIRA_API_BASE + url);
   // Cache-busting obligatorio: Chrome Android cachea 401 agresivamente (H-09)
-  const bust = url + (url.indexOf("?") >= 0 ? "&" : "?") + "_=" + Date.now();
+  const bust = full + (full.indexOf("?") >= 0 ? "&" : "?") + "_=" + Date.now();
   const r = await fetch(bust, { headers: _authHeaders() });
   if (!r.ok) throw new Error("HTTP " + r.status);
   return await r.json();
@@ -131,7 +135,6 @@ async function refreshMembrane(force) {
 }
 
 function _nodeRadius(n) {
-  // Radio proporcional a reuse_count y weight reales. Minimo 4, maximo ~22.
   const base = 4;
   const bonusReuse = Math.min((n.reuse_count || 0) * 0.8, 12);
   const bonusWeight = Math.min((n.weight || 0) * 0.6, 6);
@@ -166,7 +169,6 @@ function drawMembrane() {
 
   const nodeById = new Map(membraneNodes.map(n => [n.id, n]));
 
-  // Aristas reales (solo las que existen en graph_edges)
   membraneCtx.lineWidth = 1;
   for (let i = 0; i < membraneEdges.length; i++) {
     const e = membraneEdges[i];
@@ -181,7 +183,6 @@ function drawMembrane() {
     membraneCtx.stroke();
   }
 
-  // Nodos reales
   for (let i = 0; i < membraneNodes.length; i++) {
     const n = membraneNodes[i];
     n.x += n.vx || 0;
@@ -203,7 +204,6 @@ function drawMembrane() {
   }
   membraneCtx.shadowBlur = 0;
 
-  // Leyenda compacta
   const types = Object.keys(membraneCounts.by_type || {});
   if (types.length) {
     membraneCtx.font = "10px monospace";
@@ -229,7 +229,6 @@ function drawMembrane() {
   membraneAnimId = requestAnimationFrame(drawMembrane);
 }
 
-// Conservada por compatibilidad: si akira_brain.js la llama, ya no simula.
 function addNeuronaToGraph() { /* no-op: la membrana ahora lee del backend real */ }
 
 // ---------------------------------------------------------------------------
@@ -243,7 +242,7 @@ function initOfficeFloor() {
   const parent = officeCanvas.parentElement;
   const rect = parent.getBoundingClientRect();
   officeCanvas.width = Math.max(320, Math.floor(rect.width) - 32);
-  officeCanvas.height = 520; // handoff: 520 px alto, canvas + panel lateral
+  officeCanvas.height = 520;
 
   if (officeAnimId) cancelAnimationFrame(officeAnimId);
   drawOffice();
@@ -269,7 +268,6 @@ async function refreshOffice(force) {
         return Object.assign({}, prev || {}, a, {
           x: prev ? prev.x : slotX,
           y: prev ? prev.y : slotY,
-          // despues de mapear, si el agente esta idle, se queda quieto; si esta busy, se mueve
           tx: slotX,
           ty: slotY,
         });
@@ -290,7 +288,6 @@ function drawOffice() {
   officeCtx.fillStyle = "#0b0b0e";
   officeCtx.fillRect(0, 0, W, H);
 
-  // Grid 32x32 (estilo Munder Difflin: unidades de 32)
   officeCtx.strokeStyle = "rgba(35, 35, 42, 0.45)";
   officeCtx.lineWidth = 1;
   for (let x = 0; x < W; x += 32) {
@@ -325,7 +322,6 @@ function drawOffice() {
     const color = AGENT_ROLE_COLOR[a.role] || "#6366f1";
     const emoji = AGENT_ROLE_EMOJI[a.role] || "🤖";
 
-    // Movimiento sutil: solo si esta busy, se mueve un poco cerca de su slot.
     if (status === "busy") {
       const t = Date.now() * 0.001 + i;
       a.x += (a.tx + Math.sin(t) * 12 - a.x) * 0.05;
@@ -335,7 +331,6 @@ function drawOffice() {
       a.y += (a.ty - a.y) * 0.06;
     }
 
-    // Anillo de estado
     let ringColor = "#8a8a93";
     if (status === "busy") ringColor = "#facc15";
     else if (status === "error") ringColor = "#ef4444";
@@ -347,7 +342,6 @@ function drawOffice() {
     officeCtx.arc(a.x, a.y, 24, 0, Math.PI * 2);
     officeCtx.stroke();
 
-    // Avatar
     officeCtx.shadowBlur = 12;
     officeCtx.shadowColor = color;
     officeCtx.fillStyle = color;
@@ -362,18 +356,15 @@ function drawOffice() {
     officeCtx.textBaseline = "middle";
     officeCtx.fillText(emoji, a.x, a.y);
 
-    // Nombre
     officeCtx.fillStyle = "#ececf1";
     officeCtx.font = "bold 11px monospace";
     officeCtx.textBaseline = "alphabetic";
     officeCtx.fillText(a.name || "?", a.x, a.y + 34);
 
-    // Rol
     officeCtx.fillStyle = "#8a8a93";
     officeCtx.font = "9px monospace";
     officeCtx.fillText(a.role || "?", a.x, a.y + 46);
 
-    // Estado + current_action si aplica
     officeCtx.fillStyle = ringColor;
     officeCtx.font = "10px monospace";
     officeCtx.fillText(status, a.x, a.y + 58);
@@ -385,7 +376,6 @@ function drawOffice() {
       officeCtx.fillText(txt, a.x, a.y + 70);
     }
 
-    // Contadores reales
     const done = a.tasks_completed || 0;
     const fail = a.tasks_failed || 0;
     if (done || fail) {
@@ -430,7 +420,6 @@ window.addEventListener("resize", function () {
   if (document.getElementById("officeCanvas")) initOfficeFloor();
 });
 
-// Autoarranque: espera un momento a que el resto del panel cargue.
 document.addEventListener("DOMContentLoaded", function () {
   setTimeout(function () {
     if (document.getElementById("membraneCanvas")) initMembraneGraph();
