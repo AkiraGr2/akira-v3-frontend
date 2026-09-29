@@ -1,8 +1,7 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V4.0 - VISUAL REAL
-// Cierra H-10 + Paso 2 visual.
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V4.1 - FIX FISICA MEMBRANA
+// Fix: reset de fuerzas por frame (bug de acumulacion) + caps de fuerza y velocidad.
 // Membrana -> GET /api/v8/graph/overview  (Fase 6)
 // Oficina  -> GET /api/v8/agents          (Fase 9)
-// Estilo: Obsidian graph view (Membrana) + Munder Difflin pixel-art (Oficina).
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 
@@ -55,10 +54,6 @@ const AGENT_ROLE_COLOR = {
   generic: "#6366f1",
 };
 
-// ---------------------------------------------------------------------------
-// Auth helpers
-// ---------------------------------------------------------------------------
-
 function _authHeaders() {
   if (typeof window.akiraAuthHeaders === "function") {
     try { return window.akiraAuthHeaders(); } catch (_) { return {}; }
@@ -75,7 +70,7 @@ async function _fetchJson(url) {
 }
 
 // ===========================================================================
-// MEMBRANA — Obsidian graph view con force layout
+// MEMBRANA
 // ===========================================================================
 
 function initMembraneGraph() {
@@ -106,15 +101,14 @@ async function refreshMembrane(force) {
       const H = membraneCanvas ? membraneCanvas.height : 600;
       const cx = W / 2, cy = H / 2;
 
-      // Radio proporcional a weight + reuse_count (visible)
       membraneNodes = (data.nodes || []).map((n, i) => {
         const prev = prevById.get(n.id);
         const r = 8 + Math.min((n.reuse_count || 0) * 1.5, 12) + Math.min((n.weight || 0) * 1.2, 8);
         if (prev) {
           return Object.assign({}, prev, n, { r: r, fx: 0, fy: 0 });
         }
-        // Arranque: en espiral cerca del centro (no en esquinas)
-        const angle = (i / Math.max((data.nodes || []).length, 1)) * Math.PI * 2;
+        const total = Math.max((data.nodes || []).length, 1);
+        const angle = (i / total) * Math.PI * 2;
         const radius = 60 + (i % 3) * 40;
         return Object.assign({}, n, {
           x: cx + Math.cos(angle) * radius,
@@ -137,36 +131,39 @@ async function refreshMembrane(force) {
   }
 }
 
-// Simulación de fuerzas estilo Obsidian:
-//  - repulsión entre todos los pares
-//  - atracción por aristas (spring)
-//  - gravedad al centro
-//  - damping
+// FIX V4.1: reset de fuerzas por frame + caps. Sin esto, las fuerzas
+// se acumulaban de por vida y los nodos salian disparados.
 function stepMembranePhysics() {
   const W = membraneCanvas.width, H = membraneCanvas.height;
   const cx = W / 2, cy = H / 2;
   const n = membraneNodes.length;
   if (n === 0) return;
 
-  // Repulsión (O(n²), ok para grafos pequeños)
-  const rep = 4000;
+  // 1) RESET de fuerzas. Causa raiz del bug anterior.
+  for (const nd of membraneNodes) { nd.fx = 0; nd.fy = 0; }
+
+  // 2) Repulsion con cap de fuerza
+  const rep = 2500;
+  const minD = 40;
+  const maxRepForce = 6;
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       const a = membraneNodes[i], b = membraneNodes[j];
       let dx = b.x - a.x, dy = b.y - a.y;
-      let d2 = dx * dx + dy * dy;
-      if (d2 < 1) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 1; }
-      const d = Math.sqrt(d2);
-      const f = rep / d2;
+      let d = Math.sqrt(dx * dx + dy * dy);
+      if (d < 0.001) { dx = 1; dy = 0; d = 1; }
+      const dEff = Math.max(d, minD);
+      let f = rep / (dEff * dEff);
+      if (f > maxRepForce) f = maxRepForce;
       const fx = (dx / d) * f, fy = (dy / d) * f;
       a.fx -= fx; a.fy -= fy;
       b.fx += fx; b.fy += fy;
     }
   }
 
-  // Atracción por aristas
-  const springK = 0.006;
-  const restLen = 110;
+  // 3) Atraccion por aristas (spring suave)
+  const springK = 0.004;
+  const restLen = 140;
   const byId = new Map(membraneNodes.map(nd => [nd.id, nd]));
   for (const e of membraneEdges) {
     const a = byId.get(e.from_node), b = byId.get(e.to_node);
@@ -179,21 +176,25 @@ function stepMembranePhysics() {
     b.fx -= fx; b.fy -= fy;
   }
 
-  // Gravedad al centro
-  const gk = 0.015;
+  // 4) Gravedad suave al centro
+  const gk = 0.012;
   for (const nd of membraneNodes) {
     nd.fx += (cx - nd.x) * gk;
     nd.fy += (cy - nd.y) * gk;
   }
 
-  // Aplicar con damping
-  const damp = 0.82;
+  // 5) Aplicar con damping + cap de velocidad
+  const damp = 0.7;
+  const maxV = 8;
   for (const nd of membraneNodes) {
     nd.vx = (nd.vx + nd.fx) * damp;
     nd.vy = (nd.vy + nd.fy) * damp;
+    if (nd.vx > maxV) nd.vx = maxV;
+    if (nd.vx < -maxV) nd.vx = -maxV;
+    if (nd.vy > maxV) nd.vy = maxV;
+    if (nd.vy < -maxV) nd.vy = -maxV;
     nd.x += nd.vx;
     nd.y += nd.vy;
-    // Clamp suave
     if (nd.x < nd.r) { nd.x = nd.r; nd.vx = 0; }
     if (nd.x > W - nd.r) { nd.x = W - nd.r; nd.vx = 0; }
     if (nd.y < nd.r) { nd.y = nd.r; nd.vy = 0; }
@@ -205,7 +206,6 @@ function drawMembrane() {
   if (!membraneCtx) return;
   const W = membraneCanvas.width, H = membraneCanvas.height;
 
-  // Fondo con subtle grid (estilo Obsidian dark)
   membraneCtx.fillStyle = "#0b0b0e";
   membraneCtx.fillRect(0, 0, W, H);
   membraneCtx.strokeStyle = "rgba(35, 35, 42, 0.5)";
@@ -236,12 +236,10 @@ function drawMembrane() {
     return;
   }
 
-  // Física
   if (membranePhysicsOn) stepMembranePhysics();
 
   const byId = new Map(membraneNodes.map(nd => [nd.id, nd]));
 
-  // Aristas primero (debajo de nodos)
   membraneCtx.lineCap = "round";
   for (const e of membraneEdges) {
     const a = byId.get(e.from_node), b = byId.get(e.to_node);
@@ -256,12 +254,10 @@ function drawMembrane() {
     membraneCtx.stroke();
   }
 
-  // Nodos con glow + label
   membraneCtx.textAlign = "center";
   for (const nd of membraneNodes) {
     const color = NODE_TYPE_COLORS[nd.node_type] || "#6366f1";
 
-    // Glow exterior
     const glowR = nd.r + 6;
     const gradient = membraneCtx.createRadialGradient(nd.x, nd.y, nd.r * 0.5, nd.x, nd.y, glowR);
     gradient.addColorStop(0, color);
@@ -271,18 +267,15 @@ function drawMembrane() {
     membraneCtx.arc(nd.x, nd.y, glowR, 0, Math.PI * 2);
     membraneCtx.fill();
 
-    // Círculo del nodo
     membraneCtx.fillStyle = color;
     membraneCtx.beginPath();
     membraneCtx.arc(nd.x, nd.y, nd.r, 0, Math.PI * 2);
     membraneCtx.fill();
 
-    // Borde oscuro pixel-art
     membraneCtx.strokeStyle = "#0b0b0e";
     membraneCtx.lineWidth = 2;
     membraneCtx.stroke();
 
-    // Label con pill oscuro
     const label = String(nd.label || nd.id || "").slice(0, 22);
     if (label) {
       membraneCtx.font = "10px monospace";
@@ -295,7 +288,6 @@ function drawMembrane() {
     }
   }
 
-  // Leyenda por tipo (arriba izquierda)
   const types = Object.keys(membraneCounts.by_type || {});
   if (types.length) {
     membraneCtx.font = "10px monospace";
@@ -313,7 +305,6 @@ function drawMembrane() {
     }
   }
 
-  // Contador abajo derecha
   membraneCtx.textAlign = "right";
   membraneCtx.font = "11px monospace";
   membraneCtx.fillStyle = "#8a8a93";
@@ -329,7 +320,7 @@ function drawMembrane() {
 function addNeuronaToGraph() { /* no-op */ }
 
 // ===========================================================================
-// OFICINA — Munder Difflin pixel-art
+// OFICINA
 // ===========================================================================
 
 function initOfficeFloor() {
@@ -358,8 +349,6 @@ async function refreshOffice(force) {
       const W = officeCanvas ? officeCanvas.width : 800;
       const H = officeCanvas ? officeCanvas.height : 600;
       const list = data.agents || [];
-
-      // Layout: grid 3 columnas × N filas (arriba) para escritorios
       const cols = W >= 720 ? 3 : 2;
       const rows = Math.ceil(list.length / cols);
       const cellW = W / cols;
@@ -390,32 +379,26 @@ async function refreshOffice(force) {
   }
 }
 
-// Dibuja el suelo de la oficina: tiles pixel-art con perspectiva sutil
 function drawOfficeFloor(ctx, W, H) {
-  // Base
   ctx.fillStyle = "#14141a";
   ctx.fillRect(0, 0, W, H);
 
-  // Tiles 32x32 con 2 tonos alternos
   const T = 32;
   for (let y = 0; y < H; y += T) {
     for (let x = 0; x < W; x += T) {
       const dark = ((x / T) + (y / T)) % 2 === 0;
       ctx.fillStyle = dark ? "#181820" : "#1b1b25";
       ctx.fillRect(x, y, T, T);
-      // Grid line
       ctx.strokeStyle = "rgba(40, 40, 52, 0.6)";
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 0.5, y + 0.5, T - 1, T - 1);
     }
   }
 
-  // Pared superior con "ventanas" (bloques de color)
   ctx.fillStyle = "#0f0f14";
   ctx.fillRect(0, 0, W, 56);
   ctx.fillStyle = "#1e1e26";
   ctx.fillRect(0, 52, W, 4);
-  // Ventanas
   for (let x = 30; x < W - 60; x += 120) {
     ctx.fillStyle = "#1a1a24";
     ctx.fillRect(x, 12, 70, 32);
@@ -430,43 +413,32 @@ function drawOfficeFloor(ctx, W, H) {
   }
 }
 
-// Dibuja un escritorio pixel-art centrado en (cx, cy)
 function drawDesk(ctx, cx, cy, color) {
-  // Sombra
   ctx.fillStyle = "rgba(0,0,0,0.4)";
   ctx.fillRect(cx - 60, cy + 30, 120, 8);
 
-  // Pata izquierda
   ctx.fillStyle = "#2a2a36";
   ctx.fillRect(cx - 56, cy - 4, 8, 34);
-  // Pata derecha
   ctx.fillRect(cx + 48, cy - 4, 8, 34);
 
-  // Tabla del escritorio
   ctx.fillStyle = "#3a3a4a";
   ctx.fillRect(cx - 60, cy - 8, 120, 12);
-  // Highlight superior
   ctx.fillStyle = "#4a4a5e";
   ctx.fillRect(cx - 60, cy - 8, 120, 3);
 
-  // Monitor
   ctx.fillStyle = "#1a1a24";
   ctx.fillRect(cx - 22, cy - 34, 44, 28);
   ctx.fillStyle = color;
   ctx.globalAlpha = 0.7;
   ctx.fillRect(cx - 19, cy - 31, 38, 22);
   ctx.globalAlpha = 1;
-  // Base del monitor
   ctx.fillStyle = "#2a2a36";
   ctx.fillRect(cx - 6, cy - 6, 12, 4);
 }
 
-// Avatar pixel-art: cabeza + cuerpo + ojos. Se para al lado del escritorio.
 function drawAgentAvatar(ctx, x, y, color, emoji, status) {
   const bob = status === "busy" ? Math.sin(Date.now() * 0.01) * 1.5 : 0;
-  const px = 3; // escala pixel
 
-  // Sombra
   ctx.fillStyle = "rgba(0,0,0,0.5)";
   ctx.beginPath();
   ctx.ellipse(x, y + 30, 18, 5, 0, 0, Math.PI * 2);
@@ -474,45 +446,36 @@ function drawAgentAvatar(ctx, x, y, color, emoji, status) {
 
   const topY = y - 26 + bob;
 
-  // Cuerpo (traje)
   ctx.fillStyle = color;
   ctx.fillRect(x - 12, topY + 22, 24, 26);
-  // Sombra cuerpo
   ctx.fillStyle = "rgba(0,0,0,0.25)";
   ctx.fillRect(x + 6, topY + 22, 6, 26);
 
-  // Cabeza
   ctx.fillStyle = "#ffd9b3";
   ctx.fillRect(x - 11, topY + 4, 22, 20);
-  // Sombra cabeza
   ctx.fillStyle = "rgba(0,0,0,0.15)";
   ctx.fillRect(x + 5, topY + 4, 6, 20);
 
-  // Pelo (bloque arriba)
   ctx.fillStyle = "#2a2a36";
   ctx.fillRect(x - 11, topY + 2, 22, 6);
   ctx.fillRect(x - 11, topY + 2, 4, 12);
   ctx.fillRect(x + 7, topY + 2, 4, 12);
 
-  // Ojos
   ctx.fillStyle = "#0b0b0e";
   ctx.fillRect(x - 6, topY + 14, 4, 4);
   ctx.fillRect(x + 2, topY + 14, 4, 4);
 
-  // Emoji en el pecho (identidad del agente)
   ctx.font = "14px sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(emoji, x, topY + 35);
   ctx.textBaseline = "alphabetic";
 
-  // LED de estado (arriba derecha del avatar)
   let ledColor = "#8a8a93";
   if (status === "busy") ledColor = "#facc15";
   else if (status === "error") ledColor = "#ef4444";
   else if (status === "idle") ledColor = "#22c55e";
 
-  // Glow del LED
   ctx.fillStyle = ledColor;
   ctx.globalAlpha = 0.4;
   ctx.beginPath();
@@ -526,11 +489,8 @@ function drawAgentAvatar(ctx, x, y, color, emoji, status) {
   ctx.strokeRect(x + 18, topY - 8, 8, 8);
 }
 
-// Etiqueta de agente debajo del avatar
-function drawAgentLabel(ctx, x, y, name, role, status, color) {
+function drawAgentLabel(ctx, x, y, name, role, status) {
   ctx.textAlign = "center";
-
-  // Nombre
   ctx.font = "bold 11px monospace";
   const nameW = ctx.measureText(name).width;
   ctx.fillStyle = "rgba(11, 11, 14, 0.9)";
@@ -538,18 +498,15 @@ function drawAgentLabel(ctx, x, y, name, role, status, color) {
   ctx.fillStyle = "#ececf1";
   ctx.fillText(name, x, y);
 
-  // Rol
   ctx.font = "9px monospace";
   ctx.fillStyle = "#8a8a93";
   ctx.fillText(role, x, y + 12);
 
-  // Estado con LED
   let ledColor = "#22c55e";
   if (status === "busy") ledColor = "#facc15";
   else if (status === "error") ledColor = "#ef4444";
   ctx.fillStyle = ledColor;
   ctx.fillRect(x - 20, y + 18, 6, 6);
-  ctx.fillStyle = ledColor;
   ctx.font = "9px monospace";
   ctx.textAlign = "left";
   ctx.fillText(status, x - 12, y + 24);
@@ -560,7 +517,6 @@ function drawOffice() {
   if (!officeCtx) return;
   const W = officeCanvas.width, H = officeCanvas.height;
 
-  // Suelo + pared
   drawOfficeFloor(officeCtx, W, H);
 
   if (officeError) {
@@ -587,7 +543,6 @@ function drawOffice() {
     const color = AGENT_ROLE_COLOR[a.role] || "#6366f1";
     const emoji = AGENT_ROLE_EMOJI[a.role] || "🤖";
 
-    // Movimiento suave hacia slot (o wobble si busy)
     if (status === "busy") {
       a.wobble += 0.05;
       a.x += (a.tx + Math.sin(a.wobble) * 6 - a.x) * 0.06;
@@ -597,17 +552,11 @@ function drawOffice() {
       a.y += (a.ty - a.y) * 0.08;
     }
 
-    // Escritorio detrás del agente (ligeramente arriba)
     drawDesk(officeCtx, a.x, a.y - 20, color);
-
-    // Avatar
     drawAgentAvatar(officeCtx, a.x + 34, a.y - 4, color, emoji, status);
-
-    // Etiqueta debajo
-    drawAgentLabel(officeCtx, a.x + 34, a.y + 60, a.name || "?", a.role || "?", status, color);
+    drawAgentLabel(officeCtx, a.x + 34, a.y + 60, a.name || "?", a.role || "?", status);
   }
 
-  // Encabezado con contador
   officeCtx.textAlign = "left";
   officeCtx.font = "11px monospace";
   officeCtx.fillStyle = "#8a8a93";
@@ -638,10 +587,6 @@ function updateOfficeStats() {
   el.innerHTML = "<b>" + (c.nodes || 0) + " nodos</b> · <b>" + (c.edges || 0) +
     " aristas</b> · " + typesTxt + " · <b>" + officeAgents.length + " agentes reales</b>";
 }
-
-// ---------------------------------------------------------------------------
-// Init
-// ---------------------------------------------------------------------------
 
 window.addEventListener("resize", function () {
   if (document.getElementById("membraneCanvas")) initMembraneGraph();
