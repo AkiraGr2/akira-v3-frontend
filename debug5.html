@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Debug5 Akira</title>
+<style>body{background:#0b0b0e;color:#ececf1;font-family:monospace;padding:16px;font-size:12px}pre{background:#16161b;padding:12px;border-radius:8px;white-space:pre-wrap;word-break:break-word;margin:8px 0}button{background:#6366f1;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;margin:4px}button.alt{background:#ef4444}</style>
+</head><body>
+<h3>Debug5 — XHR + cache-buster</h3>
+<button onclick="run()">▶️ Ejecutar</button>
+<pre id="out">Toca el botón.</pre>
+<script>
+function log(msg){const o=document.getElementById('out');o.textContent+='\n'+msg;}
+
+async function run(){
+  const o=document.getElementById('out');o.textContent='';
+  const backend='https://akira-empresa.onrender.com';
+  log('Backend: '+backend);
+
+  const t = localStorage.getItem('akira_session_token');
+  log('token: '+(t?'existe':'NO'));
+
+  // ===== TEST 1: XHR a /api/v8/agents con Authorization =====
+  log('');
+  log('--- TEST 1: XHR GET /api/v8/agents con Authorization ---');
+  await new Promise((resolve)=>{
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', backend+'/api/v8/agents?_t='+Date.now());
+    xhr.setRequestHeader('Content-Type','application/json');
+    xhr.setRequestHeader('Authorization','Bearer '+(t||'dummy'));
+    xhr.onload = () => {
+      log('status: '+xhr.status);
+      log('response: '+xhr.responseText.slice(0,300));
+      resolve();
+    };
+    xhr.onerror = () => {
+      log('❌ onerror — status: '+xhr.status);
+      log('   readyState: '+xhr.readyState);
+      log('   statusText: '+xhr.statusText);
+      log('   (este error suele indicar CORS bloqueado)');
+      resolve();
+    };
+    xhr.ontimeout = () => { log('❌ timeout'); resolve(); };
+    xhr.timeout = 15000;
+    xhr.send();
+  });
+
+  // ===== TEST 2: fetch con cache-buster y no-store =====
+  log('');
+  log('--- TEST 2: fetch cache-buster ---');
+  try{
+    const r = await fetch(backend+'/api/v8/agents?_t='+Date.now(), {
+      method: 'GET',
+      mode: 'cors',
+      cache: 'no-store',
+      credentials: 'omit',
+      headers: {
+        'Content-Type':'application/json',
+        'Authorization':'Bearer '+(t||'dummy'),
+        'Cache-Control':'no-cache'
+      }
+    });
+    log('status: '+r.status);
+    log('type: '+r.type);
+    const j = await r.json();
+    log('respuesta: '+JSON.stringify(j).slice(0,300));
+  }catch(e){
+    log('❌ FALLÓ: '+e.message);
+    log('   name: '+e.name);
+  }
+
+  // ===== TEST 3: fetch a /health con Authorization (control) =====
+  log('');
+  log('--- TEST 3: /health con Authorization (control) ---');
+  try{
+    const r = await fetch(backend+'/health?_t='+Date.now(), {
+      headers: {
+        'Content-Type':'application/json',
+        'Authorization':'Bearer '+(t||'dummy')
+      }
+    });
+    log('status: '+r.status);
+    log('✅ /health con Authorization FUNCIONA');
+  }catch(e){
+    log('❌ FALLO: '+e.message);
+    log('   → el problema es CORS en TODOS los endpoints con Authorization');
+  }
+
+  // ===== TEST 4: otro navegador (sugerencia) =====
+  log('');
+  log('--- SUGERENCIA ---');
+  log('Si TEST 1 y 2 fallan y TEST 3 funciona, el problema es especifico del preflight a /agents.');
+  log('Si TEST 3 tambien falla, el problema es CORS global con Authorization.');
+
+  log('');
+  log('FIN.');
+}
+</script>
+</body></html>
