@@ -174,6 +174,20 @@ body{background:var(--bg);color:var(--text);font-family:Geist,Inter,sans-serif;h
           </div>
           <pre id="f6Output" style="margin-top:10px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:10px;color:#8a8a93;max-height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word">Sin datos. Toca "Test completo" para crear y verificar.</pre>
         </div>
+        <div style="margin-top:16px;background:#16161b;border:1px solid var(--border);border-radius:12px;padding:14px">
+          <h4>🧠 Fase 7 — Ciclo Cognitivo</h4>
+          <p style="font-size:11px;color:var(--muted);margin-top:6px">Ejecuta un ciclo cognitivo completo de 9 etapas (observe → interpret → reason → decide → act → observe_result → evaluate → learn → update_self_model). Cada etapa queda persistida como evento.</p>
+          <div style="margin-top:10px">
+            <input id="f7Message" placeholder="Mensaje para el ciclo..." style="width:100%;background:#0e0e12;border:1px solid var(--border);border-radius:10px;padding:10px;color:#fff;font-size:13px">
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="quick-btn" onclick="f7Run()">▶️ Ejecutar ciclo</button>
+            <button class="quick-btn" onclick="f7ReadLast()">📖 Leer último</button>
+            <button class="quick-btn" onclick="f7ListCycles()">📚 Listar</button>
+            <button class="quick-btn" onclick="f7Reset()">🧹 Limpiar vista</button>
+          </div>
+          <pre id="f7Output" style="margin-top:10px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word">Sin datos. Escribe un mensaje y toca "Ejecutar ciclo".</pre>
+        </div>
         <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="quick-btn" onclick="clearLocalDB()">🗑️ Limpiar DB local</button><button class="quick-btn" onclick="forceSyncR2()">☁️ Forzar Sync R2</button><button class="quick-btn" onclick="exportBackup()">💾 Export Backup</button></div>
       </div>
     </div>
@@ -314,6 +328,7 @@ async function smGet(){
       tools_count: (sm.tools||[]).length,
       models: sm.models,
       uncertainties: sm.uncertainties,
+      current_state: sm.current_state,
       updated_at: sm.updated_at
     };
     out.textContent='✅ GET /api/v8/self\n\n'+JSON.stringify(resumen,null,2);
@@ -351,7 +366,6 @@ function smReset(){
   if(out) out.textContent='Sin datos todavía. Toca "Leer" para consultar el self-model.';
 }
 
-// ===== V8-Fase6: pruebas de grafo + aprendizaje =====
 async function f6TestFull(){
   const out=document.getElementById('f6Output');
   if(!out) return;
@@ -360,7 +374,6 @@ async function f6TestFull(){
   const H=akiraAuthHeaders();
   const log=[];
   try{
-    // 1) Crear nodo A (idempotente)
     let r=await fetch(b+"/api/v8/graph/node",{method:'POST',headers:H,body:JSON.stringify({
       node_type:'concept', label:'Fase 6 — Grafo y aprendizaje',
       description:'Nodo de prueba para validar Fase 6',
@@ -371,7 +384,6 @@ async function f6TestFull(){
     const nodeA=d.node.id;
     log.push('1) Node A: '+nodeA+' ('+d.outcome+')');
 
-    // 2) Crear nodo B (idempotente)
     r=await fetch(b+"/api/v8/graph/node",{method:'POST',headers:H,body:JSON.stringify({
       node_type:'skill', label:'Persistencia real',
       description:'Habilidad verificada en Akira',
@@ -382,7 +394,6 @@ async function f6TestFull(){
     const nodeB=d.node.id;
     log.push('2) Node B: '+nodeB+' ('+d.outcome+')');
 
-    // 3) Crear edge A→B (idempotente)
     r=await fetch(b+"/api/v8/graph/edge",{method:'POST',headers:H,body:JSON.stringify({
       from_node:nodeA, to_node:nodeB, relation_type:'uses',
       weight:1.5, confidence:0.7, origin:'f6_test',
@@ -393,7 +404,6 @@ async function f6TestFull(){
     const edgeId=d.edge.id;
     log.push('3) Edge A→B: '+edgeId+' ('+d.outcome+')');
 
-    // 4) Crear learning_event (idempotente)
     r=await fetch(b+"/api/v8/learning",{method:'POST',headers:H,body:JSON.stringify({
       source:'fase6_test',
       event:'Primera prueba end-to-end de persistencia de aprendizaje',
@@ -410,29 +420,18 @@ async function f6TestFull(){
     localStorage.setItem('f6_learning_id', learningId);
     log.push('4) Learning: '+learningId+' ('+d.outcome+', reuse='+d.learning.reuse_count+')');
 
-    // 5) Registrar reuse
     r=await fetch(b+"/api/v8/learning/"+encodeURIComponent(learningId)+"/reuse",{method:'POST',headers:H});
     d=await r.json();
     if(!d.ok){out.textContent='❌ Falló reuse: '+JSON.stringify(d);return;}
     log.push('5) Reuse registrado: reuse_count='+d.learning.reuse_count+', last_reused_at='+d.learning.last_reused_at);
 
-    // 6) Leer related del node A
     r=await fetch(b+"/api/v8/graph/related/"+encodeURIComponent(nodeA)+"?direction=both",{headers:H});
     d=await r.json();
     if(!d.ok){out.textContent='❌ Falló related: '+JSON.stringify(d);return;}
     log.push('6) Related de A: '+d.edges.length+' edges, '+d.neighbors.length+' neighbors');
 
-    out.textContent='✅ TEST COMPLETO OK\n\n'+log.join('\n')+'\n\nAhora: haz "Manual Deploy" en Render, espera 1-3 min, y toca "Leer todo". El reuse_count debe seguir en '+ (await f6GetReuseCount(learningId)) +'.';
+    out.textContent='✅ TEST COMPLETO OK\n\n'+log.join('\n')+'\n\nAhora: haz "Manual Deploy" en Render, espera 1-3 min, y toca "Leer todo". El reuse_count debe seguir en 1.';
   }catch(e){out.textContent='❌ '+e.message;}
-}
-
-async function f6GetReuseCount(learningId){
-  try{
-    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
-    const r=await fetch(b+"/api/v8/learning/"+encodeURIComponent(learningId),{headers:akiraAuthHeaders(),cache:"no-store"});
-    const d=await r.json();
-    return d.ok ? d.learning.reuse_count : '?';
-  }catch(e){return '?';}
 }
 
 async function f6ReadAll(){
@@ -470,6 +469,96 @@ async function f6ReadAll(){
 function f6Reset(){
   const out=document.getElementById('f6Output');
   if(out) out.textContent='Sin datos. Toca "Test completo" para crear y verificar.';
+}
+
+// ===== V8-Fase7: ciclo cognitivo =====
+async function f7Run(){
+  const out=document.getElementById('f7Output');
+  const msgInput=document.getElementById('f7Message');
+  if(!out) return;
+  const msg=(msgInput?msgInput.value.trim():'')||'Hola Akira, ejecuta un ciclo cognitivo de prueba.';
+  out.textContent='⏳ Ejecutando ciclo cognitivo (9 etapas)...';
+  try{
+    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+    const r=await fetch(b+"/api/v8/cognitive/cycle",{
+      method:'POST',
+      headers:akiraAuthHeaders(),
+      body:JSON.stringify({trigger:'panel_manual', input:{message:msg}})
+    });
+    const d=await r.json();
+    if(!d.ok){out.textContent='❌ Falló: '+(d.reason||'error')+'\n\n'+JSON.stringify(d,null,2);return;}
+    const cycleId=d.cycle_id;
+    localStorage.setItem('f7_last_cycle_id', cycleId);
+    const lines=[];
+    lines.push('✅ CICLO COMPLETO');
+    lines.push('cycle_id: '+cycleId);
+    lines.push('status: '+d.cycle.status);
+    lines.push('current_stage: '+d.cycle.current_stage);
+    lines.push('events_count: '+d.events_count);
+    lines.push('learning_id: '+(d.learning_id||'—'));
+    lines.push('');
+    lines.push('ETAPAS REGISTRADAS:');
+    for(const ev of (d.events||[])){
+      const t=(ev.created_at||'').slice(11,19);
+      lines.push('  ['+t+'] '+ev.stage.padEnd(20)+' '+ev.status);
+    }
+    lines.push('');
+    lines.push('RESPUESTA:');
+    lines.push((d.answer||'').slice(0,300));
+    out.textContent=lines.join('\n')+'\n\nAhora: haz "Manual Deploy", espera 1-3 min, y toca "Leer último" para verificar persistencia.';
+  }catch(e){out.textContent='❌ '+e.message;}
+}
+
+async function f7ReadLast(){
+  const out=document.getElementById('f7Output');
+  if(!out) return;
+  out.textContent='⏳ Leyendo último ciclo...';
+  try{
+    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+    const cycleId=localStorage.getItem('f7_last_cycle_id');
+    if(!cycleId){out.textContent='❌ No hay cycle_id guardado. Ejecuta primero un ciclo.';return;}
+    const r=await fetch(b+"/api/v8/cognitive/cycle/"+encodeURIComponent(cycleId),{headers:akiraAuthHeaders(),cache:"no-store"});
+    const d=await r.json();
+    if(!d.ok){out.textContent='❌ '+(d.reason||'error')+'\n\n'+JSON.stringify(d,null,2);return;}
+    const lines=[];
+    lines.push('✅ LECTURA CICLO (tras reinicio)');
+    lines.push('cycle_id: '+d.cycle.id);
+    lines.push('trigger: '+d.cycle.trigger);
+    lines.push('status: '+d.cycle.status);
+    lines.push('current_stage: '+d.cycle.current_stage);
+    lines.push('started_at: '+d.cycle.started_at);
+    lines.push('completed_at: '+d.cycle.completed_at);
+    lines.push('events_count: '+d.events_count);
+    lines.push('');
+    lines.push('EVENTOS (persistidos):');
+    for(const ev of (d.events||[])){
+      const t=(ev.created_at||'').slice(11,19);
+      lines.push('  ['+t+'] '+ev.stage.padEnd(20)+' '+ev.status+'  data='+JSON.stringify(ev.data||{}).slice(0,80));
+    }
+    out.textContent=lines.join('\n');
+  }catch(e){out.textContent='❌ '+e.message;}
+}
+
+async function f7ListCycles(){
+  const out=document.getElementById('f7Output');
+  if(!out) return;
+  out.textContent='⏳ Listando últimos ciclos...';
+  try{
+    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+    const r=await fetch(b+"/api/v8/cognitive/cycles?limit=10",{headers:akiraAuthHeaders(),cache:"no-store"});
+    const d=await r.json();
+    if(!d.ok){out.textContent='❌ '+(d.reason||'error');return;}
+    const lines=['✅ ÚLTIMOS CICLOS ('+d.count+')'];
+    for(const c of (d.cycles||[])){
+      lines.push('- '+c.id+' | '+c.trigger+' | '+c.status+' | '+c.current_stage);
+    }
+    out.textContent=lines.join('\n');
+  }catch(e){out.textContent='❌ '+e.message;}
+}
+
+function f7Reset(){
+  const out=document.getElementById('f7Output');
+  if(out) out.textContent='Sin datos. Escribe un mensaje y toca "Ejecutar ciclo".';
 }
 
 async function adminCheckSession(){
