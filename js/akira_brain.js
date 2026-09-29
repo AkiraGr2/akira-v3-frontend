@@ -1,7 +1,8 @@
 // AKIRA ULTRA V2.2 - AUTO STREAM 100% INTERNO - SIN BOTON - AUTO-REPARABLE SEPT 2026
 // B1: cabeceras con sesion firmada (usa akiraAuthHeaders de index.html; si no existe, cabecera basica)
+// V8-B5-fix (H-05): ya NO se envia is_owner desde el cliente. El backend lo resuelve
+// unicamente por sesion firmada. El residuo anterior era inofensivo pero confuso.
 function _akiraH(){ return (typeof akiraAuthHeaders==='function') ? akiraAuthHeaders() : {'Content-Type':'application/json'}; }
-let isOwner = false;
 let selectedImageBase64 = null;
 let selectedImageMime = "image/jpeg";
 
@@ -159,10 +160,10 @@ async function sendMsg(){
   try{ await saveNeuronaHibrida(msgToSend + (hasImage ? " [imagen]" : ""), 'sensorial', 6, ['user_input', hasImage ? 'vision' : 'text']); }catch(e){}
   const uid=localStorage.getItem('akira_user_id')||'anon';
   const uk=localStorage.getItem('akira_user_key')||'';
-  const isOwn=localStorage.getItem('akira_is_owner')==='1';
   const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
   try{
-    const payload = {message:msgToSend,user_id:uid,user_api_key:uk,is_owner:isOwn};
+    // H-05: el cliente ya NO envia is_owner. El backend lo resuelve por sesion firmada.
+    const payload = {message:msgToSend,user_id:uid,user_api_key:uk};
     if(hasImage && currentImage) payload.image_base64 = currentImage;
     const r = await fetch(backend + "/api/chat", {method:'POST',headers:_akiraH(),body:JSON.stringify(payload)});
     if(!r.ok) throw new Error("Backend error " + r.status);
@@ -210,7 +211,6 @@ async function sendMsgStream(){
   try{ await saveNeuronaHibrida(msgToSend + (hasImage ? " [imagen]" : ""), 'sensorial', 6, ['user_input']); }catch(e){}
   const uid=localStorage.getItem('akira_user_id')||'anon';
   const uk=localStorage.getItem('akira_user_key')||'';
-  const isOwn=localStorage.getItem('akira_is_owner')==='1';
   const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
   const inner=document.getElementById('msgsInner');
   const row=document.createElement('div');
@@ -221,7 +221,8 @@ async function sendMsgStream(){
   if(inner) inner.scrollTop = inner.scrollHeight;
   let fullText = "";
   try{
-    const payload = {message:msgToSend,user_id:uid,user_api_key:uk,is_owner:isOwn};
+    // H-05: el cliente ya NO envia is_owner. El backend lo resuelve por sesion firmada.
+    const payload = {message:msgToSend,user_id:uid,user_api_key:uk};
     if(hasImage && currentImage) payload.image_base64 = currentImage;
     const r = await fetch(backend + "/api/chat/stream", {method:'POST',headers:_akiraH(),body:JSON.stringify(payload)});
     if(!r.ok) throw new Error("Stream error "+r.status);
@@ -284,7 +285,7 @@ async function sendMsgStream(){
     const b = document.getElementById(bubbleId);
     if(b) b.innerHTML = "🔄 Akira cambiando a modo estable...";
     try{
-      const payload2 = {message:msgToSend,user_id:uid,user_api_key:uk,is_owner:isOwn};
+      const payload2 = {message:msgToSend,user_id:uid,user_api_key:uk};
       if(hasImage && currentImage) payload2.image_base64 = currentImage;
       const r2 = await fetch(backend + "/api/chat", {method:'POST',headers:_akiraH(),body:JSON.stringify(payload2)});
       const d2 = await r2.json();
@@ -298,7 +299,7 @@ async function sendMsgStream(){
       if(b) b.innerHTML = '⏳ Akira reconectando colmena... reintento automático en 3s';
       setTimeout(async ()=>{
         try{
-          const r3 = await fetch(backend + "/api/chat", {method:'POST',headers:_akiraH(),body:JSON.stringify({message:msgToSend,user_id:uid,user_api_key:uk,is_owner:isOwn})});
+          const r3 = await fetch(backend + "/api/chat", {method:'POST',headers:_akiraH(),body:JSON.stringify({message:msgToSend,user_id:uid,user_api_key:uk})});
           const d3 = await r3.json();
           if(b) b.innerHTML = escapeHtml(d3.response||'Conexión restablecida').replace(/\n/g,'<br>');
         }catch(_){ if(b) b.innerHTML = '✅ Colmena activa, reintenta en 5s'; }
