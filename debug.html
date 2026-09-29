@@ -2,19 +2,46 @@
 <html lang="es">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Debug Akira</title>
-<style>body{background:#0b0b0e;color:#ececf1;font-family:monospace;padding:16px;font-size:13px}pre{background:#16161b;padding:12px;border-radius:8px;white-space:pre-wrap;word-break:break-word;margin:8px 0}button{background:#6366f1;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;margin:4px}</style>
+<style>body{background:#0b0b0e;color:#ececf1;font-family:monospace;padding:16px;font-size:13px}pre{background:#16161b;padding:12px;border-radius:8px;white-space:pre-wrap;word-break:break-word;margin:8px 0}button{background:#6366f1;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;margin:4px}button.alt{background:#ef4444}</style>
 </head><body>
 <h3>Diagnóstico Akira</h3>
+<button class="alt" onclick="killSW()">🗑️ Desregistrar Service Worker</button>
 <button onclick="run()">▶️ Ejecutar diagnóstico</button>
-<pre id="out">Toca el botón...</pre>
+<pre id="out">Toca "Desregistrar SW" primero, luego "Ejecutar diagnóstico".</pre>
 <script>
 function log(msg){const o=document.getElementById('out');o.textContent+='\n'+msg;}
+
+async function killSW(){
+  const o=document.getElementById('out');
+  o.textContent='🗑️ Matando Service Workers...';
+  if(!('serviceWorker' in navigator)){o.textContent+='\nNo hay SW disponibles en este navegador.';return;}
+  try{
+    const regs=await navigator.serviceWorker.getRegistrations();
+    if(regs.length===0){o.textContent+='\nNo hay SW registrados. ✅';}
+    for(const r of regs){
+      const scope=r.scope||'';
+      await r.unregister();
+      o.textContent+='\n✅ Desregistrado: '+scope;
+    }
+    // Limpiar todos los caches
+    const keys=await caches.keys();
+    for(const k of keys){ await caches.delete(k); o.textContent+='\n🗑️ Cache borrado: '+k; }
+    o.textContent+='\n\n✅ SW y caches limpiados. Ahora RECARGA la página (Ctrl+R o menú → Recargar) y vuelve a iniciar sesión.';
+  }catch(e){o.textContent+='\n❌ Error: '+e.message;}
+}
+
 async function run(){
   const o=document.getElementById('out');o.textContent='';
   const backend="https://akira-empresa.onrender.com";
   log('1) Backend URL: '+backend);
 
-  // Test 1: health sin auth
+  // SW activo
+  if('serviceWorker' in navigator){
+    const regs=await navigator.serviceWorker.getRegistrations();
+    log('1b) Service Workers activos: '+regs.length);
+    for(const r of regs){ log('     scope: '+r.scope); }
+  }
+
   try{
     const r=await fetch(backend+'/health',{cache:'no-store'});
     log('2) /health status: '+r.status);
@@ -22,36 +49,29 @@ async function run(){
     log('   status: '+j.status);
   }catch(e){log('2) ❌ /health FALLÓ: '+e.message);}
 
-  // Test 2: agents sin auth (debe dar 401)
   try{
     const r=await fetch(backend+'/api/v8/agents',{cache:'no-store'});
-    log('3) /api/v8/agents status: '+r.status);
-    const j=await r.json();
-    log('   respuesta: '+JSON.stringify(j));
-  }catch(e){log('3) ❌ /api/v8/agents FALLÓ: '+e.message);}
+    log('3) /api/v8/agents (sin auth) status: '+r.status);
+  }catch(e){log('3) ❌ FALLÓ: '+e.message);}
 
-  // Test 3: leer token
   const t=localStorage.getItem('akira_session_token');
   const exp=parseInt(localStorage.getItem('akira_session_exp')||'0',10);
   const now=Math.floor(Date.now()/1000);
-  log('4) token existe: '+(t?'sí ('+t.slice(0,20)+'...)':'NO'));
-  log('   exp: '+exp+' (ahora: '+now+')');
-  log('   token válido: '+(t && exp>now ? 'SÍ' : 'NO — expirado o sin login'));
+  log('4) token existe: '+(t?'sí':'NO'));
+  log('   token válido: '+(t && exp>now ? 'SÍ' : 'NO'));
 
-  // Test 4: con auth
   try{
     const h={'Content-Type':'application/json'};
     if(t && exp>now) h['Authorization']='Bearer '+t;
-    log('5) headers: '+JSON.stringify(h).slice(0,80));
     const r=await fetch(backend+'/api/v8/agents',{headers:h,cache:'no-store'});
-    log('   status: '+r.status);
+    log('5) status: '+r.status);
     const j=await r.json();
     log('   respuesta: '+JSON.stringify(j).slice(0,300));
     if(j.ok) log('✅ FUNCIONA: '+(j.count||0)+' agentes');
   }catch(e){log('5) ❌ FALLÓ: '+e.message);}
 
   log('');
-  log('FIN DEL DIAGNÓSTICO.');
+  log('FIN.');
 }
 </script>
 </body></html>
