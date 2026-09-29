@@ -164,6 +164,16 @@ body{background:var(--bg);color:var(--text);font-family:Geist,Inter,sans-serif;h
           </div>
           <pre id="smOutput" style="margin-top:10px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:10px;color:#8a8a93;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-word">Sin datos todavía. Toca "Leer" para consultar el self-model.</pre>
         </div>
+        <div style="margin-top:16px;background:#16161b;border:1px solid var(--border);border-radius:12px;padding:14px">
+          <h4>🌐 Fase 6 — Grafo + Aprendizaje</h4>
+          <p style="font-size:11px;color:var(--muted);margin-top:6px">Crea nodos, aristas y aprendizajes reales. Verifica que sobreviven al reinicio.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="quick-btn" onclick="f6TestFull()">🧪 Test completo</button>
+            <button class="quick-btn" onclick="f6ReadAll()">📖 Leer todo</button>
+            <button class="quick-btn" onclick="f6Reset()">🧹 Limpiar vista</button>
+          </div>
+          <pre id="f6Output" style="margin-top:10px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:10px;color:#8a8a93;max-height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word">Sin datos. Toca "Test completo" para crear y verificar.</pre>
+        </div>
         <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="quick-btn" onclick="clearLocalDB()">🗑️ Limpiar DB local</button><button class="quick-btn" onclick="forceSyncR2()">☁️ Forzar Sync R2</button><button class="quick-btn" onclick="exportBackup()">💾 Export Backup</button></div>
       </div>
     </div>
@@ -203,7 +213,6 @@ function closeSidebar(){document.getElementById("sidebar").classList.remove("ope
 function newChat(){if(confirm("¿Nuevo chat?")){document.getElementById('msgsInner').innerHTML=`<div class="msg-row akira"><div class="avatar"></div><div class="bubble">Nuevo chat Akira.</div></div>`;}}
 async function handleCredentialResponse(r){
   window.handleCredentialResponse = handleCredentialResponse;
-
   try{
     const c=r.credential;
     const b=localStorage.getItem("akira_backend_url");
@@ -340,6 +349,127 @@ async function smPatch(){
 function smReset(){
   const out=document.getElementById('smOutput');
   if(out) out.textContent='Sin datos todavía. Toca "Leer" para consultar el self-model.';
+}
+
+// ===== V8-Fase6: pruebas de grafo + aprendizaje =====
+async function f6TestFull(){
+  const out=document.getElementById('f6Output');
+  if(!out) return;
+  out.textContent='⏳ Ejecutando test completo Fase 6...';
+  const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+  const H=akiraAuthHeaders();
+  const log=[];
+  try{
+    // 1) Crear nodo A (idempotente)
+    let r=await fetch(b+"/api/v8/graph/node",{method:'POST',headers:H,body:JSON.stringify({
+      node_type:'concept', label:'Fase 6 — Grafo y aprendizaje',
+      description:'Nodo de prueba para validar Fase 6',
+      weight:2.0, confidence:0.8, idempotency_key:'f6_test_node_a'
+    })});
+    let d=await r.json();
+    if(!d.ok){out.textContent='❌ Falló crear nodo A: '+JSON.stringify(d);return;}
+    const nodeA=d.node.id;
+    log.push('1) Node A: '+nodeA+' ('+d.outcome+')');
+
+    // 2) Crear nodo B (idempotente)
+    r=await fetch(b+"/api/v8/graph/node",{method:'POST',headers:H,body:JSON.stringify({
+      node_type:'skill', label:'Persistencia real',
+      description:'Habilidad verificada en Akira',
+      weight:1.5, confidence:0.9, idempotency_key:'f6_test_node_b'
+    })});
+    d=await r.json();
+    if(!d.ok){out.textContent='❌ Falló crear nodo B: '+JSON.stringify(d);return;}
+    const nodeB=d.node.id;
+    log.push('2) Node B: '+nodeB+' ('+d.outcome+')');
+
+    // 3) Crear edge A→B (idempotente)
+    r=await fetch(b+"/api/v8/graph/edge",{method:'POST',headers:H,body:JSON.stringify({
+      from_node:nodeA, to_node:nodeB, relation_type:'uses',
+      weight:1.5, confidence:0.7, origin:'f6_test',
+      idempotency_key:'f6_test_edge_ab'
+    })});
+    d=await r.json();
+    if(!d.ok){out.textContent='❌ Falló crear edge: '+JSON.stringify(d);return;}
+    const edgeId=d.edge.id;
+    log.push('3) Edge A→B: '+edgeId+' ('+d.outcome+')');
+
+    // 4) Crear learning_event (idempotente)
+    r=await fetch(b+"/api/v8/learning",{method:'POST',headers:H,body:JSON.stringify({
+      source:'fase6_test',
+      event:'Primera prueba end-to-end de persistencia de aprendizaje',
+      lesson:'El sistema puede guardar, recuperar y reutilizar aprendizajes a traves de reinicios.',
+      knowledge_nodes:[nodeA, nodeB],
+      relationships:[edgeId],
+      confidence:0.85,
+      outcome:'success',
+      idempotency_key:'f6_test_learning_1'
+    })});
+    d=await r.json();
+    if(!d.ok){out.textContent='❌ Falló crear learning: '+JSON.stringify(d);return;}
+    const learningId=d.learning.id;
+    localStorage.setItem('f6_learning_id', learningId);
+    log.push('4) Learning: '+learningId+' ('+d.outcome+', reuse='+d.learning.reuse_count+')');
+
+    // 5) Registrar reuse
+    r=await fetch(b+"/api/v8/learning/"+encodeURIComponent(learningId)+"/reuse",{method:'POST',headers:H});
+    d=await r.json();
+    if(!d.ok){out.textContent='❌ Falló reuse: '+JSON.stringify(d);return;}
+    log.push('5) Reuse registrado: reuse_count='+d.learning.reuse_count+', last_reused_at='+d.learning.last_reused_at);
+
+    // 6) Leer related del node A
+    r=await fetch(b+"/api/v8/graph/related/"+encodeURIComponent(nodeA)+"?direction=both",{headers:H});
+    d=await r.json();
+    if(!d.ok){out.textContent='❌ Falló related: '+JSON.stringify(d);return;}
+    log.push('6) Related de A: '+d.edges.length+' edges, '+d.neighbors.length+' neighbors');
+
+    out.textContent='✅ TEST COMPLETO OK\n\n'+log.join('\n')+'\n\nAhora: haz "Manual Deploy" en Render, espera 1-3 min, y toca "Leer todo". El reuse_count debe seguir en '+ (await f6GetReuseCount(learningId)) +'.';
+  }catch(e){out.textContent='❌ '+e.message;}
+}
+
+async function f6GetReuseCount(learningId){
+  try{
+    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+    const r=await fetch(b+"/api/v8/learning/"+encodeURIComponent(learningId),{headers:akiraAuthHeaders(),cache:"no-store"});
+    const d=await r.json();
+    return d.ok ? d.learning.reuse_count : '?';
+  }catch(e){return '?';}
+}
+
+async function f6ReadAll(){
+  const out=document.getElementById('f6Output');
+  if(!out) return;
+  out.textContent='⏳ Leyendo estado actual del grafo y aprendizajes...';
+  try{
+    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+    const H=akiraAuthHeaders();
+    const learningId=localStorage.getItem('f6_learning_id');
+    const lines=[];
+    if(learningId){
+      let r=await fetch(b+"/api/v8/learning/"+encodeURIComponent(learningId),{headers:H,cache:"no-store"});
+      let d=await r.json();
+      if(d.ok){
+        lines.push('LEARNING:');
+        lines.push('  id: '+d.learning.id);
+        lines.push('  lesson: '+d.learning.lesson.slice(0,120));
+        lines.push('  reuse_count: '+d.learning.reuse_count);
+        lines.push('  last_reused_at: '+d.learning.last_reused_at);
+        lines.push('  outcome: '+d.learning.outcome);
+        lines.push('  confidence: '+d.learning.confidence);
+        lines.push('  created_at: '+d.learning.created_at);
+        lines.push('  updated_at: '+d.learning.updated_at);
+      } else {
+        lines.push('LEARNING: no encontrado ('+(d.reason||'?')+')');
+      }
+    } else {
+      lines.push('LEARNING: sin ID guardado. Corre primero "Test completo".');
+    }
+    out.textContent='✅ LECTURA\n\n'+lines.join('\n');
+  }catch(e){out.textContent='❌ '+e.message;}
+}
+
+function f6Reset(){
+  const out=document.getElementById('f6Output');
+  if(out) out.textContent='Sin datos. Toca "Test completo" para crear y verificar.';
 }
 
 async function adminCheckSession(){
