@@ -1,4 +1,6 @@
 // AKIRA ULTRA SYNC V7.3 AUDITADA - ROBUSTA - NO ROMPE ADMIN
+// V8-B3b: las neuronas ahora viajan al backend via /api/memory/ingest.
+// Requiere sesion firmada (B1/B2); sin sesion se quedan en IndexedDB.
 const AKIRA_DB_NAME = "AKIRA_V3_HIBRIDO";
 const AKIRA_STORE = "neuronas";
 let db = null;
@@ -95,17 +97,19 @@ async function saveNeuronaHibrida(texto, tipo="episodica", importancia=5, tags=[
     esCompartida: importancia >= 6, source: tags.includes('hive')?'hive':(tags.includes('vision')?'vision':'chat'), esUltra: true, version: "V7.3"
   };
   await saveNeuronaLocal(neurona);
+  // V8-B3b: persistencia real en el backend (Postgres via Persistence Service).
+  // Requiere sesion firmada (B1/B2). Si no hay sesion o el backend no responde,
+  // la neurona se queda en IndexedDB: nunca se pierde, nunca se inventa.
+  try{
+    const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
+    const h = (typeof akiraAuthHeaders === 'function') ? akiraAuthHeaders() : {"Content-Type":"application/json"};
+    await fetch(backend + "/api/memory/ingest", {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify({id: neurona.id, texto: neurona.texto, tipo: neurona.tipo, importancia: neurona.importancia, tags: neurona.tags, ts: neurona.ts})
+    });
+  }catch(e){ console.log("ingest backend no disponible, queda local:", e.message); }
   await countNeuronas();
-  if(importancia >= 7){
-    try{
-      const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
-      await fetch(backend + "/api/sync_to_r2", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({texto: texto.slice(0,500), importancia, tipo, tags})
-      });
-    }catch(e){ console.log("R2 no disponible, queda solo local", e.message); }
-  }
   if(window.addNeuronaToGraph) try{ addNeuronaToGraph(neurona); }catch(e){}
   return neurona;
 }
