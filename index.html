@@ -74,7 +74,6 @@ body{background:var(--bg);color:var(--text);font-family:Geist,Inter,sans-serif;h
       </div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <!-- Stream AUTO interno - sin selector visible, siempre responde -->
       <div id="streamToggleBtn" style="display:none"></div>
       <button id="userAvatar" onclick="showSection('keys')" style="width:32px;height:32px;border-radius:50%;background:#1e1e26;border:1px solid #2a2a36;display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer" title="Cuenta">🔒</button>
     </div>
@@ -155,6 +154,16 @@ body{background:var(--bg);color:var(--text);font-family:Geist,Inter,sans-serif;h
         <div style="margin-top:16px"><h4>🚀 Niveles</h4><div id="levelsList" style="margin-top:12px;display:flex;flex-direction:column;gap:10px"></div></div>
         <div style="margin-top:16px;background:#16161b;border:1px solid var(--border);border-radius:12px;padding:14px"><h4>👥 Oficina</h4><div style="width:100%;height:400px;background:#0e0e12;border:1px solid var(--border);border-radius:12px;margin-top:12px;overflow:hidden"><canvas id="officeCanvas" style="width:100%;height:100%"></canvas></div><div id="officeLog" style="margin-top:10px;max-height:160px;overflow-y:auto;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:8px"></div><div id="officeStats" style="margin-top:8px;font-size:11px;color:var(--muted)"></div></div>
         <div style="margin-top:16px;background:#16161b;border:1px solid var(--border);border-radius:12px;padding:14px"><h4>💼 Upwork</h4><textarea id="upworkDesc" placeholder="Pega descripción trabajo Upwork..." style="width:100%;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:10px;color:#fff;min-height:100px;margin-top:10px"></textarea><div style="display:flex;gap:8px;margin-top:10px"><button class="quick-btn" onclick="generateUpwork()">🤖 Generar Propuesta</button><button class="quick-btn" onclick="document.getElementById('upworkDesc').value=''">🧹 Limpiar</button></div><div id="upworkResult" style="margin-top:12px;font-size:13px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:12px;display:none"></div></div>
+        <div style="margin-top:16px;background:#16161b;border:1px solid var(--border);border-radius:12px;padding:14px">
+          <h4>🧪 Self-Model (Fase 5)</h4>
+          <p style="font-size:11px;color:var(--muted);margin-top:6px">Verifica el self-model persistente. Lee, modifica y comprueba que sobrevive al reinicio.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="quick-btn" onclick="smGet()">📖 Leer</button>
+            <button class="quick-btn" onclick="smPatch()">✏️ Modificar</button>
+            <button class="quick-btn" onclick="smReset()">🧹 Limpiar vista</button>
+          </div>
+          <pre id="smOutput" style="margin-top:10px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:10px;color:#8a8a93;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-word">Sin datos todavía. Toca "Leer" para consultar el self-model.</pre>
+        </div>
         <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="quick-btn" onclick="clearLocalDB()">🗑️ Limpiar DB local</button><button class="quick-btn" onclick="forceSyncR2()">☁️ Forzar Sync R2</button><button class="quick-btn" onclick="exportBackup()">💾 Export Backup</button></div>
       </div>
     </div>
@@ -165,7 +174,6 @@ body{background:var(--bg);color:var(--text);font-family:Geist,Inter,sans-serif;h
 
 <script>
 if(!localStorage.getItem("akira_backend_url")) localStorage.setItem("akira_backend_url", "https://akira-empresa.onrender.com");
-// B1: sesion firmada del servidor. Solo se envia si existe y no ha caducado.
 function akiraAuthHeaders(){
   const h={'Content-Type':'application/json'};
   try{
@@ -276,6 +284,64 @@ function saveKey(){
   localStorage.setItem('akira_user_key',k);
   document.getElementById('keyStatus').textContent='✅ Guardada local';
 }
+async function smGet(){
+  const out=document.getElementById('smOutput');
+  if(!out) return;
+  out.textContent='⏳ Leyendo self-model...';
+  try{
+    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+    const r=await fetch(b+"/api/v8/self",{headers:akiraAuthHeaders(),cache:"no-store"});
+    const d=await r.json();
+    if(!d.ok){out.textContent='❌ '+(d.reason||'error')+'\n\n'+JSON.stringify(d,null,2);return;}
+    const sm=d.self_model||{};
+    const resumen={
+      version: sm.version,
+      id: sm.id,
+      identity: sm.identity,
+      purpose: sm.purpose,
+      capabilities_count: (sm.capabilities||[]).length,
+      capabilities_verified: (sm.capabilities||[]).filter(c=>c.status==='verified').length,
+      capabilities_not_implemented: (sm.capabilities||[]).filter(c=>c.status==='not_implemented').length,
+      tools_count: (sm.tools||[]).length,
+      models: sm.models,
+      uncertainties: sm.uncertainties,
+      updated_at: sm.updated_at
+    };
+    out.textContent='✅ GET /api/v8/self\n\n'+JSON.stringify(resumen,null,2);
+  }catch(e){out.textContent='❌ '+e.message;}
+}
+
+async function smPatch(){
+  const out=document.getElementById('smOutput');
+  if(!out) return;
+  out.textContent='⏳ Modificando self-model...';
+  try{
+    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+    const r0=await fetch(b+"/api/v8/self",{headers:akiraAuthHeaders(),cache:"no-store"});
+    const d0=await r0.json();
+    if(!d0.ok||!d0.self_model){out.textContent='❌ No se pudo leer el self-model antes de modificar.';return;}
+    const currentVersion=d0.self_model.version;
+    const stamp=new Date().toISOString().slice(0,16).replace('T',' ');
+    const nuevas=[
+      "prueba persistencia fase 5 ("+stamp+")",
+      ...(d0.self_model.uncertainties||[]).slice(0,4)
+    ];
+    const r=await fetch(b+"/api/v8/self",{
+      method:'PATCH',
+      headers:akiraAuthHeaders(),
+      body:JSON.stringify({changes:{uncertainties:nuevas},expected_version:currentVersion})
+    });
+    const d=await r.json();
+    if(!d.ok){out.textContent='❌ PATCH falló: '+(d.reason||'error')+'\n\n'+JSON.stringify(d,null,2);return;}
+    out.textContent='✅ PATCH OK — version '+currentVersion+' → '+d.self_model.version+'\n\nNuevas incertidumbres:\n'+JSON.stringify(d.self_model.uncertainties,null,2)+'\n\nAhora: en Render haz "Manual Deploy", espera 1-3 min, y toca "Leer" otra vez. La version debe seguir en '+d.self_model.version+' y tu texto debe aparecer en uncertainties.';
+  }catch(e){out.textContent='❌ '+e.message;}
+}
+
+function smReset(){
+  const out=document.getElementById('smOutput');
+  if(out) out.textContent='Sin datos todavía. Toca "Leer" para consultar el self-model.';
+}
+
 async function adminCheckSession(){
   const status=document.getElementById('adminLoginStatus');
   if(status) status.textContent="Verificando sesión en el servidor...";
@@ -338,7 +404,6 @@ async function generateUpwork(){
 document.addEventListener("DOMContentLoaded",async()=>{
   checkBridgeSimple();
   setInterval(checkBridgeSimple, 30000);
-  // KILL-SWITCH: borra Service Workers viejos que apuntaban a /sw.js (causaban 404 y flechita muerta)
   if('serviceWorker' in navigator){
     try{
       const regs = await navigator.serviceWorker.getRegistrations();
