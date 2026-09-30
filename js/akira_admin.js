@@ -1,4 +1,4 @@
-// AKIRA ADMIN PANEL V1.2 — Fase 5 · 6 · 7 · 8 · 9 · 10.3.
+// AKIRA ADMIN PANEL V1.3 — Fase 5 · 6 · 7 · 8 · 9 · 10.3 · 10.4.
 
 (function(){
   "use strict";
@@ -411,7 +411,7 @@
   window.f9Reset = function(){ _out("f9Output", "Salida limpiada.", false); };
 
   // ============================================================
-  // FASE 10.3 — MISIONES (botón temporal de prueba)
+  // FASE 10.3 — MISIONES (crear + planificar)
   // ============================================================
   window.createTestMission = async function(){
     const btn = document.getElementById("m1TestBtn");
@@ -454,7 +454,7 @@
           receives_from: s.receives_from,
         })),
         summary: plan.summary,
-        siguiente: "Aprobación humana se implementa en 10.4.",
+        siguiente: "Copia el mission_id y usa los botones de Fase 10.4 para aprobar o rechazar.",
       }, false);
     } finally {
       if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
@@ -462,6 +462,77 @@
   };
 
   window.m1Reset = function(){ _out("m1Output", "Salida limpiada.", false); };
+
+  // ============================================================
+  // FASE 10.4 — Aprobación y rechazo humano
+  // ============================================================
+  window.approveMission = async function(){
+    const input = document.getElementById("m1ApproveId");
+    const missionId = (input && input.value || "").trim();
+    if (!missionId) return _out("m1Output", "Pega primero el mission_id en el campo de Fase 10.4.", true);
+
+    const btn = document.getElementById("m1ApproveBtn");
+    if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
+    try {
+      _out("m1Output", "Aprobando " + missionId + "…", false);
+      const r = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId) + "/approve", {
+        method: "POST",
+      }, 25000);
+      if (!r.ok || !r.data || !r.data.ok) {
+        const reasonErr = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
+        const cur = (r.data && r.data.current_status) ? " (estado actual: " + r.data.current_status + ")" : "";
+        const det = (r.data && r.data.detail) ? " · " + r.data.detail : "";
+        return _out("m1Output", "❌ " + reasonErr + cur + det, true);
+      }
+      const m = r.data.mission;
+      _out("m1Output", {
+        ok: true,
+        mission_id: m.id,
+        status: m.status,
+        version: m.version,
+        started_at: m.started_at,
+        mensaje: "Misión aprobada → running. Orquestación llega en 10.5.",
+      }, false);
+    } finally {
+      if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
+    }
+  };
+
+  window.rejectMission = async function(){
+    const input = document.getElementById("m1ApproveId");
+    const missionId = (input && input.value || "").trim();
+    if (!missionId) return _out("m1Output", "Pega primero el mission_id en el campo de Fase 10.4.", true);
+
+    const reasonEl = document.getElementById("m1RejectReason");
+    const reasonText = (reasonEl && reasonEl.value || "").trim();
+
+    const btn = document.getElementById("m1RejectBtn");
+    if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
+    try {
+      _out("m1Output", "Rechazando " + missionId + "…", false);
+      const r = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId) + "/reject", {
+        method: "POST",
+        body: JSON.stringify({ reason: reasonText || "rejected_by_user" }),
+      }, 25000);
+      if (!r.ok || !r.data || !r.data.ok) {
+        const reasonErr = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
+        const cur = (r.data && r.data.current_status) ? " (estado actual: " + r.data.current_status + ")" : "";
+        const det = (r.data && r.data.detail) ? " · " + r.data.detail : "";
+        return _out("m1Output", "❌ " + reasonErr + cur + det, true);
+      }
+      const m = r.data.mission;
+      _out("m1Output", {
+        ok: true,
+        mission_id: m.id,
+        status: m.status,
+        version: m.version,
+        result: m.result,
+        mensaje: "Misión rechazada → cancelled.",
+      }, false);
+    } finally {
+      if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
+    }
+  };
 
   // ============================================================
   // Dashboard unificado
