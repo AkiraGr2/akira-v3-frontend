@@ -1,15 +1,11 @@
-// AKIRA ADMIN PANEL V1 — Reconstruido desde cero, aislado y honesto.
-// Fase 5 (Self-Model) · Fase 6 (Grafo+Aprendizaje) · Fase 7 (Ciclo Cognitivo)
-// Fase 8 (Tool Registry) · Fase 9 (Agentes+Tareas) · Dashboard unificado.
-// Reglas: no toca chat/membrana/oficina/sync; todos los fetch con timeout;
-// errores explican POR QUÉ; sesión se restaura al recargar.
+// AKIRA ADMIN PANEL V1.1 — Reconstruido + graphReinforce + graphCleanupTests.
+// Fase 5 · Fase 6 · Fase 7 · Fase 8 · Fase 9 · Dashboard unificado.
 
 (function(){
   "use strict";
 
   const BACKEND = () => localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
 
-  // ---------- helpers ----------
   function _authHeaders(){
     if (typeof window.akiraAuthHeaders === "function") {
       try { return window.akiraAuthHeaders(); } catch(_){}
@@ -83,7 +79,6 @@
       version: sm.version,
       updated_at: sm.updated_at,
       identity: sm.identity,
-      purpose: sm.purpose,
       capabilities_verificadas: caps.filter(c => c.status === "verified").length,
       capabilities_total: caps.length,
       no_implementadas: caps.filter(c => c.status === "not_implemented").map(c => c.name),
@@ -151,7 +146,7 @@
       ok: true,
       nodo_a: n1.data.id, nodo_b: n2.data.id,
       arista: e1.data.id, learning: l1.data.id,
-      mensaje: "Ciclo completo ejecutado. Todo persistió en Postgres.",
+      mensaje: "Ciclo completo ejecutado.",
     }, false);
   };
 
@@ -165,11 +160,32 @@
       por_tipo: ov.data.counts.by_type,
       por_relacion: ov.data.counts.by_relation,
       generado: ov.data.generated_at,
-      nota: "Para ver aprendizajes: no hay endpoint GET /learning lista. Usa tool learning_save por id o filtra por nodo.",
     }, false);
   };
 
   window.f6Reset = function(){ _out("f6Output", "Salida limpiada.", false); };
+
+  // NUEVAS: graphReinforce + graphCleanupTests (fix del botón huérfano).
+  window.graphReinforce = async function(){
+    _out("f6Output", "Reforzando pares frecuentes…", false);
+    const r = await _fetch("/api/v8/graph/reinforce", { method: "POST" }, 40000);
+    if (!r.ok || !r.data || !r.data.ok) return _out("f6Output", _errText(r), true);
+    _out("f6Output", { ok: true, resultado: r.data.result }, false);
+  };
+
+  window.graphCleanupTests = async function(){
+    _out("f6Output", "Archivando nodos test_*…", false);
+    const r = await _fetch("/api/v8/graph/cleanup_tests", { method: "POST" }, 40000);
+    if (!r.ok || !r.data || !r.data.ok) return _out("f6Output", _errText(r), true);
+    _out("f6Output", {
+      ok: true,
+      archivados: r.data.archived,
+      errores: r.data.errors,
+      mensaje: r.data.archived > 0
+        ? "Los nodos test_* fueron archivados. Refresca Cerebro Akira."
+        : "No se encontraron nodos test_* activos.",
+    }, false);
+  };
 
   // ============================================================
   // FASE 7 — Ciclo Cognitivo
@@ -394,7 +410,7 @@
   window.f9Reset = function(){ _out("f9Output", "Salida limpiada.", false); };
 
   // ============================================================
-  // Dashboard unificado (reemplaza checkBridgeAdmin roto)
+  // Dashboard unificado
   // ============================================================
   window.adminDashboard = async function(){
     _out("adminMembrana", "Consultando dashboard…", false);
@@ -435,11 +451,10 @@
     }
   };
 
-  // reemplaza la función rota del HTML
   window.checkBridgeAdmin = function(){ return window.adminDashboard(); };
 
   // ============================================================
-  // Restauración de sesión al recargar (arregla H-14)
+  // Restauración de sesión al recargar
   // ============================================================
   function restoreSession(){
     try {
@@ -462,11 +477,7 @@
     } catch(_){}
   }
 
-  // ============================================================
-  // Init
-  // ============================================================
   document.addEventListener("DOMContentLoaded", function(){
-    // Fallback por si adminCheckSession no está definido en el HTML.
     if (typeof window.adminCheckSession !== "function") {
       window.adminCheckSession = async function(){
         const status = document.getElementById("adminLoginStatus");
