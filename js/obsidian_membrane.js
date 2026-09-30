@@ -1,5 +1,6 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V8.2
-// Waypoints solo por los 4 pasillos reales (1 horizontal + 3 verticales).
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V8.3
+// Waypoints con coordenadas exactas de los 4 pasillos seguros.
+// Horizontal: Y 338-372. Verticales en X 3-95, 315-409, 630-720.
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
@@ -16,28 +17,29 @@ const SPRITE_RECTS = {
   internal:      [22, 132, 39, 155],
 };
 
-// Posiciones base (arrancan repartidos por el pasillo horizontal)
+// Cada agente en un pasillo seguro distinto
 const HOME_POSITIONS = {
-  researcher:    [110, 305],
-  memorizer:     [240, 305],
-  graph_builder: [480, 305],
-  learner:       [620, 305],
-  internal:      [355, 480],
+  researcher:    [49, 400],    // pasillo vertical izquierdo
+  memorizer:     [362, 400],   // pasillo vertical central
+  graph_builder: [675, 400],   // pasillo vertical derecho
+  learner:       [150, 355],   // pasillo horizontal (izquierda)
+  internal:      [550, 355],   // pasillo horizontal (derecha)
 };
 
-// Waypoints SOLO por pasillos (4 pasillos: 1 horizontal arriba + 3 verticales)
+// Waypoints con Y / X seguros (dentro de los pasillos reales)
 const WAYPOINTS = [
-  // Pasillo horizontal arriba (Y = 305): de izquierda a derecha
-  [60, 305], [140, 305], [220, 305], [300, 305], [380, 305], [460, 305], [540, 305], [620, 305], [680, 305],
+  // Pasillo horizontal arriba (Y = 355, entre Y=338 y Y=372)
+  [20, 355], [90, 355], [160, 355], [230, 355], [300, 355],
+  [370, 355], [440, 355], [510, 355], [580, 355], [650, 355], [700, 355],
 
-  // Pasillo vertical izquierdo (X = 30): baja por el borde izquierdo
-  [30, 380], [30, 470], [30, 560], [30, 620],
+  // Pasillo vertical izquierdo (X = 49, entre X=3 y X=95)
+  [49, 400], [49, 460], [49, 520], [49, 580], [49, 615],
 
-  // Pasillo vertical central (X = 355): baja entre los 2 bloques de escritorios
-  [355, 380], [355, 470], [355, 560], [355, 620],
+  // Pasillo vertical central (X = 362, entre X=315 y X=409)
+  [362, 400], [362, 460], [362, 520], [362, 580], [362, 615],
 
-  // Pasillo vertical derecho (X = 690): baja por el borde derecho
-  [690, 380], [690, 470], [690, 560], [690, 620],
+  // Pasillo vertical derecho (X = 675, entre X=630 y X=720)
+  [675, 400], [675, 460], [675, 520], [675, 580], [675, 615],
 ];
 
 const SPRITE_SCALE = 2;
@@ -394,12 +396,12 @@ function buildSpriteCache() {
 
 function _pickRandomWaypoint() {
   const wp = WAYPOINTS[Math.floor(Math.random() * WAYPOINTS.length)];
-  return [wp[0] + (Math.random() - 0.5) * 20, wp[1] + (Math.random() - 0.5) * 10];
+  return [wp[0] + (Math.random() - 0.5) * 14, wp[1] + (Math.random() - 0.5) * 8];
 }
 
 function _ensureMovementState(a) {
   if (typeof a.x !== "number") {
-    const home = HOME_POSITIONS[a.role] || [360, 305];
+    const home = HOME_POSITIONS[a.role] || [362, 400];
     a.x = home[0];
     a.y = home[1];
   }
