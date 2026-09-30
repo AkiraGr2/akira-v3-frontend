@@ -1,7 +1,7 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V10.0
-// Membrana: estilo Obsidian puro. Nodos solidos, fondo negro, aristas rectas,
-// labels tenues, pinch-zoom con dos dedos, tap-to-select, pan arrastrando.
-// Oficina: igual a V9.0.
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V11.0
+// Membrana: estilo Obsidian puro, máquina de estados limpia para gestos.
+// Fix bugs V10.0: listeners duplicados, detección tap, doble-tap, limpieza de gesto.
+// Oficina: igual que V10.0.
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
@@ -40,7 +40,7 @@ const IDLE_WAIT_MS = 8000;
 const BUSY_WAIT_MS = 4000;
 
 // ===========================================================================
-// MEMBRANA — estilo Obsidian puro
+// MEMBRANA — Obsidian puro con máquina de estados
 // ===========================================================================
 
 let membraneCanvas, membraneCtx;
@@ -53,29 +53,43 @@ let membraneCounts = { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
 let membranePhysicsOn = true;
 const MEMBRANE_REFRESH_MS = 7000;
 
-// Interaccion Obsidian
-let mSelectedNode = null;
+// ---- Viewport ----
 let mPanX = 0, mPanY = 0;
 let mZoom = 1.0;
-const M_ZOOM_MIN = 0.4;
+const M_ZOOM_MIN = 0.35;
 const M_ZOOM_MAX = 3.0;
+const M_ZOOM_DEFAULT = 1.0;
 
-// Estado de pan
-let mIsPanning = false;
-let mLastPointer = { x: 0, y: 0 };
+// ---- Selección ----
+let mSelectedNode = null;
 
-// Estado de pinch-zoom
-let mPinchActive = false;
+// ---- Máquina de estados de gesto ----
+// Estados posibles:
+//   null        -> sin gesto activo
+//   "pending"   -> dedo bajado, aún sin decidir si es tap/pan/drag
+//   "panning"   -> moviendo el lienzo
+//   "dragging"  -> moviendo un nodo
+//   "pinching"  -> zoom con 2 dedos
+let mGestureState = null;
+let mGestureStart = { x: 0, y: 0 };      // posición inicial (canvas coords)
+let mGestureLast = { x: 0, y: 0 };       // última posición (canvas coords)
+let mGestureNode = null;                  // nodo siendo arrastrado
+let mGestureMoved = false;                // se movió lo suficiente para no ser tap
+
+// Doble tap
+let mLastTapTime = 0;
+let mLastTapX = 0;
+let mLastTapY = 0;
+const M_TAP_MAX_MS = 300;
+const M_TAP_MAX_MOVE = 10;                // px en canvas coords
+const M_TAP_MAX_DIST = 40;                // entre taps para contar como doble
+const M_DOUBLE_TAP_MS = 350;
+
+// Pinch
 let mPinchStartDist = 0;
 let mPinchStartZoom = 1.0;
-let mPinchStartMid = { x: 0, y: 0 };
-let mPinchStartPan = { x: 0, y: 0 };
-
-// Doble tap para reset
-let mLastTapTime = 0;
-
-// Drag de un nodo individual
-let mDraggingNode = null;
+let mPinchAnchorWorld = { x: 0, y: 0 };   // punto del mundo bajo el punto medio
+let mPinchAnchorCanvas = { x: 0, y: 0 };  // posición inicial del punto medio
 
 const NODE_TYPE_COLORS = {
   concept:    "#8b5cf6",
@@ -133,221 +147,280 @@ function initMembraneGraph() {
   refreshMembrane(true);
 }
 
-// ---------------------------------------------------------------- interaccion
+// ---------------------------------------------------------------- helpers
+function _evToCanvas(clientX, clientY) {
+  const r = membraneCanvas.getBoundingClientRect();
+  const sx = membraneCanvas.width / r.width;
+  const sy = membraneCanvas.height / r.height;
+  return {
+    x: (clientX - r.left) * sx,
+    y: (clientY - r.top) * sy,
+  };
+}
+
+function _canvasToWorld(px, py) {
+  return {
+    x: (px - mPanX) / mZoom,
+    y: (py - mPanY) / mZoom,
+  };
+}
+
+function _hitNode(px, py) {
+  const w = _canvasToWorld(px, py);
+  let best = null, bestD = Infinity;
+  for (const nd of membraneNodes) {
+    const d = Math.hypot(nd.x - w.x, nd.y - w.y);
+    const threshold = nd.r + 8 / mZoom;
+    if (d < threshold && d < bestD) { best = nd; bestD = d; }
+  }
+  return best;
+}
+
+function _touchDist(t1, t2) {
+  return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+}
+
+function _touchMid(t1, t2) {
+  return {
+    clientX: (t1.clientX + t2.clientX) / 2,
+    clientY: (t1.clientY + t2.clientY) / 2,
+  };
+}
+
+function _resetGesture() {
+  mGestureState = null;
+  mGestureNode = null;
+  mGestureMoved = false;
+}
+
+// ---------------------------------------------------------------- interacciones
 function _bindMembraneInteractions() {
   if (!membraneCanvas || membraneCanvas._akiraBound) return;
   membraneCanvas._akiraBound = true;
 
-  const evPos = (clientX, clientY) => {
-    const r = membraneCanvas.getBoundingClientRect();
-    const cx = clientX - r.left;
-    const cy = clientY - r.top;
-    const sx = membraneCanvas.width / r.width;
-    const sy = membraneCanvas.height / r.height;
-    return { x: cx * sx, y: cy * sy };
-  };
-
-  // Convertir coordenadas de canvas a coordenadas mundo (aplicando pan/zoom)
-  const toWorld = (px, py) => {
-    return {
-      x: (px - mPanX) / mZoom,
-      y: (py - mPanY) / mZoom,
-    };
-  };
-
-  const hitNode = (px, py) => {
-    const w = toWorld(px, py);
-    let best = null, bestD = Infinity;
-    for (const nd of membraneNodes) {
-      const d = Math.hypot(nd.x - w.x, nd.y - w.y);
-      const threshold = nd.r + 8 / mZoom;
-      if (d < threshold && d < bestD) { best = nd; bestD = d; }
-    }
-    return best;
-  };
-
-  const dist2 = (t1, t2) => Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-  const mid2 = (t1, t2) => ({
-    x: (t1.clientX + t2.clientX) / 2,
-    y: (t1.clientY + t2.clientY) / 2,
-  });
-
-  // ---- Touch events (Android) ----
+  // ---- TOUCH ----
   membraneCanvas.addEventListener("touchstart", (e) => {
     if (e.touches.length === 2) {
       e.preventDefault();
-      mPinchActive = true;
-      mIsPanning = false;
-      mDraggingNode = null;
-      mPinchStartDist = dist2(e.touches[0], e.touches[1]);
+      mGestureState = "pinching";
+      mGestureNode = null;
+      const mid = _touchMid(e.touches[0], e.touches[1]);
+      const midCanvas = _evToCanvas(mid.clientX, mid.clientY);
+      mPinchStartDist = _touchDist(e.touches[0], e.touches[1]) || 1;
       mPinchStartZoom = mZoom;
-      const mid = mid2(e.touches[0], e.touches[1]);
-      mPinchStartMid = evPos(mid.x, mid.y);
-      mPinchStartPan = { x: mPanX, y: mPanY };
+      mPinchAnchorCanvas = midCanvas;
+      mPinchAnchorWorld = _canvasToWorld(midCanvas.x, midCanvas.y);
       return;
     }
+
     if (e.touches.length === 1) {
-      const p = evPos(e.touches[0].clientX, e.touches[0].clientY);
-      const hit = hitNode(p.x, p.y);
+      const p = _evToCanvas(e.touches[0].clientX, e.touches[0].clientY);
+      mGestureStart = p;
+      mGestureLast = p;
+      mGestureMoved = false;
+
+      const hit = _hitNode(p.x, p.y);
       if (hit) {
-        // Arrastrar un nodo
-        mDraggingNode = hit;
-        mLastPointer = p;
+        mGestureState = "pending";
+        mGestureNode = hit;
       } else {
-        mIsPanning = true;
-        mLastPointer = p;
+        mGestureState = "pending";
+        mGestureNode = null;
       }
     }
   }, { passive: false });
 
   membraneCanvas.addEventListener("touchmove", (e) => {
-    if (mPinchActive && e.touches.length === 2) {
+    if (mGestureState === "pinching" && e.touches.length === 2) {
       e.preventDefault();
-      const newDist = dist2(e.touches[0], e.touches[1]);
-      if (mPinchStartDist < 1) return;
+      const newDist = _touchDist(e.touches[0], e.touches[1]) || 1;
       let newZoom = mPinchStartZoom * (newDist / mPinchStartDist);
       newZoom = Math.max(M_ZOOM_MIN, Math.min(M_ZOOM_MAX, newZoom));
 
-      // Anclar el zoom al punto medio del pinch
-      const mid = mid2(e.touches[0], e.touches[1]);
-      const midCanvas = evPos(mid.x, mid.y);
-      const worldX = (mPinchStartMid.x - mPinchStartPan.x) / mPinchStartZoom;
-      const worldY = (mPinchStartMid.y - mPinchStartPan.y) / mPinchStartZoom;
+      // Anclar: el punto del mundo bajo el centro actual debe quedar bajo el centro actual.
+      const mid = _touchMid(e.touches[0], e.touches[1]);
+      const midCanvasNow = _evToCanvas(mid.clientX, mid.clientY);
 
       mZoom = newZoom;
-      mPanX = midCanvas.x - worldX * mZoom;
-      mPanY = midCanvas.y - worldY * mZoom;
+      mPanX = midCanvasNow.x - mPinchAnchorWorld.x * mZoom;
+      mPanY = midCanvasNow.y - mPinchAnchorWorld.y * mZoom;
       return;
     }
-    if (e.touches.length === 1) {
-      const p = evPos(e.touches[0].clientX, e.touches[0].clientY);
-      if (mDraggingNode) {
-        const w = toWorld(p.x, p.y);
-        mDraggingNode.x = w.x;
-        mDraggingNode.y = w.y;
-        mDraggingNode.vx = 0;
-        mDraggingNode.vy = 0;
-        mDraggingNode.fx = 0;
-        mDraggingNode.fy = 0;
-      } else if (mIsPanning) {
-        mPanX += p.x - mLastPointer.x;
-        mPanY += p.y - mLastPointer.y;
-        mLastPointer = p;
+
+    if (e.touches.length === 1 && (mGestureState === "pending" || mGestureState === "panning" || mGestureState === "dragging")) {
+      const p = _evToCanvas(e.touches[0].clientX, e.touches[0].clientY);
+      const dx = p.x - mGestureStart.x;
+      const dy = p.y - mGestureStart.y;
+      const moved = Math.hypot(dx, dy);
+
+      // Decidir tipo de gesto si estábamos pending y ya nos movimos
+      if (mGestureState === "pending" && moved > 6) {
+        if (mGestureNode) mGestureState = "dragging";
+        else mGestureState = "panning";
+        mGestureMoved = true;
       }
+
+      if (mGestureState === "dragging" && mGestureNode) {
+        // Mover el nodo
+        const w = _canvasToWorld(p.x, p.y);
+        mGestureNode.x = w.x;
+        mGestureNode.y = w.y;
+        mGestureNode.vx = 0;
+        mGestureNode.vy = 0;
+      } else if (mGestureState === "panning") {
+        mPanX += p.x - mGestureLast.x;
+        mPanY += p.y - mGestureLast.y;
+      }
+
+      mGestureLast = p;
       if (e.cancelable) e.preventDefault();
     }
   }, { passive: false });
 
-  membraneCanvas.addEventListener("touchend", (e) => {
-    if (e.touches.length < 2) mPinchActive = false;
+  const endTouch = (e) => {
+    // Si quedan dedos activos, actualizar estado
+    if (e.touches.length === 2) {
+      // Se acaba de soltar uno y quedan 2: poco probable pero por si acaso
+      mGestureState = "pinching";
+      const mid = _touchMid(e.touches[0], e.touches[1]);
+      const midCanvas = _evToCanvas(mid.clientX, mid.clientY);
+      mPinchStartDist = _touchDist(e.touches[0], e.touches[1]) || 1;
+      mPinchStartZoom = mZoom;
+      mPinchAnchorCanvas = midCanvas;
+      mPinchAnchorWorld = _canvasToWorld(midCanvas.x, midCanvas.y);
+      return;
+    }
+    if (e.touches.length === 1) {
+      // Quedan 1 dedo. Reiniciar como pending (por ejemplo si veníamos de pinch).
+      const p = _evToCanvas(e.touches[0].clientX, e.touches[0].clientY);
+      mGestureState = "pending";
+      mGestureStart = p;
+      mGestureLast = p;
+      mGestureNode = _hitNode(p.x, p.y);
+      mGestureMoved = false;
+      return;
+    }
 
-    if (e.touches.length === 0) {
-      // Chequeo de tap o doble tap
-      const wasDragging = mDraggingNode !== null || mIsPanning;
-
-      // Detectar tap simple (no drag)
-      if (!wasDragging || (mLastPointer && Math.abs(mLastPointer.x - mLastPointer.x) < 1)) {
-        // Esta condicion es dificil; mejor siempre comprobar tap con tiempo
-      }
-
-      // Detectar doble tap por tiempo
+    // 0 dedos: gesto terminado
+    if (mGestureState === "pending" && !mGestureMoved) {
+      // Fue un tap
       const now = Date.now();
-      if (now - mLastTapTime < 300) {
-        // Doble tap -> reset
-        mZoom = 1.0;
+      const dt = now - mLastTapTime;
+      const dd = Math.hypot(mGestureStart.x - mLastTapX, mGestureStart.y - mLastTapY);
+
+      if (dt < M_DOUBLE_TAP_MS && dd < M_TAP_MAX_DIST) {
+        // Doble tap -> resetear vista y deseleccionar
+        mZoom = M_ZOOM_DEFAULT;
         mPanX = 0;
         mPanY = 0;
         mSelectedNode = null;
         mLastTapTime = 0;
       } else {
+        // Tap simple
+        const hit = _hitNode(mGestureStart.x, mGestureStart.y);
+        if (hit) {
+          // Toggle: si el mismo nodo ya estaba seleccionado, deseleccionar
+          if (mSelectedNode === hit.id) mSelectedNode = null;
+          else mSelectedNode = hit.id;
+        } else {
+          mSelectedNode = null;
+        }
         mLastTapTime = now;
+        mLastTapX = mGestureStart.x;
+        mLastTapY = mGestureStart.y;
       }
-
-      mIsPanning = false;
-      mDraggingNode = null;
     }
-  });
 
-  // ---- Pointer events (desktop, por si acaso) ----
+    _resetGesture();
+  };
+
+  membraneCanvas.addEventListener("touchend", endTouch, { passive: true });
+  membraneCanvas.addEventListener("touchcancel", endTouch, { passive: true });
+
+  // ---- POINTER (desktop) ----
   membraneCanvas.addEventListener("pointerdown", (e) => {
-    if (e.pointerType === "touch") return; // ya cubierto por touch events
-    const p = evPos(e.clientX, e.clientY);
-    const hit = hitNode(p.x, p.y);
+    if (e.pointerType === "touch") return;
+    const p = _evToCanvas(e.clientX, e.clientY);
+    mGestureStart = p;
+    mGestureLast = p;
+    mGestureMoved = false;
+
+    const hit = _hitNode(p.x, p.y);
     if (hit) {
-      mDraggingNode = hit;
-      mLastPointer = p;
+      mGestureState = "pending";
+      mGestureNode = hit;
     } else {
-      mIsPanning = true;
-      mLastPointer = p;
-      const now = Date.now();
-      if (now - mLastTapTime < 300) {
-        mZoom = 1.0; mPanX = 0; mPanY = 0; mSelectedNode = null;
-        mLastTapTime = 0;
-      } else {
-        mLastTapTime = now;
-      }
+      mGestureState = "pending";
+      mGestureNode = null;
     }
   });
 
   membraneCanvas.addEventListener("pointermove", (e) => {
     if (e.pointerType === "touch") return;
-    const p = evPos(e.clientX, e.clientY);
-    if (mDraggingNode) {
-      const w = toWorld(p.x, p.y);
-      mDraggingNode.x = w.x;
-      mDraggingNode.y = w.y;
-      mDraggingNode.vx = 0;
-      mDraggingNode.vy = 0;
-    } else if (mIsPanning) {
-      mPanX += p.x - mLastPointer.x;
-      mPanY += p.y - mLastPointer.y;
-      mLastPointer = p;
+    if (mGestureState !== "pending" && mGestureState !== "panning" && mGestureState !== "dragging") return;
+
+    const p = _evToCanvas(e.clientX, e.clientY);
+    const moved = Math.hypot(p.x - mGestureStart.x, p.y - mGestureStart.y);
+
+    if (mGestureState === "pending" && moved > 6) {
+      if (mGestureNode) mGestureState = "dragging";
+      else mGestureState = "panning";
+      mGestureMoved = true;
     }
+
+    if (mGestureState === "dragging" && mGestureNode) {
+      const w = _canvasToWorld(p.x, p.y);
+      mGestureNode.x = w.x;
+      mGestureNode.y = w.y;
+      mGestureNode.vx = 0;
+      mGestureNode.vy = 0;
+    } else if (mGestureState === "panning") {
+      mPanX += p.x - mGestureLast.x;
+      mPanY += p.y - mGestureLast.y;
+    }
+
+    mGestureLast = p;
   });
 
-  membraneCanvas.addEventListener("pointerup", (e) => {
+  const endPointer = (e) => {
     if (e.pointerType === "touch") return;
-    const p = evPos(e.clientX, e.clientY);
-    // Si no hubo drag, es un tap
-    if (mDraggingNode === null && mIsPanning) {
-      const moved = Math.hypot(p.x - mLastPointer.x, p.y - mLastPointer.y);
-      if (moved < 6) {
-        const hit = hitNode(p.x, p.y);
-        mSelectedNode = hit ? hit.id : null;
+
+    if (mGestureState === "pending" && !mGestureMoved) {
+      const now = Date.now();
+      const dt = now - mLastTapTime;
+      const dd = Math.hypot(mGestureStart.x - mLastTapX, mGestureStart.y - mLastTapY);
+
+      if (dt < M_DOUBLE_TAP_MS && dd < M_TAP_MAX_DIST) {
+        mZoom = M_ZOOM_DEFAULT;
+        mPanX = 0;
+        mPanY = 0;
+        mSelectedNode = null;
+        mLastTapTime = 0;
+      } else {
+        const hit = _hitNode(mGestureStart.x, mGestureStart.y);
+        if (hit) {
+          if (mSelectedNode === hit.id) mSelectedNode = null;
+          else mSelectedNode = hit.id;
+        } else {
+          mSelectedNode = null;
+        }
+        mLastTapTime = now;
+        mLastTapX = mGestureStart.x;
+        mLastTapY = mGestureStart.y;
       }
     }
-    mIsPanning = false;
-    mDraggingNode = null;
-  });
 
+    _resetGesture();
+  };
+
+  membraneCanvas.addEventListener("pointerup", endPointer);
+  membraneCanvas.addEventListener("pointercancel", endPointer);
   membraneCanvas.addEventListener("pointerleave", () => {
-    mIsPanning = false;
-    mDraggingNode = null;
+    if (mGestureState !== "pinching") _resetGesture();
   });
-
-  // Tap simple en touch (sin drag): manejar aqui el toggle de seleccion
-  membraneCanvas.addEventListener("touchstart", (e) => {
-    if (e.touches.length !== 1) return;
-    const p = evPos(e.touches[0].clientX, e.touches[0].clientY);
-    // Guardar la posicion de inicio del tap
-    membraneCanvas._tapStart = p;
-  }, { passive: true });
-
-  membraneCanvas.addEventListener("touchend", (e) => {
-    if (e.changedTouches.length !== 1) return;
-    if (mPinchActive) return;
-    const start = membraneCanvas._tapStart;
-    if (!start) return;
-    const end = evPos(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-    const moved = Math.hypot(end.x - start.x, end.y - start.y);
-    if (moved < 8) {
-      const hit = hitNode(end.x, end.y);
-      mSelectedNode = hit ? hit.id : null;
-    }
-    membraneCanvas._tapStart = null;
-  }, { passive: true });
 }
 
+// ---------------------------------------------------------------- datos
 async function refreshMembrane(force) {
   if (membraneFetching) return;
   if (!force && Date.now() - membraneLastFetch < MEMBRANE_REFRESH_MS) return;
@@ -363,7 +436,6 @@ async function refreshMembrane(force) {
 
       membraneNodes = (data.nodes || []).map((n, i) => {
         const prev = prevById.get(n.id);
-        // Tamano estilo Obsidian: 5-16 px
         const r = 5 + Math.min((n.reuse_count || 0) * 0.8, 8) + Math.min((n.weight || 0) * 0.5, 4);
         if (prev) return Object.assign({}, prev, n, { r: r, fx: 0, fy: 0 });
         const total = Math.max((data.nodes || []).length, 1);
@@ -390,6 +462,7 @@ async function refreshMembrane(force) {
   }
 }
 
+// ---------------------------------------------------------------- fisica
 function stepMembranePhysics() {
   const W = membraneCanvas.width, H = membraneCanvas.height;
   const cx = W / 2, cy = H / 2;
@@ -438,8 +511,9 @@ function stepMembranePhysics() {
 
   const damp = 0.75;
   const maxV = 6;
+  const dragged = (mGestureState === "dragging" && mGestureNode) ? mGestureNode : null;
   for (const nd of membraneNodes) {
-    if (nd === mDraggingNode) continue; // No mover el nodo arrastrado por fisica
+    if (nd === dragged) { nd.vx = 0; nd.vy = 0; continue; }
     nd.vx = (nd.vx + nd.fx) * damp;
     nd.vy = (nd.vy + nd.fy) * damp;
     if (nd.vx > maxV) nd.vx = maxV;
@@ -455,11 +529,12 @@ function stepMembranePhysics() {
   }
 }
 
+// ---------------------------------------------------------------- dibujo
 function drawMembrane() {
   if (!membraneCtx) return;
   const W = membraneCanvas.width, H = membraneCanvas.height;
 
-  // Fondo negro puro (estilo Obsidian dark)
+  // Fondo
   membraneCtx.fillStyle = "#0a0a0d";
   membraneCtx.fillRect(0, 0, W, H);
 
@@ -495,23 +570,23 @@ function drawMembrane() {
     }
   }
 
-  // Aplicar pan y zoom
+  // Vista con pan/zoom
   membraneCtx.save();
   membraneCtx.translate(mPanX, mPanY);
   membraneCtx.scale(mZoom, mZoom);
 
-  // ---- ARISTAS RECTAS (estilo Obsidian) ----
+  // Aristas rectas
   membraneCtx.lineCap = "round";
   for (const e of membraneEdges) {
     const a = byId.get(e.from_node), b = byId.get(e.to_node);
     if (!a || !b) continue;
 
-    const connectedToSelected = !mSelectedNode ||
+    const connected = !mSelectedNode ||
       (e.from_node === mSelectedNode || e.to_node === mSelectedNode);
 
     const w = e.weight || 1;
     let alpha = Math.min(0.55, 0.15 + w * 0.08);
-    if (!connectedToSelected) alpha = 0.05;
+    if (!connected) alpha = 0.05;
 
     membraneCtx.strokeStyle = "rgba(160, 170, 200, " + alpha.toFixed(3) + ")";
     membraneCtx.lineWidth = Math.min(2, 0.6 + w * 0.3);
@@ -521,7 +596,7 @@ function drawMembrane() {
     membraneCtx.stroke();
   }
 
-  // ---- NODOS SOLIDOS (estilo Obsidian) ----
+  // Nodos solidos
   membraneCtx.textAlign = "center";
   for (const nd of membraneNodes) {
     const color = NODE_TYPE_COLORS[nd.node_type] || "#6366f1";
@@ -531,14 +606,12 @@ function drawMembrane() {
 
     const opacity = dimmed ? 0.15 : 1.0;
 
-    // Círculo sólido
     membraneCtx.globalAlpha = opacity;
     membraneCtx.fillStyle = color;
     membraneCtx.beginPath();
     membraneCtx.arc(nd.x, nd.y, nd.r, 0, Math.PI * 2);
     membraneCtx.fill();
 
-    // Si está seleccionado, un aro fino alrededor
     if (isSelected) {
       membraneCtx.strokeStyle = "#ffffff";
       membraneCtx.lineWidth = 1.5 / mZoom;
@@ -548,14 +621,12 @@ function drawMembrane() {
     }
     membraneCtx.globalAlpha = 1;
 
-    // Label: tenue y pequeño. Solo se ilumina el del nodo seleccionado.
     const label = String(nd.label || nd.id || "").slice(0, 24);
     if (label) {
       const isHighlight = isSelected || (isNeighbor && mSelectedNode);
       const labelAlpha = dimmed ? 0.12 : (isHighlight ? 1 : 0.55);
       const fontSize = isHighlight ? 12 : 10;
       membraneCtx.font = (isHighlight ? "bold " : "") + fontSize + "px monospace";
-      const tw = membraneCtx.measureText(label).width;
       const lx = nd.x, ly = nd.y + nd.r + 12;
 
       membraneCtx.globalAlpha = labelAlpha;
@@ -567,7 +638,7 @@ function drawMembrane() {
 
   membraneCtx.restore();
 
-  // ---- HUD ----
+  // HUD
   membraneCtx.textAlign = "right";
   membraneCtx.font = "11px monospace";
   membraneCtx.fillStyle = "#7a7a83";
@@ -587,10 +658,9 @@ function drawMembrane() {
     membraneCtx.fillStyle = "#4a4a53";
     membraneCtx.fillText("Toca fuera para deseleccionar", 14, 38);
   } else {
-    membraneCtx.fillText("Toca un nodo · Arrastra para mover · Pinch para zoom", 14, 22);
+    membraneCtx.fillText("Tap: seleccionar · Arrastra: mover · Pinch: zoom · Doble tap: reset", 14, 22);
   }
 
-  // Indicador de zoom
   if (Math.abs(mZoom - 1.0) > 0.01) {
     membraneCtx.textAlign = "right";
     membraneCtx.font = "10px monospace";
@@ -605,7 +675,7 @@ function drawMembrane() {
 function addNeuronaToGraph() { /* no-op */ }
 
 // ===========================================================================
-// OFICINA (sin cambios respecto a V9.0)
+// OFICINA (igual que V10.0)
 // ===========================================================================
 
 let officeCanvas, officeCtx;
