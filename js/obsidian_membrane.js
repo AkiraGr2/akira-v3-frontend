@@ -1,14 +1,8 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V14.0
-// Cambios V14.0 (Cerebro):
-//   - Dispersion inicial manual en espiral antes del layout (rompe apelotonamiento).
-//   - Layout cose con nodeRepulsion 120000, gravity 0.08 (nodos bien separados).
-//   - Layout doble: primero seco (asienta posiciones), luego animado (queda bonito).
-//   - Labels numerados estables por id (1, 2, 3...) guardados en localStorage.
-// Cambios V13.2:
-//   - Filtro top-N aristas por nodo (menos maraña).
-// Cambios V13.1:
-//   - Aristas mas visibles (opacidad 0.55, color #5a5a70).
-// Oficina: sin cambios respecto a V12.
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V15.1
+// Cambios V15.1:
+//   - Nucleo 'Akira' se pinta rojo, grande, con glow (efecto sol).
+//   - Layout cose-bilkent (algoritmo de Obsidian) con fallback a cose.
+//   - Resto igual que V15.0.
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
@@ -29,7 +23,6 @@ const H_Y = 355;
 const VL_X = 49;
 const VC_X = 362;
 const VR_X = 675;
-
 const H_POINTS = [60, 130, 200, 270, 340, 410, 480, 550, 620, 690];
 const V_POINTS = [380, 440, 500, 560, 610];
 
@@ -47,26 +40,19 @@ const IDLE_WAIT_MS = 8000;
 const BUSY_WAIT_MS = 4000;
 
 const NODE_TYPE_COLORS = {
-  concept:    "#8b5cf6",
-  person:     "#ec4899",
-  project:    "#f59e0b",
-  tool:       "#06b6d4",
-  experience: "#10b981",
-  document:   "#a78bfa",
-  skill:      "#facc15",
-  error:      "#ef4444",
-  solution:   "#22c55e",
-  mission:    "#fb923c",
+  concept: "#8b5cf6", person: "#ec4899", project: "#f59e0b", tool: "#06b6d4",
+  experience: "#10b981", document: "#a78bfa", skill: "#facc15",
+  error: "#ef4444", solution: "#22c55e", mission: "#fb923c",
 };
 
-const AGENT_ROLE_COLOR = {
-  researcher: "#06b6d4",
-  memorizer: "#8b5cf6",
-  graph_builder: "#6366f1",
-  learner: "#10b981",
-  internal: "#a78bfa",
-  generic: "#6366f1",
-};
+(function _registerCoseBilkent(){
+  try {
+    if (typeof window.cytoscape !== "undefined" && typeof window.cytoscapeCoseBilkent === "function") {
+      window.cytoscape.use(window.cytoscapeCoseBilkent);
+      console.log("[membrane] cose-bilkent registrado");
+    }
+  } catch(e) { console.warn("[membrane] cose-bilkent registro fallo:", e); }
+})();
 
 function _authHeaders() {
   if (typeof window.akiraAuthHeaders === "function") {
@@ -84,7 +70,7 @@ async function _fetchJson(url) {
 }
 
 // ===========================================================================
-// CEREBRO AKIRA (MEMBRANA) — Cytoscape.js V14.0
+// CEREBRO AKIRA (MEMBRANA) — Cytoscape.js V15.1
 // ===========================================================================
 
 let cyMembrane = null;
@@ -96,10 +82,9 @@ let membraneHasRunLayoutOnce = false;
 let membraneLayoutTimer = null;
 const MEMBRANE_REFRESH_MS = 7000;
 
-const MIN_EDGE_WEIGHT_VISIBLE = 0.5;
-const MAX_EDGES_PER_NODE = 5;
+const MIN_EDGE_WEIGHT_VISIBLE = 0.3;
+const MAX_EDGES_PER_NODE = 6;
 
-// --- Contador estable de labels por id ---
 let _labelCounter = null;
 let _labelMax = 0;
 function _getLabelCounter() {
@@ -126,11 +111,13 @@ function _abbreviateLabel(id, label) {
   if (!label && !id) return "";
   const s = String(label || "");
   const i = String(id || "");
-  if (s.startsWith("memory:mem_"))     return _labelForId(i, "mem");
-  if (s.startsWith("learning:"))       return _labelForId(i, "learn");
-  if (s.startsWith("agent:"))          return _labelForId(i, s.slice(6));
-  if (s.startsWith("tool:"))           return _labelForId(i, s.slice(5));
-  if (i.startsWith("node_"))           return _labelForId(i, s.slice(0, 14));
+  // El nucleo mantiene su label real
+  if (s.trim().toLowerCase() === "akira") return "Akira";
+  if (s.startsWith("memory:mem_"))   return _labelForId(i, "mem");
+  if (s.startsWith("learning:"))     return _labelForId(i, "learn");
+  if (s.startsWith("agent:"))        return _labelForId(i, s.slice(6));
+  if (s.startsWith("tool:"))         return _labelForId(i, s.slice(5));
+  if (i.startsWith("node_"))         return _labelForId(i, s.slice(0, 14));
   if (s.length > 20) return s.slice(0, 18) + "…";
   return s;
 }
@@ -162,10 +149,26 @@ function _cytoscapeStyle() {
       'label': 'data(label)',
       'color': '#d0d0d8', 'font-family': 'monospace', 'font-size': 10, 'font-weight': 400,
       'text-valign': 'bottom', 'text-halign': 'center', 'text-margin-y': 5,
-      'text-opacity': 0.7, 'text-wrap': 'wrap', 'text-max-width': 100,
+      'text-opacity': 0.75, 'text-wrap': 'wrap', 'text-max-width': 100,
       'border-width': 0,
       'transition-property': 'opacity, border-width, shadow-blur, shadow-opacity',
       'transition-duration': '180ms',
+    }},
+    // NUCLEO: rojo, grande, con glow fuerte
+    { selector: 'node.core', style: {
+      'background-color': '#ef4444',
+      'background-opacity': 1.0,
+      'width': 56,
+      'height': 56,
+      'color': '#ffffff',
+      'font-size': 13,
+      'font-weight': 'bold',
+      'text-opacity': 1,
+      'border-width': 3,
+      'border-color': '#ffffff',
+      'shadow-blur': 40,
+      'shadow-color': '#ef4444',
+      'shadow-opacity': 0.85,
     }},
     { selector: 'node:selected', style: {
       'border-width': 2, 'border-color': '#ffffff',
@@ -183,31 +186,56 @@ function _cytoscapeStyle() {
       'curve-style': 'straight', 'opacity': 0.55,
       'transition-property': 'opacity, line-color', 'transition-duration': '180ms',
     }},
+    // Aristas hacia el nucleo: un poco mas visibles
+    { selector: 'edge.to-core', style: {
+      'line-color': '#8a5a5a',
+      'opacity': 0.45,
+    }},
     { selector: 'edge.highlighted', style: { 'opacity': 0.9, 'line-color': '#b8b8d0' }},
     { selector: 'edge.dimmed', style: { 'opacity': 0.08 }},
   ];
 }
 
 function _layoutOptions(animate) {
+  if (typeof window.cytoscapeCoseBilkent === "function") {
+    return {
+      name: 'cose-bilkent',
+      animate: !!animate ? 'end' : false,
+      animationDuration: 900,
+      animationEasing: 'ease-out',
+      quality: 'default',
+      nodeRepulsion: 5000,
+      idealEdgeLength: 65,
+      edgeElasticity: 0.45,
+      nestingFactor: 0.1,
+      gravity: 0.3,
+      numIter: 2500,
+      tile: true,
+      randomize: true,
+      nodeDimensionsIncludeLabels: false,
+      fit: true,
+      padding: 50,
+    };
+  }
   return {
     name: 'cose',
     animate: !!animate,
-    animationDuration: 900,
+    animationDuration: 600,
     animationEasing: 'ease-out',
-    randomize: true,
-    nodeRepulsion: 120000,
-    idealEdgeLength: 200,
-    edgeElasticity: 0.5,
+    randomize: false,
+    nodeRepulsion: 50000,
+    idealEdgeLength: 100,
+    edgeElasticity: 0.4,
     nestingFactor: 0.1,
-    gravity: 0.08,
-    numIter: 3000,
-    initialTemp: 400,
+    gravity: 0.35,
+    numIter: 2500,
+    initialTemp: 200,
     coolingFactor: 0.95,
     minTemp: 1.0,
     fit: true,
-    padding: 80,
-    nodeOverlap: 60,
-    componentSpacing: 250,
+    padding: 50,
+    nodeOverlap: 20,
+    componentSpacing: 60,
   };
 }
 
@@ -219,7 +247,7 @@ function _disperseNodes() {
   const w = cyMembrane.width() || 800;
   const h = cyMembrane.height() || 600;
   const cx = w / 2, cy = h / 2;
-  const maxRadius = Math.min(w, h) * 0.42;
+  const maxRadius = Math.min(w, h) * 0.35;
   const golden = Math.PI * (3 - Math.sqrt(5));
   nodes.forEach((n, i) => {
     const angle = i * golden;
@@ -233,22 +261,19 @@ function _runLayoutSafely(animate) {
   membraneLayoutTimer = setTimeout(() => {
     if (!cyMembrane) return;
     try {
-      _disperseNodes();
-      const layout1 = cyMembrane.layout(_layoutOptions(false));
-      layout1.run();
-      if (animate) {
-        setTimeout(() => {
-          if (!cyMembrane) return;
-          const layout2 = cyMembrane.layout(_layoutOptions(true));
-          layout2.run();
-        }, 50);
+      if (typeof window.cytoscapeCoseBilkent !== "function") {
+        _disperseNodes();
       }
-      try { cyMembrane.fit(undefined, 80); } catch(_){}
+      const layout = cyMembrane.layout(_layoutOptions(animate));
+      layout.run();
+      layout.on('layoutstop', function(){
+        try { cyMembrane.fit(undefined, 50); } catch(_){}
+      });
     } catch (e) {
       console.warn("[membrane] layout fallo:", e);
     }
     membraneLayoutTimer = null;
-  }, 80);
+  }, 100);
 }
 
 function initMembraneGraph() {
@@ -287,7 +312,7 @@ function initMembraneGraph() {
       }
     });
     cyMembrane.on('dbltap', (evt) => {
-      if (evt.target === cyMembrane) { cyMembrane.fit(undefined, 60); cyMembrane.center(); }
+      if (evt.target === cyMembrane) { cyMembrane.fit(undefined, 50); cyMembrane.center(); }
     });
     if (window.ResizeObserver) {
       const ro = new ResizeObserver(() => { if (cyMembrane) cyMembrane.resize(); });
@@ -299,7 +324,7 @@ function initMembraneGraph() {
   }
 }
 
-function _highlightNeighbors(node, soft) {
+function _highlightNeighbors(node) {
   if (!cyMembrane) return;
   const neighborhood = node.closedNeighborhood();
   cyMembrane.elements().removeClass('highlighted').removeClass('dimmed');
@@ -334,15 +359,29 @@ function _applyGraphToCy(data) {
   if (!cyMembrane) return;
   const nodes = data.nodes || [];
   const edges = data.edges || [];
+
+  // Detectar id del nucleo
+  let coreId = null;
+  for (const n of nodes) {
+    if (String(n.label || "").trim().toLowerCase() === "akira") { coreId = n.id; break; }
+  }
+
   const nodeIds = new Set();
   const cyElements = [];
+
   for (const n of nodes) {
     nodeIds.add(n.id);
+    const isCore = (n.id === coreId);
     const typeColor = NODE_TYPE_COLORS[n.node_type] || '#6366f1';
-    const baseR = 14;
-    const bonusReuse = Math.min((n.reuse_count || 0) * 1.2, 8);
-    const bonusWeight = Math.min((n.weight || 0) * 1.8, 14);
-    const radius = baseR + bonusReuse + bonusWeight;
+    let radius;
+    if (isCore) {
+      radius = 56; // el estilo .core lo sobreescribe, pero por las dudas
+    } else {
+      const baseR = 14;
+      const bonusReuse = Math.min((n.reuse_count || 0) * 1.2, 8);
+      const bonusWeight = Math.min((n.weight || 0) * 1.8, 14);
+      radius = baseR + bonusReuse + bonusWeight;
+    }
     cyElements.push({
       group: 'nodes',
       data: {
@@ -353,24 +392,30 @@ function _applyGraphToCy(data) {
         weight: n.weight || 0,
         reuse_count: n.reuse_count || 0,
         radius: radius,
-      }
+      },
+      classes: isCore ? 'core' : '',
     });
   }
+
   const visibleEdges = _filterEdgesByRelevance(edges, nodeIds);
   for (const e of visibleEdges) {
     const w = Number(e.weight) || 0;
+    const toCore = coreId && (e.to_node === coreId || e.from_node === coreId);
     cyElements.push({
       group: 'edges',
       data: {
         id: e.id, source: e.from_node, target: e.to_node,
         weight: w, width: Math.min(3.0, 0.5 + w * 0.7),
         relation_type: e.relation_type,
-      }
+      },
+      classes: toCore ? 'to-core' : '',
     });
   }
+
   const existingIds = new Set();
   cyMembrane.elements().forEach(el => existingIds.add(el.id()));
   const newIds = new Set(cyElements.map(e => e.data.id));
+
   let addedNodes = 0;
   cyMembrane.batch(() => {
     existingIds.forEach(id => {
@@ -387,16 +432,24 @@ function _applyGraphToCy(data) {
     cyElements.forEach(e => {
       if (existingIds.has(e.data.id)) {
         const el = cyMembrane.getElementById(e.data.id);
-        if (el && !el.empty()) el.data(e.data);
+        if (el && !el.empty()) {
+          el.data(e.data);
+          // Actualizar clase core dinamicamente
+          if (e.group === 'nodes') {
+            if (e.classes === 'core') el.addClass('core'); else el.removeClass('core');
+          }
+        }
       }
     });
   });
+
   const totalNodes = cyMembrane.nodes().length;
   const shouldLayout = totalNodes > 0 && (!membraneHasRunLayoutOnce || addedNodes > 0);
   if (shouldLayout) {
     _runLayoutSafely(true);
     membraneHasRunLayoutOnce = true;
   }
+
   membraneCounts = data.counts || { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
   _updateMembraneStats();
 }
@@ -427,7 +480,7 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 // ===========================================================================
-// OFICINA — sin cambios respecto a V12
+// OFICINA — sin cambios
 // ===========================================================================
 
 let officeCanvas, officeCtx;
@@ -441,7 +494,6 @@ let officeLastFetch = 0;
 let officeFetching = false;
 let officeAnimId = null;
 const OFFICE_REFRESH_MS = 5000;
-
 const spriteCache = {};
 
 function initOfficeFloor() {
@@ -450,7 +502,6 @@ function initOfficeFloor() {
   const parent = officeCanvas.parentElement;
   const rect = parent.getBoundingClientRect();
   if (rect.width < 50 || rect.height < 50) return;
-
   officeCtx = officeCanvas.getContext("2d");
   officeCanvas.width = OFFICE_W;
   officeCanvas.height = OFFICE_H;
@@ -461,26 +512,19 @@ function initOfficeFloor() {
   officeCanvas.style.display = "block";
   officeCanvas.style.imageRendering = "pixelated";
   officeCtx.imageSmoothingEnabled = false;
-
   if (officeAnimId) cancelAnimationFrame(officeAnimId);
-
   if (!officeBgLoaded || !officeSheetLoaded) {
     let pending = 2;
     const done = () => { pending--; if (pending === 0) { officeBgLoaded = true; officeSheetLoaded = true; drawOffice(); } };
-
     officeBgImage = new Image();
     officeBgImage.onload = done;
     officeBgImage.onerror = () => { officeLoadError = "No se pudo cargar fondo"; pending--; if (pending === 0) drawOffice(); };
     officeBgImage.src = OFFICE_BG_URL + "?v=" + Date.now();
-
     officeSheetImage = new Image();
     officeSheetImage.onload = () => { buildSpriteCache(); done(); };
     officeSheetImage.onerror = () => { officeLoadError = "No se pudo cargar hoja de sprites"; pending--; if (pending === 0) drawOffice(); };
     officeSheetImage.src = OFFICE_SHEET_URL + "?v=" + Date.now();
-  } else {
-    drawOffice();
-  }
-
+  } else { drawOffice(); }
   refreshOffice(true);
 }
 
@@ -489,11 +533,9 @@ function buildSpriteCache() {
   if (!img) return;
   for (const role in SPRITE_RECTS) {
     const r = SPRITE_RECTS[role];
-    const w = r[2] - r[0];
-    const h = r[3] - r[1];
+    const w = r[2] - r[0], h = r[3] - r[1];
     const c = document.createElement("canvas");
-    c.width = w;
-    c.height = h;
+    c.width = w; c.height = h;
     const cx = c.getContext("2d");
     cx.imageSmoothingEnabled = false;
     cx.drawImage(img, r[0], r[1], w, h, 0, 0, w, h);
@@ -502,58 +544,33 @@ function buildSpriteCache() {
 }
 
 function _corridorOf(x, y) {
-  const dh = Math.abs(y - H_Y);
-  const dl = Math.abs(x - VL_X);
-  const dc = Math.abs(x - VC_X);
-  const dr = Math.abs(x - VR_X);
+  const dh = Math.abs(y - H_Y), dl = Math.abs(x - VL_X);
+  const dc = Math.abs(x - VC_X), dr = Math.abs(x - VR_X);
   const m = Math.min(dh, dl, dc, dr);
   if (m === dh) return "H";
   if (m === dl) return "VL";
   if (m === dc) return "VC";
   return "VR";
 }
-
-function _vX(kind) {
-  if (kind === "VL") return VL_X;
-  if (kind === "VC") return VC_X;
-  return VR_X;
-}
+function _vX(kind) { return kind === "VL" ? VL_X : (kind === "VC" ? VC_X : VR_X); }
 
 function _buildPath(cx, cy, tx, ty) {
-  const cCorr = _corridorOf(cx, cy);
-  const tCorr = _corridorOf(tx, ty);
+  const cCorr = _corridorOf(cx, cy), tCorr = _corridorOf(tx, ty);
   const path = [];
-
-  if (cCorr === "H" && tCorr === "H") {
-    path.push([tx, H_Y]);
-  } else if (cCorr === "H" && tCorr !== "H") {
-    const vx = _vX(tCorr);
-    path.push([vx, H_Y]);
-    path.push([vx, ty]);
-  } else if (cCorr !== "H" && tCorr === "H") {
-    const vx = _vX(cCorr);
-    path.push([vx, H_Y]);
-    path.push([tx, H_Y]);
-  } else {
-    const vxC = _vX(cCorr);
-    const vxT = _vX(tCorr);
-    if (vxC === vxT) {
-      path.push([vxC, ty]);
-    } else {
-      path.push([vxC, H_Y]);
-      path.push([vxT, H_Y]);
-      path.push([vxT, ty]);
-    }
+  if (cCorr === "H" && tCorr === "H") path.push([tx, H_Y]);
+  else if (cCorr === "H" && tCorr !== "H") { const vx = _vX(tCorr); path.push([vx, H_Y]); path.push([vx, ty]); }
+  else if (cCorr !== "H" && tCorr === "H") { const vx = _vX(cCorr); path.push([vx, H_Y]); path.push([tx, H_Y]); }
+  else {
+    const vxC = _vX(cCorr), vxT = _vX(tCorr);
+    if (vxC === vxT) path.push([vxC, ty]);
+    else { path.push([vxC, H_Y]); path.push([vxT, H_Y]); path.push([vxT, ty]); }
   }
   return path;
 }
 
 function _pickRandomTarget() {
   const r = Math.random();
-  if (r < 0.5) {
-    const x = H_POINTS[Math.floor(Math.random() * H_POINTS.length)];
-    return [x, H_Y];
-  }
+  if (r < 0.5) return [H_POINTS[Math.floor(Math.random() * H_POINTS.length)], H_Y];
   const vk = ["VL", "VC", "VR"][Math.floor(Math.random() * 3)];
   const vx = _vX(vk);
   const y = V_POINTS[Math.floor(Math.random() * V_POINTS.length)];
@@ -561,11 +578,7 @@ function _pickRandomTarget() {
 }
 
 function _ensureMovementState(a) {
-  if (typeof a.x !== "number") {
-    const home = HOME_POSITIONS[a.role] || [VC_X, 420];
-    a.x = home[0];
-    a.y = home[1];
-  }
+  if (typeof a.x !== "number") { const h = HOME_POSITIONS[a.role] || [VC_X, 420]; a.x = h[0]; a.y = h[1]; }
   if (!a.path) a.path = [];
   if (typeof a.nextMoveAt !== "number") a.nextMoveAt = Date.now() + Math.random() * IDLE_WAIT_MS;
   if (typeof a.facing !== "string") a.facing = "idle";
@@ -573,15 +586,12 @@ function _ensureMovementState(a) {
 
 function _updateAgentMovement(a) {
   const now = Date.now();
-
   if (a.status === "busy") {
     const home = HOME_POSITIONS[a.role] || [a.x, a.y];
     if (a.path.length === 0 && (Math.abs(a.x - home[0]) > 3 || Math.abs(a.y - home[1]) > 3)) {
       a.path = _buildPath(a.x, a.y, home[0], home[1]);
     }
-    if (a.path.length === 0) {
-      if (now > a.nextMoveAt) a.nextMoveAt = now + BUSY_WAIT_MS;
-    }
+    if (a.path.length === 0 && now > a.nextMoveAt) a.nextMoveAt = now + BUSY_WAIT_MS;
   } else {
     if (a.path.length === 0 && now > a.nextMoveAt) {
       const t = _pickRandomTarget();
@@ -589,42 +599,22 @@ function _updateAgentMovement(a) {
       a.nextMoveAt = now + IDLE_WAIT_MS + Math.random() * 5000;
     }
   }
-
-  if (a.path.length === 0) {
-    a.facing = "idle";
-    return;
-  }
-
+  if (a.path.length === 0) { a.facing = "idle"; return; }
   const target = a.path[0];
-  const dx = target[0] - a.x;
-  const dy = target[1] - a.y;
+  const dx = target[0] - a.x, dy = target[1] - a.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
-
-  if (dist < 2) {
-    a.x = target[0];
-    a.y = target[1];
-    a.path.shift();
-    if (a.path.length === 0) a.facing = "idle";
-    return;
-  }
-
+  if (dist < 2) { a.x = target[0]; a.y = target[1]; a.path.shift(); if (a.path.length === 0) a.facing = "idle"; return; }
   const step = Math.min(WALK_SPEED, dist);
-  a.x += (dx / dist) * step;
-  a.y += (dy / dist) * step;
-  if (Math.abs(dx) > Math.abs(dy)) {
-    a.facing = dx > 0 ? "right" : "left";
-  } else {
-    a.facing = dy > 0 ? "down" : "up";
-  }
+  a.x += (dx / dist) * step; a.y += (dy / dist) * step;
+  if (Math.abs(dx) > Math.abs(dy)) a.facing = dx > 0 ? "right" : "left";
+  else a.facing = dy > 0 ? "down" : "up";
 }
 
 function drawOffice() {
   if (!officeCtx) return;
   const W = OFFICE_W, H = OFFICE_H;
-
   officeCtx.fillStyle = "#0b0b0e";
   officeCtx.fillRect(0, 0, W, H);
-
   if (officeLoadError) {
     officeCtx.fillStyle = "#ef4444";
     officeCtx.font = "20px monospace";
@@ -632,7 +622,6 @@ function drawOffice() {
     officeCtx.fillText("Oficina: " + officeLoadError, W/2, H/2);
     return;
   }
-
   if (!officeBgLoaded || !officeSheetLoaded) {
     officeCtx.fillStyle = "#8a8a93";
     officeCtx.font = "20px monospace";
@@ -641,43 +630,30 @@ function drawOffice() {
     officeAnimId = requestAnimationFrame(drawOffice);
     return;
   }
-
   officeCtx.drawImage(officeBgImage, 0, 0, W, H);
-
   const sorted = officeAgents.slice().sort((a, b) => {
     _ensureMovementState(a); _ensureMovementState(b);
     return a.y - b.y;
   });
-
   sorted.forEach(a => {
     _ensureMovementState(a);
     _updateAgentMovement(a);
-
     const role = a.role || "generic";
     const sprite = spriteCache[role];
     if (!sprite) return;
-
     const sw = sprite.width * SPRITE_SCALE;
     const sh = sprite.height * SPRITE_SCALE;
-
     let bob = 0;
     const moving = a.facing && a.facing !== "idle";
-    if (moving) {
-      bob = Math.sin(Date.now() * 0.02) * 1.2;
-    } else if (a.status === "busy") {
-      bob = Math.sin(Date.now() * 0.005) * 2;
-    }
-
+    if (moving) bob = Math.sin(Date.now() * 0.02) * 1.2;
+    else if (a.status === "busy") bob = Math.sin(Date.now() * 0.005) * 2;
     const dx = a.x - sw / 2;
     const dy = a.y - sh + bob;
-
     officeCtx.fillStyle = "rgba(0,0,0,0.35)";
     officeCtx.beginPath();
     officeCtx.ellipse(a.x, a.y + 3, sw * 0.4, 4, 0, 0, Math.PI * 2);
     officeCtx.fill();
-
     officeCtx.drawImage(sprite, dx, dy, sw, sh);
-
     let ledColor = "#22c55e";
     if (a.status === "busy") ledColor = "#facc15";
     else if (a.status === "error") ledColor = "#ef4444";
@@ -686,7 +662,6 @@ function drawOffice() {
     officeCtx.strokeStyle = "#0b0b0e";
     officeCtx.lineWidth = 2;
     officeCtx.strokeRect(a.x + sw / 2 - 4, dy - 6, 8, 8);
-
     officeCtx.fillStyle = "rgba(11, 11, 14, 0.85)";
     const label = (a.name || "?").slice(0, 14);
     officeCtx.font = "bold 11px monospace";
@@ -696,7 +671,6 @@ function drawOffice() {
     officeCtx.textAlign = "center";
     officeCtx.fillText(label, a.x, a.y + 19);
   });
-
   refreshOffice(false);
   officeAnimId = requestAnimationFrame(drawOffice);
 }
@@ -717,11 +691,7 @@ async function refreshOffice(force) {
         return merged;
       });
     }
-  } catch (e) {
-    // silencioso
-  } finally {
-    officeFetching = false;
-  }
+  } catch (e) {} finally { officeFetching = false; }
 }
 
 function addOfficeLog(text, type) {
@@ -742,11 +712,6 @@ function updateOfficeStats() {
 }
 
 window.AkiraMembrane = {
-  initMembraneGraph: initMembraneGraph,
-  initOfficeFloor: initOfficeFloor,
-  refreshMembrane: refreshMembrane,
-  refreshOffice: refreshOffice,
-  addOfficeLog: addOfficeLog,
-  updateOfficeStats: updateOfficeStats,
-  reorganize: window.reorganizeMembrane,
+  initMembraneGraph, initOfficeFloor, refreshMembrane, refreshOffice,
+  addOfficeLog, updateOfficeStats, reorganize: window.reorganizeMembrane,
 };
