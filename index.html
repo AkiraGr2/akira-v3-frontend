@@ -15,6 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Akira">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -304,8 +305,8 @@ body{
 
   <div id="membraneSection" class="section">
     <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;padding:16px">
-      <div style="flex:1;position:relative;background:#0e0e12;border:3px solid var(--border);min-height:200px">
-        <canvas id="membraneCanvas" style="width:100%;height:100%"></canvas>
+      <div style="flex:1;position:relative;background:#0a0a0d;border:3px solid var(--border);min-height:200px;overflow:hidden">
+        <div id="membraneCy" style="position:absolute;inset:0"></div>
       </div>
       <div id="membraneStats" style="padding-top:10px;font-size:11px;color:var(--muted);font-family:'Press Start 2P', monospace;text-align:center"></div>
     </div>
@@ -465,7 +466,6 @@ function showSection(name){
   closeSidebar();
 
   if(name==='membrane'){
-    if(window.initMembraneGraph) initMembraneGraph();
     window.dispatchEvent(new CustomEvent("akira:section-shown", { detail: { section: "membrane" } }));
   } else if(name==='office'){
     if(window.initOfficeFloor) initOfficeFloor();
@@ -666,9 +666,9 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   renderLevels();
 });
 </script>
-<script src="./js/hybrid_sync.js?v=akira-final-v3"></script>
-<script src="./js/obsidian_membrane.js?v=akira-final-v3"></script>
-<script src="./js/akira_brain.js?v=akira-final-v3"></script>
-<script src="./js/akira_extras.js?v=akira-final-v3"></script>
+<script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
+<script src="./js/obsidian_membrane.js?v=akira-final-v5"></script>
+<script src="./js/akira_brain.js?v=akira-final-v5"></script>
+<script src="./js/akira_extras.js?v=akira-final-v5"></script>
 </body>
-</html>
+                                                                                                                                                                                                                  </html>
