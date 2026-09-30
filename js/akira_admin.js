@@ -1,4 +1,4 @@
-// AKIRA ADMIN PANEL V1.5 — Fases 5 · 6 · 7 · 8 · 9 · 10.3 · 10.4 · 10.5 · 10.6.
+// AKIRA ADMIN PANEL V1.6 — Fases 5-10.7.
 
 (function(){
   "use strict";
@@ -95,11 +95,9 @@
     let changes;
     try { changes = JSON.parse(raw); }
     catch(e){ return _out("smOutput", "JSON inválido: " + e.message, true); }
-
     const cur = await _fetch("/api/v8/self");
     if (!cur.ok || !cur.data || !cur.data.ok) return _out("smOutput", _errText(cur), true);
     const expected = cur.data.self_model.version;
-
     _out("smOutput", "Actualizando a version " + (expected + 1) + "…", false);
     const r = await _fetch("/api/v8/self", {
       method: "PATCH",
@@ -121,19 +119,15 @@
   window.f6TestFull = async function(){
     _out("f6Output", "Test completo: nodo A → nodo B → arista → aprendizaje…", false);
     const st = Date.now().toString(36);
-
     const n1 = await _fetch("/api/v8/graph/node", { method: "POST",
       body: JSON.stringify({ node_type: "concept", label: "test_concept_" + st, description: "nodo de prueba" }) });
     if (!n1.ok || !n1.data || !n1.data.ok) return _out("f6Output", "Fallo nodo A: " + _errText(n1), true);
-
     const n2 = await _fetch("/api/v8/graph/node", { method: "POST",
       body: JSON.stringify({ node_type: "tool", label: "test_tool_" + st, description: "nodo de prueba" }) });
     if (!n2.ok || !n2.data || !n2.data.ok) return _out("f6Output", "Fallo nodo B: " + _errText(n2), true);
-
     const e1 = await _fetch("/api/v8/graph/edge", { method: "POST",
       body: JSON.stringify({ from_node: n1.data.id, to_node: n2.data.id, relation_type: "related_to", weight: 1.0 }) });
     if (!e1.ok || !e1.data || !e1.data.ok) return _out("f6Output", "Fallo arista: " + _errText(e1), true);
-
     const l1 = await _fetch("/api/v8/learning", { method: "POST",
       body: JSON.stringify({
         source: "admin_test", event: "test_f6_" + st,
@@ -143,7 +137,6 @@
         confidence: 0.9, outcome: "success",
       }) });
     if (!l1.ok || !l1.data || !l1.data.ok) return _out("f6Output", "Fallo learning: " + _errText(l1), true);
-
     _out("f6Output", {
       ok: true,
       nodo_a: n1.data.id, nodo_b: n2.data.id,
@@ -179,9 +172,7 @@
     const r = await _fetch("/api/v8/graph/cleanup_tests", { method: "POST" }, 40000);
     if (!r.ok || !r.data || !r.data.ok) return _out("f6Output", _errText(r), true);
     _out("f6Output", {
-      ok: true,
-      archivados: r.data.archived,
-      errores: r.data.errors,
+      ok: true, archivados: r.data.archived, errores: r.data.errors,
       mensaje: r.data.archived > 0
         ? "Los nodos test_* fueron archivados. Refresca Cerebro Akira."
         : "No se encontraron nodos test_* activos.",
@@ -202,9 +193,7 @@
     }, 40000);
     if (!r.ok || !r.data || !r.data.ok) return _out("f7Output", _errText(r), true);
     _out("f7Output", {
-      ok: true,
-      cycle_id: r.data.cycle_id,
-      events_count: r.data.events_count,
+      ok: true, cycle_id: r.data.cycle_id, events_count: r.data.events_count,
       status: r.data.cycle && r.data.cycle.status,
       answer_preview: (r.data.answer || "").slice(0, 400),
       learning_id: r.data.learning_id,
@@ -375,7 +364,6 @@
   window.f9TestV8S11 = async function(){
     _out("f9Output", "Test V8 s11…", false);
     const missionId = "test_mission_" + Date.now().toString(36);
-
     const r1 = await _fetch("/api/v8/agents/researcher/task", {
       method: "POST",
       body: JSON.stringify({
@@ -386,21 +374,15 @@
       }),
     }, 30000);
     if (!r1.ok || !r1.data || !r1.data.ok) return _out("f9Output", "Fallo test: " + _errText(r1), true);
-
     const t = await _fetch("/api/v8/tasks/" + r1.data.task_id);
     const task = (t.data && t.data.task) || {};
     const campos = ["id","agent_name","tool_name","status","model","mission_id","inputs","outputs","memory_used","started_at","completed_at"];
     const presentes = campos.filter(c => task[c] !== undefined && task[c] !== null);
-
     const filtro = await _fetch("/api/v8/tasks?mission_id=" + missionId);
     const countMision = (filtro.data && filtro.data.count) || 0;
-
     _out("f9Output", {
-      ok: true,
-      task_id: r1.data.task_id,
-      mission_id: missionId,
-      model_guardado: task.model,
-      memory_used: task.memory_used,
+      ok: true, task_id: r1.data.task_id, mission_id: missionId,
+      model_guardado: task.model, memory_used: task.memory_used,
       campos_presentes: presentes,
       campos_faltantes: campos.filter(c => presentes.indexOf(c) === -1),
       tareas_en_mision: countMision,
@@ -420,35 +402,23 @@
       const obj = prompt("Objetivo de la misión:",
         "Investiga qué es FastAPI y dame 3 casos de uso reales en producción");
       if (!obj || !obj.trim()) return;
-
       _out("m1Output", "Creando misión y llamando al planificador LLM (puede tardar 15-30s)…", false);
-
       const r = await _fetch("/api/v8/missions", {
         method: "POST",
         body: JSON.stringify({ objective: obj.trim(), priority: 5 }),
       }, 60000);
-
       if (!r.ok || !r.data || !r.data.ok) {
         _out("m1Output", _errText(r) + (r.data && r.data.detail ? (" · " + r.data.detail) : ""), true);
         return;
       }
-
       const m = r.data.mission;
       const plan = r.data.plan || {};
       const steps = plan.steps || [];
-
       _out("m1Output", {
-        ok: true,
-        mission_id: m.id,
-        status: m.status,
-        title: m.title,
-        priority: m.priority,
-        flow_type: m.flow_type,
-        model: r.data.model,
+        ok: true, mission_id: m.id, status: m.status, title: m.title,
+        priority: m.priority, flow_type: m.flow_type, model: r.data.model,
         pasos: steps.map(s => ({
-          order: s.order,
-          agent: s.agent,
-          tool: s.tool,
+          order: s.order, agent: s.agent, tool: s.tool,
           task: String(s.task || "").slice(0, 80),
           expected_output: String(s.expected_output || "").slice(0, 60),
           receives_from: s.receives_from,
@@ -464,20 +434,17 @@
   window.m1Reset = function(){ _out("m1Output", "Salida limpiada.", false); };
 
   // ============================================================
-  // FASE 10.4 — Aprobación y rechazo humano
+  // FASE 10.4 — Aprobación y rechazo
   // ============================================================
   window.approveMission = async function(){
     const input = document.getElementById("m1ApproveId");
     const missionId = (input && input.value || "").trim();
-    if (!missionId) return _out("m1Output", "Pega primero el mission_id en el campo de Fase 10.4.", true);
-
+    if (!missionId) return _out("m1Output", "Pega primero el mission_id.", true);
     const btn = document.getElementById("m1ApproveBtn");
     if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
     try {
       _out("m1Output", "Aprobando " + missionId + "…", false);
-      const r = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId) + "/approve", {
-        method: "POST",
-      }, 25000);
+      const r = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId) + "/approve", { method: "POST" }, 25000);
       if (!r.ok || !r.data || !r.data.ok) {
         const reasonErr = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
         const cur = (r.data && r.data.current_status) ? " (estado actual: " + r.data.current_status + ")" : "";
@@ -486,12 +453,9 @@
       }
       const m = r.data.mission;
       _out("m1Output", {
-        ok: true,
-        mission_id: m.id,
-        status: m.status,
-        version: m.version,
+        ok: true, mission_id: m.id, status: m.status, version: m.version,
         started_at: m.started_at,
-        mensaje: "Misión aprobada → running. Ahora toca ▶️ EJECUTAR MISIÓN.",
+        mensaje: "Misión aprobada → running.",
       }, false);
     } finally {
       if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
@@ -501,11 +465,9 @@
   window.rejectMission = async function(){
     const input = document.getElementById("m1ApproveId");
     const missionId = (input && input.value || "").trim();
-    if (!missionId) return _out("m1Output", "Pega primero el mission_id en el campo de Fase 10.4.", true);
-
+    if (!missionId) return _out("m1Output", "Pega primero el mission_id.", true);
     const reasonEl = document.getElementById("m1RejectReason");
     const reasonText = (reasonEl && reasonEl.value || "").trim();
-
     const btn = document.getElementById("m1RejectBtn");
     if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
     try {
@@ -522,12 +484,8 @@
       }
       const m = r.data.mission;
       _out("m1Output", {
-        ok: true,
-        mission_id: m.id,
-        status: m.status,
-        version: m.version,
-        result: m.result,
-        mensaje: "Misión rechazada → cancelled.",
+        ok: true, mission_id: m.id, status: m.status, version: m.version,
+        result: m.result, mensaje: "Misión rechazada → cancelled.",
       }, false);
     } finally {
       if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
@@ -541,14 +499,11 @@
     const input = document.getElementById("m1ApproveId");
     const missionId = (input && input.value || "").trim();
     if (!missionId) return _out("m1Output", "Pega primero el mission_id.", true);
-
     const btn = document.getElementById("m1ExecuteBtn");
     if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
     try {
       _out("m1Output", "Ejecutando " + missionId + " en background…", false);
-      const r = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId) + "/execute", {
-        method: "POST",
-      }, 25000);
+      const r = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId) + "/execute", { method: "POST" }, 25000);
       if (!r.ok || !r.data || !r.data.ok) {
         const reasonErr = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
         const cur = (r.data && r.data.current_status) ? " (estado actual: " + r.data.current_status + ")" : "";
@@ -556,12 +511,9 @@
         return _out("m1Output", "❌ " + reasonErr + cur + det, true);
       }
       _out("m1Output", {
-        ok: true,
-        mission_id: r.data.mission_id,
-        status: r.data.status,
-        steps_total: r.data.steps_total,
-        mensaje: r.data.mensaje,
-        siguiente: "Toca 📈 VER RESUMEN para ver percent y paso actual.",
+        ok: true, mission_id: r.data.mission_id, status: r.data.status,
+        steps_total: r.data.steps_total, mensaje: r.data.mensaje,
+        siguiente: "Toca 📈 Ver resumen para ver percent y paso actual.",
       }, false);
     } finally {
       if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
@@ -572,7 +524,6 @@
     const input = document.getElementById("m1ApproveId");
     const missionId = (input && input.value || "").trim();
     if (!missionId) return _out("m1Output", "Pega primero el mission_id.", true);
-
     _out("m1Output", "Leyendo misión y tareas…", false);
     const m = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId));
     if (!m.ok || !m.data || !m.data.ok) {
@@ -580,34 +531,25 @@
     }
     const t = await _fetch("/api/v8/tasks?mission_id=" + encodeURIComponent(missionId));
     const tasks = (t.ok && t.data && t.data.ok && t.data.tasks) ? t.data.tasks : [];
-
     const mission = m.data.mission;
     _out("m1Output", {
-      mission_id: mission.id,
-      status: mission.status,
-      started_at: mission.started_at,
-      completed_at: mission.completed_at,
-      result: mission.result,
-      tasks_count: tasks.length,
+      mission_id: mission.id, status: mission.status,
+      started_at: mission.started_at, completed_at: mission.completed_at,
+      result: mission.result, tasks_count: tasks.length,
       tasks: tasks.map(x => ({
-        id: x.id,
-        agent: x.agent_name,
-        tool: x.tool_name,
-        status: x.status,
-        duration_ms: x.duration_ms,
-        error: x.error || null,
+        id: x.id, agent: x.agent_name, tool: x.tool_name,
+        status: x.status, duration_ms: x.duration_ms, error: x.error || null,
       })),
     }, false);
   };
 
   // ============================================================
-  // FASE 10.6 — Progreso agregado + cancelación + recientes
+  // FASE 10.6 — Progreso + cancelación + recientes
   // ============================================================
   window.viewMissionProgress = async function(){
     const input = document.getElementById("m1ApproveId");
     const missionId = (input && input.value || "").trim();
     if (!missionId) return _out("m1Output", "Pega primero el mission_id.", true);
-
     _out("m1Output", "Calculando progreso…", false);
     const r = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId) + "/progress");
     if (!r.ok || !r.data || !r.data.ok) {
@@ -626,14 +568,11 @@
     const input = document.getElementById("m1ApproveId");
     const missionId = (input && input.value || "").trim();
     if (!missionId) return _out("m1Output", "Pega primero el mission_id.", true);
-
     const btn = document.getElementById("m1CancelBtn");
     if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
     try {
       _out("m1Output", "Cancelando " + missionId + "…", false);
-      const r = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId) + "/cancel", {
-        method: "POST",
-      }, 25000);
+      const r = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId) + "/cancel", { method: "POST" }, 25000);
       if (!r.ok || !r.data || !r.data.ok) {
         const reasonErr = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
         const cur = (r.data && r.data.current_status) ? " (estado actual: " + r.data.current_status + ")" : "";
@@ -642,10 +581,7 @@
       }
       const m = r.data.mission;
       _out("m1Output", {
-        ok: true,
-        mission_id: m.id,
-        status: m.status,
-        version: m.version,
+        ok: true, mission_id: m.id, status: m.status, version: m.version,
         mensaje: r.data.mensaje || "Misión cancelada.",
       }, false);
     } finally {
@@ -664,13 +600,43 @@
       misiones: (r.data.missions || []).map(m => ({
         id: m.id,
         title: String(m.title || "").slice(0, 60),
-        status: m.status,
-        priority: m.priority,
+        status: m.status, priority: m.priority,
         steps_total: m.steps_total,
-        created_at: m.created_at,
-        completed_at: m.completed_at,
+        created_at: m.created_at, completed_at: m.completed_at,
         has_result: m.has_result,
       })),
+    }, false);
+  };
+
+  // ============================================================
+  // FASE 10.7 — Selftest + Diagnose
+  // ============================================================
+  window.runMissionsSelftest = async function(){
+    _out("m1Output", "Corriendo selftest del motor…", false);
+    const r = await _fetch("/api/v8/missions/selftest");
+    if (!r.ok || !r.data || !r.data.ok) {
+      return _out("m1Output", "❌ " + _errText(r), true);
+    }
+    const st = r.data.selftest;
+    _out("m1Output", {
+      summary: st.summary,
+      tests: st.tests.map(t => ({ name: t.name, status: t.status })),
+    }, false);
+  };
+
+  window.diagnoseMission = async function(){
+    const input = document.getElementById("m1ApproveId");
+    const missionId = (input && input.value || "").trim();
+    if (!missionId) return _out("m1Output", "Pega primero el mission_id.", true);
+    _out("m1Output", "Diagnosticando " + missionId + "…", false);
+    const r = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId) + "/diagnose");
+    if (!r.ok || !r.data || !r.data.ok) {
+      return _out("m1Output", "❌ " + _errText(r), true);
+    }
+    _out("m1Output", {
+      mission_id: r.data.mission_id,
+      summary: r.data.summary,
+      checks: r.data.checks,
     }, false);
   };
 
@@ -689,7 +655,6 @@
       _fetch("/api/v8/persistence/status"),
     ]);
     const health = res[0], me = res[1], self = res[2], tools = res[3], agents = res[4], tasks = res[5], pers = res[6];
-
     const dash = {
       backend: health.ok ? "🟢 OK (" + ((health.data && health.data.version) || "?") + ")" : "🔴 " + _errText(health),
       sesion: (me.ok && me.data && me.data.authenticated)
@@ -707,20 +672,15 @@
       generado: new Date().toLocaleString(),
     };
     _out("adminMembrana", dash, false);
-
     const toolsEl = document.getElementById("adminTools");
     if (toolsEl) {
       toolsEl.textContent = (tools.ok && tools.data)
-        ? (tools.data.count + " tools registradas")
-        : "n/d";
+        ? (tools.data.count + " tools registradas") : "n/d";
     }
   };
 
   window.checkBridgeAdmin = function(){ return window.adminDashboard(); };
 
-  // ============================================================
-  // Restauración de sesión al recargar
-  // ============================================================
   function restoreSession(){
     try {
       const t = localStorage.getItem("akira_session_token");
