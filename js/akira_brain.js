@@ -2,6 +2,7 @@
 // B1: cabeceras con sesion firmada (usa akiraAuthHeaders de index.html; si no existe, cabecera basica)
 // V8-B5-fix (H-05): ya NO se envia is_owner desde el cliente. El backend lo resuelve
 // unicamente por sesion firmada. El residuo anterior era inofensivo pero confuso.
+// Fase 10.7.2: envia y recibe conversation_id para persistir chats en el servidor.
 function _akiraH(){ return (typeof akiraAuthHeaders==='function') ? akiraAuthHeaders() : {'Content-Type':'application/json'}; }
 let selectedImageBase64 = null;
 let selectedImageMime = "image/jpeg";
@@ -163,11 +164,21 @@ async function sendMsg(){
   const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
   try{
     // H-05: el cliente ya NO envia is_owner. El backend lo resuelve por sesion firmada.
+    // Fase 10.7.2: envia conversation_id si hay una activa.
     const payload = {message:msgToSend,user_id:uid,user_api_key:uk};
     if(hasImage && currentImage) payload.image_base64 = currentImage;
+    try {
+      const _cid = (window.akiraConversations && window.akiraConversations.getConversationIdForRequest) ? window.akiraConversations.getConversationIdForRequest() : null;
+      if (_cid) payload.conversation_id = _cid;
+    } catch(_){}
     const r = await fetch(backend + "/api/chat", {method:'POST',headers:_akiraH(),body:JSON.stringify(payload)});
     if(!r.ok) throw new Error("Backend error " + r.status);
     const d = await r.json();
+    try {
+      if (d && d.conversation_id && window.akiraConversations && window.akiraConversations.onConversationIdReceived) {
+        window.akiraConversations.onConversationIdReceived(d.conversation_id);
+      }
+    } catch(_){}
     removeTyping(tid); if(orb)orb.classList.remove('thinking');
     let resp = d.response||'Error';
     if(!resp.includes("503") && !resp.includes("UNAVAILABLE")){
@@ -222,8 +233,13 @@ async function sendMsgStream(){
   let fullText = "";
   try{
     // H-05: el cliente ya NO envia is_owner. El backend lo resuelve por sesion firmada.
+    // Fase 10.7.2: envia conversation_id si hay una activa.
     const payload = {message:msgToSend,user_id:uid,user_api_key:uk};
     if(hasImage && currentImage) payload.image_base64 = currentImage;
+    try {
+      const _cid = (window.akiraConversations && window.akiraConversations.getConversationIdForRequest) ? window.akiraConversations.getConversationIdForRequest() : null;
+      if (_cid) payload.conversation_id = _cid;
+    } catch(_){}
     const r = await fetch(backend + "/api/chat/stream", {method:'POST',headers:_akiraH(),body:JSON.stringify(payload)});
     if(!r.ok) throw new Error("Stream error "+r.status);
     const reader = r.body.getReader();
@@ -255,6 +271,11 @@ async function sendMsgStream(){
                 let finalHtml = escapeHtml(fullText).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
                 b.innerHTML = finalHtml;
               }
+              try {
+                if (j.conversation_id && window.akiraConversations && window.akiraConversations.onConversationIdReceived) {
+                  window.akiraConversations.onConversationIdReceived(j.conversation_id);
+                }
+              } catch(_){}
               try{ await saveNeuronaHibrida(fullText, 'motora', 6, ['akira_response','stream']); }catch(e){}
               await countNeuronas();
               if(orb)orb.classList.remove('thinking');
@@ -287,8 +308,17 @@ async function sendMsgStream(){
     try{
       const payload2 = {message:msgToSend,user_id:uid,user_api_key:uk};
       if(hasImage && currentImage) payload2.image_base64 = currentImage;
+      try {
+        const _cid2 = (window.akiraConversations && window.akiraConversations.getConversationIdForRequest) ? window.akiraConversations.getConversationIdForRequest() : null;
+        if (_cid2) payload2.conversation_id = _cid2;
+      } catch(_){}
       const r2 = await fetch(backend + "/api/chat", {method:'POST',headers:_akiraH(),body:JSON.stringify(payload2)});
       const d2 = await r2.json();
+      try {
+        if (d2 && d2.conversation_id && window.akiraConversations && window.akiraConversations.onConversationIdReceived) {
+          window.akiraConversations.onConversationIdReceived(d2.conversation_id);
+        }
+      } catch(_){}
       let resp2 = d2.response||'Conexión restablecida';
       if(b) b.innerHTML = escapeHtml(resp2).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
       if(orb)orb.classList.remove('thinking');
@@ -299,8 +329,18 @@ async function sendMsgStream(){
       if(b) b.innerHTML = '⏳ Akira reconectando colmena... reintento automático en 3s';
       setTimeout(async ()=>{
         try{
-          const r3 = await fetch(backend + "/api/chat", {method:'POST',headers:_akiraH(),body:JSON.stringify({message:msgToSend,user_id:uid,user_api_key:uk})});
+          const payload3 = {message:msgToSend,user_id:uid,user_api_key:uk};
+          try {
+            const _cid3 = (window.akiraConversations && window.akiraConversations.getConversationIdForRequest) ? window.akiraConversations.getConversationIdForRequest() : null;
+            if (_cid3) payload3.conversation_id = _cid3;
+          } catch(_){}
+          const r3 = await fetch(backend + "/api/chat", {method:'POST',headers:_akiraH(),body:JSON.stringify(payload3)});
           const d3 = await r3.json();
+          try {
+            if (d3 && d3.conversation_id && window.akiraConversations && window.akiraConversations.onConversationIdReceived) {
+              window.akiraConversations.onConversationIdReceived(d3.conversation_id);
+            }
+          } catch(_){}
           if(b) b.innerHTML = escapeHtml(d3.response||'Conexión restablecida').replace(/\n/g,'<br>');
         }catch(_){ if(b) b.innerHTML = '✅ Colmena activa, reintenta en 5s'; }
       }, 3000);
