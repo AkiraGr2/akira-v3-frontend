@@ -1,5 +1,10 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V17.0
-// V17.0: paleta Obsidian (pastel saturada), halos suaves, mayor separacion entre clusters.
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V18.1 (auditado)
+// V18.1 (auditoria):
+//   - Fix 1: centerOnCore usa cy.center(el) en vez de renderedPosition (stale).
+//   - Fix 2: cache se invalida por firma de grafo (nodes cambiaron).
+//   - Fix 3: solo se aplican posiciones a nodos NUEVOS (respeta drags del usuario).
+//   - Fix 4: removeClass() en vez de el.classes=[].
+// V18.0: subdivision de grupos grandes + anillo amplio.
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
@@ -19,20 +24,11 @@ const HOME_POSITIONS = {
 };
 const SPRITE_SCALE = 2, WALK_SPEED = 0.9, IDLE_WAIT_MS = 8000, BUSY_WAIT_MS = 4000;
 
-// Paleta tipo Obsidian (colores pastel-saturados que destacan sobre negro).
 const GROUP_COLORS = {
-  memory:   "#7ee787",  // verde menta
-  learning: "#56d4dd",  // turquesa
-  agent:    "#f778ba",  // rosa suave
-  tool:     "#79c0ff",  // azul cielo
-  concept:  "#a78bfa",  // lavanda
-  project:  "#ffa657",  // naranja durazno
-  document: "#d2a8ff",  // lila
-  skill:    "#ffd866",  // amarillo dorado
-  error:    "#ff7b72",  // rojo coral
-  solution: "#56d364",  // verde claro
-  mission:  "#ffb86c",  // naranja calido
-  other:    "#8b949e",  // gris suave
+  memory:   "#7ee787", learning: "#56d4dd", agent:    "#f778ba",
+  tool:     "#79c0ff", concept:  "#a78bfa", project:  "#ffa657",
+  document: "#d2a8ff", skill:    "#ffd866", error:    "#ff7b72",
+  solution: "#56d364", mission:  "#ffb86c", other:    "#8b949e",
 };
 
 function _detectGroup(node) {
@@ -69,18 +65,19 @@ async function _fetchJson(url) {
 }
 
 // ===========================================================================
-// CEREBRO AKIRA — V17.0
+// CEREBRO AKIRA — V18.1
 // ===========================================================================
 let cyMembrane = null;
 let membraneLastFetch = 0, membraneFetching = false;
 let membraneCounts = { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
 let membraneError = null;
-let membraneLayoutTimer = null;
 const MEMBRANE_REFRESH_MS = 7000;
 const MIN_EDGE_WEIGHT_VISIBLE = 0.5;
 const MAX_EDGES_PER_NODE = 4;
+const MAX_NODES_PER_CLUSTER = 10;
 
 const _positionCache = new Map();
+let _lastGraphSignature = "";
 
 let _labelCounter = null, _labelMax = 0;
 function _getLabelCounter() {
@@ -135,8 +132,18 @@ function _filterEdgesByRelevance(edges, nodeIds, coreId) {
   return edges.filter(e => keep.has(e.id));
 }
 
-// Algoritmo tipo Graph Spawn (Obsidian):
-// Nucleo al centro, hubs en anillo amplio, satelites en espiral.
+function _subdivideGroup(ids) {
+  if (ids.length <= MAX_NODES_PER_CLUSTER) return [ids];
+  const nSub = Math.ceil(ids.length / MAX_NODES_PER_CLUSTER);
+  const perSub = Math.ceil(ids.length / nSub);
+  const subs = [];
+  for (let i = 0; i < nSub; i++) {
+    const slice = ids.slice(i * perSub, (i + 1) * perSub);
+    if (slice.length) subs.push(slice);
+  }
+  return subs;
+}
+
 function _computeSeedPositions(nodes, edges, coreId) {
   const W = cyMembrane.width() || 800;
   const H = cyMembrane.height() || 600;
@@ -156,20 +163,29 @@ function _computeSeedPositions(nodes, edges, coreId) {
     degree.set(e.to_node, (degree.get(e.to_node) || 0) + 1);
   }
 
-  const groupList = Array.from(groups.entries());
-  groupList.sort((a, b) => b[1].length - a[1].length);
+  const clusters = [];
+  for (const [key, ids] of groups.entries()) {
+    const subs = _subdivideGroup(ids);
+    subs.forEach(subIds => clusters.push({ key, ids: subIds }));
+  }
+
+  clusters.sort((a, b) => b.ids.length - a.ids.length);
 
   const positions = {};
   if (coreId) positions[coreId] = { x: cx, y: cy };
 
-  const N = groupList.length;
-  // V17: radio del anillo aumentado para separar los grupos.
-  const R = Math.min(W, H) * 0.42;
+  const N = clusters.length;
+  // Anillo amplio: minimo 200px para movil.
+  const R = Math.max(Math.min(W, H) * 0.44, 200);
 
-  groupList.forEach(([key, ids], i) => {
+  clusters.forEach(({ key, ids }, i) => {
     const angle = (i / Math.max(N, 1)) * 2 * Math.PI - Math.PI / 2;
-    const hubX = cx + R * Math.cos(angle);
-    const hubY = cy + R * Math.sin(angle);
+
+    const Nsat = ids.length;
+    const clusterR = Math.min(180, 50 + Math.log2(1 + Nsat) * 28);
+
+    const hubX = cx + (R + clusterR * 0.4) * Math.cos(angle);
+    const hubY = cy + (R + clusterR * 0.4) * Math.sin(angle);
 
     let hubId = ids[0], hubDeg = -1;
     for (const id of ids) {
@@ -179,14 +195,10 @@ function _computeSeedPositions(nodes, edges, coreId) {
     positions[hubId] = { x: hubX, y: hubY };
 
     const satellites = ids.filter(id => id !== hubId);
-    const Nsat = satellites.length;
-    if (Nsat === 0) return;
-
-    // V17: cluster mas grande y separado.
-    const clusterR = Math.min(200, 60 + Math.log2(1 + Nsat) * 32);
+    if (satellites.length === 0) return;
     const golden = Math.PI * (3 - Math.sqrt(5));
     satellites.forEach((sid, j) => {
-      const t = (j + 1) / Nsat;
+      const t = (j + 1) / satellites.length;
       const r = clusterR * Math.sqrt(t);
       const theta = j * golden + angle;
       positions[sid] = {
@@ -199,28 +211,41 @@ function _computeSeedPositions(nodes, edges, coreId) {
   return positions;
 }
 
-function _placeNewNode(nodeId, group, hubId, centerPos) {
+// Coloca un nodo nuevo cerca de su hub (o del nucleo si no hay hub).
+function _placeNearHub(nodeId, hubId, centerPos) {
   if (!hubId || !_positionCache.has(hubId)) {
     const angle = Math.random() * Math.PI * 2;
-    const r = 60 + Math.random() * 40;
+    const r = 70 + Math.random() * 40;
     return { x: centerPos.x + r * Math.cos(angle), y: centerPos.y + r * Math.sin(angle) };
   }
   const hub = _positionCache.get(hubId);
   const angle = Math.random() * Math.PI * 2;
-  const r = 40 + Math.random() * 30;
+  const r = 50 + Math.random() * 30;
   return { x: hub.x + r * Math.cos(angle), y: hub.y + r * Math.sin(angle) };
 }
 
-function _applySeedPositions(nodes, edges, coreId, forceAll) {
-  if (forceAll) _positionCache.clear();
+// V18.1: solo aplica posiciones a nodos NUEVOS. Los ya cacheados no se tocan
+// (respeta drags del usuario). Si la firma del grafo cambio, resetea cache.
+function _applySeedPositions(nodes, edges, coreId) {
+  const sig = nodes.map(n => n.id).sort().join(",");
+  if (sig !== _lastGraphSignature) {
+    _lastGraphSignature = sig;
+    _positionCache.clear();
+  }
 
   const missing = nodes.filter(n => !_positionCache.has(n.id));
-  const needFullSeed = missing.length > 0 && (_positionCache.size === 0 || forceAll);
+  if (missing.length === 0) return;
 
-  if (needFullSeed) {
+  if (_positionCache.size === 0) {
+    // Primera vez: seed completo y aplicar a todos.
     const seedPositions = _computeSeedPositions(nodes, edges, coreId);
     for (const id in seedPositions) _positionCache.set(id, seedPositions[id]);
-  } else if (missing.length > 0) {
+    cyMembrane.nodes().forEach(n => {
+      const p = _positionCache.get(n.id());
+      if (p) n.position(p);
+    });
+  } else {
+    // Solo colocar los nuevos cerca de su hub.
     const W = cyMembrane.width() || 800, H = cyMembrane.height() || 600;
     const centerPos = _positionCache.get(coreId) || { x: W/2, y: H/2 };
     const hubByGroup = {};
@@ -237,17 +262,19 @@ function _applySeedPositions(nodes, edges, coreId, forceAll) {
       }
     });
     for (const n of missing) {
-      if (n.id === coreId) { _positionCache.set(n.id, centerPos); continue; }
+      if (n.id === coreId) {
+        _positionCache.set(n.id, centerPos);
+        const el = cyMembrane.getElementById(n.id);
+        if (el && !el.empty()) el.position(centerPos);
+        continue;
+      }
       const g = _detectGroup(n);
-      const pos = _placeNewNode(n.id, g, hubByGroup[g], centerPos);
+      const pos = _placeNearHub(n.id, hubByGroup[g], centerPos);
       _positionCache.set(n.id, pos);
+      const el = cyMembrane.getElementById(n.id);
+      if (el && !el.empty()) el.position(pos);
     }
   }
-
-  cyMembrane.nodes().forEach(n => {
-    const p = _positionCache.get(n.id());
-    if (p) n.position(p);
-  });
 }
 
 function _cytoscapeStyle() {
@@ -261,7 +288,6 @@ function _cytoscapeStyle() {
       'text-opacity': 0,
       'text-wrap': 'wrap', 'text-max-width': 100,
       'border-width': 0,
-      // Halo suave para dar sensacion de brillo (estilo Obsidian).
       'shadow-blur': 14,
       'shadow-color': 'data(color)',
       'shadow-opacity': 0.55,
@@ -306,25 +332,6 @@ function _cytoscapeStyle() {
     { selector: 'edge.highlighted', style: { 'opacity': 0.85, 'line-color': '#b8b8d0' }},
     { selector: 'edge.dimmed', style: { 'opacity': 0.04 }},
   ];
-}
-
-function _layoutFallbackOptions(animate) {
-  if (typeof window.cytoscapeCoseBilkent === "function") {
-    return {
-      name: 'cose-bilkent', animate: !!animate ? 'end' : false,
-      animationDuration: 800, animationEasing: 'ease-out', quality: 'default',
-      nodeRepulsion: 40000, idealEdgeLength: 160, edgeElasticity: 0.35,
-      nestingFactor: 0.1, gravity: 0.1, numIter: 2500, tile: false,
-      randomize: false, nodeDimensionsIncludeLabels: false, fit: true, padding: 60,
-    };
-  }
-  return {
-    name: 'cose', animate: !!animate, animationDuration: 600, animationEasing: 'ease-out',
-    randomize: false, nodeRepulsion: 80000, idealEdgeLength: 150, edgeElasticity: 0.4,
-    nestingFactor: 0.1, gravity: 0.3, numIter: 1500, initialTemp: 200,
-    coolingFactor: 0.95, minTemp: 1.0, fit: true, padding: 60,
-    nodeOverlap: 20, componentSpacing: 80,
-  };
 }
 
 function initMembraneGraph() {
@@ -394,17 +401,10 @@ function _highlightNeighbors(node) {
 
 window.reorganizeMembrane = function () {
   if (!cyMembrane) return;
+  // Fuerza reseed completo.
   _positionCache.clear();
+  _lastGraphSignature = "";
   refreshMembrane(true);
-};
-
-window.forceRelaxMembrane = function () {
-  if (!cyMembrane) return;
-  try {
-    const layout = cyMembrane.layout(_layoutFallbackOptions(true));
-    layout.run();
-    layout.on('layoutstop', function(){ try { cyMembrane.fit(undefined, 60); } catch(_){} });
-  } catch (e) { console.warn("[membrane] forceRelax fallo:", e); }
 };
 
 async function refreshMembrane(force) {
@@ -433,6 +433,7 @@ function _applyGraphToCy(data) {
     degree[e.to_node] = (degree[e.to_node] || 0) + 1;
   }
 
+  // Detectar hubs (uno por subcluster).
   const groupsMap = new Map();
   for (const n of nodes) {
     if (n.id === coreId) continue;
@@ -442,12 +443,16 @@ function _applyGraphToCy(data) {
   }
   const hubIds = new Set();
   groupsMap.forEach(groupNodes => {
-    let best = null, bestDeg = -1;
-    for (const n of groupNodes) {
-      const d = degree[n.id] || 0;
-      if (d > bestDeg) { bestDeg = d; best = n.id; }
-    }
-    if (best) hubIds.add(best);
+    const ids = groupNodes.map(n => n.id);
+    const subs = _subdivideGroup(ids);
+    subs.forEach(subIds => {
+      let best = null, bestDeg = -1;
+      subIds.forEach(id => {
+        const d = degree[id] || 0;
+        if (d > bestDeg) { bestDeg = d; best = id; }
+      });
+      if (best) hubIds.add(best);
+    });
   });
 
   const nodeIds = new Set();
@@ -462,11 +467,11 @@ function _applyGraphToCy(data) {
 
     let radius;
     if (isCore) radius = 64;
-    else if (isHub) radius = Math.min(36, 24 + Math.min(deg, 8));
+    else if (isHub) radius = Math.min(32, 22 + Math.min(deg, 6));
     else {
       const baseR = 11;
       const bonus = Math.min(deg * 1.2, 10);
-      radius = Math.min(24, baseR + bonus);
+      radius = Math.min(22, baseR + bonus);
     }
 
     let classes = [];
@@ -525,7 +530,8 @@ function _applyGraphToCy(data) {
         if (el && !el.empty()) {
           el.data(e.data);
           if (e.group === 'nodes') {
-            el.classes = [];
+            // Fix 4: usar removeClass/addClass en vez de el.classes=[].
+            el.removeClass('core hub');
             if (e.classes.indexOf('core') >= 0) el.addClass('core');
             if (e.classes.indexOf('hub') >= 0) el.addClass('hub');
           }
@@ -534,10 +540,23 @@ function _applyGraphToCy(data) {
     });
   });
 
-  const nodesForSeed = cyMembrane.nodes().map(n => ({ id: n.id(), label: n.data('label'), node_type: n.data('node_type') }));
-  _applySeedPositions(nodesForSeed, edges, coreId, false);
+  const nodesForSeed = cyMembrane.nodes().map(n => ({
+    id: n.id(),
+    label: n.data('label'),
+    node_type: n.data('node_type'),
+  }));
+  _applySeedPositions(nodesForSeed, edges, coreId);
 
-  try { cyMembrane.fit(undefined, 60); } catch(_) {}
+  // Fix 1: fit + center usando API nativa (cy.center(el)).
+  if (coreId) {
+    try {
+      cyMembrane.fit(undefined, 80);
+      const coreEl = cyMembrane.getElementById(coreId);
+      if (coreEl && !coreEl.empty()) cyMembrane.center(coreEl);
+    } catch(_) {}
+  } else {
+    try { cyMembrane.fit(undefined, 80); } catch(_) {}
+  }
 
   membraneCounts = data.counts || { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
   _updateMembraneStats();
@@ -755,5 +774,4 @@ window.AkiraMembrane = {
   initMembraneGraph, initOfficeFloor, refreshMembrane, refreshOffice,
   addOfficeLog, updateOfficeStats,
   reorganize: window.reorganizeMembrane,
-  forceRelax: window.forceRelaxMembrane,
 };
