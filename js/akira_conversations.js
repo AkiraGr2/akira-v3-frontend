@@ -1,6 +1,7 @@
-// AKIRA CONVERSATIONS V1.1 — Fase 10.7.2
+// AKIRA CONVERSATIONS V1.2 — Fase 10.7.2
 // Persistencia de conversaciones: sidebar + cargar/guardar chats.
-// V1.1: fix — refrescar sidebar siempre que llega conversation_id (no solo cuando cambia).
+// V1.1: refrescar sidebar siempre que llega conversation_id.
+// V1.2: actualizaciones optimistas (sin esperar al servidor) + indicador de carga.
 (function(){
   "use strict";
 
@@ -34,6 +35,12 @@
     const inner = document.getElementById('msgsInner');
     if (!inner) return;
     inner.innerHTML = '<div class="msg-row akira"><div class="avatar"></div><div class="bubble">Nuevo chat. ¿En qué te ayudo?</div></div>';
+  }
+
+  function _showLoading(msg){
+    const inner = document.getElementById('msgsInner');
+    if (!inner) return;
+    inner.innerHTML = '<div class="msg-row akira"><div class="avatar"></div><div class="bubble">⏳ ' + _esc(msg || "Cargando…") + '</div></div>';
   }
 
   function _highlightCurrentInList(){
@@ -101,6 +108,7 @@
 
   const api = {
     currentId: null,
+    convsCache: [],   // Última lista recibida del servidor (para updates optimistas)
 
     // Llamado por akira_brain.js al enviar mensajes
     getConversationIdForRequest: function(){
@@ -108,15 +116,29 @@
     },
 
     // Llamado por akira_brain.js cuando el backend responde con un conversation_id.
-    // V1.1: SIEMPRE refresca el sidebar, aunque el id no haya cambiado
-    // (para actualizar message_count y timestamp de last_message_at).
+    // V1.2: update optimista — incrementa contador y refresca la lista SIN esperar al servidor.
     onConversationIdReceived: function(newId){
       if (!newId) return;
       const changed = (newId !== api.currentId);
       api.currentId = newId;
       _setCurrentId(newId);
+
+      // Update optimista de la lista local (evita esperar al servidor)
+      const idx = api.convsCache.findIndex(function(c){ return c.id === newId; });
+      if (idx >= 0) {
+        const conv = api.convsCache[idx];
+        conv.message_count = (Number(conv.message_count) || 0) + 2;  // user + assistant
+        conv.last_message_at = new Date().toISOString();
+        // Mover al top
+        api.convsCache.splice(idx, 1);
+        api.convsCache.unshift(conv);
+        api.renderList(api.convsCache);
+      } else {
+        // Conversación nueva: hay que pedir sus datos al servidor
+        api.loadList();
+      }
+
       if (changed) _highlightCurrentInList();
-      api.loadList();
     },
 
     async loadList(){
@@ -124,17 +146,17 @@
       if (!listEl) return;
       const r = await _fetchJson("/api/v8/conversations?limit=30");
       if (!r.ok || !r.data || !r.data.ok) {
-        // Silencioso: dejamos lo que esté
         return;
       }
       const convs = r.data.conversations || [];
+      api.convsCache = convs;
       api.renderList(convs);
     },
 
     renderList(convs){
       const listEl = document.getElementById('historyList');
       if (!listEl) return;
-      if (!convs.length) {
+      if (!convs || !convs.length) {
         listEl.innerHTML = '<div class="conv-empty">Sin conversaciones todavía</div>';
         return;
       }
@@ -158,10 +180,16 @@
 
     async openConversation(convId){
       if (!convId) return;
+      // Feedback visual inmediato
+      _showLoading("Abriendo conversación…");
+      api.currentId = convId;
+      _setCurrentId(convId);
+      _highlightCurrentInList();
+
       const r = await _fetchJson("/api/v8/conversations/" + encodeURIComponent(convId) + "?include_messages=true");
       if (!r.ok || !r.data || !r.data.ok) {
         const reason = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
-        alert("No se pudo cargar la conversación: " + reason);
+        _showLoading("No se pudo cargar: " + reason);
         return;
       }
       const conv = r.data.conversation || {};
@@ -216,7 +244,12 @@
         alert("No se pudo renombrar: " + reason);
         return;
       }
-      api.loadList();
+      // Update optimista del título en cache
+      const idx = api.convsCache.findIndex(function(c){ return c.id === api.currentId; });
+      if (idx >= 0) {
+        api.convsCache[idx].title = t;
+        api.renderList(api.convsCache);
+      }
     },
 
     async archiveCurrent(){
@@ -229,8 +262,10 @@
         alert("No se pudo archivar: " + reason);
         return;
       }
+      // Update optimista: quitarla de la lista
+      api.convsCache = api.convsCache.filter(function(c){ return c.id !== api.currentId; });
       api.newChat();
-      api.loadList();
+      api.renderList(api.convsCache);
     },
 
     async restoreLast(){
