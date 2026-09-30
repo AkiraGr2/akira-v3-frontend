@@ -1,4 +1,4 @@
-// AKIRA ADMIN PANEL V1.3 — Fase 5 · 6 · 7 · 8 · 9 · 10.3 · 10.4.
+// AKIRA ADMIN PANEL V1.4 — Fase 5 · 6 · 7 · 8 · 9 · 10.3 · 10.4 · 10.5.
 
 (function(){
   "use strict";
@@ -48,7 +48,7 @@
     if (res.status === 403) return "No autorizado (requiere propietario).";
     if (res.status === 422) return "El planificador rechazó el objetivo.";
     if (res.status === 429) return "Límite alcanzado (rate limit / cuota LLM / misiones en curso).";
-    if (res.status === 409) return "Conflicto de versiones.";
+    if (res.status === 409) return "Conflicto de versiones o estado inválido.";
     if (res.status === 503) return "Backend arrancando. Reintenta en 10s.";
     if (res.status === 0)   return "Sin conexión o backend frío (" + (res.error || "timeout") + ").";
     if (res.data && res.data.reason) return res.data.reason + " (HTTP " + res.status + ")";
@@ -418,7 +418,7 @@
     if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
     try {
       const obj = prompt("Objetivo de la misión:",
-        "Investiga qué es FastAPI y dame 3 casos de uso reales");
+        "Investiga qué es FastAPI y dame 3 casos de uso reales en producción");
       if (!obj || !obj.trim()) return;
 
       _out("m1Output", "Creando misión y llamando al planificador LLM (puede tardar 15-30s)…", false);
@@ -491,7 +491,7 @@
         status: m.status,
         version: m.version,
         started_at: m.started_at,
-        mensaje: "Misión aprobada → running. Orquestación llega en 10.5.",
+        mensaje: "Misión aprobada → running. Ahora toca ▶️ EJECUTAR MISIÓN (Fase 10.5).",
       }, false);
     } finally {
       if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
@@ -532,6 +532,72 @@
     } finally {
       if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
     }
+  };
+
+  // ============================================================
+  // FASE 10.5 — Orquestador background (ejecutar plan)
+  // ============================================================
+  window.executeMission = async function(){
+    const input = document.getElementById("m1ApproveId");
+    const missionId = (input && input.value || "").trim();
+    if (!missionId) return _out("m1Output", "Pega primero el mission_id en el campo de Fase 10.4.", true);
+
+    const btn = document.getElementById("m1ExecuteBtn");
+    if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
+    try {
+      _out("m1Output", "Ejecutando " + missionId + " en background…", false);
+      const r = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId) + "/execute", {
+        method: "POST",
+      }, 25000);
+      if (!r.ok || !r.data || !r.data.ok) {
+        const reasonErr = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
+        const cur = (r.data && r.data.current_status) ? " (estado actual: " + r.data.current_status + ")" : "";
+        const det = (r.data && r.data.detail) ? " · " + r.data.detail : "";
+        return _out("m1Output", "❌ " + reasonErr + cur + det, true);
+      }
+      _out("m1Output", {
+        ok: true,
+        mission_id: r.data.mission_id,
+        status: r.data.status,
+        steps_total: r.data.steps_total,
+        mensaje: r.data.mensaje || "Misión en ejecución en background.",
+        siguiente: "Toca 📊 VER PROGRESO en 10-30s para ver el avance de los pasos.",
+      }, false);
+    } finally {
+      if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
+    }
+  };
+
+  window.viewMissionTasks = async function(){
+    const input = document.getElementById("m1ApproveId");
+    const missionId = (input && input.value || "").trim();
+    if (!missionId) return _out("m1Output", "Pega primero el mission_id.", true);
+
+    _out("m1Output", "Leyendo misión y tareas…", false);
+    const m = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId));
+    if (!m.ok || !m.data || !m.data.ok) {
+      return _out("m1Output", "❌ Error leyendo misión: " + _errText(m), true);
+    }
+    const t = await _fetch("/api/v8/tasks?mission_id=" + encodeURIComponent(missionId));
+    const tasks = (t.ok && t.data && t.data.ok && t.data.tasks) ? t.data.tasks : [];
+
+    const mission = m.data.mission;
+    _out("m1Output", {
+      mission_id: mission.id,
+      status: mission.status,
+      started_at: mission.started_at,
+      completed_at: mission.completed_at,
+      result: mission.result,
+      tasks_count: tasks.length,
+      tasks: tasks.map(x => ({
+        id: x.id,
+        agent: x.agent_name,
+        tool: x.tool_name,
+        status: x.status,
+        duration_ms: x.duration_ms,
+        error: x.error || null,
+      })),
+    }, false);
   };
 
   // ============================================================
