@@ -1,4 +1,4 @@
-// AKIRA ADMIN PANEL V1.4 — Fase 5 · 6 · 7 · 8 · 9 · 10.3 · 10.4 · 10.5.
+// AKIRA ADMIN PANEL V1.5 — Fases 5 · 6 · 7 · 8 · 9 · 10.3 · 10.4 · 10.5 · 10.6.
 
 (function(){
   "use strict";
@@ -454,7 +454,7 @@
           receives_from: s.receives_from,
         })),
         summary: plan.summary,
-        siguiente: "Copia el mission_id y usa los botones de Fase 10.4 para aprobar o rechazar.",
+        siguiente: "Copia el mission_id y usa los botones de Fase 10.4/10.5.",
       }, false);
     } finally {
       if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
@@ -491,7 +491,7 @@
         status: m.status,
         version: m.version,
         started_at: m.started_at,
-        mensaje: "Misión aprobada → running. Ahora toca ▶️ EJECUTAR MISIÓN (Fase 10.5).",
+        mensaje: "Misión aprobada → running. Ahora toca ▶️ EJECUTAR MISIÓN.",
       }, false);
     } finally {
       if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
@@ -535,12 +535,12 @@
   };
 
   // ============================================================
-  // FASE 10.5 — Orquestador background (ejecutar plan)
+  // FASE 10.5 — Orquestador background
   // ============================================================
   window.executeMission = async function(){
     const input = document.getElementById("m1ApproveId");
     const missionId = (input && input.value || "").trim();
-    if (!missionId) return _out("m1Output", "Pega primero el mission_id en el campo de Fase 10.4.", true);
+    if (!missionId) return _out("m1Output", "Pega primero el mission_id.", true);
 
     const btn = document.getElementById("m1ExecuteBtn");
     if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
@@ -560,8 +560,8 @@
         mission_id: r.data.mission_id,
         status: r.data.status,
         steps_total: r.data.steps_total,
-        mensaje: r.data.mensaje || "Misión en ejecución en background.",
-        siguiente: "Toca 📊 VER PROGRESO en 10-30s para ver el avance de los pasos.",
+        mensaje: r.data.mensaje,
+        siguiente: "Toca 📈 VER RESUMEN para ver percent y paso actual.",
       }, false);
     } finally {
       if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
@@ -596,6 +596,80 @@
         status: x.status,
         duration_ms: x.duration_ms,
         error: x.error || null,
+      })),
+    }, false);
+  };
+
+  // ============================================================
+  // FASE 10.6 — Progreso agregado + cancelación + recientes
+  // ============================================================
+  window.viewMissionProgress = async function(){
+    const input = document.getElementById("m1ApproveId");
+    const missionId = (input && input.value || "").trim();
+    if (!missionId) return _out("m1Output", "Pega primero el mission_id.", true);
+
+    _out("m1Output", "Calculando progreso…", false);
+    const r = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId) + "/progress");
+    if (!r.ok || !r.data || !r.data.ok) {
+      return _out("m1Output", "❌ " + _errText(r), true);
+    }
+    _out("m1Output", {
+      mission: r.data.mission,
+      progress: r.data.progress,
+      timing: r.data.timing,
+      steps: r.data.steps,
+      error: r.data.error,
+    }, false);
+  };
+
+  window.cancelMission = async function(){
+    const input = document.getElementById("m1ApproveId");
+    const missionId = (input && input.value || "").trim();
+    if (!missionId) return _out("m1Output", "Pega primero el mission_id.", true);
+
+    const btn = document.getElementById("m1CancelBtn");
+    if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
+    try {
+      _out("m1Output", "Cancelando " + missionId + "…", false);
+      const r = await _fetch("/api/v8/missions/" + encodeURIComponent(missionId) + "/cancel", {
+        method: "POST",
+      }, 25000);
+      if (!r.ok || !r.data || !r.data.ok) {
+        const reasonErr = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
+        const cur = (r.data && r.data.current_status) ? " (estado actual: " + r.data.current_status + ")" : "";
+        const det = (r.data && r.data.detail) ? " · " + r.data.detail : "";
+        return _out("m1Output", "❌ " + reasonErr + cur + det, true);
+      }
+      const m = r.data.mission;
+      _out("m1Output", {
+        ok: true,
+        mission_id: m.id,
+        status: m.status,
+        version: m.version,
+        mensaje: r.data.mensaje || "Misión cancelada.",
+      }, false);
+    } finally {
+      if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
+    }
+  };
+
+  window.listRecentMissions = async function(){
+    _out("m1Output", "Leyendo misiones recientes…", false);
+    const r = await _fetch("/api/v8/missions/recent?limit=10");
+    if (!r.ok || !r.data || !r.data.ok) {
+      return _out("m1Output", "❌ " + _errText(r), true);
+    }
+    _out("m1Output", {
+      total: r.data.count,
+      misiones: (r.data.missions || []).map(m => ({
+        id: m.id,
+        title: String(m.title || "").slice(0, 60),
+        status: m.status,
+        priority: m.priority,
+        steps_total: m.steps_total,
+        created_at: m.created_at,
+        completed_at: m.completed_at,
+        has_result: m.has_result,
       })),
     }, false);
   };
