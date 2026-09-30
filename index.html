@@ -231,12 +231,68 @@ body{
   border-radius: 0;
 }
 .send-btn:active { transform: translate(3px, 3px); box-shadow: none; }
+/* Header interno de secciones (Cerebro Akira, Akira Office, etc.) */
+.section-header{
+  padding:14px 18px 10px;
+  border-bottom:3px solid var(--border);
+  background:#0e0e12;
+  flex-shrink:0;
+}
+.section-header h2{
+  font-family:'Press Start 2P', monospace;
+  font-size:13px;
+  color:#fff;
+  margin-bottom:6px;
+  line-height:1.4;
+}
+.section-header p{
+  font-size:11px;
+  color:var(--muted);
+  line-height:1.5;
+}
+/* Paneles de control embebidos en Cerebro Akira y Akira Office */
+.section-tools{
+  border-top:3px solid var(--border);
+  background:#0e0e12;
+  padding:12px 14px;
+  overflow-y:auto;
+  max-height:42%;
+  flex-shrink:0;
+}
+.section-tools h4{
+  font-family:'Press Start 2P', monospace;
+  font-size:11px;
+  color:#fff;
+  margin-bottom:4px;
+}
+.section-tools p{
+  font-size:11px;
+  color:var(--muted);
+  margin-bottom:10px;
+  line-height:1.5;
+}
+.section-tools .btn-row{
+  display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;
+}
+.section-tools pre{
+  background:#0a0a0d;
+  border:3px solid var(--border);
+  padding:10px;
+  font-size:10px;
+  color:#8a8a93;
+  max-height:180px;
+  overflow:auto;
+  white-space:pre-wrap;
+  word-break:break-word;
+  font-family:'Pixelify Sans', sans-serif;
+}
 @media(max-width:768px){
   .sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);width:280px;z-index:30}
   .sidebar.open{transform:translateX(0)}
   .hamburger{display:flex}
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:15}
   .overlay.open{display:block}
+  .section-tools{max-height:50%}
 }
 </style>
 </head>
@@ -253,7 +309,7 @@ body{
   <button class="btn-new pixel-btn" onclick="newChat()">+ Nuevo chat</button>
   <div class="nav">
     <button class="nav-btn active" id="btn-chat" onclick="showSection('chat')">💬 Chat</button>
-    <button class="nav-btn" id="btn-membrane" onclick="showSection('membrane')">🧠 Membrana</button>
+    <button class="nav-btn" id="btn-membrane" onclick="showSection('membrane')">🧠 Cerebro Akira</button>
     <button class="nav-btn" id="btn-office" onclick="showSection('office')">🏢 Oficina</button>
     <button class="nav-btn" id="btn-levels" onclick="showSection('levels')">📊 Niveles</button>
     <button class="nav-btn" id="btn-upwork" onclick="showSection('upwork')">💼 Upwork</button>
@@ -277,6 +333,7 @@ body{
     </div>
   </div>
 
+  <!-- ===================== CHAT ===================== -->
   <div id="chatSection" class="section active">
     <div class="chat-wrap">
       <div class="msgs" id="msgs"><div class="msgs-inner" id="msgsInner">
@@ -303,46 +360,95 @@ body{
     </div>
   </div>
 
+  <!-- ===================== CEREBRO AKIRA (antes Membrana) ===================== -->
   <div id="membraneSection" class="section">
-    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;padding:16px">
-      <div style="flex:1;position:relative;background:#0a0a0d;border:3px solid var(--border);min-height:200px;overflow:hidden">
+    <div class="section-header">
+      <h2>🧠 Cerebro Akira</h2>
+      <p>Red neuronal de conceptos, conexiones y aprendizajes. Cada nodo es algo que Akira sabe; cada línea, una relación real.</p>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;padding:12px;min-height:0">
+      <div style="flex:1;position:relative;background:#0a0a0d;border:3px solid var(--border);min-height:160px;overflow:hidden">
         <div id="membraneCy" style="position:absolute;inset:0"></div>
       </div>
-      <div id="membraneStats" style="padding-top:10px;font-size:11px;color:var(--muted);font-family:'Press Start 2P', monospace;text-align:center"></div>
+      <div id="membraneStats" style="padding:8px 0 0;font-size:11px;color:var(--muted);font-family:'Press Start 2P', monospace;text-align:center"></div>
+    </div>
+    <!-- Controles del grafo (Fase 6) -->
+    <div class="section-tools">
+      <h4>🌐 Fase 6 — Grafo + Aprendizaje</h4>
+      <p>Crea nodos, aristas y aprendizajes reales. Auto-conexión por tags activa.</p>
+      <div class="btn-row">
+        <button class="pixel-btn" onclick="f6TestFull()">🧪 Test completo</button>
+        <button class="pixel-btn" onclick="f6ReadAll()">📖 Leer todo</button>
+        <button class="pixel-btn" onclick="graphReinforce()">🔗 Reforzar</button>
+        <button class="pixel-btn" onclick="graphCleanupTests()">🧹 Limpiar test_*</button>
+        <button class="pixel-btn" onclick="f6Reset()">🗑️ Salida</button>
+      </div>
+      <pre id="f6Output">Sin datos.</pre>
     </div>
   </div>
 
+  <!-- ===================== AKIRA OFFICE (Oficina) ===================== -->
   <div id="officeSection" class="section">
-    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;padding:16px;align-items:center;justify-content:center">
+    <div class="section-header">
+      <h2>🏢 Akira Office</h2>
+      <p>Los 5 agentes reales trabajando en tiempo real. El LED indica su estado: verde libre, amarillo trabajando, rojo error.</p>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;padding:12px;align-items:center;justify-content:center;min-height:0">
       <div style="aspect-ratio: 720 / 630; width:100%; max-height:100%; background:#0e0e12; border:3px solid var(--border); display:flex; align-items:center; justify-content:center; overflow:hidden">
         <canvas id="officeCanvas" style="width:100%; height:100%; display:block;"></canvas>
       </div>
-      <div id="officeLog" style="margin-top:10px;max-height:80px;overflow-y:auto;background:#0e0e12;border:3px solid var(--border);padding:8px;font-size:11px;width:100%;"></div>
-      <div id="officeStats" style="margin-top:8px;font-size:11px;color:var(--muted);font-family:'Press Start 2P', monospace;text-align:center"></div>
+      <div id="officeLog" style="margin-top:8px;max-height:60px;overflow-y:auto;background:#0e0e12;border:3px solid var(--border);padding:6px;font-size:11px;width:100%;"></div>
+      <div id="officeStats" style="margin-top:6px;font-size:11px;color:var(--muted);font-family:'Press Start 2P', monospace;text-align:center"></div>
+    </div>
+    <!-- Controles de agentes (Fase 9) -->
+    <div class="section-tools">
+      <h4>🤖 Fase 9 — Agentes</h4>
+      <p>5 agentes reales (researcher, memorizer, graph_builder, learner, internal). Cada uno solo puede usar las tools de su lista permitida.</p>
+      <div class="btn-row">
+        <button class="pixel-btn" onclick="f9ListAgents()">📋 Listar agentes</button>
+        <button class="pixel-btn" onclick="f9RunResearcher()">🔎 Researcher busca</button>
+        <button class="pixel-btn" onclick="f9RunMemorizer()">💾 Memorizer guarda</button>
+        <button class="pixel-btn" onclick="f9RunInternal()">🧠 Internal lee self</button>
+        <button class="pixel-btn" onclick="f9ListTasks()">📜 Ver tareas</button>
+        <button class="pixel-btn" onclick="f9TestV8S11()">🧪 Test V8 s11</button>
+        <button class="pixel-btn" onclick="f9Reset()">🗑️ Salida</button>
+      </div>
+      <pre id="f9Output">Sin datos.</pre>
     </div>
   </div>
 
+  <!-- ===================== NIVELES ===================== -->
   <div id="levelsSection" class="section">
+    <div class="section-header">
+      <h2>📊 Niveles del Proyecto</h2>
+      <p>Estado real de cada fase, leído desde el self-model persistente. Verde = verificado, amarillo = parcial, rojo = no implementado.</p>
+    </div>
     <div style="padding:22px;max-width:800px;margin:0 auto;width:100%;overflow-y:auto">
-      <h3 style="font-family:'Press Start 2P', monospace;font-size:14px;">📊 Niveles del Proyecto</h3>
-      <div id="levelsList" style="margin-top:16px;display:flex;flex-direction:column;gap:10px"></div>
+      <div id="levelsList" style="display:flex;flex-direction:column;gap:10px"></div>
     </div>
   </div>
 
+  <!-- ===================== UPWORK ===================== -->
   <div id="upworkSection" class="section">
+    <div class="section-header">
+      <h2>💼 Upwork</h2>
+      <p>Akira buscará trabajos, filtrará, preparará propuestas y entregará proyectos freelance.</p>
+    </div>
     <div style="padding:22px;max-width:800px;margin:0 auto;width:100%;overflow-y:auto">
-      <h3 style="font-family:'Press Start 2P', monospace;font-size:14px;">💼 Upwork</h3>
-      <p style="font-size:12px;color:var(--muted);margin-top:6px">Akira buscará trabajos, filtrará, preparará propuestas y entregará proyectos freelance.</p>
-      <textarea id="upworkDesc" placeholder="Pega descripción trabajo Upwork..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;min-height:120px;margin-top:12px;font-family:'Pixelify Sans', sans-serif;border-radius: 0;"></textarea>
+      <textarea id="upworkDesc" placeholder="Pega descripción trabajo Upwork..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;min-height:120px;font-family:'Pixelify Sans', sans-serif;border-radius: 0;"></textarea>
       <div style="display:flex;gap:8px;margin-top:10px"><button class="pixel-btn" onclick="generateUpwork()">🤖 Generar Propuesta</button><button class="pixel-btn" onclick="document.getElementById('upworkDesc').value=''">🧹 Limpiar</button></div>
       <div id="upworkResult" style="margin-top:12px;font-size:13px;background:#0e0e12;border:3px solid var(--border);padding:12px;display:none;white-space: pre-wrap;"></div>
     </div>
   </div>
 
+  <!-- ===================== CUENTA ===================== -->
   <div id="keysSection" class="section">
+    <div class="section-header">
+      <h2>👤 Cuenta</h2>
+      <p>Inicia sesión con Google para activar la sesión firmada y desbloquear el panel admin.</p>
+    </div>
     <div style="padding:22px;max-width:600px;margin:0 auto;width:100%;overflow-y:auto">
-      <h3 style="font-family:'Press Start 2P', monospace;font-size:14px;">👤 Cuenta</h3>
-      <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:16px;">
+      <div style="background:#16161b;border:3px solid var(--border);padding:16px;">
         <div id="g_id_onload" data-client_id="148150327312-7k5g3go06tat9gv61c8v0rbbedcusoqn.apps.googleusercontent.com" data-context="signin" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
         <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
         <div id="userInfo" style="margin-top:14px;font-size:13px;display:none;background:#0e0e12;border:3px solid var(--border);padding:12px;font-family:'Pixelify Sans', sans-serif;"></div>
@@ -359,16 +465,20 @@ body{
     </div>
   </div>
 
+  <!-- ===================== ADMIN ===================== -->
   <div id="adminSection" class="section">
+    <div class="section-header">
+      <h2>👑 Panel Técnico</h2>
+      <p>Solo para el propietario. Estado del sistema, self-model, ciclos cognitivos, tools y mantenimiento.</p>
+    </div>
     <div style="padding:22px;max-width:800px;margin:0 auto;width:100%;overflow-y:auto">
       <div id="adminLogin" style="background:#16161b;border:3px solid var(--border);padding:20px">
-        <h3 style="font-family:'Press Start 2P', monospace;font-size:14px;">👑 Admin Akira</h3>
-        <p style="font-size:12px;color:var(--muted);margin-top:6px">Acceso solo para el propietario con sesión de Google verificada por el servidor.</p>
+        <p style="font-size:12px;color:var(--muted)">Acceso solo para el propietario con sesión de Google verificada por el servidor.</p>
         <button class="pixel-btn" onclick="adminCheckSession()" style="margin-top:14px;width:100%;justify-content:center">Verificar sesión de propietario</button>
         <div id="adminLoginStatus" style="font-size:12px;color:#f59e0b;margin-top:10px"></div>
       </div>
       <div id="adminPanel" style="display:none">
-        <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="font-family:'Press Start 2P', monospace;font-size:14px;">🛠️ Panel Técnico Akira</h2><button class="pixel-btn" onclick="adminLogout()">Cerrar</button></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><h3 style="font-family:'Press Start 2P', monospace;font-size:12px;">Panel Técnico Akira</h3><button class="pixel-btn" onclick="adminLogout()">Cerrar</button></div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px">
           <div style="background:#16161b;border:3px solid var(--border);padding:10px;text-align:center"><div style="font-size:10px;color:var(--muted)">TOTAL</div><div id="neuronCount" style="font-size:18px;font-weight:700;margin-top:4px">--</div></div>
           <div style="background:#16161b;border:3px solid var(--border);padding:10px;text-align:center"><div style="font-size:10px;color:var(--muted)" id="localCount">Local --</div><div style="font-size:12px;margin-top:4px">💾 Local</div></div>
@@ -376,9 +486,11 @@ body{
           <div style="background:#16161b;border:3px solid var(--border);padding:10px;text-align:center"><div style="font-size:10px;color:var(--muted)" id="knowledgeCount">Know --</div><div style="font-size:10px;color:var(--muted)" id="hiveCount">Hive --</div></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
-          <div style="background:#16161b;border:3px solid var(--border);padding:14px"><div style="font-size:11px;color:var(--muted)">MEMBRANA</div><div style="font-size:11px;margin-top:6px;word-break:break-all;font-family:'Pixelify Sans', sans-serif;" id="adminMembrana">Cargando...</div></div>
+          <div style="background:#16161b;border:3px solid var(--border);padding:14px"><div style="font-size:11px;color:var(--muted)">ESTADO GENERAL</div><div style="font-size:11px;margin-top:6px;word-break:break-all;font-family:'Pixelify Sans', sans-serif;" id="adminMembrana">Cargando...</div></div>
           <div style="background:#16161b;border:3px solid var(--border);padding:14px"><div style="font-size:11px;color:var(--muted)">TOOLS</div><div style="font-size:11px;margin-top:6px;font-family:'Pixelify Sans', sans-serif;" id="adminTools">Cargando...</div></div>
         </div>
+
+        <!-- Fase 5 -->
         <div style="margin-top:16px;background:#0e0e12;border:3px solid var(--border);padding:14px">
           <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🧪 Self-Model (Fase 5)</h4>
           <p style="font-size:11px;color:var(--muted);margin-top:6px">Verifica el self-model persistente.</p>
@@ -389,16 +501,8 @@ body{
           </div>
           <pre id="smOutput" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos todavía.</pre>
         </div>
-        <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
-          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🌐 Fase 6 — Grafo + Aprendizaje</h4>
-          <p style="font-size:11px;color:var(--muted);margin-top:6px">Crea nodos, aristas y aprendizajes reales.</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-            <button class="pixel-btn" onclick="f6TestFull()">🧪 Test completo</button>
-            <button class="pixel-btn" onclick="f6ReadAll()">📖 Leer todo</button>
-            <button class="pixel-btn" onclick="f6Reset()">🧹 Limpiar</button>
-          </div>
-          <pre id="f6Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
-        </div>
+
+        <!-- Fase 7 -->
         <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
           <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🧠 Fase 7 — Ciclo Cognitivo</h4>
           <p style="font-size:11px;color:var(--muted);margin-top:6px">Ejecuta un ciclo cognitivo de 9 etapas.</p>
@@ -411,9 +515,11 @@ body{
           </div>
           <pre id="f7Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
         </div>
+
+        <!-- Fase 8 -->
         <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
           <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🔧 Fase 8 — Tool Registry</h4>
-          <p style="font-size:11px;color:var(--muted);margin-top:6px">10 herramientas reales registradas. Cada invocación queda en un log persistente.</p>
+          <p style="font-size:11px;color:var(--muted);margin-top:6px">11 herramientas reales registradas. Cada invocación queda en un log persistente.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
             <button class="pixel-btn" onclick="f8ListTools()">📚 Listar tools</button>
             <button class="pixel-btn" onclick="f8TestWebSearch()">🔎 Test web_search</button>
@@ -423,21 +529,17 @@ body{
           </div>
           <pre id="f8Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
         </div>
+
+        <!-- Mantenimiento -->
         <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
-          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🤖 Fase 9 — Agentes</h4>
-          <p style="font-size:11px;color:var(--muted);margin-top:6px">5 agentes reales (researcher, memorizer, graph_builder, learner, internal). Cada agente solo puede usar las tools de su lista permitida.</p>
+          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🧰 Mantenimiento</h4>
+          <p style="font-size:11px;color:var(--muted);margin-top:6px">Herramientas de limpieza y respaldo.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-            <button class="pixel-btn" onclick="f9ListAgents()">📋 Listar agentes</button>
-            <button class="pixel-btn" onclick="f9RunResearcher()">🔎 Researcher busca</button>
-            <button class="pixel-btn" onclick="f9RunMemorizer()">💾 Memorizer guarda</button>
-            <button class="pixel-btn" onclick="f9RunInternal()">🧠 Internal lee self</button>
-            <button class="pixel-btn" onclick="f9ListTasks()">📜 Ver tareas</button>
-            <button class="pixel-btn" onclick="f9TestV8S11()">🧪 Test V8 s11</button>
-            <button class="pixel-btn" onclick="f9Reset()">🧹 Limpiar</button>
+            <button class="pixel-btn" onclick="clearLocalDB()">🗑️ Limpiar DB local</button>
+            <button class="pixel-btn" onclick="forceSyncR2()">☁️ Forzar Sync R2</button>
+            <button class="pixel-btn" onclick="exportBackup()">💾 Export Backup</button>
           </div>
-          <pre id="f9Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
         </div>
-        <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="pixel-btn" onclick="clearLocalDB()">🗑️ Limpiar DB local</button><button class="pixel-btn" onclick="forceSyncR2()">☁️ Forzar Sync R2</button><button class="pixel-btn" onclick="exportBackup()">💾 Export Backup</button></div>
       </div>
     </div>
   </div>
@@ -535,7 +637,7 @@ async function adminCheckSession(){
       if(status) status.textContent="";
       document.getElementById("adminLogin").style.display="none";
       document.getElementById("adminPanel").style.display="block";
-      setTimeout(()=>{ countNeuronas(); renderLevels(); checkBridgeAdmin(); },100);
+      setTimeout(()=>{ countNeuronas(); renderLevels(); if(window.adminDashboard) adminDashboard(); },100);
     }else{
       if(status) status.textContent=md.authenticated?"⛔ No eres propietario.":"⚠️ Inicia sesión con Google en Cuenta.";
     }
@@ -605,12 +707,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
 <script src="./js/akira_admin.js?v=akira-admin-v1"></script>
 <script>
-// ─────────────────────────────────────────────────────────────────────────────
-// AKIRA ADMIN V1 — Final override
-// Esta redefinición de renderLevels gana sobre la versión hardcodeada de
-// akira_brain.js (que carga antes y sobreescribía la versión buena).
-// Arregla H-16 (Niveles mostraba lista falsa).
-// ─────────────────────────────────────────────────────────────────────────────
+// AKIRA ADMIN V1 — Override final de renderLevels
 async function renderLevels(){
   const listEl=document.getElementById("levelsList");
   if(!listEl) return;
@@ -633,9 +730,9 @@ async function renderLevels(){
       {id:"V5", name:"Imagen + Video", desc:"Pollinations flux + gpt-oss-120b Groq", status: "verified"},
       {id:"V6", name:"Auto-Repair", desc:"Kira hija autonoma detecta y repara errores", status: "verified"},
       {id:"F5", name:"Self-Model Persistente", desc:"Migracion 002. Entidad self_model.", status: capStatus("self_model_persistent")},
-      {id:"F6", name:"Grafo Neuronal + Aprendizaje", desc:"Migracion 003. 3 tablas: learning_events, graph_nodes, graph_edges.", status: capStatus("graph_persistent")},
+      {id:"F6", name:"Grafo Neuronal + Aprendizaje", desc:"Migraciones 003 + 010. Auto-conexion por tags activa.", status: capStatus("graph_persistent")},
       {id:"F7", name:"Ciclo Cognitivo Persistente", desc:"Migraciones 004, 005, 006. 9 etapas.", status: capStatus("cognitive_cycle_persistent")},
-      {id:"F8", name:"Tool Registry", desc:"Migracion 007. 10 tools registradas.", status: capStatus("tool_registry")},
+      {id:"F8", name:"Tool Registry", desc:"Migracion 007. 11 tools registradas.", status: capStatus("tool_registry")},
       {id:"F9", name:"Agentes + Tareas", desc:"Migracion 008, 009. 5 agentes reales.", status: capStatus("agents_persistent")},
       {id:"F10", name:"Mission Engine", desc:"No implementado", status: capStatus("missions")},
       {id:"F11", name:"Self-Repair Real", desc:"No implementado", status: capStatus("self_repair_full")},
@@ -660,4 +757,4 @@ async function renderLevels(){
 }
 </script>
 </body>
-      </html>
+                                                                                                                          </html>
