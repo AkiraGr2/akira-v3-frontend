@@ -1,10 +1,11 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V18.1 (auditado)
-// V18.1 (auditoria):
-//   - Fix 1: centerOnCore usa cy.center(el) en vez de renderedPosition (stale).
-//   - Fix 2: cache se invalida por firma de grafo (nodes cambiaron).
-//   - Fix 3: solo se aplican posiciones a nodos NUEVOS (respeta drags del usuario).
-//   - Fix 4: removeClass() en vez de el.classes=[].
-// V18.0: subdivision de grupos grandes + anillo amplio.
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V18.2 (auditado)
+// V18.2:
+//   - MIN_EDGE_WEIGHT_VISIBLE bajado a 0.4.
+//   - Excepcion: aristas al core SIEMPRE visibles.
+//   - Layout relax con randomize:false despues del seed (respeta las flores).
+//   - Orden correcto: seed -> relax -> fit -> center (fix de bug de orden).
+//   - Variable membraneLayoutRunning para evitar dobles ejecuciones.
+// V18.1: centerOnCore con cy.center(el), cache con firma, drags respetados.
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
@@ -65,14 +66,15 @@ async function _fetchJson(url) {
 }
 
 // ===========================================================================
-// CEREBRO AKIRA — V18.1
+// CEREBRO AKIRA — V18.2
 // ===========================================================================
 let cyMembrane = null;
 let membraneLastFetch = 0, membraneFetching = false;
 let membraneCounts = { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
 let membraneError = null;
+let membraneLayoutRunning = false;
 const MEMBRANE_REFRESH_MS = 7000;
-const MIN_EDGE_WEIGHT_VISIBLE = 0.5;
+const MIN_EDGE_WEIGHT_VISIBLE = 0.4;
 const MAX_EDGES_PER_NODE = 4;
 const MAX_NODES_PER_CLUSTER = 10;
 
@@ -112,12 +114,15 @@ function _abbreviateLabel(id, label) {
   return s;
 }
 
+// V18.2: excepcion para aristas del core (siempre visibles, sin importar el peso).
 function _filterEdgesByRelevance(edges, nodeIds, coreId) {
   const byNode = new Map();
   for (const e of edges) {
     if (!nodeIds.has(e.from_node) || !nodeIds.has(e.to_node)) continue;
     const w = Number(e.weight) || 0;
-    if (w < MIN_EDGE_WEIGHT_VISIBLE) continue;
+    const isCoreEdge = coreId && (e.from_node === coreId || e.to_node === coreId);
+    // Excepcion: aristas al core siempre pasan.
+    if (w < MIN_EDGE_WEIGHT_VISIBLE && !isCoreEdge) continue;
     for (const nid of [e.from_node, e.to_node]) {
       if (!byNode.has(nid)) byNode.set(nid, []);
       byNode.get(nid).push({ edge: e, weight: w });
@@ -175,12 +180,10 @@ function _computeSeedPositions(nodes, edges, coreId) {
   if (coreId) positions[coreId] = { x: cx, y: cy };
 
   const N = clusters.length;
-  // Anillo amplio: minimo 200px para movil.
   const R = Math.max(Math.min(W, H) * 0.44, 200);
 
   clusters.forEach(({ key, ids }, i) => {
     const angle = (i / Math.max(N, 1)) * 2 * Math.PI - Math.PI / 2;
-
     const Nsat = ids.length;
     const clusterR = Math.min(180, 50 + Math.log2(1 + Nsat) * 28);
 
@@ -211,7 +214,6 @@ function _computeSeedPositions(nodes, edges, coreId) {
   return positions;
 }
 
-// Coloca un nodo nuevo cerca de su hub (o del nucleo si no hay hub).
 function _placeNearHub(nodeId, hubId, centerPos) {
   if (!hubId || !_positionCache.has(hubId)) {
     const angle = Math.random() * Math.PI * 2;
@@ -224,8 +226,7 @@ function _placeNearHub(nodeId, hubId, centerPos) {
   return { x: hub.x + r * Math.cos(angle), y: hub.y + r * Math.sin(angle) };
 }
 
-// V18.1: solo aplica posiciones a nodos NUEVOS. Los ya cacheados no se tocan
-// (respeta drags del usuario). Si la firma del grafo cambio, resetea cache.
+// V18.2: solo aplica a nodos nuevos. Devuelve true si corrio seed completo.
 function _applySeedPositions(nodes, edges, coreId) {
   const sig = nodes.map(n => n.id).sort().join(",");
   if (sig !== _lastGraphSignature) {
@@ -234,7 +235,7 @@ function _applySeedPositions(nodes, edges, coreId) {
   }
 
   const missing = nodes.filter(n => !_positionCache.has(n.id));
-  if (missing.length === 0) return;
+  if (missing.length === 0) return false;
 
   if (_positionCache.size === 0) {
     // Primera vez: seed completo y aplicar a todos.
@@ -244,6 +245,7 @@ function _applySeedPositions(nodes, edges, coreId) {
       const p = _positionCache.get(n.id());
       if (p) n.position(p);
     });
+    return true; // corrio seed completo: hace falta relax
   } else {
     // Solo colocar los nuevos cerca de su hub.
     const W = cyMembrane.width() || 800, H = cyMembrane.height() || 600;
@@ -274,6 +276,47 @@ function _applySeedPositions(nodes, edges, coreId) {
       const el = cyMembrane.getElementById(n.id);
       if (el && !el.empty()) el.position(pos);
     }
+    return false; // no hace falta relax, solo se anadieron nodos cerca del hub
+  }
+}
+
+// V18.2: layout relax. Respeta las posiciones del seed (randomize:false).
+function _runLayoutRelax() {
+  if (!cyMembrane || membraneLayoutRunning) return;
+  if (typeof window.cytoscapeCoseBilkent !== "function") return;
+  membraneLayoutRunning = true;
+  try {
+    const layout = cyMembrane.layout({
+      name: 'cose-bilkent',
+      animate: 'end',
+      animationDuration: 900,
+      animationEasing: 'ease-out',
+      quality: 'default',
+      randomize: false,       // CLAVE: respeta las posiciones del seed
+      nodeRepulsion: 45000,   // separa clusters entre si
+      idealEdgeLength: 180,   // distancia entre conectados
+      edgeElasticity: 0.4,
+      nestingFactor: 0.1,
+      gravity: 0.08,          // gravedad baja para no apelotonar al centro
+      numIter: 2500,
+      tile: false,
+      nodeDimensionsIncludeLabels: false,
+      fit: false,             // no hacemos fit aqui, lo hacemos despues
+      padding: 60,
+    });
+    layout.on('layoutstop', function(){
+      membraneLayoutRunning = false;
+      // Ahora si: ajustar camara y centrar en Akira.
+      try {
+        cyMembrane.fit(undefined, 80);
+        const coreEl = cyMembrane.nodes('.core');
+        if (coreEl && coreEl.length > 0) cyMembrane.center(coreEl);
+      } catch(_) {}
+    });
+    layout.run();
+  } catch(e) {
+    membraneLayoutRunning = false;
+    console.warn("[membrane] layout relax fallo:", e);
   }
 }
 
@@ -328,7 +371,7 @@ function _cytoscapeStyle() {
       'curve-style': 'straight', 'opacity': 0.35,
       'transition-property': 'opacity, line-color', 'transition-duration': '180ms',
     }},
-    { selector: 'edge.to-core', style: { 'line-color': '#8b5a5a', 'opacity': 0.4 }},
+    { selector: 'edge.to-core', style: { 'line-color': '#ff8a8a', 'opacity': 0.6, 'width': 1.4 }},
     { selector: 'edge.highlighted', style: { 'opacity': 0.85, 'line-color': '#b8b8d0' }},
     { selector: 'edge.dimmed', style: { 'opacity': 0.04 }},
   ];
@@ -401,7 +444,6 @@ function _highlightNeighbors(node) {
 
 window.reorganizeMembrane = function () {
   if (!cyMembrane) return;
-  // Fuerza reseed completo.
   _positionCache.clear();
   _lastGraphSignature = "";
   refreshMembrane(true);
@@ -433,7 +475,6 @@ function _applyGraphToCy(data) {
     degree[e.to_node] = (degree[e.to_node] || 0) + 1;
   }
 
-  // Detectar hubs (uno por subcluster).
   const groupsMap = new Map();
   for (const n of nodes) {
     if (n.id === coreId) continue;
@@ -504,7 +545,7 @@ function _applyGraphToCy(data) {
       group: 'edges',
       data: {
         id: e.id, source: e.from_node, target: e.to_node,
-        weight: w, width: Math.min(3.0, 0.5 + w * 0.7),
+        weight: w, width: toCore ? 1.4 : Math.min(3.0, 0.5 + w * 0.7),
         relation_type: e.relation_type,
       },
       classes: toCore ? 'to-core' : '',
@@ -530,7 +571,6 @@ function _applyGraphToCy(data) {
         if (el && !el.empty()) {
           el.data(e.data);
           if (e.group === 'nodes') {
-            // Fix 4: usar removeClass/addClass en vez de el.classes=[].
             el.removeClass('core hub');
             if (e.classes.indexOf('core') >= 0) el.addClass('core');
             if (e.classes.indexOf('hub') >= 0) el.addClass('hub');
@@ -545,17 +585,21 @@ function _applyGraphToCy(data) {
     label: n.data('label'),
     node_type: n.data('node_type'),
   }));
-  _applySeedPositions(nodesForSeed, edges, coreId);
+  const seedRan = _applySeedPositions(nodesForSeed, edges, coreId);
 
-  // Fix 1: fit + center usando API nativa (cy.center(el)).
-  if (coreId) {
+  // V18.2: solo corremos el layout relax cuando:
+  //   a) Se ejecuto un seed completo (primera vez o reorganize).
+  //   b) El layout no esta ya corriendo.
+  if (seedRan && !membraneLayoutRunning) {
+    // Delay minimo para que Cytoscape registre los nodos antes del layout.
+    setTimeout(() => { _runLayoutRelax(); }, 80);
+  } else if (!seedRan && !membraneLayoutRunning) {
+    // Solo se anadieron nodos: no relajamos, solo ajustamos vista.
     try {
       cyMembrane.fit(undefined, 80);
-      const coreEl = cyMembrane.getElementById(coreId);
-      if (coreEl && !coreEl.empty()) cyMembrane.center(coreEl);
+      const coreEl = cyMembrane.nodes('.core');
+      if (coreEl && coreEl.length > 0) cyMembrane.center(coreEl);
     } catch(_) {}
-  } else {
-    try { cyMembrane.fit(undefined, 80); } catch(_) {}
   }
 
   membraneCounts = data.counts || { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
