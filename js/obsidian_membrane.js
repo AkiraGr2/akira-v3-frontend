@@ -1,43 +1,27 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V15.1
-// Cambios V15.1:
-//   - Nucleo 'Akira' se pinta rojo, grande, con glow (efecto sol).
-//   - Layout cose-bilkent (algoritmo de Obsidian) con fallback a cose.
-//   - Resto igual que V15.0.
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V15.2
+// Cambios V15.2:
+//   - Nucleo exento del limite de aristas (muestra TODAS sus conexiones).
+//   - Jerarquia visual: nodos con mas conexiones se ven mas grandes.
+//   - cose-bilkent: nodeRepulsion 15000, idealEdgeLength 110 (nodos mas separados).
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
 const OFFICE_SHEET_URL = "./assets/office/PixelOfficeAssets.png";
-
 const OFFICE_W = 720;
 const OFFICE_H = 630;
 
 const SPRITE_RECTS = {
-  researcher:    [2, 105, 17, 128],
-  memorizer:     [19, 104, 38, 128],
-  graph_builder: [40, 107, 53, 128],
-  learner:       [3, 132, 20, 155],
-  internal:      [22, 132, 39, 155],
+  researcher: [2, 105, 17, 128], memorizer: [19, 104, 38, 128],
+  graph_builder: [40, 107, 53, 128], learner: [3, 132, 20, 155], internal: [22, 132, 39, 155],
 };
-
-const H_Y = 355;
-const VL_X = 49;
-const VC_X = 362;
-const VR_X = 675;
+const H_Y = 355, VL_X = 49, VC_X = 362, VR_X = 675;
 const H_POINTS = [60, 130, 200, 270, 340, 410, 480, 550, 620, 690];
 const V_POINTS = [380, 440, 500, 560, 610];
-
 const HOME_POSITIONS = {
-  researcher:    [VL_X, 420],
-  memorizer:     [VC_X, 420],
-  graph_builder: [VR_X, 420],
-  learner:       [180, H_Y],
-  internal:      [540, H_Y],
+  researcher: [VL_X, 420], memorizer: [VC_X, 420], graph_builder: [VR_X, 420],
+  learner: [180, H_Y], internal: [540, H_Y],
 };
-
-const SPRITE_SCALE = 2;
-const WALK_SPEED = 0.9;
-const IDLE_WAIT_MS = 8000;
-const BUSY_WAIT_MS = 4000;
+const SPRITE_SCALE = 2, WALK_SPEED = 0.9, IDLE_WAIT_MS = 8000, BUSY_WAIT_MS = 4000;
 
 const NODE_TYPE_COLORS = {
   concept: "#8b5cf6", person: "#ec4899", project: "#f59e0b", tool: "#06b6d4",
@@ -60,7 +44,6 @@ function _authHeaders() {
   }
   return {};
 }
-
 async function _fetchJson(url) {
   const full = url.indexOf("http") === 0 ? url : (AKIRA_API_BASE + url);
   const bust = full + (full.indexOf("?") >= 0 ? "&" : "?") + "_=" + Date.now();
@@ -70,23 +53,17 @@ async function _fetchJson(url) {
 }
 
 // ===========================================================================
-// CEREBRO AKIRA (MEMBRANA) — Cytoscape.js V15.1
+// CEREBRO AKIRA
 // ===========================================================================
-
 let cyMembrane = null;
-let membraneLastFetch = 0;
-let membraneFetching = false;
+let membraneLastFetch = 0, membraneFetching = false;
 let membraneCounts = { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
-let membraneError = null;
-let membraneHasRunLayoutOnce = false;
-let membraneLayoutTimer = null;
+let membraneError = null, membraneHasRunLayoutOnce = false, membraneLayoutTimer = null;
 const MEMBRANE_REFRESH_MS = 7000;
-
 const MIN_EDGE_WEIGHT_VISIBLE = 0.3;
 const MAX_EDGES_PER_NODE = 6;
 
-let _labelCounter = null;
-let _labelMax = 0;
+let _labelCounter = null, _labelMax = 0;
 function _getLabelCounter() {
   if (_labelCounter) return _labelCounter;
   try { _labelCounter = JSON.parse(localStorage.getItem("akira_label_counter") || "{}"); }
@@ -106,23 +83,20 @@ function _labelForId(id, fallback) {
   }
   return counter[id] + (fallback ? " · " + fallback : "");
 }
-
 function _abbreviateLabel(id, label) {
   if (!label && !id) return "";
-  const s = String(label || "");
-  const i = String(id || "");
-  // El nucleo mantiene su label real
+  const s = String(label || ""); const i = String(id || "");
   if (s.trim().toLowerCase() === "akira") return "Akira";
-  if (s.startsWith("memory:mem_"))   return _labelForId(i, "mem");
-  if (s.startsWith("learning:"))     return _labelForId(i, "learn");
-  if (s.startsWith("agent:"))        return _labelForId(i, s.slice(6));
-  if (s.startsWith("tool:"))         return _labelForId(i, s.slice(5));
-  if (i.startsWith("node_"))         return _labelForId(i, s.slice(0, 14));
+  if (s.startsWith("memory:mem_")) return _labelForId(i, "mem");
+  if (s.startsWith("learning:")) return _labelForId(i, "learn");
+  if (s.startsWith("agent:")) return _labelForId(i, s.slice(6));
+  if (s.startsWith("tool:")) return _labelForId(i, s.slice(5));
+  if (i.startsWith("node_")) return _labelForId(i, s.slice(0, 14));
   if (s.length > 20) return s.slice(0, 18) + "…";
   return s;
 }
 
-function _filterEdgesByRelevance(edges, nodeIds) {
+function _filterEdgesByRelevance(edges, nodeIds, coreId) {
   const byNode = new Map();
   for (const e of edges) {
     if (!nodeIds.has(e.from_node) || !nodeIds.has(e.to_node)) continue;
@@ -134,9 +108,10 @@ function _filterEdgesByRelevance(edges, nodeIds) {
     }
   }
   const keep = new Set();
-  byNode.forEach(list => {
+  byNode.forEach((list, nid) => {
     list.sort((a, b) => b.weight - a.weight);
-    list.slice(0, MAX_EDGES_PER_NODE).forEach(item => keep.add(item.edge.id));
+    if (nid === coreId) list.forEach(item => keep.add(item.edge.id));
+    else list.slice(0, MAX_EDGES_PER_NODE).forEach(item => keep.add(item.edge.id));
   });
   return edges.filter(e => keep.has(e.id));
 }
@@ -154,21 +129,12 @@ function _cytoscapeStyle() {
       'transition-property': 'opacity, border-width, shadow-blur, shadow-opacity',
       'transition-duration': '180ms',
     }},
-    // NUCLEO: rojo, grande, con glow fuerte
     { selector: 'node.core', style: {
-      'background-color': '#ef4444',
-      'background-opacity': 1.0,
-      'width': 56,
-      'height': 56,
-      'color': '#ffffff',
-      'font-size': 13,
-      'font-weight': 'bold',
-      'text-opacity': 1,
-      'border-width': 3,
-      'border-color': '#ffffff',
-      'shadow-blur': 40,
-      'shadow-color': '#ef4444',
-      'shadow-opacity': 0.85,
+      'background-color': '#ef4444', 'background-opacity': 1.0,
+      'width': 56, 'height': 56,
+      'color': '#ffffff', 'font-size': 13, 'font-weight': 'bold', 'text-opacity': 1,
+      'border-width': 3, 'border-color': '#ffffff',
+      'shadow-blur': 40, 'shadow-color': '#ef4444', 'shadow-opacity': 0.85,
     }},
     { selector: 'node:selected', style: {
       'border-width': 2, 'border-color': '#ffffff',
@@ -186,11 +152,7 @@ function _cytoscapeStyle() {
       'curve-style': 'straight', 'opacity': 0.55,
       'transition-property': 'opacity, line-color', 'transition-duration': '180ms',
     }},
-    // Aristas hacia el nucleo: un poco mas visibles
-    { selector: 'edge.to-core', style: {
-      'line-color': '#8a5a5a',
-      'opacity': 0.45,
-    }},
+    { selector: 'edge.to-core', style: { 'line-color': '#8a5a5a', 'opacity': 0.5 }},
     { selector: 'edge.highlighted', style: { 'opacity': 0.9, 'line-color': '#b8b8d0' }},
     { selector: 'edge.dimmed', style: { 'opacity': 0.08 }},
   ];
@@ -199,55 +161,28 @@ function _cytoscapeStyle() {
 function _layoutOptions(animate) {
   if (typeof window.cytoscapeCoseBilkent === "function") {
     return {
-      name: 'cose-bilkent',
-      animate: !!animate ? 'end' : false,
-      animationDuration: 900,
-      animationEasing: 'ease-out',
-      quality: 'default',
-      nodeRepulsion: 5000,
-      idealEdgeLength: 65,
-      edgeElasticity: 0.45,
-      nestingFactor: 0.1,
-      gravity: 0.3,
-      numIter: 2500,
-      tile: true,
-      randomize: true,
-      nodeDimensionsIncludeLabels: false,
-      fit: true,
-      padding: 50,
+      name: 'cose-bilkent', animate: !!animate ? 'end' : false,
+      animationDuration: 900, animationEasing: 'ease-out', quality: 'default',
+      nodeRepulsion: 15000, idealEdgeLength: 110, edgeElasticity: 0.35,
+      nestingFactor: 0.1, gravity: 0.15, numIter: 3000, tile: true, randomize: true,
+      nodeDimensionsIncludeLabels: false, fit: true, padding: 60,
     };
   }
   return {
-    name: 'cose',
-    animate: !!animate,
-    animationDuration: 600,
-    animationEasing: 'ease-out',
-    randomize: false,
-    nodeRepulsion: 50000,
-    idealEdgeLength: 100,
-    edgeElasticity: 0.4,
-    nestingFactor: 0.1,
-    gravity: 0.35,
-    numIter: 2500,
-    initialTemp: 200,
-    coolingFactor: 0.95,
-    minTemp: 1.0,
-    fit: true,
-    padding: 50,
-    nodeOverlap: 20,
-    componentSpacing: 60,
+    name: 'cose', animate: !!animate, animationDuration: 600, animationEasing: 'ease-out',
+    randomize: false, nodeRepulsion: 50000, idealEdgeLength: 120, edgeElasticity: 0.4,
+    nestingFactor: 0.1, gravity: 0.35, numIter: 2500, initialTemp: 200,
+    coolingFactor: 0.95, minTemp: 1.0, fit: true, padding: 60,
+    nodeOverlap: 20, componentSpacing: 60,
   };
 }
 
 function _disperseNodes() {
   if (!cyMembrane) return;
-  const nodes = cyMembrane.nodes();
-  const total = nodes.length;
+  const nodes = cyMembrane.nodes(); const total = nodes.length;
   if (total === 0) return;
-  const w = cyMembrane.width() || 800;
-  const h = cyMembrane.height() || 600;
-  const cx = w / 2, cy = h / 2;
-  const maxRadius = Math.min(w, h) * 0.35;
+  const w = cyMembrane.width() || 800, h = cyMembrane.height() || 600;
+  const cx = w/2, cy = h/2, maxRadius = Math.min(w, h) * 0.35;
   const golden = Math.PI * (3 - Math.sqrt(5));
   nodes.forEach((n, i) => {
     const angle = i * golden;
@@ -261,17 +196,11 @@ function _runLayoutSafely(animate) {
   membraneLayoutTimer = setTimeout(() => {
     if (!cyMembrane) return;
     try {
-      if (typeof window.cytoscapeCoseBilkent !== "function") {
-        _disperseNodes();
-      }
+      if (typeof window.cytoscapeCoseBilkent !== "function") _disperseNodes();
       const layout = cyMembrane.layout(_layoutOptions(animate));
       layout.run();
-      layout.on('layoutstop', function(){
-        try { cyMembrane.fit(undefined, 50); } catch(_){}
-      });
-    } catch (e) {
-      console.warn("[membrane] layout fallo:", e);
-    }
+      layout.on('layoutstop', function(){ try { cyMembrane.fit(undefined, 50); } catch(_){} });
+    } catch (e) { console.warn("[membrane] layout fallo:", e); }
     membraneLayoutTimer = null;
   }, 100);
 }
@@ -279,8 +208,7 @@ function _runLayoutSafely(animate) {
 function initMembraneGraph() {
   const container = document.getElementById('membraneCy');
   if (!container) return;
-  const parent = container.parentElement;
-  const rect = parent.getBoundingClientRect();
+  const rect = container.parentElement.getBoundingClientRect();
   if (rect.width < 50 || rect.height < 50) return;
   if (typeof window.cytoscape === 'undefined') {
     container.innerHTML = '<div style="color:#ef4444;padding:20px;font-family:monospace;text-align:center">No se pudo cargar Cytoscape.js</div>';
@@ -289,8 +217,7 @@ function initMembraneGraph() {
   if (cyMembrane) { cyMembrane.resize(); refreshMembrane(true); return; }
   try {
     cyMembrane = window.cytoscape({
-      container: container,
-      style: _cytoscapeStyle(),
+      container: container, style: _cytoscapeStyle(),
       layout: { name: 'preset' },
       minZoom: 0.2, maxZoom: 4.0, wheelSensitivity: 0.25,
       boxSelectionEnabled: false, selectionType: 'single',
@@ -299,7 +226,7 @@ function initMembraneGraph() {
     cyMembrane.on('tap', 'node', (evt) => { _highlightNeighbors(evt.target); });
     cyMembrane.on('mouseover', 'node', (evt) => {
       if (cyMembrane.elements(':selected').length > 0) return;
-      _highlightNeighbors(evt.target, true);
+      _highlightNeighbors(evt.target);
     });
     cyMembrane.on('mouseout', 'node', () => {
       if (cyMembrane.elements(':selected').length > 0) return;
@@ -323,7 +250,6 @@ function initMembraneGraph() {
     container.innerHTML = '<div style="color:#ef4444;padding:20px;font-family:monospace;text-align:center">Error Cytoscape: ' + (e && e.message ? e.message : e) + '</div>';
   }
 }
-
 function _highlightNeighbors(node) {
   if (!cyMembrane) return;
   const neighborhood = node.closedNeighborhood();
@@ -333,37 +259,34 @@ function _highlightNeighbors(node) {
     else el.addClass('dimmed');
   });
 }
-
-window.reorganizeMembrane = function () {
-  if (!cyMembrane) return;
-  _runLayoutSafely(true);
-};
+window.reorganizeMembrane = function () { if (cyMembrane) _runLayoutSafely(true); };
 
 async function refreshMembrane(force) {
-  if (!cyMembrane) return;
-  if (membraneFetching) return;
+  if (!cyMembrane || membraneFetching) return;
   if (!force && Date.now() - membraneLastFetch < MEMBRANE_REFRESH_MS) return;
-  membraneFetching = true;
-  membraneLastFetch = Date.now();
+  membraneFetching = true; membraneLastFetch = Date.now();
   try {
     const data = await _fetchJson("/api/v8/graph/overview");
     if (data && data.ok) { _applyGraphToCy(data); membraneError = null; }
-  } catch (e) {
-    membraneError = String(e && e.message ? e.message : e);
-  } finally {
-    membraneFetching = false;
-  }
+  } catch (e) { membraneError = String(e && e.message ? e.message : e); }
+  finally { membraneFetching = false; }
 }
 
 function _applyGraphToCy(data) {
   if (!cyMembrane) return;
-  const nodes = data.nodes || [];
-  const edges = data.edges || [];
+  const nodes = data.nodes || [], edges = data.edges || [];
 
-  // Detectar id del nucleo
+  // Detectar el nucleo por label "Akira"
   let coreId = null;
   for (const n of nodes) {
     if (String(n.label || "").trim().toLowerCase() === "akira") { coreId = n.id; break; }
+  }
+
+  // Contar conexiones por nodo (para jerarquia visual)
+  const degree = {};
+  for (const e of edges) {
+    degree[e.from_node] = (degree[e.from_node] || 0) + 1;
+    degree[e.to_node] = (degree[e.to_node] || 0) + 1;
   }
 
   const nodeIds = new Set();
@@ -373,41 +296,36 @@ function _applyGraphToCy(data) {
     nodeIds.add(n.id);
     const isCore = (n.id === coreId);
     const typeColor = NODE_TYPE_COLORS[n.node_type] || '#6366f1';
+    const deg = degree[n.id] || 0;
     let radius;
     if (isCore) {
-      radius = 56; // el estilo .core lo sobreescribe, pero por las dudas
+      radius = 56;
     } else {
-      const baseR = 14;
-      const bonusReuse = Math.min((n.reuse_count || 0) * 1.2, 8);
-      const bonusWeight = Math.min((n.weight || 0) * 1.8, 14);
-      radius = baseR + bonusReuse + bonusWeight;
+      // Jerarquia visual: base 12 + bonus por grado (hasta 22) + bonus por peso (hasta 10)
+      const baseR = 12;
+      const bonusDeg = Math.min(deg * 1.5, 22);
+      const bonusWeight = Math.min((n.weight || 0) * 1.5, 10);
+      radius = Math.min(42, baseR + bonusDeg + bonusWeight);
     }
     cyElements.push({
       group: 'nodes',
       data: {
-        id: n.id,
-        label: _abbreviateLabel(n.id, n.label),
-        node_type: n.node_type,
-        color: typeColor,
-        weight: n.weight || 0,
-        reuse_count: n.reuse_count || 0,
-        radius: radius,
+        id: n.id, label: _abbreviateLabel(n.id, n.label),
+        node_type: n.node_type, color: typeColor,
+        weight: n.weight || 0, reuse_count: n.reuse_count || 0, radius: radius,
       },
       classes: isCore ? 'core' : '',
     });
   }
 
-  const visibleEdges = _filterEdgesByRelevance(edges, nodeIds);
+  const visibleEdges = _filterEdgesByRelevance(edges, nodeIds, coreId);
   for (const e of visibleEdges) {
     const w = Number(e.weight) || 0;
     const toCore = coreId && (e.to_node === coreId || e.from_node === coreId);
     cyElements.push({
       group: 'edges',
-      data: {
-        id: e.id, source: e.from_node, target: e.to_node,
-        weight: w, width: Math.min(3.0, 0.5 + w * 0.7),
-        relation_type: e.relation_type,
-      },
+      data: { id: e.id, source: e.from_node, target: e.to_node,
+              weight: w, width: Math.min(3.0, 0.5 + w * 0.7), relation_type: e.relation_type },
       classes: toCore ? 'to-core' : '',
     });
   }
@@ -415,8 +333,8 @@ function _applyGraphToCy(data) {
   const existingIds = new Set();
   cyMembrane.elements().forEach(el => existingIds.add(el.id()));
   const newIds = new Set(cyElements.map(e => e.data.id));
-
   let addedNodes = 0;
+
   cyMembrane.batch(() => {
     existingIds.forEach(id => {
       if (!newIds.has(id)) {
@@ -434,7 +352,6 @@ function _applyGraphToCy(data) {
         const el = cyMembrane.getElementById(e.data.id);
         if (el && !el.empty()) {
           el.data(e.data);
-          // Actualizar clase core dinamicamente
           if (e.group === 'nodes') {
             if (e.classes === 'core') el.addClass('core'); else el.removeClass('core');
           }
@@ -445,10 +362,7 @@ function _applyGraphToCy(data) {
 
   const totalNodes = cyMembrane.nodes().length;
   const shouldLayout = totalNodes > 0 && (!membraneHasRunLayoutOnce || addedNodes > 0);
-  if (shouldLayout) {
-    _runLayoutSafely(true);
-    membraneHasRunLayoutOnce = true;
-  }
+  if (shouldLayout) { _runLayoutSafely(true); membraneHasRunLayoutOnce = true; }
 
   membraneCounts = data.counts || { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
   _updateMembraneStats();
@@ -467,11 +381,8 @@ window.addEventListener("akira:section-shown", function (ev) {
     if (!cyMembrane) initMembraneGraph();
     else setTimeout(() => { if (cyMembrane) cyMembrane.resize(); }, 100);
   }
-  if (section === "office" && document.getElementById("officeCanvas")) {
-    initOfficeFloor();
-  }
+  if (section === "office" && document.getElementById("officeCanvas")) initOfficeFloor();
 });
-
 document.addEventListener("DOMContentLoaded", function () {
   setTimeout(function () {
     if (document.getElementById("membraneCy")) initMembraneGraph();
@@ -482,35 +393,23 @@ document.addEventListener("DOMContentLoaded", function () {
 // ===========================================================================
 // OFICINA — sin cambios
 // ===========================================================================
-
 let officeCanvas, officeCtx;
-let officeBgImage = null;
-let officeSheetImage = null;
-let officeBgLoaded = false;
-let officeSheetLoaded = false;
-let officeLoadError = null;
-let officeAgents = [];
-let officeLastFetch = 0;
-let officeFetching = false;
-let officeAnimId = null;
+let officeBgImage = null, officeSheetImage = null;
+let officeBgLoaded = false, officeSheetLoaded = false, officeLoadError = null;
+let officeAgents = [], officeLastFetch = 0, officeFetching = false, officeAnimId = null;
 const OFFICE_REFRESH_MS = 5000;
 const spriteCache = {};
 
 function initOfficeFloor() {
   officeCanvas = document.getElementById("officeCanvas");
   if (!officeCanvas) return;
-  const parent = officeCanvas.parentElement;
-  const rect = parent.getBoundingClientRect();
+  const rect = officeCanvas.parentElement.getBoundingClientRect();
   if (rect.width < 50 || rect.height < 50) return;
   officeCtx = officeCanvas.getContext("2d");
-  officeCanvas.width = OFFICE_W;
-  officeCanvas.height = OFFICE_H;
-  officeCanvas.style.width = "auto";
-  officeCanvas.style.height = "auto";
-  officeCanvas.style.maxWidth = "100%";
-  officeCanvas.style.maxHeight = "100%";
-  officeCanvas.style.display = "block";
-  officeCanvas.style.imageRendering = "pixelated";
+  officeCanvas.width = OFFICE_W; officeCanvas.height = OFFICE_H;
+  officeCanvas.style.width = "auto"; officeCanvas.style.height = "auto";
+  officeCanvas.style.maxWidth = "100%"; officeCanvas.style.maxHeight = "100%";
+  officeCanvas.style.display = "block"; officeCanvas.style.imageRendering = "pixelated";
   officeCtx.imageSmoothingEnabled = false;
   if (officeAnimId) cancelAnimationFrame(officeAnimId);
   if (!officeBgLoaded || !officeSheetLoaded) {
@@ -524,16 +423,13 @@ function initOfficeFloor() {
     officeSheetImage.onload = () => { buildSpriteCache(); done(); };
     officeSheetImage.onerror = () => { officeLoadError = "No se pudo cargar hoja de sprites"; pending--; if (pending === 0) drawOffice(); };
     officeSheetImage.src = OFFICE_SHEET_URL + "?v=" + Date.now();
-  } else { drawOffice(); }
+  } else drawOffice();
   refreshOffice(true);
 }
-
 function buildSpriteCache() {
-  const img = officeSheetImage;
-  if (!img) return;
+  const img = officeSheetImage; if (!img) return;
   for (const role in SPRITE_RECTS) {
-    const r = SPRITE_RECTS[role];
-    const w = r[2] - r[0], h = r[3] - r[1];
+    const r = SPRITE_RECTS[role], w = r[2] - r[0], h = r[3] - r[1];
     const c = document.createElement("canvas");
     c.width = w; c.height = h;
     const cx = c.getContext("2d");
@@ -542,21 +438,15 @@ function buildSpriteCache() {
     spriteCache[role] = c;
   }
 }
-
 function _corridorOf(x, y) {
   const dh = Math.abs(y - H_Y), dl = Math.abs(x - VL_X);
   const dc = Math.abs(x - VC_X), dr = Math.abs(x - VR_X);
   const m = Math.min(dh, dl, dc, dr);
-  if (m === dh) return "H";
-  if (m === dl) return "VL";
-  if (m === dc) return "VC";
-  return "VR";
+  if (m === dh) return "H"; if (m === dl) return "VL"; if (m === dc) return "VC"; return "VR";
 }
 function _vX(kind) { return kind === "VL" ? VL_X : (kind === "VC" ? VC_X : VR_X); }
-
 function _buildPath(cx, cy, tx, ty) {
-  const cCorr = _corridorOf(cx, cy), tCorr = _corridorOf(tx, ty);
-  const path = [];
+  const cCorr = _corridorOf(cx, cy), tCorr = _corridorOf(tx, ty), path = [];
   if (cCorr === "H" && tCorr === "H") path.push([tx, H_Y]);
   else if (cCorr === "H" && tCorr !== "H") { const vx = _vX(tCorr); path.push([vx, H_Y]); path.push([vx, ty]); }
   else if (cCorr !== "H" && tCorr === "H") { const vx = _vX(cCorr); path.push([vx, H_Y]); path.push([tx, H_Y]); }
@@ -567,30 +457,25 @@ function _buildPath(cx, cy, tx, ty) {
   }
   return path;
 }
-
 function _pickRandomTarget() {
   const r = Math.random();
   if (r < 0.5) return [H_POINTS[Math.floor(Math.random() * H_POINTS.length)], H_Y];
-  const vk = ["VL", "VC", "VR"][Math.floor(Math.random() * 3)];
-  const vx = _vX(vk);
-  const y = V_POINTS[Math.floor(Math.random() * V_POINTS.length)];
+  const vk = ["VL","VC","VR"][Math.floor(Math.random() * 3)];
+  const vx = _vX(vk); const y = V_POINTS[Math.floor(Math.random() * V_POINTS.length)];
   return [vx, y];
 }
-
 function _ensureMovementState(a) {
   if (typeof a.x !== "number") { const h = HOME_POSITIONS[a.role] || [VC_X, 420]; a.x = h[0]; a.y = h[1]; }
   if (!a.path) a.path = [];
   if (typeof a.nextMoveAt !== "number") a.nextMoveAt = Date.now() + Math.random() * IDLE_WAIT_MS;
   if (typeof a.facing !== "string") a.facing = "idle";
 }
-
 function _updateAgentMovement(a) {
   const now = Date.now();
   if (a.status === "busy") {
     const home = HOME_POSITIONS[a.role] || [a.x, a.y];
-    if (a.path.length === 0 && (Math.abs(a.x - home[0]) > 3 || Math.abs(a.y - home[1]) > 3)) {
+    if (a.path.length === 0 && (Math.abs(a.x - home[0]) > 3 || Math.abs(a.y - home[1]) > 3))
       a.path = _buildPath(a.x, a.y, home[0], home[1]);
-    }
     if (a.path.length === 0 && now > a.nextMoveAt) a.nextMoveAt = now + BUSY_WAIT_MS;
   } else {
     if (a.path.length === 0 && now > a.nextMoveAt) {
@@ -600,86 +485,69 @@ function _updateAgentMovement(a) {
     }
   }
   if (a.path.length === 0) { a.facing = "idle"; return; }
-  const target = a.path[0];
-  const dx = target[0] - a.x, dy = target[1] - a.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
+  const target = a.path[0], dx = target[0] - a.x, dy = target[1] - a.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
   if (dist < 2) { a.x = target[0]; a.y = target[1]; a.path.shift(); if (a.path.length === 0) a.facing = "idle"; return; }
   const step = Math.min(WALK_SPEED, dist);
-  a.x += (dx / dist) * step; a.y += (dy / dist) * step;
+  a.x += (dx/dist)*step; a.y += (dy/dist)*step;
   if (Math.abs(dx) > Math.abs(dy)) a.facing = dx > 0 ? "right" : "left";
   else a.facing = dy > 0 ? "down" : "up";
 }
-
 function drawOffice() {
   if (!officeCtx) return;
   const W = OFFICE_W, H = OFFICE_H;
-  officeCtx.fillStyle = "#0b0b0e";
-  officeCtx.fillRect(0, 0, W, H);
+  officeCtx.fillStyle = "#0b0b0e"; officeCtx.fillRect(0, 0, W, H);
   if (officeLoadError) {
-    officeCtx.fillStyle = "#ef4444";
-    officeCtx.font = "20px monospace";
+    officeCtx.fillStyle = "#ef4444"; officeCtx.font = "20px monospace";
     officeCtx.textAlign = "center";
-    officeCtx.fillText("Oficina: " + officeLoadError, W/2, H/2);
-    return;
+    officeCtx.fillText("Oficina: " + officeLoadError, W/2, H/2); return;
   }
   if (!officeBgLoaded || !officeSheetLoaded) {
-    officeCtx.fillStyle = "#8a8a93";
-    officeCtx.font = "20px monospace";
+    officeCtx.fillStyle = "#8a8a93"; officeCtx.font = "20px monospace";
     officeCtx.textAlign = "center";
     officeCtx.fillText("Cargando oficina...", W/2, H/2);
-    officeAnimId = requestAnimationFrame(drawOffice);
-    return;
+    officeAnimId = requestAnimationFrame(drawOffice); return;
   }
   officeCtx.drawImage(officeBgImage, 0, 0, W, H);
   const sorted = officeAgents.slice().sort((a, b) => {
-    _ensureMovementState(a); _ensureMovementState(b);
-    return a.y - b.y;
+    _ensureMovementState(a); _ensureMovementState(b); return a.y - b.y;
   });
   sorted.forEach(a => {
-    _ensureMovementState(a);
-    _updateAgentMovement(a);
+    _ensureMovementState(a); _updateAgentMovement(a);
     const role = a.role || "generic";
     const sprite = spriteCache[role];
     if (!sprite) return;
-    const sw = sprite.width * SPRITE_SCALE;
-    const sh = sprite.height * SPRITE_SCALE;
+    const sw = sprite.width * SPRITE_SCALE, sh = sprite.height * SPRITE_SCALE;
     let bob = 0;
     const moving = a.facing && a.facing !== "idle";
     if (moving) bob = Math.sin(Date.now() * 0.02) * 1.2;
     else if (a.status === "busy") bob = Math.sin(Date.now() * 0.005) * 2;
-    const dx = a.x - sw / 2;
-    const dy = a.y - sh + bob;
+    const dx = a.x - sw/2, dy = a.y - sh + bob;
     officeCtx.fillStyle = "rgba(0,0,0,0.35)";
-    officeCtx.beginPath();
-    officeCtx.ellipse(a.x, a.y + 3, sw * 0.4, 4, 0, 0, Math.PI * 2);
-    officeCtx.fill();
+    officeCtx.beginPath(); officeCtx.ellipse(a.x, a.y + 3, sw*0.4, 4, 0, 0, Math.PI*2); officeCtx.fill();
     officeCtx.drawImage(sprite, dx, dy, sw, sh);
     let ledColor = "#22c55e";
     if (a.status === "busy") ledColor = "#facc15";
     else if (a.status === "error") ledColor = "#ef4444";
     officeCtx.fillStyle = ledColor;
-    officeCtx.fillRect(a.x + sw / 2 - 4, dy - 6, 8, 8);
-    officeCtx.strokeStyle = "#0b0b0e";
-    officeCtx.lineWidth = 2;
-    officeCtx.strokeRect(a.x + sw / 2 - 4, dy - 6, 8, 8);
+    officeCtx.fillRect(a.x + sw/2 - 4, dy - 6, 8, 8);
+    officeCtx.strokeStyle = "#0b0b0e"; officeCtx.lineWidth = 2;
+    officeCtx.strokeRect(a.x + sw/2 - 4, dy - 6, 8, 8);
     officeCtx.fillStyle = "rgba(11, 11, 14, 0.85)";
     const label = (a.name || "?").slice(0, 14);
     officeCtx.font = "bold 11px monospace";
     const tw = officeCtx.measureText(label).width;
-    officeCtx.fillRect(a.x - tw / 2 - 4, a.y + 8, tw + 8, 14);
-    officeCtx.fillStyle = "#ececf1";
-    officeCtx.textAlign = "center";
+    officeCtx.fillRect(a.x - tw/2 - 4, a.y + 8, tw + 8, 14);
+    officeCtx.fillStyle = "#ececf1"; officeCtx.textAlign = "center";
     officeCtx.fillText(label, a.x, a.y + 19);
   });
   refreshOffice(false);
   officeAnimId = requestAnimationFrame(drawOffice);
 }
-
 async function refreshOffice(force) {
   if (officeFetching) return;
   if (!force && Date.now() - officeLastFetch < OFFICE_REFRESH_MS) return;
-  officeFetching = true;
-  officeLastFetch = Date.now();
+  officeFetching = true; officeLastFetch = Date.now();
   try {
     const data = await _fetchJson("/api/v8/agents");
     if (data && data.ok) {
@@ -693,7 +561,6 @@ async function refreshOffice(force) {
     }
   } catch (e) {} finally { officeFetching = false; }
 }
-
 function addOfficeLog(text, type) {
   const el = document.getElementById("officeLog");
   if (!el) return;
@@ -704,13 +571,11 @@ function addOfficeLog(text, type) {
   el.prepend(div);
   if (el.children.length > 80) el.removeChild(el.lastChild);
 }
-
 function updateOfficeStats() {
   const el = document.getElementById("officeStats");
   if (!el) return;
   el.innerHTML = "<b>" + officeAgents.length + " agentes reales</b>";
 }
-
 window.AkiraMembrane = {
   initMembraneGraph, initOfficeFloor, refreshMembrane, refreshOffice,
   addOfficeLog, updateOfficeStats, reorganize: window.reorganizeMembrane,
