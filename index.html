@@ -81,7 +81,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
     <div class="orb" id="orb" onclick="showSection('chat')" style="cursor:pointer"></div>
     <div><h1>Akira</h1><p>Grimm Hive</p></div>
   </div>
-  <button class="btn-new pixel-btn" onclick="newChat()">+ Nuevo chat</button>
+  <button class="btn-new pixel-btn" onclick="if(window.akiraConversations){akiraConversations.newChat()}else{newChat()}">+ Nuevo chat</button>
   <div class="nav">
     <button class="nav-btn active" id="btn-chat" onclick="showSection('chat')">💬 Chat</button>
     <button class="nav-btn" id="btn-membrane" onclick="showSection('membrane')">🧠 Cerebro Akira</button>
@@ -91,7 +91,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
     <button class="nav-btn" id="btn-keys" onclick="showSection('keys')">🔑 Cuenta</button>
     <button class="nav-btn" id="btn-admin" onclick="showSection('admin')">👑 Admin</button>
   </div>
-  <div class="history" id="history"></div>
+  <div class="history" id="historyList"></div>
 </div>
 <div class="main">
   <div class="topbar">
@@ -446,8 +446,9 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
 <script src="./js/obsidian_membrane.js?v=akira-membrane-v18-2"></script>
-<script src="./js/akira_brain.js?v=akira-final-v5"></script>
+<script src="./js/akira_brain.js?v=akira-final-v6"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
+<script src="./js/akira_conversations.js?v=akira-conv-v1"></script>
 <script src="./js/akira_admin.js?v=akira-admin-v1-6"></script>
 <script>
 async function renderLevels(){
@@ -473,7 +474,7 @@ async function renderLevels(){
       {id:"F7", name:"Ciclo Cognitivo Persistente", desc:"Migraciones 004, 005, 006. 9 etapas.", status: capStatus("cognitive_cycle_persistent")},
       {id:"F8", name:"Tool Registry", desc:"Migracion 007. 11 tools registradas.", status: capStatus("tool_registry")},
       {id:"F9", name:"Agentes + Tareas", desc:"Migracion 008, 009. 5 agentes reales.", status: capStatus("agents_persistent")},
-      {id:"F10", name:"Mission Engine", desc:"Migracion 011. Orquestador + progreso + cancelacion + selftest.", status: capStatus("missions")},
+      {id:"F10", name:"Mission Engine + Conversaciones", desc:"Migracion 011 + 012. Orquestador + chats persistentes.", status: capStatus("missions")},
       {id:"F11", name:"Self-Repair Real", desc:"No implementado", status: capStatus("self_repair_full")},
       {id:"F12", name:"Evolution Engine", desc:"No implementado", status: capStatus("evolution_engine")},
       {id:"F13", name:"Autonomia Controlada", desc:"Futuro", status: "not_implemented"},
@@ -494,4 +495,4 @@ async function renderLevels(){
 }
 </script>
 </body>
-          </html>
+</html>
