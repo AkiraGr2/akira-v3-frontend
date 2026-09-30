@@ -1,7 +1,6 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V11.0
-// Membrana: estilo Obsidian puro, máquina de estados limpia para gestos.
-// Fix bugs V10.0: listeners duplicados, detección tap, doble-tap, limpieza de gesto.
-// Oficina: igual que V10.0.
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V12.0
+// Membrana: Cytoscape.js (física d3-force, zoom/pan/pinch nativos).
+// Oficina: igual que V11.0 (Canvas 2D + routing por pasillos).
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
@@ -38,58 +37,6 @@ const SPRITE_SCALE = 2;
 const WALK_SPEED = 0.9;
 const IDLE_WAIT_MS = 8000;
 const BUSY_WAIT_MS = 4000;
-
-// ===========================================================================
-// MEMBRANA — Obsidian puro con máquina de estados
-// ===========================================================================
-
-let membraneCanvas, membraneCtx;
-let membraneNodes = [], membraneEdges = [];
-let membraneAnimId = null;
-let membraneLastFetch = 0;
-let membraneFetching = false;
-let membraneError = null;
-let membraneCounts = { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
-let membranePhysicsOn = true;
-const MEMBRANE_REFRESH_MS = 7000;
-
-// ---- Viewport ----
-let mPanX = 0, mPanY = 0;
-let mZoom = 1.0;
-const M_ZOOM_MIN = 0.35;
-const M_ZOOM_MAX = 3.0;
-const M_ZOOM_DEFAULT = 1.0;
-
-// ---- Selección ----
-let mSelectedNode = null;
-
-// ---- Máquina de estados de gesto ----
-// Estados posibles:
-//   null        -> sin gesto activo
-//   "pending"   -> dedo bajado, aún sin decidir si es tap/pan/drag
-//   "panning"   -> moviendo el lienzo
-//   "dragging"  -> moviendo un nodo
-//   "pinching"  -> zoom con 2 dedos
-let mGestureState = null;
-let mGestureStart = { x: 0, y: 0 };      // posición inicial (canvas coords)
-let mGestureLast = { x: 0, y: 0 };       // última posición (canvas coords)
-let mGestureNode = null;                  // nodo siendo arrastrado
-let mGestureMoved = false;                // se movió lo suficiente para no ser tap
-
-// Doble tap
-let mLastTapTime = 0;
-let mLastTapX = 0;
-let mLastTapY = 0;
-const M_TAP_MAX_MS = 300;
-const M_TAP_MAX_MOVE = 10;                // px en canvas coords
-const M_TAP_MAX_DIST = 40;                // entre taps para contar como doble
-const M_DOUBLE_TAP_MS = 350;
-
-// Pinch
-let mPinchStartDist = 0;
-let mPinchStartZoom = 1.0;
-let mPinchAnchorWorld = { x: 0, y: 0 };   // punto del mundo bajo el punto medio
-let mPinchAnchorCanvas = { x: 0, y: 0 };  // posición inicial del punto medio
 
 const NODE_TYPE_COLORS = {
   concept:    "#8b5cf6",
@@ -128,331 +75,181 @@ async function _fetchJson(url) {
   return await r.json();
 }
 
+// ===========================================================================
+// MEMBRANA — Cytoscape.js
+// ===========================================================================
+
+let cyMembrane = null;
+let membraneLastFetch = 0;
+let membraneFetching = false;
+let membraneCounts = { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
+let membraneError = null;
+const MEMBRANE_REFRESH_MS = 7000;
+
+function _cytoscapeStyle() {
+  return [
+    {
+      selector: 'node',
+      style: {
+        'background-color': 'data(color)',
+        'width': 'data(radius)',
+        'height': 'data(radius)',
+        'label': 'data(label)',
+        'color': '#d0d0d8',
+        'font-family': 'monospace',
+        'font-size': 10,
+        'text-valign': 'bottom',
+        'text-halign': 'center',
+        'text-margin-y': 4,
+        'text-opacity': 0.55,
+        'border-width': 0,
+        'transition-property': 'opacity, border-width',
+        'transition-duration': '150ms',
+      }
+    },
+    {
+      selector: 'node:selected',
+      style: {
+        'border-width': 2,
+        'border-color': '#ffffff',
+        'text-opacity': 1,
+        'color': '#ffffff',
+        'font-weight': 'bold',
+        'font-size': 12,
+      }
+    },
+    {
+      selector: 'node.dimmed',
+      style: {
+        'opacity': 0.18,
+        'text-opacity': 0.12,
+      }
+    },
+    {
+      selector: 'node.highlighted',
+      style: {
+        'border-width': 1.5,
+        'border-color': '#ffffff',
+        'text-opacity': 1,
+      }
+    },
+    {
+      selector: 'edge',
+      style: {
+        'width': 'data(width)',
+        'line-color': '#505060',
+        'curve-style': 'straight',
+        'opacity': 0.4,
+        'transition-property': 'opacity',
+        'transition-duration': '150ms',
+      }
+    },
+    {
+      selector: 'edge.dimmed',
+      style: {
+        'opacity': 0.05,
+      }
+    },
+  ];
+}
+
 function initMembraneGraph() {
-  membraneCanvas = document.getElementById("membraneCanvas");
-  if (!membraneCanvas) return;
-  const parent = membraneCanvas.parentElement;
+  const container = document.getElementById('membraneCy');
+  if (!container) return;
+
+  const parent = container.parentElement;
   const rect = parent.getBoundingClientRect();
   if (rect.width < 50 || rect.height < 50) return;
 
-  membraneCtx = membraneCanvas.getContext("2d");
-  membraneCanvas.width = Math.max(320, Math.floor(rect.width));
-  membraneCanvas.height = Math.max(320, Math.floor(rect.height));
-  membraneCtx.imageSmoothingEnabled = false;
-
-  _bindMembraneInteractions();
-
-  if (membraneAnimId) cancelAnimationFrame(membraneAnimId);
-  drawMembrane();
-  refreshMembrane(true);
-}
-
-// ---------------------------------------------------------------- helpers
-function _evToCanvas(clientX, clientY) {
-  const r = membraneCanvas.getBoundingClientRect();
-  const sx = membraneCanvas.width / r.width;
-  const sy = membraneCanvas.height / r.height;
-  return {
-    x: (clientX - r.left) * sx,
-    y: (clientY - r.top) * sy,
-  };
-}
-
-function _canvasToWorld(px, py) {
-  return {
-    x: (px - mPanX) / mZoom,
-    y: (py - mPanY) / mZoom,
-  };
-}
-
-function _hitNode(px, py) {
-  const w = _canvasToWorld(px, py);
-  let best = null, bestD = Infinity;
-  for (const nd of membraneNodes) {
-    const d = Math.hypot(nd.x - w.x, nd.y - w.y);
-    const threshold = nd.r + 8 / mZoom;
-    if (d < threshold && d < bestD) { best = nd; bestD = d; }
+  if (typeof window.cytoscape === 'undefined') {
+    container.innerHTML = '<div style="color:#ef4444;padding:20px;font-family:monospace;text-align:center">No se pudo cargar Cytoscape.js</div>';
+    return;
   }
-  return best;
+
+  if (cyMembrane) {
+    // Ya inicializado: solo asegurar tamaño correcto
+    cyMembrane.resize();
+    refreshMembrane(true);
+    return;
+  }
+
+  try {
+    cyMembrane = window.cytoscape({
+      container: container,
+      style: _cytoscapeStyle(),
+      layout: { name: 'preset' },  // Los nodos se posicionan al añadirlos
+      minZoom: 0.3,
+      maxZoom: 3.0,
+      wheelSensitivity: 0.25,
+      boxSelectionEnabled: false,
+      selectionType: 'single',
+      autounselectify: false,
+      autoungrabify: false,
+    });
+
+    // Click en nodo: resaltar vecinos
+    cyMembrane.on('tap', 'node', (evt) => {
+      const node = evt.target;
+      _highlightNeighbors(node);
+    });
+
+    // Click en fondo: deseleccionar todo
+    cyMembrane.on('tap', (evt) => {
+      if (evt.target === cyMembrane) {
+        cyMembrane.elements().unselect();
+        cyMembrane.elements().removeClass('dimmed');
+        cyMembrane.elements().removeClass('highlighted');
+      }
+    });
+
+    // Doble click en fondo: resetear vista
+    cyMembrane.on('dbltap', (evt) => {
+      if (evt.target === cyMembrane) {
+        cyMembrane.fit(undefined, 40);
+        cyMembrane.center();
+      }
+    });
+
+    // Redimensionar al cambiar el contenedor
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(() => {
+        if (cyMembrane) cyMembrane.resize();
+      });
+      ro.observe(container);
+    }
+
+    refreshMembrane(true);
+  } catch (e) {
+    container.innerHTML = '<div style="color:#ef4444;padding:20px;font-family:monospace;text-align:center">Error Cytoscape: ' + (e && e.message ? e.message : e) + '</div>';
+  }
 }
 
-function _touchDist(t1, t2) {
-  return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-}
+function _highlightNeighbors(node) {
+  if (!cyMembrane) return;
+  const neighborhood = node.closedNeighborhood();
+  cyMembrane.elements().removeClass('highlighted');
+  cyMembrane.elements().removeClass('dimmed');
 
-function _touchMid(t1, t2) {
-  return {
-    clientX: (t1.clientX + t2.clientX) / 2,
-    clientY: (t1.clientY + t2.clientY) / 2,
-  };
-}
-
-function _resetGesture() {
-  mGestureState = null;
-  mGestureNode = null;
-  mGestureMoved = false;
-}
-
-// ---------------------------------------------------------------- interacciones
-function _bindMembraneInteractions() {
-  if (!membraneCanvas || membraneCanvas._akiraBound) return;
-  membraneCanvas._akiraBound = true;
-
-  // ---- TOUCH ----
-  membraneCanvas.addEventListener("touchstart", (e) => {
-    if (e.touches.length === 2) {
-      e.preventDefault();
-      mGestureState = "pinching";
-      mGestureNode = null;
-      const mid = _touchMid(e.touches[0], e.touches[1]);
-      const midCanvas = _evToCanvas(mid.clientX, mid.clientY);
-      mPinchStartDist = _touchDist(e.touches[0], e.touches[1]) || 1;
-      mPinchStartZoom = mZoom;
-      mPinchAnchorCanvas = midCanvas;
-      mPinchAnchorWorld = _canvasToWorld(midCanvas.x, midCanvas.y);
-      return;
-    }
-
-    if (e.touches.length === 1) {
-      const p = _evToCanvas(e.touches[0].clientX, e.touches[0].clientY);
-      mGestureStart = p;
-      mGestureLast = p;
-      mGestureMoved = false;
-
-      const hit = _hitNode(p.x, p.y);
-      if (hit) {
-        mGestureState = "pending";
-        mGestureNode = hit;
-      } else {
-        mGestureState = "pending";
-        mGestureNode = null;
-      }
-    }
-  }, { passive: false });
-
-  membraneCanvas.addEventListener("touchmove", (e) => {
-    if (mGestureState === "pinching" && e.touches.length === 2) {
-      e.preventDefault();
-      const newDist = _touchDist(e.touches[0], e.touches[1]) || 1;
-      let newZoom = mPinchStartZoom * (newDist / mPinchStartDist);
-      newZoom = Math.max(M_ZOOM_MIN, Math.min(M_ZOOM_MAX, newZoom));
-
-      // Anclar: el punto del mundo bajo el centro actual debe quedar bajo el centro actual.
-      const mid = _touchMid(e.touches[0], e.touches[1]);
-      const midCanvasNow = _evToCanvas(mid.clientX, mid.clientY);
-
-      mZoom = newZoom;
-      mPanX = midCanvasNow.x - mPinchAnchorWorld.x * mZoom;
-      mPanY = midCanvasNow.y - mPinchAnchorWorld.y * mZoom;
-      return;
-    }
-
-    if (e.touches.length === 1 && (mGestureState === "pending" || mGestureState === "panning" || mGestureState === "dragging")) {
-      const p = _evToCanvas(e.touches[0].clientX, e.touches[0].clientY);
-      const dx = p.x - mGestureStart.x;
-      const dy = p.y - mGestureStart.y;
-      const moved = Math.hypot(dx, dy);
-
-      // Decidir tipo de gesto si estábamos pending y ya nos movimos
-      if (mGestureState === "pending" && moved > 6) {
-        if (mGestureNode) mGestureState = "dragging";
-        else mGestureState = "panning";
-        mGestureMoved = true;
-      }
-
-      if (mGestureState === "dragging" && mGestureNode) {
-        // Mover el nodo
-        const w = _canvasToWorld(p.x, p.y);
-        mGestureNode.x = w.x;
-        mGestureNode.y = w.y;
-        mGestureNode.vx = 0;
-        mGestureNode.vy = 0;
-      } else if (mGestureState === "panning") {
-        mPanX += p.x - mGestureLast.x;
-        mPanY += p.y - mGestureLast.y;
-      }
-
-      mGestureLast = p;
-      if (e.cancelable) e.preventDefault();
-    }
-  }, { passive: false });
-
-  const endTouch = (e) => {
-    // Si quedan dedos activos, actualizar estado
-    if (e.touches.length === 2) {
-      // Se acaba de soltar uno y quedan 2: poco probable pero por si acaso
-      mGestureState = "pinching";
-      const mid = _touchMid(e.touches[0], e.touches[1]);
-      const midCanvas = _evToCanvas(mid.clientX, mid.clientY);
-      mPinchStartDist = _touchDist(e.touches[0], e.touches[1]) || 1;
-      mPinchStartZoom = mZoom;
-      mPinchAnchorCanvas = midCanvas;
-      mPinchAnchorWorld = _canvasToWorld(midCanvas.x, midCanvas.y);
-      return;
-    }
-    if (e.touches.length === 1) {
-      // Quedan 1 dedo. Reiniciar como pending (por ejemplo si veníamos de pinch).
-      const p = _evToCanvas(e.touches[0].clientX, e.touches[0].clientY);
-      mGestureState = "pending";
-      mGestureStart = p;
-      mGestureLast = p;
-      mGestureNode = _hitNode(p.x, p.y);
-      mGestureMoved = false;
-      return;
-    }
-
-    // 0 dedos: gesto terminado
-    if (mGestureState === "pending" && !mGestureMoved) {
-      // Fue un tap
-      const now = Date.now();
-      const dt = now - mLastTapTime;
-      const dd = Math.hypot(mGestureStart.x - mLastTapX, mGestureStart.y - mLastTapY);
-
-      if (dt < M_DOUBLE_TAP_MS && dd < M_TAP_MAX_DIST) {
-        // Doble tap -> resetear vista y deseleccionar
-        mZoom = M_ZOOM_DEFAULT;
-        mPanX = 0;
-        mPanY = 0;
-        mSelectedNode = null;
-        mLastTapTime = 0;
-      } else {
-        // Tap simple
-        const hit = _hitNode(mGestureStart.x, mGestureStart.y);
-        if (hit) {
-          // Toggle: si el mismo nodo ya estaba seleccionado, deseleccionar
-          if (mSelectedNode === hit.id) mSelectedNode = null;
-          else mSelectedNode = hit.id;
-        } else {
-          mSelectedNode = null;
-        }
-        mLastTapTime = now;
-        mLastTapX = mGestureStart.x;
-        mLastTapY = mGestureStart.y;
-      }
-    }
-
-    _resetGesture();
-  };
-
-  membraneCanvas.addEventListener("touchend", endTouch, { passive: true });
-  membraneCanvas.addEventListener("touchcancel", endTouch, { passive: true });
-
-  // ---- POINTER (desktop) ----
-  membraneCanvas.addEventListener("pointerdown", (e) => {
-    if (e.pointerType === "touch") return;
-    const p = _evToCanvas(e.clientX, e.clientY);
-    mGestureStart = p;
-    mGestureLast = p;
-    mGestureMoved = false;
-
-    const hit = _hitNode(p.x, p.y);
-    if (hit) {
-      mGestureState = "pending";
-      mGestureNode = hit;
+  cyMembrane.elements().forEach(el => {
+    if (neighborhood.contains(el)) {
+      el.addClass('highlighted');
     } else {
-      mGestureState = "pending";
-      mGestureNode = null;
+      el.addClass('dimmed');
     }
-  });
-
-  membraneCanvas.addEventListener("pointermove", (e) => {
-    if (e.pointerType === "touch") return;
-    if (mGestureState !== "pending" && mGestureState !== "panning" && mGestureState !== "dragging") return;
-
-    const p = _evToCanvas(e.clientX, e.clientY);
-    const moved = Math.hypot(p.x - mGestureStart.x, p.y - mGestureStart.y);
-
-    if (mGestureState === "pending" && moved > 6) {
-      if (mGestureNode) mGestureState = "dragging";
-      else mGestureState = "panning";
-      mGestureMoved = true;
-    }
-
-    if (mGestureState === "dragging" && mGestureNode) {
-      const w = _canvasToWorld(p.x, p.y);
-      mGestureNode.x = w.x;
-      mGestureNode.y = w.y;
-      mGestureNode.vx = 0;
-      mGestureNode.vy = 0;
-    } else if (mGestureState === "panning") {
-      mPanX += p.x - mGestureLast.x;
-      mPanY += p.y - mGestureLast.y;
-    }
-
-    mGestureLast = p;
-  });
-
-  const endPointer = (e) => {
-    if (e.pointerType === "touch") return;
-
-    if (mGestureState === "pending" && !mGestureMoved) {
-      const now = Date.now();
-      const dt = now - mLastTapTime;
-      const dd = Math.hypot(mGestureStart.x - mLastTapX, mGestureStart.y - mLastTapY);
-
-      if (dt < M_DOUBLE_TAP_MS && dd < M_TAP_MAX_DIST) {
-        mZoom = M_ZOOM_DEFAULT;
-        mPanX = 0;
-        mPanY = 0;
-        mSelectedNode = null;
-        mLastTapTime = 0;
-      } else {
-        const hit = _hitNode(mGestureStart.x, mGestureStart.y);
-        if (hit) {
-          if (mSelectedNode === hit.id) mSelectedNode = null;
-          else mSelectedNode = hit.id;
-        } else {
-          mSelectedNode = null;
-        }
-        mLastTapTime = now;
-        mLastTapX = mGestureStart.x;
-        mLastTapY = mGestureStart.y;
-      }
-    }
-
-    _resetGesture();
-  };
-
-  membraneCanvas.addEventListener("pointerup", endPointer);
-  membraneCanvas.addEventListener("pointercancel", endPointer);
-  membraneCanvas.addEventListener("pointerleave", () => {
-    if (mGestureState !== "pinching") _resetGesture();
   });
 }
 
-// ---------------------------------------------------------------- datos
 async function refreshMembrane(force) {
+  if (!cyMembrane) return;
   if (membraneFetching) return;
   if (!force && Date.now() - membraneLastFetch < MEMBRANE_REFRESH_MS) return;
   membraneFetching = true;
   membraneLastFetch = Date.now();
+
   try {
     const data = await _fetchJson("/api/v8/graph/overview");
     if (data && data.ok) {
-      const prevById = new Map(membraneNodes.map(n => [n.id, n]));
-      const W = membraneCanvas ? membraneCanvas.width : 800;
-      const H = membraneCanvas ? membraneCanvas.height : 600;
-      const cx = W / 2, cy = H / 2;
-
-      membraneNodes = (data.nodes || []).map((n, i) => {
-        const prev = prevById.get(n.id);
-        const r = 5 + Math.min((n.reuse_count || 0) * 0.8, 8) + Math.min((n.weight || 0) * 0.5, 4);
-        if (prev) return Object.assign({}, prev, n, { r: r, fx: 0, fy: 0 });
-        const total = Math.max((data.nodes || []).length, 1);
-        const angle = (i / total) * Math.PI * 2;
-        const radius = 60 + (i % 3) * 40;
-        return Object.assign({}, n, {
-          x: cx + Math.cos(angle) * radius,
-          y: cy + Math.sin(angle) * radius,
-          vx: 0, vy: 0, fx: 0, fy: 0,
-          r: r,
-        });
-      });
-      const nodeIds = new Set(membraneNodes.map(n => n.id));
-      membraneEdges = (data.edges || []).filter(e =>
-        nodeIds.has(e.from_node) && nodeIds.has(e.to_node)
-      );
-      membraneCounts = data.counts || { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
+      _applyGraphToCy(data);
       membraneError = null;
     }
   } catch (e) {
@@ -462,220 +259,148 @@ async function refreshMembrane(force) {
   }
 }
 
-// ---------------------------------------------------------------- fisica
-function stepMembranePhysics() {
-  const W = membraneCanvas.width, H = membraneCanvas.height;
-  const cx = W / 2, cy = H / 2;
-  const n = membraneNodes.length;
-  if (n === 0) return;
+function _applyGraphToCy(data) {
+  if (!cyMembrane) return;
 
-  for (const nd of membraneNodes) { nd.fx = 0; nd.fy = 0; }
+  const nodes = data.nodes || [];
+  const edges = data.edges || [];
+  const nodeIds = new Set();
 
-  const rep = 3000;
-  const minD = 50;
-  const maxRepForce = 5;
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      const a = membraneNodes[i], b = membraneNodes[j];
-      let dx = b.x - a.x, dy = b.y - a.y;
-      let d = Math.sqrt(dx * dx + dy * dy);
-      if (d < 0.001) { dx = 1; dy = 0; d = 1; }
-      const dEff = Math.max(d, minD);
-      let f = rep / (dEff * dEff);
-      if (f > maxRepForce) f = maxRepForce;
-      const fx = (dx / d) * f, fy = (dy / d) * f;
-      a.fx -= fx; a.fy -= fy;
-      b.fx += fx; b.fy += fy;
-    }
+  const cyElements = [];
+
+  for (const n of nodes) {
+    nodeIds.add(n.id);
+    const typeColor = NODE_TYPE_COLORS[n.node_type] || '#6366f1';
+    // Radius estilo Obsidian: 14-42px (mapea weight/reuse a un rango visual)
+    const baseR = 14;
+    const bonusReuse = Math.min((n.reuse_count || 0) * 1.5, 12);
+    const bonusWeight = Math.min((n.weight || 0) * 2.0, 16);
+    const radius = baseR + bonusReuse + bonusWeight;
+    cyElements.push({
+      group: 'nodes',
+      data: {
+        id: n.id,
+        label: String(n.label || n.id || '').slice(0, 24),
+        node_type: n.node_type,
+        color: typeColor,
+        weight: n.weight || 0,
+        reuse_count: n.reuse_count || 0,
+        radius: radius,
+      }
+    });
   }
 
-  const springK = 0.005;
-  const restLen = 120;
-  const byId = new Map(membraneNodes.map(nd => [nd.id, nd]));
-  for (const e of membraneEdges) {
-    const a = byId.get(e.from_node), b = byId.get(e.to_node);
-    if (!a || !b) continue;
-    const dx = b.x - a.x, dy = b.y - a.y;
-    const d = Math.sqrt(dx * dx + dy * dy) || 1;
-    const f = springK * (d - restLen);
-    const fx = (dx / d) * f, fy = (dy / d) * f;
-    a.fx += fx; a.fy += fy;
-    b.fx -= fx; b.fy -= fy;
-  }
-
-  const gk = 0.018;
-  for (const nd of membraneNodes) {
-    nd.fx += (cx - nd.x) * gk;
-    nd.fy += (cy - nd.y) * gk;
-  }
-
-  const damp = 0.75;
-  const maxV = 6;
-  const dragged = (mGestureState === "dragging" && mGestureNode) ? mGestureNode : null;
-  for (const nd of membraneNodes) {
-    if (nd === dragged) { nd.vx = 0; nd.vy = 0; continue; }
-    nd.vx = (nd.vx + nd.fx) * damp;
-    nd.vy = (nd.vy + nd.fy) * damp;
-    if (nd.vx > maxV) nd.vx = maxV;
-    if (nd.vx < -maxV) nd.vx = -maxV;
-    if (nd.vy > maxV) nd.vy = maxV;
-    if (nd.vy < -maxV) nd.vy = -maxV;
-    nd.x += nd.vx;
-    nd.y += nd.vy;
-    if (nd.x < nd.r) { nd.x = nd.r; nd.vx = 0; }
-    if (nd.x > W - nd.r) { nd.x = W - nd.r; nd.vx = 0; }
-    if (nd.y < nd.r) { nd.y = nd.r; nd.vy = 0; }
-    if (nd.y > H - nd.r) { nd.y = H - nd.r; nd.vy = 0; }
-  }
-}
-
-// ---------------------------------------------------------------- dibujo
-function drawMembrane() {
-  if (!membraneCtx) return;
-  const W = membraneCanvas.width, H = membraneCanvas.height;
-
-  // Fondo
-  membraneCtx.fillStyle = "#0a0a0d";
-  membraneCtx.fillRect(0, 0, W, H);
-
-  if (membraneError) {
-    membraneCtx.fillStyle = "#8a8a93";
-    membraneCtx.font = "12px monospace";
-    membraneCtx.textAlign = "center";
-    membraneCtx.fillText("Membrana: " + membraneError, W / 2, H / 2);
-    membraneAnimId = requestAnimationFrame(drawMembrane);
-    return;
-  }
-
-  if (!membraneNodes.length) {
-    membraneCtx.fillStyle = "#8a8a93";
-    membraneCtx.font = "12px monospace";
-    membraneCtx.textAlign = "center";
-    membraneCtx.fillText("Membrana vacia — sin nodos reales en graph_nodes", W / 2, H / 2);
-    refreshMembrane(false);
-    membraneAnimId = requestAnimationFrame(drawMembrane);
-    return;
-  }
-
-  if (membranePhysicsOn) stepMembranePhysics();
-
-  const byId = new Map(membraneNodes.map(nd => [nd.id, nd]));
-
-  const neighbors = new Set();
-  if (mSelectedNode) {
-    neighbors.add(mSelectedNode);
-    for (const e of membraneEdges) {
-      if (e.from_node === mSelectedNode) neighbors.add(e.to_node);
-      if (e.to_node === mSelectedNode) neighbors.add(e.from_node);
-    }
-  }
-
-  // Vista con pan/zoom
-  membraneCtx.save();
-  membraneCtx.translate(mPanX, mPanY);
-  membraneCtx.scale(mZoom, mZoom);
-
-  // Aristas rectas
-  membraneCtx.lineCap = "round";
-  for (const e of membraneEdges) {
-    const a = byId.get(e.from_node), b = byId.get(e.to_node);
-    if (!a || !b) continue;
-
-    const connected = !mSelectedNode ||
-      (e.from_node === mSelectedNode || e.to_node === mSelectedNode);
-
+  for (const e of edges) {
+    if (!nodeIds.has(e.from_node) || !nodeIds.has(e.to_node)) continue;
     const w = e.weight || 1;
-    let alpha = Math.min(0.55, 0.15 + w * 0.08);
-    if (!connected) alpha = 0.05;
-
-    membraneCtx.strokeStyle = "rgba(160, 170, 200, " + alpha.toFixed(3) + ")";
-    membraneCtx.lineWidth = Math.min(2, 0.6 + w * 0.3);
-    membraneCtx.beginPath();
-    membraneCtx.moveTo(a.x, a.y);
-    membraneCtx.lineTo(b.x, b.y);
-    membraneCtx.stroke();
+    cyElements.push({
+      group: 'edges',
+      data: {
+        id: e.id,
+        source: e.from_node,
+        target: e.to_node,
+        weight: w,
+        width: Math.min(2.5, 0.6 + w * 0.4),
+        relation_type: e.relation_type,
+      }
+    });
   }
 
-  // Nodos solidos
-  membraneCtx.textAlign = "center";
-  for (const nd of membraneNodes) {
-    const color = NODE_TYPE_COLORS[nd.node_type] || "#6366f1";
-    const isSelected = mSelectedNode === nd.id;
-    const isNeighbor = mSelectedNode && neighbors.has(nd.id);
-    const dimmed = mSelectedNode && !isNeighbor;
+  // Diff: eliminar los que ya no están, agregar nuevos, actualizar existentes.
+  const existingIds = new Set();
+  cyMembrane.elements().forEach(el => existingIds.add(el.id()));
 
-    const opacity = dimmed ? 0.15 : 1.0;
+  const newIds = new Set(cyElements.map(e => e.data.id));
 
-    membraneCtx.globalAlpha = opacity;
-    membraneCtx.fillStyle = color;
-    membraneCtx.beginPath();
-    membraneCtx.arc(nd.x, nd.y, nd.r, 0, Math.PI * 2);
-    membraneCtx.fill();
-
-    if (isSelected) {
-      membraneCtx.strokeStyle = "#ffffff";
-      membraneCtx.lineWidth = 1.5 / mZoom;
-      membraneCtx.beginPath();
-      membraneCtx.arc(nd.x, nd.y, nd.r + 3 / mZoom, 0, Math.PI * 2);
-      membraneCtx.stroke();
+  cyMembrane.batch(() => {
+    // Eliminar los que se fueron
+    existingIds.forEach(id => {
+      if (!newIds.has(id)) {
+        const el = cyMembrane.getElementById(id);
+        if (el && !el.empty()) el.remove();
+      }
+    });
+    // Agregar nuevos
+    const toAdd = cyElements.filter(e => !existingIds.has(e.data.id));
+    if (toAdd.length > 0) {
+      cyMembrane.add(toAdd);
     }
-    membraneCtx.globalAlpha = 1;
+    // Actualizar datos de los existentes
+    cyElements.forEach(e => {
+      if (existingIds.has(e.data.id)) {
+        const el = cyMembrane.getElementById(e.data.id);
+        if (el && !el.empty()) el.data(e.data);
+      }
+    });
+  });
 
-    const label = String(nd.label || nd.id || "").slice(0, 24);
-    if (label) {
-      const isHighlight = isSelected || (isNeighbor && mSelectedNode);
-      const labelAlpha = dimmed ? 0.12 : (isHighlight ? 1 : 0.55);
-      const fontSize = isHighlight ? 12 : 10;
-      membraneCtx.font = (isHighlight ? "bold " : "") + fontSize + "px monospace";
-      const lx = nd.x, ly = nd.y + nd.r + 12;
+  // Aplicar layout solo si hay nodos y son nuevos (evitar re-layout constante)
+  const nodeCount = cyMembrane.nodes().length;
+  const needLayout = toCountNewNodesDiff(existingIds, cyElements);
 
-      membraneCtx.globalAlpha = labelAlpha;
-      membraneCtx.fillStyle = isHighlight ? "#ffffff" : "#d0d0d8";
-      membraneCtx.fillText(label, lx, ly);
-      membraneCtx.globalAlpha = 1;
-    }
+  if (nodeCount > 0 && needLayout) {
+    const layout = cyMembrane.layout({
+      name: 'cose',
+      animate: true,
+      animationDuration: 600,
+      randomize: false,
+      nodeRepulsion: 8000,
+      idealEdgeLength: 130,
+      edgeElasticity: 0.45,
+      gravity: 0.3,
+      numIter: 800,
+      fit: true,
+      padding: 40,
+      nodeOverlap: 20,
+    });
+    layout.run();
   }
 
-  membraneCtx.restore();
-
-  // HUD
-  membraneCtx.textAlign = "right";
-  membraneCtx.font = "11px monospace";
-  membraneCtx.fillStyle = "#7a7a83";
-  membraneCtx.fillText(
-    (membraneCounts.nodes || 0) + " nodos · " + (membraneCounts.edges || 0) + " aristas",
-    W - 14, H - 14
-  );
-
-  membraneCtx.textAlign = "left";
-  membraneCtx.font = "10px monospace";
-  membraneCtx.fillStyle = "#4a4a53";
-  if (mSelectedNode) {
-    const sel = byId.get(mSelectedNode);
-    const selLabel = sel ? (sel.label || sel.id) : mSelectedNode;
-    membraneCtx.fillStyle = "#facc15";
-    membraneCtx.fillText("Seleccionado: " + String(selLabel).slice(0, 30), 14, 22);
-    membraneCtx.fillStyle = "#4a4a53";
-    membraneCtx.fillText("Toca fuera para deseleccionar", 14, 38);
-  } else {
-    membraneCtx.fillText("Tap: seleccionar · Arrastra: mover · Pinch: zoom · Doble tap: reset", 14, 22);
-  }
-
-  if (Math.abs(mZoom - 1.0) > 0.01) {
-    membraneCtx.textAlign = "right";
-    membraneCtx.font = "10px monospace";
-    membraneCtx.fillStyle = "#4a4a53";
-    membraneCtx.fillText(mZoom.toFixed(2) + "x", W - 14, 22);
-  }
-
-  refreshMembrane(false);
-  membraneAnimId = requestAnimationFrame(drawMembrane);
+  membraneCounts = data.counts || { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
+  _updateMembraneStats();
 }
 
-function addNeuronaToGraph() { /* no-op */ }
+function toCountNewNodesDiff(existingIds, cyElements) {
+  // Devuelve true si hay nodos nuevos (contando solo nodos, no aristas)
+  for (const e of cyElements) {
+    if (e.group !== 'nodes') continue;
+    if (!existingIds.has(e.data.id)) return true;
+  }
+  return false;
+}
+
+function _updateMembraneStats() {
+  const el = document.getElementById('membraneStats');
+  if (!el) return;
+  const c = membraneCounts || { nodes: 0, edges: 0 };
+  el.textContent = (c.nodes || 0) + ' nodos · ' + (c.edges || 0) + ' aristas';
+}
+
+window.addEventListener("akira:section-shown", function (ev) {
+  const section = ev && ev.detail && ev.detail.section;
+  if (section === "membrane") {
+    if (!cyMembrane) initMembraneGraph();
+    else {
+      // Asegurar que el contenedor ya tiene tamaño real
+      setTimeout(() => {
+        if (cyMembrane) cyMembrane.resize();
+      }, 100);
+    }
+  }
+  if (section === "office" && document.getElementById("officeCanvas")) {
+    initOfficeFloor();
+  }
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+  setTimeout(function () {
+    if (document.getElementById("membraneCy")) initMembraneGraph();
+    if (document.getElementById("officeCanvas")) initOfficeFloor();
+  }, 500);
+});
 
 // ===========================================================================
-// OFICINA (igual que V10.0)
+// OFICINA — sin cambios
 // ===========================================================================
 
 let officeCanvas, officeCtx;
@@ -989,23 +714,7 @@ function updateOfficeStats() {
   el.innerHTML = "<b>" + officeAgents.length + " agentes reales</b>";
 }
 
-document.addEventListener("DOMContentLoaded", function () {
-  setTimeout(function () {
-    if (document.getElementById("membraneCanvas")) initMembraneGraph();
-    if (document.getElementById("officeCanvas")) initOfficeFloor();
-  }, 500);
-});
-
-window.addEventListener("akira:section-shown", function (ev) {
-  const section = ev && ev.detail && ev.detail.section;
-  if (section === "office" && document.getElementById("officeCanvas")) {
-    initOfficeFloor();
-  }
-  if (section === "membrane" && document.getElementById("membraneCanvas")) {
-    initMembraneGraph();
-  }
-});
-
+// API pública
 window.AkiraMembrane = {
   initMembraneGraph: initMembraneGraph,
   initOfficeFloor: initOfficeFloor,
@@ -1013,5 +722,4 @@ window.AkiraMembrane = {
   refreshOffice: refreshOffice,
   addOfficeLog: addOfficeLog,
   updateOfficeStats: updateOfficeStats,
-  addNeuronaToGraph: addNeuronaToGraph,
 };
