@@ -1,11 +1,35 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V5.1
-// Fix: Pixi con tamano fijo basado en el PNG. CSS lo escala.
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V7.0
+// Oficina: personajes pixel-art reales recortados del sheet + fondo limpio.
+// Membrana: force layout con datos reales (Fase 6).
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
-const PIXI_CDN = "https://unpkg.com/pixi.js@7.4.2/dist/pixi.min.js";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
-const OFFICE_W = 1024;
-const OFFICE_H = 896;
+const OFFICE_SHEET_URL = "./assets/office/PixelOfficeAssets.png";
+
+// Canvas interno de la oficina (coincide con proporcion de LargePixelOffice limpio)
+const OFFICE_W = 720;
+const OFFICE_H = 630;
+
+// Sprites en la hoja PixelOfficeAssets.png: [x1, y1, x2, y2]
+const SPRITE_RECTS = {
+  researcher:    [2, 105, 17, 128],
+  memorizer:     [19, 104, 38, 128],
+  graph_builder: [40, 107, 53, 128],
+  learner:       [3, 132, 20, 155],
+  internal:      [22, 132, 39, 155],
+};
+
+// Posiciones en el canvas 720x630 donde va cada personaje (sobre las sillas)
+const SPRITE_POSITIONS = {
+  researcher:    [118, 330],
+  memorizer:     [220, 330],
+  graph_builder: [430, 330],
+  learner:       [118, 500],
+  internal:      [220, 500],
+};
+
+// Escala de cada sprite (x3 se ve bien en 720x630)
+const SPRITE_SCALE = 3;
 
 // ===========================================================================
 // MEMBRANA
@@ -19,7 +43,6 @@ let membraneFetching = false;
 let membraneError = null;
 let membraneCounts = { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
 let membranePhysicsOn = true;
-
 const MEMBRANE_REFRESH_MS = 7000;
 
 const NODE_TYPE_COLORS = {
@@ -57,19 +80,6 @@ async function _fetchJson(url) {
   const r = await fetch(bust, { headers: _authHeaders() });
   if (!r.ok) throw new Error("HTTP " + r.status);
   return await r.json();
-}
-
-function _waitForSize(el, maxMs) {
-  return new Promise((resolve) => {
-    const t0 = Date.now();
-    function check() {
-      const r = el.getBoundingClientRect();
-      if (r.width >= 50 && r.height >= 50) return resolve(true);
-      if (Date.now() - t0 > maxMs) return resolve(false);
-      setTimeout(check, 100);
-    }
-    check();
-  });
 }
 
 function initMembraneGraph() {
@@ -249,7 +259,6 @@ function drawMembrane() {
   membraneCtx.textAlign = "center";
   for (const nd of membraneNodes) {
     const color = NODE_TYPE_COLORS[nd.node_type] || "#6366f1";
-
     const glowR = nd.r + 6;
     const gradient = membraneCtx.createRadialGradient(nd.x, nd.y, nd.r * 0.5, nd.x, nd.y, glowR);
     gradient.addColorStop(0, color);
@@ -295,203 +304,162 @@ function drawMembrane() {
 function addNeuronaToGraph() { /* no-op */ }
 
 // ===========================================================================
-// OFICINA — Pixi.js con tamano fijo
+// OFICINA — Personajes pixel-art reales
 // ===========================================================================
 
-let pixiApp = null;
-let officeBgSprite = null;
+let officeCanvas, officeCtx;
+let officeBgImage = null;
+let officeSheetImage = null;
+let officeBgLoaded = false;
+let officeSheetLoaded = false;
+let officeLoadError = null;
 let officeAgents = [];
 let officeLastFetch = 0;
 let officeFetching = false;
-let officeError = null;
-let officeChipLayer = null;
-let officeResizeHooked = false;
+let officeAnimId = null;
 const OFFICE_REFRESH_MS = 5000;
 
-// Posiciones fijas de los chips en el canvas 1024x896
-const CHIP_POSITIONS = [
-  [140, 300],
-  [340, 300],
-  [540, 300],
-  [740, 300],
-  [940, 300],
-];
+// Cache de canvas recortados por agente
+const spriteCache = {};
 
-async function ensurePixiLoaded() {
-  if (window.PIXI) return true;
-  return new Promise((resolve) => {
-    const s = document.createElement('script');
-    s.src = PIXI_CDN;
-    s.onload = () => resolve(!!window.PIXI);
-    s.onerror = () => resolve(false);
-    document.head.appendChild(s);
-  });
-}
+function initOfficeFloor() {
+  officeCanvas = document.getElementById("officeCanvas");
+  if (!officeCanvas) return;
+  const parent = officeCanvas.parentElement;
+  const rect = parent.getBoundingClientRect();
+  if (rect.width < 50 || rect.height < 50) return;
 
-async function initOfficeFloor() {
-  const canvas = document.getElementById("officeCanvas");
-  if (!canvas) return;
-  const parent = canvas.parentElement;
+  officeCtx = officeCanvas.getContext("2d");
+  officeCanvas.width = OFFICE_W;
+  officeCanvas.height = OFFICE_H;
+  officeCanvas.style.width = "auto";
+  officeCanvas.style.height = "auto";
+  officeCanvas.style.maxWidth = "100%";
+  officeCanvas.style.maxHeight = "100%";
+  officeCanvas.style.display = "block";
+  officeCanvas.style.imageRendering = "pixelated";
+  officeCtx.imageSmoothingEnabled = false;
 
-  const ok = await _waitForSize(parent, 3000);
-  if (!ok) return;
+  if (officeAnimId) cancelAnimationFrame(officeAnimId);
 
-  const loaded = await ensurePixiLoaded();
-  if (!loaded) {
-    parent.insertAdjacentHTML("beforeend",
-      '<div style="color:#ef4444;padding:20px;font-family:monospace;text-align:center">No se pudo cargar Pixi.js</div>');
-    return;
-  }
+  if (!officeBgLoaded || !officeSheetLoaded) {
+    let pending = 2;
+    const done = () => { pending--; if (pending === 0) { officeBgLoaded = true; officeSheetLoaded = true; drawOffice(); } };
 
-  if (pixiApp) {
-    _fitOfficeCanvas();
-    refreshOffice(true);
-    return;
-  }
+    officeBgImage = new Image();
+    officeBgImage.onload = done;
+    officeBgImage.onerror = () => { officeLoadError = "No se pudo cargar fondo"; pending--; if (pending === 0) drawOffice(); };
+    officeBgImage.src = OFFICE_BG_URL + "?v=" + Date.now();
 
-  PIXI.BaseTexture.defaultOptions.scaleMode = PIXI.SCALE_MODES.NEAREST;
-
-  pixiApp = new PIXI.Application({
-    view: canvas,
-    width: OFFICE_W,
-    height: OFFICE_H,
-    background: 0x0b0b0e,
-    antialias: false,
-    resolution: 1,
-    autoDensity: false,
-  });
-
-  canvas.removeAttribute("style");
-  canvas.style.display = "block";
-  canvas.style.maxWidth = "100%";
-  canvas.style.maxHeight = "100%";
-  canvas.style.width = "auto";
-  canvas.style.height = "auto";
-
-  try {
-    const bgTex = await PIXI.Assets.load(OFFICE_BG_URL);
-    officeBgSprite = new PIXI.Sprite(bgTex);
-    officeBgSprite.x = 0;
-    officeBgSprite.y = 0;
-    pixiApp.stage.addChild(officeBgSprite);
-  } catch (e) {
-    officeError = "No se pudo cargar fondo: " + (e && e.message ? e.message : e);
-    parent.insertAdjacentHTML("beforeend",
-      '<div style="color:#ef4444;padding:10px;font-family:monospace;text-align:center">' +
-      officeError + '</div>');
-    return;
-  }
-
-  officeChipLayer = new PIXI.Container();
-  pixiApp.stage.addChild(officeChipLayer);
-
-  _fitOfficeCanvas();
-
-  if (!officeResizeHooked) {
-    officeResizeHooked = true;
-    window.addEventListener("resize", _fitOfficeCanvas);
+    officeSheetImage = new Image();
+    officeSheetImage.onload = () => { buildSpriteCache(); done(); };
+    officeSheetImage.onerror = () => { officeLoadError = "No se pudo cargar hoja de sprites"; pending--; if (pending === 0) drawOffice(); };
+    officeSheetImage.src = OFFICE_SHEET_URL + "?v=" + Date.now();
+  } else {
+    drawOffice();
   }
 
   refreshOffice(true);
 }
 
-function _fitOfficeCanvas() {
-  const canvas = document.getElementById("officeCanvas");
-  if (!canvas) return;
-  const parent = canvas.parentElement;
-  const pw = parent.clientWidth;
-  const ph = parent.clientHeight;
-  if (pw < 50 || ph < 50) return;
-
-  const scale = Math.min(pw / OFFICE_W, ph / OFFICE_H);
-  canvas.style.width = (OFFICE_W * scale) + "px";
-  canvas.style.height = (OFFICE_H * scale) + "px";
-}
-
-function createChip(agent) {
-  const container = new PIXI.Container();
-  const roleColor = AGENT_ROLE_COLOR[agent.role] || "#6366f1";
-  const colorInt = parseInt(roleColor.slice(1), 16);
-
-  const bg = new PIXI.Graphics();
-  bg.beginFill(0x0b0b0e, 0.95);
-  bg.lineStyle(3, colorInt, 1);
-  bg.drawRoundedRect(-80, -28, 160, 56, 8);
-  bg.endFill();
-  container.addChild(bg);
-
-  const dot = new PIXI.Graphics();
-  dot.beginFill(colorInt, 1);
-  dot.drawCircle(-64, 0, 8);
-  dot.endFill();
-  container.addChild(dot);
-
-  const nameText = new PIXI.Text(agent.name || "?", {
-    fontFamily: "monospace",
-    fontSize: 16,
-    fill: 0xffffff,
-    fontWeight: "bold",
-  });
-  nameText.x = -50;
-  nameText.y = -20;
-  container.addChild(nameText);
-
-  const statusText = new PIXI.Text((agent.status || "idle").toUpperCase(), {
-    fontFamily: "monospace",
-    fontSize: 11,
-    fill: 0x8a8a93,
-  });
-  statusText.x = -50;
-  statusText.y = 4;
-  container.addChild(statusText);
-
-  return { container, dot, nameText, statusText, bg };
-}
-
-function syncAgentChips() {
-  if (!pixiApp || !officeChipLayer) return;
-  const seen = new Set();
-
-  officeAgents.forEach((a, i) => {
-    seen.add(a.name);
-    let chip = null;
-    for (const c of officeChipLayer.children) {
-      if (c._akiraName === a.name) { chip = c; break; }
-    }
-    if (!chip) {
-      const refs = createChip(a);
-      refs.container._akiraName = a.name;
-      officeChipLayer.addChild(refs.container);
-      chip = refs.container;
-      chip._chipRefs = refs;
-    }
-    const refs = chip._chipRefs;
-    refs.nameText.text = a.name || "?";
-    refs.statusText.text = (a.status || "idle").toUpperCase();
-    const roleColor = AGENT_ROLE_COLOR[a.role] || "#6366f1";
-    const colorInt = parseInt(roleColor.slice(1), 16);
-    refs.dot.clear();
-    refs.dot.beginFill(colorInt, 1);
-    refs.dot.drawCircle(-64, 0, 8);
-    refs.dot.endFill();
-    refs.bg.clear();
-    refs.bg.beginFill(0x0b0b0e, 0.95);
-    refs.bg.lineStyle(3, colorInt, 1);
-    refs.bg.drawRoundedRect(-80, -28, 160, 56, 8);
-    refs.bg.endFill();
-
-    const pos = CHIP_POSITIONS[i % CHIP_POSITIONS.length];
-    chip.x = pos[0];
-    chip.y = pos[1];
-  });
-
-  for (let k = officeChipLayer.children.length - 1; k >= 0; k--) {
-    const c = officeChipLayer.children[k];
-    if (c._akiraName && !seen.has(c._akiraName)) {
-      officeChipLayer.removeChild(c);
-      c.destroy({ children: true });
-    }
+// Recorta cada sprite de la hoja a un canvas individual y los cachea
+function buildSpriteCache() {
+  const img = officeSheetImage;
+  if (!img) return;
+  for (const role in SPRITE_RECTS) {
+    const r = SPRITE_RECTS[role];
+    const w = r[2] - r[0];
+    const h = r[3] - r[1];
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const cx = c.getContext("2d");
+    cx.imageSmoothingEnabled = false;
+    cx.drawImage(img, r[0], r[1], w, h, 0, 0, w, h);
+    spriteCache[role] = c;
   }
+}
+
+function drawOffice() {
+  if (!officeCtx) return;
+  const W = OFFICE_W, H = OFFICE_H;
+
+  officeCtx.fillStyle = "#0b0b0e";
+  officeCtx.fillRect(0, 0, W, H);
+
+  if (officeLoadError) {
+    officeCtx.fillStyle = "#ef4444";
+    officeCtx.font = "20px monospace";
+    officeCtx.textAlign = "center";
+    officeCtx.fillText("Oficina: " + officeLoadError, W/2, H/2);
+    return;
+  }
+
+  if (!officeBgLoaded || !officeSheetLoaded) {
+    officeCtx.fillStyle = "#8a8a93";
+    officeCtx.font = "20px monospace";
+    officeCtx.textAlign = "center";
+    officeCtx.fillText("Cargando oficina...", W/2, H/2);
+    officeAnimId = requestAnimationFrame(drawOffice);
+    return;
+  }
+
+  // Fondo limpio
+  officeCtx.drawImage(officeBgImage, 0, 0, W, H);
+
+  // Personajes
+  officeAgents.forEach(a => {
+    const role = a.role || "generic";
+    const sprite = spriteCache[role];
+    const pos = SPRITE_POSITIONS[role];
+    if (!sprite || !pos) return;
+
+    const baseX = pos[0];
+    const baseY = pos[1];
+
+    // Bobbing cuando busy
+    let bob = 0;
+    if (a.status === "busy") {
+      bob = Math.sin(Date.now() * 0.005) * 3;
+    }
+
+    const sw = sprite.width * SPRITE_SCALE;
+    const sh = sprite.height * SPRITE_SCALE;
+    const dx = baseX - sw / 2;
+    const dy = baseY - sh + bob;
+
+    // Sombra
+    officeCtx.fillStyle = "rgba(0,0,0,0.35)";
+    officeCtx.beginPath();
+    officeCtx.ellipse(baseX, baseY + 3, sw * 0.4, 4, 0, 0, Math.PI * 2);
+    officeCtx.fill();
+
+    // Sprite
+    officeCtx.drawImage(sprite, dx, dy, sw, sh);
+
+    // LED de estado encima
+    let ledColor = "#22c55e";
+    if (a.status === "busy") ledColor = "#facc15";
+    else if (a.status === "error") ledColor = "#ef4444";
+    officeCtx.fillStyle = ledColor;
+    officeCtx.fillRect(baseX + sw / 2 - 4, dy - 6, 8, 8);
+    officeCtx.strokeStyle = "#0b0b0e";
+    officeCtx.lineWidth = 2;
+    officeCtx.strokeRect(baseX + sw / 2 - 4, dy - 6, 8, 8);
+
+    // Nombre debajo
+    officeCtx.fillStyle = "rgba(11, 11, 14, 0.85)";
+    const label = (a.name || "?").slice(0, 14);
+    officeCtx.font = "bold 11px monospace";
+    const tw = officeCtx.measureText(label).width;
+    officeCtx.fillRect(baseX - tw / 2 - 4, baseY + 8, tw + 8, 14);
+    officeCtx.fillStyle = "#ececf1";
+    officeCtx.textAlign = "center";
+    officeCtx.fillText(label, baseX, baseY + 19);
+  });
+
+  refreshOffice(false);
+  officeAnimId = requestAnimationFrame(drawOffice);
 }
 
 async function refreshOffice(force) {
@@ -503,10 +471,9 @@ async function refreshOffice(force) {
     const data = await _fetchJson("/api/v8/agents");
     if (data && data.ok) {
       officeAgents = data.agents || [];
-      syncAgentChips();
     }
   } catch (e) {
-    officeError = String(e && e.message ? e.message : e);
+    // silencioso
   } finally {
     officeFetching = false;
   }
@@ -526,9 +493,7 @@ function addOfficeLog(text, type) {
 function updateOfficeStats() {
   const el = document.getElementById("officeStats");
   if (!el) return;
-  const c = membraneCounts || { nodes: 0, edges: 0, by_type: {} };
-  el.innerHTML = "<b>" + officeAgents.length + " agentes reales</b> · " +
-    (c.nodes || 0) + " nodos · " + (c.edges || 0) + " aristas";
+  el.innerHTML = "<b>" + officeAgents.length + " agentes reales</b>";
 }
 
 // ---------------------------------------------------------------------------
