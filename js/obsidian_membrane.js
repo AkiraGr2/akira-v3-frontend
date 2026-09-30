@@ -1,6 +1,6 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V8.3
-// Waypoints con coordenadas exactas de los 4 pasillos seguros.
-// Horizontal: Y 338-372. Verticales en X 3-95, 315-409, 630-720.
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V8.4
+// Routing por pasillos: el agente solo se mueve horizontal o vertical.
+// Nunca en diagonal. Nunca atraviesa muebles.
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
@@ -17,30 +17,26 @@ const SPRITE_RECTS = {
   internal:      [22, 132, 39, 155],
 };
 
-// Cada agente en un pasillo seguro distinto
+// Geometria de los pasillos (coordenadas seguras confirmadas)
+const H_Y = 355;          // pasillo horizontal esta en Y=355
+const VL_X = 49;          // pasillo vertical izquierdo
+const VC_X = 362;         // pasillo vertical central
+const VR_X = 675;         // pasillo vertical derecho
+const V_Y_MIN = 355;      // vertical empieza abajo del pasillo horizontal
+const V_Y_MAX = 615;      // vertical termina cerca del borde inferior
+
+// Puntos libres en cada pasillo
+const H_POINTS = [60, 130, 200, 270, 340, 410, 480, 550, 620, 690];
+const V_POINTS = [380, 440, 500, 560, 610];
+
+// Home: cada agente arranca en un pasillo distinto
 const HOME_POSITIONS = {
-  researcher:    [49, 400],    // pasillo vertical izquierdo
-  memorizer:     [362, 400],   // pasillo vertical central
-  graph_builder: [675, 400],   // pasillo vertical derecho
-  learner:       [150, 355],   // pasillo horizontal (izquierda)
-  internal:      [550, 355],   // pasillo horizontal (derecha)
+  researcher:    [VL_X, 420],
+  memorizer:     [VC_X, 420],
+  graph_builder: [VR_X, 420],
+  learner:       [180, H_Y],
+  internal:      [540, H_Y],
 };
-
-// Waypoints con Y / X seguros (dentro de los pasillos reales)
-const WAYPOINTS = [
-  // Pasillo horizontal arriba (Y = 355, entre Y=338 y Y=372)
-  [20, 355], [90, 355], [160, 355], [230, 355], [300, 355],
-  [370, 355], [440, 355], [510, 355], [580, 355], [650, 355], [700, 355],
-
-  // Pasillo vertical izquierdo (X = 49, entre X=3 y X=95)
-  [49, 400], [49, 460], [49, 520], [49, 580], [49, 615],
-
-  // Pasillo vertical central (X = 362, entre X=315 y X=409)
-  [362, 400], [362, 460], [362, 520], [362, 580], [362, 615],
-
-  // Pasillo vertical derecho (X = 675, entre X=630 y X=720)
-  [675, 400], [675, 460], [675, 520], [675, 580], [675, 615],
-];
 
 const SPRITE_SCALE = 2;
 const WALK_SPEED = 0.9;
@@ -394,18 +390,85 @@ function buildSpriteCache() {
   }
 }
 
-function _pickRandomWaypoint() {
-  const wp = WAYPOINTS[Math.floor(Math.random() * WAYPOINTS.length)];
-  return [wp[0] + (Math.random() - 0.5) * 14, wp[1] + (Math.random() - 0.5) * 8];
+// Clasifica si una posicion esta en el pasillo H o en alguno de los 3 verticales.
+// Devuelve la "corriente": "H", "VL", "VC", "VR".
+function _corridorOf(x, y) {
+  const dh = Math.abs(y - H_Y);
+  const dl = Math.abs(x - VL_X);
+  const dc = Math.abs(x - VC_X);
+  const dr = Math.abs(x - VR_X);
+  const m = Math.min(dh, dl, dc, dr);
+  if (m === dh) return "H";
+  if (m === dl) return "VL";
+  if (m === dc) return "VC";
+  return "VR";
+}
+
+// X exacta de cada pasillo vertical
+function _vX(kind) {
+  if (kind === "VL") return VL_X;
+  if (kind === "VC") return VC_X;
+  return VR_X;
+}
+
+// Construye una ruta [ [x,y], [x,y], ... ] que solo usa tramos H o V.
+// Regla: si hay que cambiar de pasillo, se pasa por el cruce (vX, H_Y).
+function _buildPath(cx, cy, tx, ty) {
+  const cCorr = _corridorOf(cx, cy);
+  const tCorr = _corridorOf(tx, ty);
+  const path = [];
+
+  if (cCorr === "H" && tCorr === "H") {
+    // Recto por el pasillo H
+    path.push([tx, H_Y]);
+  } else if (cCorr === "H" && tCorr !== "H") {
+    // Ir por H hasta el cruce del pasillo objetivo, luego bajar
+    const vx = _vX(tCorr);
+    path.push([vx, H_Y]);
+    path.push([vx, ty]);
+  } else if (cCorr !== "H" && tCorr === "H") {
+    // Subir hasta el cruce, luego ir por H hasta el objetivo
+    const vx = _vX(cCorr);
+    path.push([vx, H_Y]);
+    path.push([tx, H_Y]);
+  } else {
+    // Vertical -> Vertical: subir, cruzar por H, bajar
+    const vxC = _vX(cCorr);
+    const vxT = _vX(tCorr);
+    if (vxC === vxT) {
+      // Mismo vertical: bajar/subir derecho
+      path.push([vxC, ty]);
+    } else {
+      path.push([vxC, H_Y]);
+      path.push([vxT, H_Y]);
+      path.push([vxT, ty]);
+    }
+  }
+  return path;
+}
+
+// Elige un punto aleatorio en cualquiera de los pasillos (a nivel de suelo).
+function _pickRandomTarget() {
+  const r = Math.random();
+  if (r < 0.5) {
+    // Pasillo H
+    const x = H_POINTS[Math.floor(Math.random() * H_POINTS.length)];
+    return [x, H_Y];
+  }
+  // Vertical aleatorio
+  const vk = ["VL", "VC", "VR"][Math.floor(Math.random() * 3)];
+  const vx = _vX(vk);
+  const y = V_POINTS[Math.floor(Math.random() * V_POINTS.length)];
+  return [vx, y];
 }
 
 function _ensureMovementState(a) {
   if (typeof a.x !== "number") {
-    const home = HOME_POSITIONS[a.role] || [362, 400];
+    const home = HOME_POSITIONS[a.role] || [VC_X, 420];
     a.x = home[0];
     a.y = home[1];
   }
-  if (typeof a.tx !== "number") { a.tx = a.x; a.ty = a.y; }
+  if (!a.path) a.path = [];
   if (typeof a.nextMoveAt !== "number") a.nextMoveAt = Date.now() + Math.random() * IDLE_WAIT_MS;
   if (typeof a.facing !== "string") a.facing = "idle";
 }
@@ -414,32 +477,48 @@ function _updateAgentMovement(a) {
   const now = Date.now();
 
   if (a.status === "busy") {
+    // El busy siempre vuelve a su home, caminando por pasillos
     const home = HOME_POSITIONS[a.role] || [a.x, a.y];
-    a.tx = home[0];
-    a.ty = home[1];
-    if (now > a.nextMoveAt) a.nextMoveAt = now + BUSY_WAIT_MS;
+    if (a.path.length === 0 && (Math.abs(a.x - home[0]) > 3 || Math.abs(a.y - home[1]) > 3)) {
+      a.path = _buildPath(a.x, a.y, home[0], home[1]);
+    }
+    if (a.path.length === 0) {
+      if (now > a.nextMoveAt) a.nextMoveAt = now + BUSY_WAIT_MS;
+    }
   } else {
-    if (now > a.nextMoveAt && Math.abs(a.x - a.tx) < 4 && Math.abs(a.y - a.ty) < 4) {
-      const target = _pickRandomWaypoint();
-      a.tx = target[0];
-      a.ty = target[1];
+    if (a.path.length === 0 && now > a.nextMoveAt) {
+      const t = _pickRandomTarget();
+      a.path = _buildPath(a.x, a.y, t[0], t[1]);
       a.nextMoveAt = now + IDLE_WAIT_MS + Math.random() * 5000;
     }
   }
 
-  const dx = a.tx - a.x;
-  const dy = a.ty - a.y;
+  if (a.path.length === 0) {
+    a.facing = "idle";
+    return;
+  }
+
+  const target = a.path[0];
+  const dx = target[0] - a.x;
+  const dy = target[1] - a.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
 
-  if (dist > 2) {
-    const step = Math.min(WALK_SPEED, dist);
-    a.x += (dx / dist) * step;
-    a.y += (dy / dist) * step;
-    a.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+  if (dist < 2) {
+    a.x = target[0];
+    a.y = target[1];
+    a.path.shift();
+    if (a.path.length === 0) a.facing = "idle";
+    return;
+  }
+
+  const step = Math.min(WALK_SPEED, dist);
+  a.x += (dx / dist) * step;
+  a.y += (dy / dist) * step;
+  // Facing: solo H o V (nunca diagonal)
+  if (Math.abs(dx) > Math.abs(dy)) {
+    a.facing = dx > 0 ? "right" : "left";
   } else {
-    a.x = a.tx;
-    a.y = a.ty;
-    a.facing = "idle";
+    a.facing = dy > 0 ? "down" : "up";
   }
 }
 
