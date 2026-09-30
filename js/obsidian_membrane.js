@@ -1,12 +1,14 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V13.2
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V14.0
+// Cambios V14.0 (Cerebro):
+//   - Dispersion inicial manual en espiral antes del layout (rompe apelotonamiento).
+//   - Layout cose con nodeRepulsion 120000, gravity 0.08 (nodos bien separados).
+//   - Layout doble: primero seco (asienta posiciones), luego animado (queda bonito).
+//   - Labels numerados estables por id (1, 2, 3...) guardados en localStorage.
 // Cambios V13.2:
-//   - Layout robusto: delay de 50ms antes de correr (fix apelotonamiento inicial).
-//   - nodeRepulsion 60000, idealEdgeLength 150, componentSpacing 200.
-//   - Filtro top-N aristas por nodo (menos maraña, solo las relaciones mas fuertes).
-//   - Labels cortos para memories/learnings (📝 abc123 en vez de memory:mem_abc123...).
-//   - window.reorganizeMembrane() expuesto para boton.
+//   - Filtro top-N aristas por nodo (menos maraña).
 // Cambios V13.1:
 //   - Aristas mas visibles (opacidad 0.55, color #5a5a70).
+// Oficina: sin cambios respecto a V12.
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
@@ -66,11 +68,6 @@ const AGENT_ROLE_COLOR = {
   generic: "#6366f1",
 };
 
-// Filtro visual: aristas con weight menor a esto no se muestran.
-const MIN_EDGE_WEIGHT_VISIBLE = 0.5;
-// Cuantas aristas como maximo por nodo (las mas fuertes por peso).
-const MAX_EDGES_PER_NODE = 5;
-
 function _authHeaders() {
   if (typeof window.akiraAuthHeaders === "function") {
     try { return window.akiraAuthHeaders(); } catch (_) { return {}; }
@@ -86,19 +83,58 @@ async function _fetchJson(url) {
   return await r.json();
 }
 
-// Acorta labels largos de memoria/learning a algo legible.
-function _abbreviateLabel(label) {
-  if (!label) return "";
-  const s = String(label);
-  if (s.startsWith("memory:mem_")) return "📝 " + s.slice(-6);
-  if (s.startsWith("learning:")) return "💡 " + s.slice(-6);
-  if (s.startsWith("agent:")) return s.slice(6);
-  if (s.startsWith("tool:")) return s.slice(5);
-  if (s.length > 28) return s.slice(0, 26) + "…";
+// ===========================================================================
+// CEREBRO AKIRA (MEMBRANA) — Cytoscape.js V14.0
+// ===========================================================================
+
+let cyMembrane = null;
+let membraneLastFetch = 0;
+let membraneFetching = false;
+let membraneCounts = { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
+let membraneError = null;
+let membraneHasRunLayoutOnce = false;
+let membraneLayoutTimer = null;
+const MEMBRANE_REFRESH_MS = 7000;
+
+const MIN_EDGE_WEIGHT_VISIBLE = 0.5;
+const MAX_EDGES_PER_NODE = 5;
+
+// --- Contador estable de labels por id ---
+let _labelCounter = null;
+let _labelMax = 0;
+function _getLabelCounter() {
+  if (_labelCounter) return _labelCounter;
+  try { _labelCounter = JSON.parse(localStorage.getItem("akira_label_counter") || "{}"); }
+  catch(_) { _labelCounter = {}; }
+  return _labelCounter;
+}
+function _saveLabelCounter() {
+  try { localStorage.setItem("akira_label_counter", JSON.stringify(_labelCounter)); } catch(_){}
+}
+function _labelForId(id, fallback) {
+  const counter = _getLabelCounter();
+  if (!counter[id]) {
+    const vals = Object.values(counter).map(Number);
+    _labelMax = (vals.length ? Math.max.apply(null, vals) : 0) + 1;
+    counter[id] = _labelMax;
+    _saveLabelCounter();
+  }
+  return counter[id] + (fallback ? " · " + fallback : "");
+}
+
+function _abbreviateLabel(id, label) {
+  if (!label && !id) return "";
+  const s = String(label || "");
+  const i = String(id || "");
+  if (s.startsWith("memory:mem_"))     return _labelForId(i, "mem");
+  if (s.startsWith("learning:"))       return _labelForId(i, "learn");
+  if (s.startsWith("agent:"))          return _labelForId(i, s.slice(6));
+  if (s.startsWith("tool:"))           return _labelForId(i, s.slice(5));
+  if (i.startsWith("node_"))           return _labelForId(i, s.slice(0, 14));
+  if (s.length > 20) return s.slice(0, 18) + "…";
   return s;
 }
 
-// Filtra aristas: solo las top-N por peso de cada nodo. Reduce maraña.
 function _filterEdgesByRelevance(edges, nodeIds) {
   const byNode = new Map();
   for (const e of edges) {
@@ -118,100 +154,37 @@ function _filterEdgesByRelevance(edges, nodeIds) {
   return edges.filter(e => keep.has(e.id));
 }
 
-// ===========================================================================
-// CEREBRO AKIRA (MEMBRANA) — Cytoscape.js V13.2
-// ===========================================================================
-
-let cyMembrane = null;
-let membraneLastFetch = 0;
-let membraneFetching = false;
-let membraneCounts = { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
-let membraneError = null;
-let membraneHasRunLayoutOnce = false;
-let membraneLayoutTimer = null;
-const MEMBRANE_REFRESH_MS = 7000;
-
 function _cytoscapeStyle() {
   return [
-    {
-      selector: 'node',
-      style: {
-        'background-color': 'data(color)',
-        'width': 'data(radius)',
-        'height': 'data(radius)',
-        'label': 'data(label)',
-        'color': '#c8c8d0',
-        'font-family': 'monospace',
-        'font-size': 9,
-        'font-weight': 300,
-        'text-valign': 'bottom',
-        'text-halign': 'center',
-        'text-margin-y': 5,
-        'text-opacity': 0.55,
-        'text-wrap': 'wrap',
-        'text-max-width': 110,
-        'border-width': 0,
-        'transition-property': 'opacity, border-width, shadow-blur, shadow-opacity',
-        'transition-duration': '180ms',
-      }
-    },
-    {
-      selector: 'node:selected',
-      style: {
-        'border-width': 2,
-        'border-color': '#ffffff',
-        'text-opacity': 1,
-        'color': '#ffffff',
-        'font-weight': 'bold',
-        'font-size': 11,
-        'shadow-blur': 24,
-        'shadow-color': '#ffffff',
-        'shadow-opacity': 0.4,
-      }
-    },
-    {
-      selector: 'node.highlighted',
-      style: {
-        'border-width': 1.5,
-        'border-color': '#ffffff',
-        'text-opacity': 1,
-        'color': '#ffffff',
-        'shadow-blur': 16,
-        'shadow-color': '#ffffff',
-        'shadow-opacity': 0.3,
-      }
-    },
-    {
-      selector: 'node.dimmed',
-      style: {
-        'opacity': 0.15,
-        'text-opacity': 0.1,
-      }
-    },
-    {
-      selector: 'edge',
-      style: {
-        'width': 'data(width)',
-        'line-color': '#5a5a70',
-        'curve-style': 'straight',
-        'opacity': 0.55,
-        'transition-property': 'opacity, line-color',
-        'transition-duration': '180ms',
-      }
-    },
-    {
-      selector: 'edge.highlighted',
-      style: {
-        'opacity': 0.9,
-        'line-color': '#b8b8d0',
-      }
-    },
-    {
-      selector: 'edge.dimmed',
-      style: {
-        'opacity': 0.08,
-      }
-    },
+    { selector: 'node', style: {
+      'background-color': 'data(color)',
+      'width': 'data(radius)', 'height': 'data(radius)',
+      'label': 'data(label)',
+      'color': '#d0d0d8', 'font-family': 'monospace', 'font-size': 10, 'font-weight': 400,
+      'text-valign': 'bottom', 'text-halign': 'center', 'text-margin-y': 5,
+      'text-opacity': 0.7, 'text-wrap': 'wrap', 'text-max-width': 100,
+      'border-width': 0,
+      'transition-property': 'opacity, border-width, shadow-blur, shadow-opacity',
+      'transition-duration': '180ms',
+    }},
+    { selector: 'node:selected', style: {
+      'border-width': 2, 'border-color': '#ffffff',
+      'text-opacity': 1, 'color': '#ffffff', 'font-weight': 'bold', 'font-size': 12,
+      'shadow-blur': 24, 'shadow-color': '#ffffff', 'shadow-opacity': 0.4,
+    }},
+    { selector: 'node.highlighted', style: {
+      'border-width': 1.5, 'border-color': '#ffffff',
+      'text-opacity': 1, 'color': '#ffffff',
+      'shadow-blur': 16, 'shadow-color': '#ffffff', 'shadow-opacity': 0.3,
+    }},
+    { selector: 'node.dimmed', style: { 'opacity': 0.15, 'text-opacity': 0.1 }},
+    { selector: 'edge', style: {
+      'width': 'data(width)', 'line-color': '#5a5a70',
+      'curve-style': 'straight', 'opacity': 0.55,
+      'transition-property': 'opacity, line-color', 'transition-duration': '180ms',
+    }},
+    { selector: 'edge.highlighted', style: { 'opacity': 0.9, 'line-color': '#b8b8d0' }},
+    { selector: 'edge.dimmed', style: { 'opacity': 0.08 }},
   ];
 }
 
@@ -221,107 +194,105 @@ function _layoutOptions(animate) {
     animate: !!animate,
     animationDuration: 900,
     animationEasing: 'ease-out',
-    randomize: true,            // aleatorio cada vez: evita quedar atrapado en apelotonamiento
-    nodeRepulsion: 60000,       // fuerza fuerte
-    idealEdgeLength: 150,       // distancia objetivo
-    edgeElasticity: 0.4,
+    randomize: true,
+    nodeRepulsion: 120000,
+    idealEdgeLength: 200,
+    edgeElasticity: 0.5,
     nestingFactor: 0.1,
-    gravity: 0.2,
-    numIter: 2500,
-    initialTemp: 300,
+    gravity: 0.08,
+    numIter: 3000,
+    initialTemp: 400,
     coolingFactor: 0.95,
     minTemp: 1.0,
     fit: true,
-    padding: 70,
-    nodeOverlap: 40,
-    componentSpacing: 200,      // grupos desconectados bien separados
+    padding: 80,
+    nodeOverlap: 60,
+    componentSpacing: 250,
   };
 }
 
-// Corre el layout con un delay minimo para que Cytoscape registre bien los nodos.
+function _disperseNodes() {
+  if (!cyMembrane) return;
+  const nodes = cyMembrane.nodes();
+  const total = nodes.length;
+  if (total === 0) return;
+  const w = cyMembrane.width() || 800;
+  const h = cyMembrane.height() || 600;
+  const cx = w / 2, cy = h / 2;
+  const maxRadius = Math.min(w, h) * 0.42;
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  nodes.forEach((n, i) => {
+    const angle = i * golden;
+    const r = maxRadius * Math.sqrt((i + 1) / total);
+    n.position({ x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) });
+  });
+}
+
 function _runLayoutSafely(animate) {
   if (membraneLayoutTimer) { clearTimeout(membraneLayoutTimer); membraneLayoutTimer = null; }
   membraneLayoutTimer = setTimeout(() => {
     if (!cyMembrane) return;
     try {
-      const layout = cyMembrane.layout(_layoutOptions(animate));
-      layout.run();
+      _disperseNodes();
+      const layout1 = cyMembrane.layout(_layoutOptions(false));
+      layout1.run();
+      if (animate) {
+        setTimeout(() => {
+          if (!cyMembrane) return;
+          const layout2 = cyMembrane.layout(_layoutOptions(true));
+          layout2.run();
+        }, 50);
+      }
+      try { cyMembrane.fit(undefined, 80); } catch(_){}
     } catch (e) {
       console.warn("[membrane] layout fallo:", e);
     }
     membraneLayoutTimer = null;
-  }, 60);
+  }, 80);
 }
 
 function initMembraneGraph() {
   const container = document.getElementById('membraneCy');
   if (!container) return;
-
   const parent = container.parentElement;
   const rect = parent.getBoundingClientRect();
   if (rect.width < 50 || rect.height < 50) return;
-
   if (typeof window.cytoscape === 'undefined') {
     container.innerHTML = '<div style="color:#ef4444;padding:20px;font-family:monospace;text-align:center">No se pudo cargar Cytoscape.js</div>';
     return;
   }
-
-  if (cyMembrane) {
-    cyMembrane.resize();
-    refreshMembrane(true);
-    return;
-  }
-
+  if (cyMembrane) { cyMembrane.resize(); refreshMembrane(true); return; }
   try {
     cyMembrane = window.cytoscape({
       container: container,
       style: _cytoscapeStyle(),
       layout: { name: 'preset' },
-      minZoom: 0.2,
-      maxZoom: 4.0,
-      wheelSensitivity: 0.25,
-      boxSelectionEnabled: false,
-      selectionType: 'single',
-      autounselectify: false,
-      autoungrabify: false,
+      minZoom: 0.2, maxZoom: 4.0, wheelSensitivity: 0.25,
+      boxSelectionEnabled: false, selectionType: 'single',
+      autounselectify: false, autoungrabify: false,
     });
-
-    cyMembrane.on('tap', 'node', (evt) => {
-      const node = evt.target;
-      _highlightNeighbors(node);
-    });
-
+    cyMembrane.on('tap', 'node', (evt) => { _highlightNeighbors(evt.target); });
     cyMembrane.on('mouseover', 'node', (evt) => {
       if (cyMembrane.elements(':selected').length > 0) return;
       _highlightNeighbors(evt.target, true);
     });
-
     cyMembrane.on('mouseout', 'node', () => {
       if (cyMembrane.elements(':selected').length > 0) return;
       cyMembrane.elements().removeClass('dimmed').removeClass('highlighted');
     });
-
     cyMembrane.on('tap', (evt) => {
       if (evt.target === cyMembrane) {
         cyMembrane.elements().unselect();
         cyMembrane.elements().removeClass('dimmed').removeClass('highlighted');
       }
     });
-
     cyMembrane.on('dbltap', (evt) => {
-      if (evt.target === cyMembrane) {
-        cyMembrane.fit(undefined, 60);
-        cyMembrane.center();
-      }
+      if (evt.target === cyMembrane) { cyMembrane.fit(undefined, 60); cyMembrane.center(); }
     });
-
     if (window.ResizeObserver) {
-      const ro = new ResizeObserver(() => {
-        if (cyMembrane) cyMembrane.resize();
-      });
+      const ro = new ResizeObserver(() => { if (cyMembrane) cyMembrane.resize(); });
       ro.observe(container);
     }
-
     refreshMembrane(true);
   } catch (e) {
     container.innerHTML = '<div style="color:#ef4444;padding:20px;font-family:monospace;text-align:center">Error Cytoscape: ' + (e && e.message ? e.message : e) + '</div>';
@@ -332,17 +303,12 @@ function _highlightNeighbors(node, soft) {
   if (!cyMembrane) return;
   const neighborhood = node.closedNeighborhood();
   cyMembrane.elements().removeClass('highlighted').removeClass('dimmed');
-
   cyMembrane.elements().forEach(el => {
-    if (neighborhood.contains(el)) {
-      el.addClass('highlighted');
-    } else {
-      el.addClass('dimmed');
-    }
+    if (neighborhood.contains(el)) el.addClass('highlighted');
+    else el.addClass('dimmed');
   });
 }
 
-// Funcion global: reorganiza el grafo (usada por el boton "🔄 Reorganizar").
 window.reorganizeMembrane = function () {
   if (!cyMembrane) return;
   _runLayoutSafely(true);
@@ -354,13 +320,9 @@ async function refreshMembrane(force) {
   if (!force && Date.now() - membraneLastFetch < MEMBRANE_REFRESH_MS) return;
   membraneFetching = true;
   membraneLastFetch = Date.now();
-
   try {
     const data = await _fetchJson("/api/v8/graph/overview");
-    if (data && data.ok) {
-      _applyGraphToCy(data);
-      membraneError = null;
-    }
+    if (data && data.ok) { _applyGraphToCy(data); membraneError = null; }
   } catch (e) {
     membraneError = String(e && e.message ? e.message : e);
   } finally {
@@ -370,17 +332,14 @@ async function refreshMembrane(force) {
 
 function _applyGraphToCy(data) {
   if (!cyMembrane) return;
-
   const nodes = data.nodes || [];
   const edges = data.edges || [];
   const nodeIds = new Set();
-
   const cyElements = [];
-
   for (const n of nodes) {
     nodeIds.add(n.id);
     const typeColor = NODE_TYPE_COLORS[n.node_type] || '#6366f1';
-    const baseR = 12;
+    const baseR = 14;
     const bonusReuse = Math.min((n.reuse_count || 0) * 1.2, 8);
     const bonusWeight = Math.min((n.weight || 0) * 1.8, 14);
     const radius = baseR + bonusReuse + bonusWeight;
@@ -388,7 +347,7 @@ function _applyGraphToCy(data) {
       group: 'nodes',
       data: {
         id: n.id,
-        label: _abbreviateLabel(n.label),
+        label: _abbreviateLabel(n.id, n.label),
         node_type: n.node_type,
         color: typeColor,
         weight: n.weight || 0,
@@ -397,27 +356,21 @@ function _applyGraphToCy(data) {
       }
     });
   }
-
   const visibleEdges = _filterEdgesByRelevance(edges, nodeIds);
   for (const e of visibleEdges) {
     const w = Number(e.weight) || 0;
     cyElements.push({
       group: 'edges',
       data: {
-        id: e.id,
-        source: e.from_node,
-        target: e.to_node,
-        weight: w,
-        width: Math.min(3.0, 0.5 + w * 0.7),
+        id: e.id, source: e.from_node, target: e.to_node,
+        weight: w, width: Math.min(3.0, 0.5 + w * 0.7),
         relation_type: e.relation_type,
       }
     });
   }
-
   const existingIds = new Set();
   cyMembrane.elements().forEach(el => existingIds.add(el.id()));
   const newIds = new Set(cyElements.map(e => e.data.id));
-
   let addedNodes = 0;
   cyMembrane.batch(() => {
     existingIds.forEach(id => {
@@ -438,15 +391,12 @@ function _applyGraphToCy(data) {
       }
     });
   });
-
   const totalNodes = cyMembrane.nodes().length;
   const shouldLayout = totalNodes > 0 && (!membraneHasRunLayoutOnce || addedNodes > 0);
-
   if (shouldLayout) {
     _runLayoutSafely(true);
     membraneHasRunLayoutOnce = true;
   }
-
   membraneCounts = data.counts || { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
   _updateMembraneStats();
 }
@@ -462,11 +412,7 @@ window.addEventListener("akira:section-shown", function (ev) {
   const section = ev && ev.detail && ev.detail.section;
   if (section === "membrane") {
     if (!cyMembrane) initMembraneGraph();
-    else {
-      setTimeout(() => {
-        if (cyMembrane) cyMembrane.resize();
-      }, 100);
-    }
+    else setTimeout(() => { if (cyMembrane) cyMembrane.resize(); }, 100);
   }
   if (section === "office" && document.getElementById("officeCanvas")) {
     initOfficeFloor();
