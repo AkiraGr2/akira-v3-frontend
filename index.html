@@ -525,14 +525,15 @@ body{
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
             <button class="pixel-btn" id="m1TestBtn" onclick="createTestMission()">🚀 Crear misión de prueba</button>
             <button class="pixel-btn" onclick="m1Reset()">🧹 Limpiar</button>
+            <button class="pixel-btn" onclick="listRecentMissions()">🕒 Recientes</button>
           </div>
           <pre id="m1Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
         </div>
 
-        <!-- Fase 10.4 + 10.5 — Aprobar, rechazar, ejecutar -->
+        <!-- Fase 10.4 / 10.5 / 10.6 — Aprobar, ejecutar, progreso, cancelar -->
         <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
-          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">✅ Fase 10.4 / 10.5 — Aprobar, ejecutar, progreso</h4>
-          <p style="font-size:11px;color:var(--muted);margin-top:6px">Pega el mission_id. Aprobar cambia a running. Ejecutar dispara el orquestador en background. Ver progreso muestra tareas.</p>
+          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">✅ Fases 10.4 / 10.5 / 10.6 — Control de misión</h4>
+          <p style="font-size:11px;color:var(--muted);margin-top:6px">Pega el mission_id. Aprobar → running. Ejecutar → orquestador background. Ver resumen → progreso agregado con percent.</p>
           <div style="margin-top:10px">
             <input id="m1ApproveId" placeholder="mission_..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;font-size:13px;font-family:'Pixelify Sans', sans-serif;border-radius: 0;">
           </div>
@@ -540,10 +541,12 @@ body{
             <input id="m1RejectReason" placeholder="Motivo de rechazo (opcional)" style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;font-size:13px;font-family:'Pixelify Sans', sans-serif;border-radius: 0;">
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-            <button class="pixel-btn" id="m1ApproveBtn" onclick="approveMission()">✅ Aprobar misión</button>
-            <button class="pixel-btn" id="m1RejectBtn" onclick="rejectMission()">❌ Rechazar misión</button>
-            <button class="pixel-btn" id="m1ExecuteBtn" onclick="executeMission()">▶️ Ejecutar misión</button>
-            <button class="pixel-btn" onclick="viewMissionTasks()">📊 Ver progreso</button>
+            <button class="pixel-btn" id="m1ApproveBtn" onclick="approveMission()">✅ Aprobar</button>
+            <button class="pixel-btn" id="m1RejectBtn" onclick="rejectMission()">❌ Rechazar</button>
+            <button class="pixel-btn" id="m1ExecuteBtn" onclick="executeMission()">▶️ Ejecutar</button>
+            <button class="pixel-btn" id="m1CancelBtn" onclick="cancelMission()">🛑 Cancelar</button>
+            <button class="pixel-btn" onclick="viewMissionProgress()">📈 Ver resumen</button>
+            <button class="pixel-btn" onclick="viewMissionTasks()">📊 Ver progreso crudo</button>
           </div>
         </div>
 
@@ -721,7 +724,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 <script src="./js/obsidian_membrane.js?v=akira-membrane-v18-2"></script>
 <script src="./js/akira_brain.js?v=akira-final-v5"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
-<script src="./js/akira_admin.js?v=akira-admin-v1-4"></script>
+<script src="./js/akira_admin.js?v=akira-admin-v1-5"></script>
 <script>
 async function renderLevels(){
   const listEl=document.getElementById("levelsList");
@@ -749,7 +752,7 @@ async function renderLevels(){
       {id:"F7", name:"Ciclo Cognitivo Persistente", desc:"Migraciones 004, 005, 006. 9 etapas.", status: capStatus("cognitive_cycle_persistent")},
       {id:"F8", name:"Tool Registry", desc:"Migracion 007. 11 tools registradas.", status: capStatus("tool_registry")},
       {id:"F9", name:"Agentes + Tareas", desc:"Migracion 008, 009. 5 agentes reales.", status: capStatus("agents_persistent")},
-      {id:"F10", name:"Mission Engine", desc:"Migracion 011. En construccion.", status: capStatus("missions")},
+      {id:"F10", name:"Mission Engine", desc:"Migracion 011. Orquestador + progreso + cancelacion.", status: capStatus("missions")},
       {id:"F11", name:"Self-Repair Real", desc:"No implementado", status: capStatus("self_repair_full")},
       {id:"F12", name:"Evolution Engine", desc:"No implementado", status: capStatus("evolution_engine")},
       {id:"F13", name:"Autonomia Controlada", desc:"Futuro", status: "not_implemented"},
