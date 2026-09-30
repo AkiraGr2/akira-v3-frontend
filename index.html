@@ -22,141 +22,29 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --bg:#0b0b0e;
-  --sidebar:rgba(18,18,22,0.95);
-  --border:#2a2a36;
-  --text:#ececf1;
-  --muted:#8a8a93;
-  --accent:#6366f1;
-  --coral:#FF6B6B;
-  --mint:#6BCF7F;
-  --sky:#4ECDC4;
-  --lemon:#FFD93D;
-  --lilac:#a78bfa;
-  --peach:#FFA07A;
-}
-body{
-  background:var(--bg);
-  color:var(--text);
-  font-family:'Pixelify Sans', sans-serif;
-  height:100dvh;
-  overflow:hidden;
-  display:flex;
-}
-.pixel-border {
-  border: 3px solid var(--border);
-  box-shadow:
-    3px 3px 0 rgba(0,0,0,0.2),
-    inset -3px -3px 0 rgba(0,0,0,0.4);
-}
-.pixel-btn {
-  font-family:'Press Start 2P', monospace;
-  border: 3px solid var(--border);
-  background: #1e1e26;
-  padding: 10px 12px;
-  border-radius: 0;
-  cursor: pointer;
-  transition: all 0.1s ease;
-  box-shadow: 3px 3px 0 rgba(0,0,0,0.3);
-  text-transform: uppercase;
-  font-size: 10px;
-  line-height: 1.4;
-  color: #fff;
-}
-.pixel-btn:active {
-  transform: translate(3px, 3px);
-  box-shadow: none;
-}
-.pixel-btn:hover {
-  background: #2a2a36;
-}
-.sidebar{
-  width:280px;min-width:280px;
-  background:var(--sidebar);
-  border-right: 3px solid var(--border);
-  display:flex;flex-direction:column;
-  padding:12px;gap:8px;z-index:20;
-  transition:transform .3s ease;
-}
-.brand{
-  display:flex;align-items:center;gap:10px;
-  padding:8px 6px;
-  border-bottom: 3px solid var(--border);
-  padding-bottom: 12px;
-}
-.orb{
-  width:36px;height:36px;
-  background:radial-gradient(circle at 30% 25%, var(--mint) 0%, var(--accent) 55%, var(--lilac) 90%);
-  box-shadow:0 0 0 3px var(--border), 0 0 20px rgba(99,102,241,.45);
-  border-radius: 50%;
-}
+:root{--bg:#0b0b0e;--sidebar:rgba(18,18,22,0.95);--border:#2a2a36;--text:#ececf1;--muted:#8a8a93;--accent:#6366f1;--coral:#FF6B6B;--mint:#6BCF7F;--sky:#4ECDC4;--lemon:#FFD93D;--lilac:#a78bfa;--peach:#FFA07A;}
+body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-serif;height:100dvh;overflow:hidden;display:flex;}
+.pixel-border{border:3px solid var(--border);box-shadow:3px 3px 0 rgba(0,0,0,0.2),inset -3px -3px 0 rgba(0,0,0,0.4);}
+.pixel-btn{font-family:'Press Start 2P', monospace;border:3px solid var(--border);background:#1e1e26;padding:10px 12px;border-radius:0;cursor:pointer;transition:all 0.1s ease;box-shadow:3px 3px 0 rgba(0,0,0,0.3);text-transform:uppercase;font-size:10px;line-height:1.4;color:#fff;}
+.pixel-btn:active{transform:translate(3px,3px);box-shadow:none;}
+.pixel-btn:hover{background:#2a2a36;}
+.sidebar{width:280px;min-width:280px;background:var(--sidebar);border-right:3px solid var(--border);display:flex;flex-direction:column;padding:12px;gap:8px;z-index:20;transition:transform .3s ease;}
+.brand{display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:3px solid var(--border);padding-bottom:12px;}
+.orb{width:36px;height:36px;background:radial-gradient(circle at 30% 25%, var(--mint) 0%, var(--accent) 55%, var(--lilac) 90%);box-shadow:0 0 0 3px var(--border),0 0 20px rgba(99,102,241,.45);border-radius:50%;}
 .brand h1{font-family:'Press Start 2P', monospace;font-size:12px;font-weight:400}
 .brand p{font-size:11px;color:var(--muted)}
-.btn-new{
-  display:flex;align-items:center;gap:8px;
-  background:var(--accent);
-  border: 3px solid var(--border);
-  color:#fff;
-  padding:12px;
-  font-size:12px;
-  cursor:pointer;width:100%;
-  font-family:'Press Start 2P', monospace;
-  font-weight:400;
-  box-shadow: 3px 3px 0 rgba(0,0,0,0.3);
-  border-radius: 0;
-}
-.btn-new:hover{ background:#4f52c9; }
-.btn-new:active { transform: translate(3px, 3px); box-shadow: none; }
+.btn-new{display:flex;align-items:center;gap:8px;background:var(--accent);border:3px solid var(--border);color:#fff;padding:12px;font-size:12px;cursor:pointer;width:100%;font-family:'Press Start 2P', monospace;font-weight:400;box-shadow:3px 3px 0 rgba(0,0,0,0.3);border-radius:0;}
+.btn-new:hover{background:#4f52c9;}
+.btn-new:active{transform:translate(3px,3px);box-shadow:none;}
 .nav{display:flex;flex-direction:column;gap:3px;margin-top:8px}
-.nav-btn{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 12px;
-  border: 3px solid transparent;
-  color:var(--muted);
-  font-size:12px;
-  cursor:pointer;background:transparent;
-  width:100%;text-align:left;
-  font-family:'Press Start 2P', monospace;
-  border-radius: 0;
-  transition: all 0.1s ease;
-}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border:3px solid transparent;color:var(--muted);font-size:12px;cursor:pointer;background:transparent;width:100%;text-align:left;font-family:'Press Start 2P', monospace;border-radius:0;transition:all 0.1s ease;}
 .nav-btn:hover{background:#1c1c22;color:var(--text);}
-.nav-btn.active{
-  background:#1e1e26;
-  color:#fff;
-  border-color: var(--border);
-  box-shadow: inset 3px 3px 0 rgba(0,0,0,0.3), inset -3px -3px 0 rgba(0,0,0,0.1);
-}
+.nav-btn.active{background:#1e1e26;color:#fff;border-color:var(--border);box-shadow:inset 3px 3px 0 rgba(0,0,0,0.3),inset -3px -3px 0 rgba(0,0,0,0.1);}
 .history{flex:1;overflow-y:auto;margin-top:12px;display:flex;flex-direction:column;gap:2px}
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:radial-gradient(900px 400px at 50% -10%, rgba(99,102,241,.12), transparent), var(--bg);min-width:0}
-.topbar{
-  height:52px;min-height:52px;
-  border-bottom: 3px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 12px 0 18px;
-  background:rgba(11,11,14,.95);
-  backdrop-filter:blur(8px);
-  gap:8px;
-}
-.hamburger{
-  display:none;width:38px;height:38px;
-  background:#1e1e26;border: 3px solid var(--border);color:#fff;
-  align-items:center;justify-content:center;
-  cursor:pointer;
-  font-size:18px;
-  border-radius: 0;
-}
-.topbar .model-pill{
-  font-size:11px;
-  font-family:'Press Start 2P', monospace;
-  background:#1e1e26;
-  border: 3px solid var(--border);
-  padding:6px 14px;
-  display:flex;gap:6px;align-items:center;
-  font-weight:400;
-  border-radius: 0;
-}
+.topbar{height:52px;min-height:52px;border-bottom:3px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 12px 0 18px;background:rgba(11,11,14,.95);backdrop-filter:blur(8px);gap:8px;}
+.hamburger{display:none;width:38px;height:38px;background:#1e1e26;border:3px solid var(--border);color:#fff;align-items:center;justify-content:center;cursor:pointer;font-size:18px;border-radius:0;}
+.topbar .model-pill{font-size:11px;font-family:'Press Start 2P', monospace;background:#1e1e26;border:3px solid var(--border);padding:6px 14px;display:flex;gap:6px;align-items:center;font-weight:400;border-radius:0;}
 .section{display:none;flex:1;overflow:hidden;padding:0}
 .section.active{display:flex;flex-direction:column}
 .chat-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
@@ -165,134 +53,25 @@ body{
 .msg-row{display:flex;gap:12px;padding:16px 0;animation:fadeIn .3s}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .msg-row.user{flex-direction:row-reverse}
-.msg-row.user .bubble{
-  background:#24242d;
-  border: 3px solid var(--border);
-  border-radius: 0;
-  padding:12px 16px;
-  max-width:72%;
-  font-size:14.5px;
-  word-break:break-word;
-  line-height:1.5;
-  box-shadow: 3px 3px 0 rgba(0,0,0,0.2);
-}
-.msg-row.akira .avatar{
-  width:30px;height:30px;
-  background:radial-gradient(circle at 30% 25%, var(--mint), var(--accent));
-  flex-shrink:0;
-  border-radius: 50%;
-  box-shadow: 0 0 0 3px var(--border);
-}
-.msg-row.akira .bubble{
-  flex:1;
-  font-size:15px;
-  line-height:1.7;
-  min-width:0;
-  word-break:break-word;
-}
-.input-bar{
-  padding:14px;
-  border-top: 3px solid var(--border);
-  background:rgba(11,11,14,.95);
-}
+.msg-row.user .bubble{background:#24242d;border:3px solid var(--border);border-radius:0;padding:12px 16px;max-width:72%;font-size:14.5px;word-break:break-word;line-height:1.5;box-shadow:3px 3px 0 rgba(0,0,0,0.2);}
+.msg-row.akira .avatar{width:30px;height:30px;background:radial-gradient(circle at 30% 25%, var(--mint), var(--accent));flex-shrink:0;border-radius:50%;box-shadow:0 0 0 3px var(--border);}
+.msg-row.akira .bubble{flex:1;font-size:15px;line-height:1.7;min-width:0;word-break:break-word;}
+.input-bar{padding:14px;border-top:3px solid var(--border);background:rgba(11,11,14,.95);}
 .input-inner{max-width:780px;margin:0 auto;display:flex;gap:8px;align-items:end;position:relative}
-#msg{
-  flex:1;
-  background:#1e1e26;
-  border: 3px solid var(--border);
-  padding:13px 14px;
-  color:#fff;
-  resize:none;
-  min-height:48px;
-  max-height:160px;
-  font-family:'Pixelify Sans', sans-serif;
-  font-size:14.5px;
-  outline:none;
-  border-radius: 0;
-}
-.icon-btn{
-  width:48px;height:48px;
-  background:#1e1e26;
-  border: 3px solid var(--border);
-  color:#fff;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  font-size:18px;
-  border-radius: 0;
-  box-shadow: 3px 3px 0 rgba(0,0,0,0.2);
-}
-.icon-btn:active { transform: translate(3px, 3px); box-shadow: none; }
-.send-btn{
-  width:48px;height:48px;
-  background:var(--accent);
-  border: 3px solid var(--border);
-  color:#fff;cursor:pointer;
-  font-size:18px;
-  display:flex;align-items:center;justify-content:center;
-  box-shadow: 3px 3px 0 rgba(0,0,0,0.3);
-  border-radius: 0;
-}
-.send-btn:active { transform: translate(3px, 3px); box-shadow: none; }
-.section-header{
-  padding:14px 18px 10px;
-  border-bottom:3px solid var(--border);
-  background:#0e0e12;
-  flex-shrink:0;
-}
-.section-header h2{
-  font-family:'Press Start 2P', monospace;
-  font-size:13px;
-  color:#fff;
-  margin-bottom:6px;
-  line-height:1.4;
-}
-.section-header p{
-  font-size:11px;
-  color:var(--muted);
-  line-height:1.5;
-}
-.section-tools{
-  border-top:3px solid var(--border);
-  background:#0e0e12;
-  padding:12px 14px;
-  overflow-y:auto;
-  max-height:42%;
-  flex-shrink:0;
-}
-.section-tools h4{
-  font-family:'Press Start 2P', monospace;
-  font-size:11px;
-  color:#fff;
-  margin-bottom:4px;
-}
-.section-tools p{
-  font-size:11px;
-  color:var(--muted);
-  margin-bottom:10px;
-  line-height:1.5;
-}
-.section-tools .btn-row{
-  display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;
-}
-.section-tools pre{
-  background:#0a0a0d;
-  border:3px solid var(--border);
-  padding:10px;
-  font-size:10px;
-  color:#8a8a93;
-  max-height:180px;
-  overflow:auto;
-  white-space:pre-wrap;
-  word-break:break-word;
-  font-family:'Pixelify Sans', sans-serif;
-}
-@media(max-width:768px){
-  .sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);width:280px;z-index:30}
-  .sidebar.open{transform:translateX(0)}
-  .hamburger{display:flex}
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:15}
-  .overlay.open{display:block}
-  .section-tools{max-height:50%}
-}
+#msg{flex:1;background:#1e1e26;border:3px solid var(--border);padding:13px 14px;color:#fff;resize:none;min-height:48px;max-height:160px;font-family:'Pixelify Sans', sans-serif;font-size:14.5px;outline:none;border-radius:0;}
+.icon-btn{width:48px;height:48px;background:#1e1e26;border:3px solid var(--border);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;border-radius:0;box-shadow:3px 3px 0 rgba(0,0,0,0.2);}
+.icon-btn:active{transform:translate(3px,3px);box-shadow:none;}
+.send-btn{width:48px;height:48px;background:var(--accent);border:3px solid var(--border);color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:3px 3px 0 rgba(0,0,0,0.3);border-radius:0;}
+.send-btn:active{transform:translate(3px,3px);box-shadow:none;}
+.section-header{padding:14px 18px 10px;border-bottom:3px solid var(--border);background:#0e0e12;flex-shrink:0;}
+.section-header h2{font-family:'Press Start 2P', monospace;font-size:13px;color:#fff;margin-bottom:6px;line-height:1.4;}
+.section-header p{font-size:11px;color:var(--muted);line-height:1.5;}
+.section-tools{border-top:3px solid var(--border);background:#0e0e12;padding:12px 14px;overflow-y:auto;max-height:42%;flex-shrink:0;}
+.section-tools h4{font-family:'Press Start 2P', monospace;font-size:11px;color:#fff;margin-bottom:4px;}
+.section-tools p{font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5;}
+.section-tools .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.section-tools pre{background:#0a0a0d;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:180px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;}
+@media(max-width:768px){.sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);width:280px;z-index:30}.sidebar.open{transform:translateX(0)}.hamburger{display:flex}.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:15}.overlay.open{display:block}.section-tools{max-height:50%}}
 </style>
 </head>
 <body>
@@ -300,10 +79,7 @@ body{
 <div class="sidebar" id="sidebar">
   <div class="brand">
     <div class="orb" id="orb" onclick="showSection('chat')" style="cursor:pointer"></div>
-    <div>
-      <h1>Akira</h1>
-      <p>Grimm Hive</p>
-    </div>
+    <div><h1>Akira</h1><p>Grimm Hive</p></div>
   </div>
   <button class="btn-new pixel-btn" onclick="newChat()">+ Nuevo chat</button>
   <div class="nav">
@@ -328,7 +104,7 @@ body{
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <div id="streamToggleBtn" style="display:none"></div>
-      <button id="userAvatar" onclick="showSection('keys')" style="width:32px;height:32px;background:#1e1e26;border: 3px solid var(--border);display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;border-radius: 50%" title="Cuenta">🔒</button>
+      <button id="userAvatar" onclick="showSection('keys')" style="width:32px;height:32px;background:#1e1e26;border:3px solid var(--border);display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;border-radius:50%" title="Cuenta">🔒</button>
     </div>
   </div>
 
@@ -428,7 +204,7 @@ body{
       <p>Akira buscará trabajos, filtrará, preparará propuestas y entregará proyectos freelance.</p>
     </div>
     <div style="padding:22px;max-width:800px;margin:0 auto;width:100%;overflow-y:auto">
-      <textarea id="upworkDesc" placeholder="Pega descripción trabajo Upwork..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;min-height:120px;font-family:'Pixelify Sans', sans-serif;border-radius: 0;"></textarea>
+      <textarea id="upworkDesc" placeholder="Pega descripción trabajo Upwork..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;min-height:120px;font-family:'Pixelify Sans', sans-serif;border-radius:0;"></textarea>
       <div style="display:flex;gap:8px;margin-top:10px"><button class="pixel-btn" onclick="generateUpwork()">🤖 Generar Propuesta</button><button class="pixel-btn" onclick="document.getElementById('upworkDesc').value=''">🧹 Limpiar</button></div>
       <div id="upworkResult" style="margin-top:12px;font-size:13px;background:#0e0e12;border:3px solid var(--border);padding:12px;display:none;white-space: pre-wrap;"></div>
     </div>
@@ -447,7 +223,7 @@ body{
       </div>
       <h3 style="margin-top:24px;font-family:'Press Start 2P', monospace;font-size:14px;">🔑 Mi API Key (opcional)</h3>
       <p style="font-size:12.5px;color:var(--muted);margin-top:6px">Si tienes tu propia key de Google o Groq, la puedes usar aquí.</p>
-      <input id="apiKeyInput" placeholder="AIza... o gsk_..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:12px;color:#fff;margin-top:12px;font-family:'Pixelify Sans', sans-serif;border-radius: 0;">
+      <input id="apiKeyInput" placeholder="AIza... o gsk_..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:12px;color:#fff;margin-top:12px;font-family:'Pixelify Sans', sans-serif;border-radius:0;">
       <div style="display:flex;gap:8px;margin-top:10px"><button class="pixel-btn" onclick="saveKey()">💾 Guardar</button><button class="pixel-btn" onclick="testKeys()">🧪 Probar</button></div>
       <div id="keyStatus" style="margin-top:12px;font-size:12px;color:var(--muted)"></div>
       <div style="margin-top:24px;background:#0e0e12;border:3px solid var(--border);padding:14px;">
@@ -495,7 +271,7 @@ body{
         <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
           <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🧠 Fase 7 — Ciclo Cognitivo</h4>
           <p style="font-size:11px;color:var(--muted);margin-top:6px">Ejecuta un ciclo cognitivo de 9 etapas.</p>
-          <div style="margin-top:10px"><input id="f7Message" placeholder="Mensaje para el ciclo..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;font-size:13px;font-family:'Pixelify Sans', sans-serif;border-radius: 0;"></div>
+          <div style="margin-top:10px"><input id="f7Message" placeholder="Mensaje para el ciclo..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;font-size:13px;font-family:'Pixelify Sans', sans-serif;border-radius:0;"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
             <button class="pixel-btn" onclick="f7Run()">▶️ Ejecutar ciclo</button>
             <button class="pixel-btn" onclick="f7ReadLast()">📖 Leer último</button>
@@ -518,7 +294,6 @@ body{
           <pre id="f8Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
         </div>
 
-        <!-- Fase 10.3 — Misiones (crear + planificar) -->
         <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
           <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🎯 Fase 10.3 — Misiones (crear)</h4>
           <p style="font-size:11px;color:var(--muted);margin-top:6px">Akira pide a Gemini (fallback Groq) un plan con pasos, agentes y tools reales. La misión queda en waiting_approval.</p>
@@ -530,15 +305,14 @@ body{
           <pre id="m1Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
         </div>
 
-        <!-- Fase 10.4 / 10.5 / 10.6 — Aprobar, ejecutar, progreso, cancelar -->
         <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
           <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">✅ Fases 10.4 / 10.5 / 10.6 — Control de misión</h4>
           <p style="font-size:11px;color:var(--muted);margin-top:6px">Pega el mission_id. Aprobar → running. Ejecutar → orquestador background. Ver resumen → progreso agregado con percent.</p>
           <div style="margin-top:10px">
-            <input id="m1ApproveId" placeholder="mission_..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;font-size:13px;font-family:'Pixelify Sans', sans-serif;border-radius: 0;">
+            <input id="m1ApproveId" placeholder="mission_..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;font-size:13px;font-family:'Pixelify Sans', sans-serif;border-radius:0;">
           </div>
           <div style="margin-top:8px">
-            <input id="m1RejectReason" placeholder="Motivo de rechazo (opcional)" style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;font-size:13px;font-family:'Pixelify Sans', sans-serif;border-radius: 0;">
+            <input id="m1RejectReason" placeholder="Motivo de rechazo (opcional)" style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;font-size:13px;font-family:'Pixelify Sans', sans-serif;border-radius:0;">
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
             <button class="pixel-btn" id="m1ApproveBtn" onclick="approveMission()">✅ Aprobar</button>
@@ -547,6 +321,15 @@ body{
             <button class="pixel-btn" id="m1CancelBtn" onclick="cancelMission()">🛑 Cancelar</button>
             <button class="pixel-btn" onclick="viewMissionProgress()">📈 Ver resumen</button>
             <button class="pixel-btn" onclick="viewMissionTasks()">📊 Ver progreso crudo</button>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
+          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🔬 Fase 10.7 — Diagnóstico del motor</h4>
+          <p style="font-size:11px;color:var(--muted);margin-top:6px">Selftest (no toca datos) + diagnose (read-only de una misión). Verifica cálculos internos y coherencia.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="pixel-btn" onclick="runMissionsSelftest()">🧪 Selftest</button>
+            <button class="pixel-btn" onclick="diagnoseMission()">🔍 Diagnose misión (usa el input de arriba)</button>
           </div>
         </div>
 
@@ -585,21 +368,11 @@ function showSection(name){
   if(sec)sec.classList.add('active');
   if(btn)btn.classList.add('active');
   closeSidebar();
-
-  if(name==='membrane'){
-    window.dispatchEvent(new CustomEvent("akira:section-shown", { detail: { section: "membrane" } }));
-  } else if(name==='office'){
-    if(window.initOfficeFloor) initOfficeFloor();
-    window.dispatchEvent(new CustomEvent("akira:section-shown", { detail: { section: "office" } }));
-  } else if(name==='levels'){
-    renderLevels();
-  } else if(name==='admin'){
-    document.getElementById("adminLogin").style.display = "block";
-    document.getElementById("adminPanel").style.display = "none";
-    adminCheckSession();
-  }
+  if(name==='membrane'){window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"membrane"}}));}
+  else if(name==='office'){if(window.initOfficeFloor)initOfficeFloor();window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"office"}}));}
+  else if(name==='levels'){renderLevels();}
+  else if(name==='admin'){document.getElementById("adminLogin").style.display="block";document.getElementById("adminPanel").style.display="none";adminCheckSession();}
 }
-
 function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}
 function closeSidebar(){document.getElementById("sidebar").classList.remove("open");document.getElementById("overlay").classList.remove("open");}
 function newChat(){if(confirm("¿Nuevo chat?")){document.getElementById('msgsInner').innerHTML=`<div class="msg-row akira"><div class="avatar"></div><div class="bubble">Nuevo chat Akira.</div></div>`;}}
@@ -619,11 +392,7 @@ async function handleCredentialResponse(r){
     else{localStorage.removeItem("akira_session_token");localStorage.removeItem("akira_session_exp");}
     const i=document.getElementById("userInfo");
     let ver="";
-    try{
-      const mr=await fetch(b+"/api/v8/me",{headers:akiraAuthHeaders()});
-      const md=await mr.json();
-      ver=md.authenticated?(md.is_owner?" · 🔒 sesión verificada (propietario)":" · 🔒 sesión verificada"):" · ⚠️ sin sesión firmada";
-    }catch(e){ver=" · ⚠️ no se pudo verificar la sesión";}
+    try{const mr=await fetch(b+"/api/v8/me",{headers:akiraAuthHeaders()});const md=await mr.json();ver=md.authenticated?(md.is_owner?" · 🔒 sesión verificada (propietario)":" · 🔒 sesión verificada"):" · ⚠️ sin sesión firmada";}catch(e){ver=" · ⚠️ no se pudo verificar la sesión";}
     if(i){i.style.display="block";i.textContent="✅ "+d.email+ver;}
     const av=document.getElementById("userAvatar");
     if(av) av.textContent = d.email.charAt(0).toUpperCase();
@@ -638,11 +407,7 @@ async function checkBridgeSimple(){
   const detail=document.getElementById("bridgeSimpleDetail");
   if(!simple) return;
   const backend=localStorage.getItem("akira_backend_url");
-  try{
-    const r=await fetch(backend+'/health',{cache:'no-store'});
-    if(r.ok){ simple.textContent="Conectado"; simple.style.color="#10b981"; if(detail) detail.textContent="Akira está en línea y listo."; }
-    else{ simple.textContent="Desconectado"; if(detail) detail.textContent="Reintentando conexión..."; }
-  }catch(e){ simple.textContent="Conectando..."; if(detail) detail.textContent="Despertando backend (Render free 15-30s)..."; }
+  try{const r=await fetch(backend+'/health',{cache:'no-store'});if(r.ok){simple.textContent="Conectado";simple.style.color="#10b981";if(detail)detail.textContent="Akira está en línea y listo.";}else{simple.textContent="Desconectado";if(detail)detail.textContent="Reintentando conexión...";}}catch(e){simple.textContent="Conectando...";if(detail)detail.textContent="Despertando backend (Render free 15-30s)...";}
 }
 
 async function adminCheckSession(){
@@ -656,66 +421,25 @@ async function adminCheckSession(){
       if(status) status.textContent="";
       document.getElementById("adminLogin").style.display="none";
       document.getElementById("adminPanel").style.display="block";
-      setTimeout(()=>{ countNeuronas(); renderLevels(); if(window.adminDashboard) adminDashboard(); },100);
-    }else{
-      if(status) status.textContent=md.authenticated?"⛔ No eres propietario.":"⚠️ Inicia sesión con Google en Cuenta.";
-    }
+      setTimeout(()=>{countNeuronas();renderLevels();if(window.adminDashboard) adminDashboard();},100);
+    }else{if(status) status.textContent=md.authenticated?"⛔ No eres propietario.":"⚠️ Inicia sesión con Google en Cuenta.";}
   }catch(e){if(status) status.textContent="⚠️ Servidor no disponible.";}
 }
 
 function adminLogout(){document.getElementById("adminLogin").style.display="block";document.getElementById("adminPanel").style.display="none";}
-async function clearLocalDB(){
-  if(!confirm("¿Borrar DB local?")) return;
-  try{const req=indexedDB.deleteDatabase("AKIRA_V3_HIBRIDO");req.onsuccess=()=>{alert("DB borrada");location.reload();};}catch(e){alert(e.message);}
-}
-async function forceSyncR2(){
-  try{const backend=localStorage.getItem("akira_backend_url");const r=await fetch(backend+"/api/brain/shared");const d=await r.json();alert("R2 OK: "+JSON.stringify(d.membrana||d).slice(0,200));}catch(e){alert(e.message);}
-}
-function exportBackup(){
-  if(typeof getNeuronasLocales === "function"){
-    getNeuronasLocales().then(data=>{
-      const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
-      const url=URL.createObjectURL(blob);const a=document.createElement("a");
-      a.href=url;a.download="akira_backup_"+Date.now()+".json";a.click();
-    });
-  }
-}
+async function clearLocalDB(){if(!confirm("¿Borrar DB local?")) return;try{const req=indexedDB.deleteDatabase("AKIRA_V3_HIBRIDO");req.onsuccess=()=>{alert("DB borrada");location.reload();};}catch(e){alert(e.message);}}
+async function forceSyncR2(){try{const backend=localStorage.getItem("akira_backend_url");const r=await fetch(backend+"/api/brain/shared");const d=await r.json();alert("R2 OK: "+JSON.stringify(d.membrana||d).slice(0,200));}catch(e){alert(e.message);}}
+function exportBackup(){if(typeof getNeuronasLocales === "function"){getNeuronasLocales().then(data=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="akira_backup_"+Date.now()+".json";a.click();});}}
 
-async function generateUpwork(){
-  const desc=document.getElementById("upworkDesc").value.trim();
-  if(!desc){alert("Pega descripcion");return;}
-  const out=document.getElementById("upworkResult");
-  out.style.display="block";out.textContent="⏳ Generando...";
-  try{
-    const backend=localStorage.getItem("akira_backend_url");
-    const r=await fetch(backend+"/api/chat",{method:"POST",headers:akiraAuthHeaders(),body:JSON.stringify({message:`Genera propuesta Upwork para: ${desc.slice(0,1000)}`})});
-    const d=await r.json();out.textContent=d.response||"Sin respuesta";
-  }catch(e){out.textContent="Error: "+e.message;}
-}
+async function generateUpwork(){const desc=document.getElementById("upworkDesc").value.trim();if(!desc){alert("Pega descripcion");return;}const out=document.getElementById("upworkResult");out.style.display="block";out.textContent="⏳ Generando...";try{const backend=localStorage.getItem("akira_backend_url");const r=await fetch(backend+"/api/chat",{method:"POST",headers:akiraAuthHeaders(),body:JSON.stringify({message:`Genera propuesta Upwork para: ${desc.slice(0,1000)}`})});const d=await r.json();out.textContent=d.response||"Sin respuesta";}catch(e){out.textContent="Error: "+e.message;}}
 
-async function countNeuronas(){
-  try{
-    const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
-    const r=await fetch(b+"/api/brain/count",{cache:"no-store"});
-    const d=await r.json();
-    const el=document.getElementById("neuronCount");
-    if(el) el.textContent = d.total || "0";
-  }catch(e){ console.log("countNeuronas error", e); }
-}
+async function countNeuronas(){try{const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";const r=await fetch(b+"/api/brain/count",{cache:"no-store"});const d=await r.json();const el=document.getElementById("neuronCount");if(el) el.textContent = d.total || "0";}catch(e){console.log("countNeuronas error",e);}}
 
 document.addEventListener("DOMContentLoaded", async ()=>{
   checkBridgeSimple();
   setInterval(checkBridgeSimple, 30000);
   if('serviceWorker' in navigator){
-    try{
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for(const r of regs){
-        await r.unregister();
-        console.log("SW desregistrado:", r.scope);
-      }
-      const keys = await caches.keys();
-      for(const k of keys){ await caches.delete(k); }
-    }catch(e){ console.log("SW cleanup error", e); }
+    try{const regs = await navigator.serviceWorker.getRegistrations();for(const r of regs){await r.unregister();console.log("SW desregistrado:",r.scope);}const keys = await caches.keys();for(const k of keys){await caches.delete(k);}}catch(e){console.log("SW cleanup error",e);}
   }
   renderLevels();
 });
@@ -724,7 +448,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 <script src="./js/obsidian_membrane.js?v=akira-membrane-v18-2"></script>
 <script src="./js/akira_brain.js?v=akira-final-v5"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
-<script src="./js/akira_admin.js?v=akira-admin-v1-5"></script>
+<script src="./js/akira_admin.js?v=akira-admin-v1-6"></script>
 <script>
 async function renderLevels(){
   const listEl=document.getElementById("levelsList");
@@ -736,10 +460,7 @@ async function renderLevels(){
     const d=await r.json();
     if(!d.ok) throw new Error(d.reason || "self_model_unavailable");
     const sm = d.self_model;
-    const capStatus = (name) => {
-      const c = (sm.capabilities||[]).find(x=>x.name===name);
-      return c ? c.status : "not_implemented";
-    };
+    const capStatus = (name) => {const c = (sm.capabilities||[]).find(x=>x.name===name);return c ? c.status : "not_implemented";};
     const levels = [
       {id:"V1", name:"Chat", desc:"Chat basico Gemini 3.8-flash Sept 2026", status: "verified"},
       {id:"V2", name:"Colmena", desc:"IndexedDB 100K + R2 10M", status: "verified"},
@@ -752,7 +473,7 @@ async function renderLevels(){
       {id:"F7", name:"Ciclo Cognitivo Persistente", desc:"Migraciones 004, 005, 006. 9 etapas.", status: capStatus("cognitive_cycle_persistent")},
       {id:"F8", name:"Tool Registry", desc:"Migracion 007. 11 tools registradas.", status: capStatus("tool_registry")},
       {id:"F9", name:"Agentes + Tareas", desc:"Migracion 008, 009. 5 agentes reales.", status: capStatus("agents_persistent")},
-      {id:"F10", name:"Mission Engine", desc:"Migracion 011. Orquestador + progreso + cancelacion.", status: capStatus("missions")},
+      {id:"F10", name:"Mission Engine", desc:"Migracion 011. Orquestador + progreso + cancelacion + selftest.", status: capStatus("missions")},
       {id:"F11", name:"Self-Repair Real", desc:"No implementado", status: capStatus("self_repair_full")},
       {id:"F12", name:"Evolution Engine", desc:"No implementado", status: capStatus("evolution_engine")},
       {id:"F13", name:"Autonomia Controlada", desc:"Futuro", status: "not_implemented"},
@@ -764,9 +485,7 @@ async function renderLevels(){
           <div style="font-family:'Press Start 2P', monospace;font-size:12px;">${l.id} ${l.name}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:4px;">${l.desc}</div>
         </div>
-        <div style="font-size:20px;">
-          ${l.status === 'verified' ? '🟢' : (l.status === 'partial' ? '🟡' : '🔴')}
-        </div>
+        <div style="font-size:20px;">${l.status === 'verified' ? '🟢' : (l.status === 'partial' ? '🟡' : '🔴')}</div>
       </div>
     `).join('');
   }catch(e){
@@ -775,4 +494,4 @@ async function renderLevels(){
 }
 </script>
 </body>
-  </html>
+          </html>
