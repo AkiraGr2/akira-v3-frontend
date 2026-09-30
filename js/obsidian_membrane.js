@@ -1,12 +1,12 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V13.1
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V13.2
+// Cambios V13.2:
+//   - Layout robusto: delay de 50ms antes de correr (fix apelotonamiento inicial).
+//   - nodeRepulsion 60000, idealEdgeLength 150, componentSpacing 200.
+//   - Filtro top-N aristas por nodo (menos maraña, solo las relaciones mas fuertes).
+//   - Labels cortos para memories/learnings (📝 abc123 en vez de memory:mem_abc123...).
+//   - window.reorganizeMembrane() expuesto para boton.
 // Cambios V13.1:
-//   - Aristas mas visibles (opacidad 0.55, color #5a5a70, grosor max 3.0).
-//   - Estilo Obsidian: nodos con aire, aristas claras pero sutiles.
-// Cambios V13.0:
-//   - Layout COSE real al cargar.
-//   - nodeRepulsion 30000, idealEdgeLength 120, gravity 0.25.
-//   - Filtro de aristas weight < 0.3.
-//   - window.reorganizeMembrane() para forzar re-layout.
+//   - Aristas mas visibles (opacidad 0.55, color #5a5a70).
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
@@ -67,7 +67,9 @@ const AGENT_ROLE_COLOR = {
 };
 
 // Filtro visual: aristas con weight menor a esto no se muestran.
-const MIN_EDGE_WEIGHT_VISIBLE = 0.3;
+const MIN_EDGE_WEIGHT_VISIBLE = 0.5;
+// Cuantas aristas como maximo por nodo (las mas fuertes por peso).
+const MAX_EDGES_PER_NODE = 5;
 
 function _authHeaders() {
   if (typeof window.akiraAuthHeaders === "function") {
@@ -84,8 +86,40 @@ async function _fetchJson(url) {
   return await r.json();
 }
 
+// Acorta labels largos de memoria/learning a algo legible.
+function _abbreviateLabel(label) {
+  if (!label) return "";
+  const s = String(label);
+  if (s.startsWith("memory:mem_")) return "📝 " + s.slice(-6);
+  if (s.startsWith("learning:")) return "💡 " + s.slice(-6);
+  if (s.startsWith("agent:")) return s.slice(6);
+  if (s.startsWith("tool:")) return s.slice(5);
+  if (s.length > 28) return s.slice(0, 26) + "…";
+  return s;
+}
+
+// Filtra aristas: solo las top-N por peso de cada nodo. Reduce maraña.
+function _filterEdgesByRelevance(edges, nodeIds) {
+  const byNode = new Map();
+  for (const e of edges) {
+    if (!nodeIds.has(e.from_node) || !nodeIds.has(e.to_node)) continue;
+    const w = Number(e.weight) || 0;
+    if (w < MIN_EDGE_WEIGHT_VISIBLE) continue;
+    for (const nid of [e.from_node, e.to_node]) {
+      if (!byNode.has(nid)) byNode.set(nid, []);
+      byNode.get(nid).push({ edge: e, weight: w });
+    }
+  }
+  const keep = new Set();
+  byNode.forEach(list => {
+    list.sort((a, b) => b.weight - a.weight);
+    list.slice(0, MAX_EDGES_PER_NODE).forEach(item => keep.add(item.edge.id));
+  });
+  return edges.filter(e => keep.has(e.id));
+}
+
 // ===========================================================================
-// CEREBRO AKIRA (MEMBRANA) — Cytoscape.js V13.1
+// CEREBRO AKIRA (MEMBRANA) — Cytoscape.js V13.2
 // ===========================================================================
 
 let cyMembrane = null;
@@ -94,6 +128,7 @@ let membraneFetching = false;
 let membraneCounts = { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
 let membraneError = null;
 let membraneHasRunLayoutOnce = false;
+let membraneLayoutTimer = null;
 const MEMBRANE_REFRESH_MS = 7000;
 
 function _cytoscapeStyle() {
@@ -184,23 +219,38 @@ function _layoutOptions(animate) {
   return {
     name: 'cose',
     animate: !!animate,
-    animationDuration: 800,
+    animationDuration: 900,
     animationEasing: 'ease-out',
-    randomize: false,
-    nodeRepulsion: 30000,
-    idealEdgeLength: 120,
-    edgeElasticity: 0.35,
+    randomize: true,            // aleatorio cada vez: evita quedar atrapado en apelotonamiento
+    nodeRepulsion: 60000,       // fuerza fuerte
+    idealEdgeLength: 150,       // distancia objetivo
+    edgeElasticity: 0.4,
     nestingFactor: 0.1,
-    gravity: 0.25,
-    numIter: 2000,
-    initialTemp: 250,
+    gravity: 0.2,
+    numIter: 2500,
+    initialTemp: 300,
     coolingFactor: 0.95,
     minTemp: 1.0,
     fit: true,
-    padding: 60,
-    nodeOverlap: 30,
-    componentSpacing: 100,
+    padding: 70,
+    nodeOverlap: 40,
+    componentSpacing: 200,      // grupos desconectados bien separados
   };
+}
+
+// Corre el layout con un delay minimo para que Cytoscape registre bien los nodos.
+function _runLayoutSafely(animate) {
+  if (membraneLayoutTimer) { clearTimeout(membraneLayoutTimer); membraneLayoutTimer = null; }
+  membraneLayoutTimer = setTimeout(() => {
+    if (!cyMembrane) return;
+    try {
+      const layout = cyMembrane.layout(_layoutOptions(animate));
+      layout.run();
+    } catch (e) {
+      console.warn("[membrane] layout fallo:", e);
+    }
+    membraneLayoutTimer = null;
+  }, 60);
 }
 
 function initMembraneGraph() {
@@ -243,8 +293,7 @@ function initMembraneGraph() {
 
     cyMembrane.on('mouseover', 'node', (evt) => {
       if (cyMembrane.elements(':selected').length > 0) return;
-      const node = evt.target;
-      _highlightNeighbors(node, true);
+      _highlightNeighbors(evt.target, true);
     });
 
     cyMembrane.on('mouseout', 'node', () => {
@@ -293,10 +342,10 @@ function _highlightNeighbors(node, soft) {
   });
 }
 
+// Funcion global: reorganiza el grafo (usada por el boton "🔄 Reorganizar").
 window.reorganizeMembrane = function () {
   if (!cyMembrane) return;
-  const layout = cyMembrane.layout(_layoutOptions(true));
-  layout.run();
+  _runLayoutSafely(true);
 };
 
 async function refreshMembrane(force) {
@@ -339,7 +388,7 @@ function _applyGraphToCy(data) {
       group: 'nodes',
       data: {
         id: n.id,
-        label: String(n.label || n.id || '').slice(0, 42),
+        label: _abbreviateLabel(n.label),
         node_type: n.node_type,
         color: typeColor,
         weight: n.weight || 0,
@@ -349,10 +398,9 @@ function _applyGraphToCy(data) {
     });
   }
 
-  for (const e of edges) {
-    if (!nodeIds.has(e.from_node) || !nodeIds.has(e.to_node)) continue;
+  const visibleEdges = _filterEdgesByRelevance(edges, nodeIds);
+  for (const e of visibleEdges) {
     const w = Number(e.weight) || 0;
-    if (w < MIN_EDGE_WEIGHT_VISIBLE) continue;
     cyElements.push({
       group: 'edges',
       data: {
@@ -395,8 +443,7 @@ function _applyGraphToCy(data) {
   const shouldLayout = totalNodes > 0 && (!membraneHasRunLayoutOnce || addedNodes > 0);
 
   if (shouldLayout) {
-    const layout = cyMembrane.layout(_layoutOptions(true));
-    layout.run();
+    _runLayoutSafely(true);
     membraneHasRunLayoutOnce = true;
   }
 
