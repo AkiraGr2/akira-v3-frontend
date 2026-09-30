@@ -1,5 +1,5 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V8.1
-// Waypoints ajustados a los pasillos (no pisan muebles).
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V8.2
+// Waypoints solo por los 4 pasillos reales (1 horizontal + 3 verticales).
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
@@ -16,22 +16,31 @@ const SPRITE_RECTS = {
   internal:      [22, 132, 39, 155],
 };
 
+// Posiciones base (arrancan repartidos por el pasillo horizontal)
 const HOME_POSITIONS = {
-  researcher:    [120, 258],
-  memorizer:     [240, 258],
-  graph_builder: [450, 258],
-  learner:       [120, 395],
-  internal:      [240, 395],
+  researcher:    [110, 305],
+  memorizer:     [240, 305],
+  graph_builder: [480, 305],
+  learner:       [620, 305],
+  internal:      [355, 480],
 };
 
+// Waypoints SOLO por pasillos (4 pasillos: 1 horizontal arriba + 3 verticales)
 const WAYPOINTS = [
-  [90, 258], [200, 258], [310, 258], [420, 258], [530, 258], [640, 258],
-  [90, 395], [200, 395], [310, 395], [420, 395], [530, 395], [640, 395],
-  [90, 515], [200, 515], [310, 515], [420, 515], [530, 515], [640, 515],
-  [90, 600], [200, 600], [310, 600], [420, 600], [530, 600], [640, 600],
+  // Pasillo horizontal arriba (Y = 305): de izquierda a derecha
+  [60, 305], [140, 305], [220, 305], [300, 305], [380, 305], [460, 305], [540, 305], [620, 305], [680, 305],
+
+  // Pasillo vertical izquierdo (X = 30): baja por el borde izquierdo
+  [30, 380], [30, 470], [30, 560], [30, 620],
+
+  // Pasillo vertical central (X = 355): baja entre los 2 bloques de escritorios
+  [355, 380], [355, 470], [355, 560], [355, 620],
+
+  // Pasillo vertical derecho (X = 690): baja por el borde derecho
+  [690, 380], [690, 470], [690, 560], [690, 620],
 ];
 
-const SPRITE_SCALE = 3;
+const SPRITE_SCALE = 2;
 const WALK_SPEED = 0.9;
 const IDLE_WAIT_MS = 8000;
 const BUSY_WAIT_MS = 4000;
@@ -385,12 +394,12 @@ function buildSpriteCache() {
 
 function _pickRandomWaypoint() {
   const wp = WAYPOINTS[Math.floor(Math.random() * WAYPOINTS.length)];
-  return [wp[0] + (Math.random() - 0.5) * 30, wp[1] + (Math.random() - 0.5) * 15];
+  return [wp[0] + (Math.random() - 0.5) * 20, wp[1] + (Math.random() - 0.5) * 10];
 }
 
 function _ensureMovementState(a) {
   if (typeof a.x !== "number") {
-    const home = HOME_POSITIONS[a.role] || [360, 400];
+    const home = HOME_POSITIONS[a.role] || [360, 305];
     a.x = home[0];
     a.y = home[1];
   }
