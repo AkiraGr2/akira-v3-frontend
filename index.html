@@ -518,15 +518,31 @@ body{
           <pre id="f8Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
         </div>
 
-        <!-- Fase 10.3 — Misiones (temporal) -->
+        <!-- Fase 10.3 — Misiones (crear + planificar) -->
         <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
-          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🎯 Fase 10.3 — Misiones (beta)</h4>
-          <p style="font-size:11px;color:var(--muted);margin-top:6px">Crear misión: Akira pide a Gemini un plan con pasos, agentes y tools reales. Aprobación y ejecución llegan en 10.4 y 10.5.</p>
+          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🎯 Fase 10.3 — Misiones (crear)</h4>
+          <p style="font-size:11px;color:var(--muted);margin-top:6px">Akira pide a Gemini (fallback Groq) un plan con pasos, agentes y tools reales. La misión queda en waiting_approval.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
             <button class="pixel-btn" id="m1TestBtn" onclick="createTestMission()">🚀 Crear misión de prueba</button>
             <button class="pixel-btn" onclick="m1Reset()">🧹 Limpiar</button>
           </div>
           <pre id="m1Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
+        </div>
+
+        <!-- Fase 10.4 — Aprobación humana -->
+        <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
+          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">✅ Fase 10.4 — Aprobación humana</h4>
+          <p style="font-size:11px;color:var(--muted);margin-top:6px">Copia el mission_id que devolvió "Crear misión de prueba" y pégalo aquí. Solo funciona sobre misiones en waiting_approval. Los resultados aparecen en el panel de Fase 10.3 (arriba).</p>
+          <div style="margin-top:10px">
+            <input id="m1ApproveId" placeholder="mission_..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;font-size:13px;font-family:'Pixelify Sans', sans-serif;border-radius: 0;">
+          </div>
+          <div style="margin-top:8px">
+            <input id="m1RejectReason" placeholder="Motivo de rechazo (opcional)" style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;font-size:13px;font-family:'Pixelify Sans', sans-serif;border-radius: 0;">
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="pixel-btn" id="m1ApproveBtn" onclick="approveMission()">✅ Aprobar misión</button>
+            <button class="pixel-btn" id="m1RejectBtn" onclick="rejectMission()">❌ Rechazar misión</button>
+          </div>
         </div>
 
         <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
@@ -703,7 +719,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 <script src="./js/obsidian_membrane.js?v=akira-membrane-v18-2"></script>
 <script src="./js/akira_brain.js?v=akira-final-v5"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
-<script src="./js/akira_admin.js?v=akira-admin-v1-2"></script>
+<script src="./js/akira_admin.js?v=akira-admin-v1-3"></script>
 <script>
 async function renderLevels(){
   const listEl=document.getElementById("levelsList");
