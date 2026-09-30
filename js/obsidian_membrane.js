@@ -1,5 +1,5 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V8.0
-// Oficina: agentes que se mueven por la oficina. Membrana: igual a V7.0.
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V8.1
+// Waypoints ajustados a los pasillos (no pisan muebles).
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
@@ -16,25 +16,24 @@ const SPRITE_RECTS = {
   internal:      [22, 132, 39, 155],
 };
 
-// Posiciones base (escritorio asignado) en el canvas 720x630
 const HOME_POSITIONS = {
-  researcher:    [118, 400],
-  memorizer:     [220, 400],
-  graph_builder: [430, 400],
-  learner:       [118, 540],
-  internal:      [220, 540],
+  researcher:    [120, 258],
+  memorizer:     [240, 258],
+  graph_builder: [450, 258],
+  learner:       [120, 395],
+  internal:      [240, 395],
 };
 
-// Waypoints: puntos por los que el agente puede pasear
 const WAYPOINTS = [
-  [118, 400], [220, 400], [430, 400], [540, 400], [640, 400],
-  [118, 540], [220, 540], [430, 540], [540, 540], [640, 540],
-  [80, 300], [300, 300], [500, 300], [680, 300],
+  [90, 258], [200, 258], [310, 258], [420, 258], [530, 258], [640, 258],
+  [90, 395], [200, 395], [310, 395], [420, 395], [530, 395], [640, 395],
+  [90, 515], [200, 515], [310, 515], [420, 515], [530, 515], [640, 515],
+  [90, 600], [200, 600], [310, 600], [420, 600], [530, 600], [640, 600],
 ];
 
 const SPRITE_SCALE = 3;
-const WALK_SPEED = 0.9;     // px por frame
-const IDLE_WAIT_MS = 8000;  // ms quieto entre movimientos
+const WALK_SPEED = 0.9;
+const IDLE_WAIT_MS = 8000;
 const BUSY_WAIT_MS = 4000;
 
 // ===========================================================================
@@ -310,7 +309,7 @@ function drawMembrane() {
 function addNeuronaToGraph() { /* no-op */ }
 
 // ===========================================================================
-// OFICINA — Agentes que caminan
+// OFICINA
 // ===========================================================================
 
 let officeCanvas, officeCtx;
@@ -386,12 +385,12 @@ function buildSpriteCache() {
 
 function _pickRandomWaypoint() {
   const wp = WAYPOINTS[Math.floor(Math.random() * WAYPOINTS.length)];
-  return [wp[0] + (Math.random() - 0.5) * 30, wp[1] + (Math.random() - 0.5) * 20];
+  return [wp[0] + (Math.random() - 0.5) * 30, wp[1] + (Math.random() - 0.5) * 15];
 }
 
 function _ensureMovementState(a) {
   if (typeof a.x !== "number") {
-    const home = HOME_POSITIONS[a.role] || [360, 450];
+    const home = HOME_POSITIONS[a.role] || [360, 400];
     a.x = home[0];
     a.y = home[1];
   }
@@ -404,7 +403,6 @@ function _updateAgentMovement(a) {
   const now = Date.now();
 
   if (a.status === "busy") {
-    // Los busy se quedan en su escritorio base (rebote sutil).
     const home = HOME_POSITIONS[a.role] || [a.x, a.y];
     a.tx = home[0];
     a.ty = home[1];
@@ -460,7 +458,6 @@ function drawOffice() {
 
   officeCtx.drawImage(officeBgImage, 0, 0, W, H);
 
-  // Ordenar por Y para que los de "adelante" se dibujen encima
   const sorted = officeAgents.slice().sort((a, b) => {
     _ensureMovementState(a); _ensureMovementState(b);
     return a.y - b.y;
@@ -477,7 +474,6 @@ function drawOffice() {
     const sw = sprite.width * SPRITE_SCALE;
     const sh = sprite.height * SPRITE_SCALE;
 
-    // Bobbing sutil al caminar
     let bob = 0;
     const moving = a.facing && a.facing !== "idle";
     if (moving) {
@@ -489,7 +485,6 @@ function drawOffice() {
     const dx = a.x - sw / 2;
     const dy = a.y - sh + bob;
 
-    // Sombra
     officeCtx.fillStyle = "rgba(0,0,0,0.35)";
     officeCtx.beginPath();
     officeCtx.ellipse(a.x, a.y + 3, sw * 0.4, 4, 0, 0, Math.PI * 2);
@@ -497,7 +492,6 @@ function drawOffice() {
 
     officeCtx.drawImage(sprite, dx, dy, sw, sh);
 
-    // LED de estado
     let ledColor = "#22c55e";
     if (a.status === "busy") ledColor = "#facc15";
     else if (a.status === "error") ledColor = "#ef4444";
@@ -507,7 +501,6 @@ function drawOffice() {
     officeCtx.lineWidth = 2;
     officeCtx.strokeRect(a.x + sw / 2 - 4, dy - 6, 8, 8);
 
-    // Nombre
     officeCtx.fillStyle = "rgba(11, 11, 14, 0.85)";
     const label = (a.name || "?").slice(0, 14);
     officeCtx.font = "bold 11px monospace";
