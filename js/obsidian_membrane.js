@@ -1,6 +1,12 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V12.0
-// Membrana: Cytoscape.js (física d3-force, zoom/pan/pinch nativos).
-// Oficina: igual que V11.0 (Canvas 2D + routing por pasillos).
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V13.1
+// Cambios V13.1:
+//   - Aristas mas visibles (opacidad 0.55, color #5a5a70, grosor max 3.0).
+//   - Estilo Obsidian: nodos con aire, aristas claras pero sutiles.
+// Cambios V13.0:
+//   - Layout COSE real al cargar.
+//   - nodeRepulsion 30000, idealEdgeLength 120, gravity 0.25.
+//   - Filtro de aristas weight < 0.3.
+//   - window.reorganizeMembrane() para forzar re-layout.
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
@@ -60,6 +66,9 @@ const AGENT_ROLE_COLOR = {
   generic: "#6366f1",
 };
 
+// Filtro visual: aristas con weight menor a esto no se muestran.
+const MIN_EDGE_WEIGHT_VISIBLE = 0.3;
+
 function _authHeaders() {
   if (typeof window.akiraAuthHeaders === "function") {
     try { return window.akiraAuthHeaders(); } catch (_) { return {}; }
@@ -76,7 +85,7 @@ async function _fetchJson(url) {
 }
 
 // ===========================================================================
-// MEMBRANA — Cytoscape.js
+// CEREBRO AKIRA (MEMBRANA) — Cytoscape.js V13.1
 // ===========================================================================
 
 let cyMembrane = null;
@@ -84,6 +93,7 @@ let membraneLastFetch = 0;
 let membraneFetching = false;
 let membraneCounts = { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
 let membraneError = null;
+let membraneHasRunLayoutOnce = false;
 const MEMBRANE_REFRESH_MS = 7000;
 
 function _cytoscapeStyle() {
@@ -95,16 +105,19 @@ function _cytoscapeStyle() {
         'width': 'data(radius)',
         'height': 'data(radius)',
         'label': 'data(label)',
-        'color': '#d0d0d8',
+        'color': '#c8c8d0',
         'font-family': 'monospace',
-        'font-size': 10,
+        'font-size': 9,
+        'font-weight': 300,
         'text-valign': 'bottom',
         'text-halign': 'center',
-        'text-margin-y': 4,
+        'text-margin-y': 5,
         'text-opacity': 0.55,
+        'text-wrap': 'wrap',
+        'text-max-width': 110,
         'border-width': 0,
-        'transition-property': 'opacity, border-width',
-        'transition-duration': '150ms',
+        'transition-property': 'opacity, border-width, shadow-blur, shadow-opacity',
+        'transition-duration': '180ms',
       }
     },
     {
@@ -115,14 +128,10 @@ function _cytoscapeStyle() {
         'text-opacity': 1,
         'color': '#ffffff',
         'font-weight': 'bold',
-        'font-size': 12,
-      }
-    },
-    {
-      selector: 'node.dimmed',
-      style: {
-        'opacity': 0.18,
-        'text-opacity': 0.12,
+        'font-size': 11,
+        'shadow-blur': 24,
+        'shadow-color': '#ffffff',
+        'shadow-opacity': 0.4,
       }
     },
     {
@@ -131,26 +140,67 @@ function _cytoscapeStyle() {
         'border-width': 1.5,
         'border-color': '#ffffff',
         'text-opacity': 1,
+        'color': '#ffffff',
+        'shadow-blur': 16,
+        'shadow-color': '#ffffff',
+        'shadow-opacity': 0.3,
+      }
+    },
+    {
+      selector: 'node.dimmed',
+      style: {
+        'opacity': 0.15,
+        'text-opacity': 0.1,
       }
     },
     {
       selector: 'edge',
       style: {
         'width': 'data(width)',
-        'line-color': '#505060',
+        'line-color': '#5a5a70',
         'curve-style': 'straight',
-        'opacity': 0.4,
-        'transition-property': 'opacity',
-        'transition-duration': '150ms',
+        'opacity': 0.55,
+        'transition-property': 'opacity, line-color',
+        'transition-duration': '180ms',
+      }
+    },
+    {
+      selector: 'edge.highlighted',
+      style: {
+        'opacity': 0.9,
+        'line-color': '#b8b8d0',
       }
     },
     {
       selector: 'edge.dimmed',
       style: {
-        'opacity': 0.05,
+        'opacity': 0.08,
       }
     },
   ];
+}
+
+function _layoutOptions(animate) {
+  return {
+    name: 'cose',
+    animate: !!animate,
+    animationDuration: 800,
+    animationEasing: 'ease-out',
+    randomize: false,
+    nodeRepulsion: 30000,
+    idealEdgeLength: 120,
+    edgeElasticity: 0.35,
+    nestingFactor: 0.1,
+    gravity: 0.25,
+    numIter: 2000,
+    initialTemp: 250,
+    coolingFactor: 0.95,
+    minTemp: 1.0,
+    fit: true,
+    padding: 60,
+    nodeOverlap: 30,
+    componentSpacing: 100,
+  };
 }
 
 function initMembraneGraph() {
@@ -167,7 +217,6 @@ function initMembraneGraph() {
   }
 
   if (cyMembrane) {
-    // Ya inicializado: solo asegurar tamaño correcto
     cyMembrane.resize();
     refreshMembrane(true);
     return;
@@ -177,9 +226,9 @@ function initMembraneGraph() {
     cyMembrane = window.cytoscape({
       container: container,
       style: _cytoscapeStyle(),
-      layout: { name: 'preset' },  // Los nodos se posicionan al añadirlos
-      minZoom: 0.3,
-      maxZoom: 3.0,
+      layout: { name: 'preset' },
+      minZoom: 0.2,
+      maxZoom: 4.0,
       wheelSensitivity: 0.25,
       boxSelectionEnabled: false,
       selectionType: 'single',
@@ -187,30 +236,36 @@ function initMembraneGraph() {
       autoungrabify: false,
     });
 
-    // Click en nodo: resaltar vecinos
     cyMembrane.on('tap', 'node', (evt) => {
       const node = evt.target;
       _highlightNeighbors(node);
     });
 
-    // Click en fondo: deseleccionar todo
+    cyMembrane.on('mouseover', 'node', (evt) => {
+      if (cyMembrane.elements(':selected').length > 0) return;
+      const node = evt.target;
+      _highlightNeighbors(node, true);
+    });
+
+    cyMembrane.on('mouseout', 'node', () => {
+      if (cyMembrane.elements(':selected').length > 0) return;
+      cyMembrane.elements().removeClass('dimmed').removeClass('highlighted');
+    });
+
     cyMembrane.on('tap', (evt) => {
       if (evt.target === cyMembrane) {
         cyMembrane.elements().unselect();
-        cyMembrane.elements().removeClass('dimmed');
-        cyMembrane.elements().removeClass('highlighted');
+        cyMembrane.elements().removeClass('dimmed').removeClass('highlighted');
       }
     });
 
-    // Doble click en fondo: resetear vista
     cyMembrane.on('dbltap', (evt) => {
       if (evt.target === cyMembrane) {
-        cyMembrane.fit(undefined, 40);
+        cyMembrane.fit(undefined, 60);
         cyMembrane.center();
       }
     });
 
-    // Redimensionar al cambiar el contenedor
     if (window.ResizeObserver) {
       const ro = new ResizeObserver(() => {
         if (cyMembrane) cyMembrane.resize();
@@ -224,11 +279,10 @@ function initMembraneGraph() {
   }
 }
 
-function _highlightNeighbors(node) {
+function _highlightNeighbors(node, soft) {
   if (!cyMembrane) return;
   const neighborhood = node.closedNeighborhood();
-  cyMembrane.elements().removeClass('highlighted');
-  cyMembrane.elements().removeClass('dimmed');
+  cyMembrane.elements().removeClass('highlighted').removeClass('dimmed');
 
   cyMembrane.elements().forEach(el => {
     if (neighborhood.contains(el)) {
@@ -238,6 +292,12 @@ function _highlightNeighbors(node) {
     }
   });
 }
+
+window.reorganizeMembrane = function () {
+  if (!cyMembrane) return;
+  const layout = cyMembrane.layout(_layoutOptions(true));
+  layout.run();
+};
 
 async function refreshMembrane(force) {
   if (!cyMembrane) return;
@@ -271,16 +331,15 @@ function _applyGraphToCy(data) {
   for (const n of nodes) {
     nodeIds.add(n.id);
     const typeColor = NODE_TYPE_COLORS[n.node_type] || '#6366f1';
-    // Radius estilo Obsidian: 14-42px (mapea weight/reuse a un rango visual)
-    const baseR = 14;
-    const bonusReuse = Math.min((n.reuse_count || 0) * 1.5, 12);
-    const bonusWeight = Math.min((n.weight || 0) * 2.0, 16);
+    const baseR = 12;
+    const bonusReuse = Math.min((n.reuse_count || 0) * 1.2, 8);
+    const bonusWeight = Math.min((n.weight || 0) * 1.8, 14);
     const radius = baseR + bonusReuse + bonusWeight;
     cyElements.push({
       group: 'nodes',
       data: {
         id: n.id,
-        label: String(n.label || n.id || '').slice(0, 24),
+        label: String(n.label || n.id || '').slice(0, 42),
         node_type: n.node_type,
         color: typeColor,
         weight: n.weight || 0,
@@ -292,7 +351,8 @@ function _applyGraphToCy(data) {
 
   for (const e of edges) {
     if (!nodeIds.has(e.from_node) || !nodeIds.has(e.to_node)) continue;
-    const w = e.weight || 1;
+    const w = Number(e.weight) || 0;
+    if (w < MIN_EDGE_WEIGHT_VISIBLE) continue;
     cyElements.push({
       group: 'edges',
       data: {
@@ -300,32 +360,29 @@ function _applyGraphToCy(data) {
         source: e.from_node,
         target: e.to_node,
         weight: w,
-        width: Math.min(2.5, 0.6 + w * 0.4),
+        width: Math.min(3.0, 0.5 + w * 0.7),
         relation_type: e.relation_type,
       }
     });
   }
 
-  // Diff: eliminar los que ya no están, agregar nuevos, actualizar existentes.
   const existingIds = new Set();
   cyMembrane.elements().forEach(el => existingIds.add(el.id()));
-
   const newIds = new Set(cyElements.map(e => e.data.id));
 
+  let addedNodes = 0;
   cyMembrane.batch(() => {
-    // Eliminar los que se fueron
     existingIds.forEach(id => {
       if (!newIds.has(id)) {
         const el = cyMembrane.getElementById(id);
         if (el && !el.empty()) el.remove();
       }
     });
-    // Agregar nuevos
     const toAdd = cyElements.filter(e => !existingIds.has(e.data.id));
     if (toAdd.length > 0) {
       cyMembrane.add(toAdd);
+      toAdd.forEach(e => { if (e.group === 'nodes') addedNodes++; });
     }
-    // Actualizar datos de los existentes
     cyElements.forEach(e => {
       if (existingIds.has(e.data.id)) {
         const el = cyMembrane.getElementById(e.data.id);
@@ -334,39 +391,17 @@ function _applyGraphToCy(data) {
     });
   });
 
-  // Aplicar layout solo si hay nodos y son nuevos (evitar re-layout constante)
-  const nodeCount = cyMembrane.nodes().length;
-  const needLayout = toCountNewNodesDiff(existingIds, cyElements);
+  const totalNodes = cyMembrane.nodes().length;
+  const shouldLayout = totalNodes > 0 && (!membraneHasRunLayoutOnce || addedNodes > 0);
 
-  if (nodeCount > 0 && needLayout) {
-    const layout = cyMembrane.layout({
-      name: 'cose',
-      animate: true,
-      animationDuration: 600,
-      randomize: false,
-      nodeRepulsion: 8000,
-      idealEdgeLength: 130,
-      edgeElasticity: 0.45,
-      gravity: 0.3,
-      numIter: 800,
-      fit: true,
-      padding: 40,
-      nodeOverlap: 20,
-    });
+  if (shouldLayout) {
+    const layout = cyMembrane.layout(_layoutOptions(true));
     layout.run();
+    membraneHasRunLayoutOnce = true;
   }
 
   membraneCounts = data.counts || { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
   _updateMembraneStats();
-}
-
-function toCountNewNodesDiff(existingIds, cyElements) {
-  // Devuelve true si hay nodos nuevos (contando solo nodos, no aristas)
-  for (const e of cyElements) {
-    if (e.group !== 'nodes') continue;
-    if (!existingIds.has(e.data.id)) return true;
-  }
-  return false;
 }
 
 function _updateMembraneStats() {
@@ -381,7 +416,6 @@ window.addEventListener("akira:section-shown", function (ev) {
   if (section === "membrane") {
     if (!cyMembrane) initMembraneGraph();
     else {
-      // Asegurar que el contenedor ya tiene tamaño real
       setTimeout(() => {
         if (cyMembrane) cyMembrane.resize();
       }, 100);
@@ -400,7 +434,7 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 // ===========================================================================
-// OFICINA — sin cambios
+// OFICINA — sin cambios respecto a V12
 // ===========================================================================
 
 let officeCanvas, officeCtx;
@@ -714,7 +748,6 @@ function updateOfficeStats() {
   el.innerHTML = "<b>" + officeAgents.length + " agentes reales</b>";
 }
 
-// API pública
 window.AkiraMembrane = {
   initMembraneGraph: initMembraneGraph,
   initOfficeFloor: initOfficeFloor,
@@ -722,4 +755,5 @@ window.AkiraMembrane = {
   refreshOffice: refreshOffice,
   addOfficeLog: addOfficeLog,
   updateOfficeStats: updateOfficeStats,
+  reorganize: window.reorganizeMembrane,
 };
