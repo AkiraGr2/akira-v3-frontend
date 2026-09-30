@@ -231,7 +231,6 @@ body{
   border-radius: 0;
 }
 .send-btn:active { transform: translate(3px, 3px); box-shadow: none; }
-/* Header interno de secciones (Cerebro Akira, Akira Office, etc.) */
 .section-header{
   padding:14px 18px 10px;
   border-bottom:3px solid var(--border);
@@ -250,7 +249,6 @@ body{
   color:var(--muted);
   line-height:1.5;
 }
-/* Paneles de control embebidos en Cerebro Akira y Akira Office */
 .section-tools{
   border-top:3px solid var(--border);
   background:#0e0e12;
@@ -360,7 +358,7 @@ body{
     </div>
   </div>
 
-  <!-- ===================== CEREBRO AKIRA (antes Membrana) ===================== -->
+  <!-- ===================== CEREBRO AKIRA ===================== -->
   <div id="membraneSection" class="section">
     <div class="section-header">
       <h2>🧠 Cerebro Akira</h2>
@@ -381,13 +379,14 @@ body{
         <button class="pixel-btn" onclick="f6ReadAll()">📖 Leer todo</button>
         <button class="pixel-btn" onclick="graphReinforce()">🔗 Reforzar</button>
         <button class="pixel-btn" onclick="graphCleanupTests()">🧹 Limpiar test_*</button>
+        <button class="pixel-btn" onclick="reorganizeMembrane()">🔄 Reorganizar</button>
         <button class="pixel-btn" onclick="f6Reset()">🗑️ Salida</button>
       </div>
       <pre id="f6Output">Sin datos.</pre>
     </div>
   </div>
 
-  <!-- ===================== AKIRA OFFICE (Oficina) ===================== -->
+  <!-- ===================== AKIRA OFFICE ===================== -->
   <div id="officeSection" class="section">
     <div class="section-header">
       <h2>🏢 Akira Office</h2>
@@ -702,7 +701,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 });
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
-<script src="./js/obsidian_membrane.js?v=akira-final-v5"></script>
+<script src="./js/obsidian_membrane.js?v=akira-membrane-v13-2"></script>
 <script src="./js/akira_brain.js?v=akira-final-v5"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
 <script src="./js/akira_admin.js?v=akira-admin-v1"></script>
@@ -757,4 +756,4 @@ async function renderLevels(){
 }
 </script>
 </body>
-                                                                                                                          </html>
+          </html>
