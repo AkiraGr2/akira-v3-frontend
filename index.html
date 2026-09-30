@@ -16,6 +16,7 @@
 <meta name="apple-mobile-web-app-title" content="Akira">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<script src="https://unpkg.com/cytoscape-cose-bilkent@4.1.0/cytoscape-cose-bilkent.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -489,7 +490,6 @@ body{
           <div style="background:#16161b;border:3px solid var(--border);padding:14px"><div style="font-size:11px;color:var(--muted)">TOOLS</div><div style="font-size:11px;margin-top:6px;font-family:'Pixelify Sans', sans-serif;" id="adminTools">Cargando...</div></div>
         </div>
 
-        <!-- Fase 5 -->
         <div style="margin-top:16px;background:#0e0e12;border:3px solid var(--border);padding:14px">
           <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🧪 Self-Model (Fase 5)</h4>
           <p style="font-size:11px;color:var(--muted);margin-top:6px">Verifica el self-model persistente.</p>
@@ -501,7 +501,6 @@ body{
           <pre id="smOutput" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos todavía.</pre>
         </div>
 
-        <!-- Fase 7 -->
         <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
           <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🧠 Fase 7 — Ciclo Cognitivo</h4>
           <p style="font-size:11px;color:var(--muted);margin-top:6px">Ejecuta un ciclo cognitivo de 9 etapas.</p>
@@ -515,7 +514,6 @@ body{
           <pre id="f7Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
         </div>
 
-        <!-- Fase 8 -->
         <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
           <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🔧 Fase 8 — Tool Registry</h4>
           <p style="font-size:11px;color:var(--muted);margin-top:6px">11 herramientas reales registradas. Cada invocación queda en un log persistente.</p>
@@ -529,7 +527,6 @@ body{
           <pre id="f8Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
         </div>
 
-        <!-- Mantenimiento -->
         <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
           <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🧰 Mantenimiento</h4>
           <p style="font-size:11px;color:var(--muted);margin-top:6px">Herramientas de limpieza y respaldo.</p>
@@ -701,12 +698,11 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 });
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
-<script src="./js/obsidian_membrane.js?v=akira-membrane-v14"></script>
+<script src="./js/obsidian_membrane.js?v=akira-membrane-v15-1"></script>
 <script src="./js/akira_brain.js?v=akira-final-v5"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
 <script src="./js/akira_admin.js?v=akira-admin-v1-1"></script>
 <script>
-// AKIRA ADMIN V1 — Override final de renderLevels
 async function renderLevels(){
   const listEl=document.getElementById("levelsList");
   if(!listEl) return;
@@ -756,4 +752,4 @@ async function renderLevels(){
 }
 </script>
 </body>
-</html>
+                                                                                                                               </html>
