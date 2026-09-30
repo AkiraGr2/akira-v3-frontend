@@ -1,5 +1,4 @@
-// AKIRA ADMIN PANEL V1.1 — Reconstruido + graphReinforce + graphCleanupTests.
-// Fase 5 · Fase 6 · Fase 7 · Fase 8 · Fase 9 · Dashboard unificado.
+// AKIRA ADMIN PANEL V1.2 — Fase 5 · 6 · 7 · 8 · 9 · 10.3.
 
 (function(){
   "use strict";
@@ -47,7 +46,10 @@
   function _errText(res){
     if (res.status === 401) return "Sesión no válida o expirada. Entra a Cuenta e inicia sesión.";
     if (res.status === 403) return "No autorizado (requiere propietario).";
-    if (res.status === 503) return "Backend arrancando (persistencia no lista). Reintenta en 10s.";
+    if (res.status === 422) return "El planificador rechazó el objetivo.";
+    if (res.status === 429) return "Límite alcanzado (rate limit / cuota LLM / misiones en curso).";
+    if (res.status === 409) return "Conflicto de versiones.";
+    if (res.status === 503) return "Backend arrancando. Reintenta en 10s.";
     if (res.status === 0)   return "Sin conexión o backend frío (" + (res.error || "timeout") + ").";
     if (res.data && res.data.reason) return res.data.reason + " (HTTP " + res.status + ")";
     return "Error HTTP " + res.status;
@@ -165,7 +167,6 @@
 
   window.f6Reset = function(){ _out("f6Output", "Salida limpiada.", false); };
 
-  // NUEVAS: graphReinforce + graphCleanupTests (fix del botón huérfano).
   window.graphReinforce = async function(){
     _out("f6Output", "Reforzando pares frecuentes…", false);
     const r = await _fetch("/api/v8/graph/reinforce", { method: "POST" }, 40000);
@@ -372,7 +373,7 @@
   };
 
   window.f9TestV8S11 = async function(){
-    _out("f9Output", "Test V8 s11: campos del contrato de agentes…", false);
+    _out("f9Output", "Test V8 s11…", false);
     const missionId = "test_mission_" + Date.now().toString(36);
 
     const r1 = await _fetch("/api/v8/agents/researcher/task", {
@@ -408,6 +409,59 @@
   };
 
   window.f9Reset = function(){ _out("f9Output", "Salida limpiada.", false); };
+
+  // ============================================================
+  // FASE 10.3 — MISIONES (botón temporal de prueba)
+  // ============================================================
+  window.createTestMission = async function(){
+    const btn = document.getElementById("m1TestBtn");
+    if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
+    try {
+      const obj = prompt("Objetivo de la misión:",
+        "Investiga qué es FastAPI y dame 3 casos de uso reales");
+      if (!obj || !obj.trim()) return;
+
+      _out("m1Output", "Creando misión y llamando al planificador LLM (puede tardar 15-30s)…", false);
+
+      const r = await _fetch("/api/v8/missions", {
+        method: "POST",
+        body: JSON.stringify({ objective: obj.trim(), priority: 5 }),
+      }, 60000);
+
+      if (!r.ok || !r.data || !r.data.ok) {
+        _out("m1Output", _errText(r) + (r.data && r.data.detail ? (" · " + r.data.detail) : ""), true);
+        return;
+      }
+
+      const m = r.data.mission;
+      const plan = r.data.plan || {};
+      const steps = plan.steps || [];
+
+      _out("m1Output", {
+        ok: true,
+        mission_id: m.id,
+        status: m.status,
+        title: m.title,
+        priority: m.priority,
+        flow_type: m.flow_type,
+        model: r.data.model,
+        pasos: steps.map(s => ({
+          order: s.order,
+          agent: s.agent,
+          tool: s.tool,
+          task: String(s.task || "").slice(0, 80),
+          expected_output: String(s.expected_output || "").slice(0, 60),
+          receives_from: s.receives_from,
+        })),
+        summary: plan.summary,
+        siguiente: "Aprobación humana se implementa en 10.4.",
+      }, false);
+    } finally {
+      if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
+    }
+  };
+
+  window.m1Reset = function(){ _out("m1Output", "Salida limpiada.", false); };
 
   // ============================================================
   // Dashboard unificado
