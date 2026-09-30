@@ -6,11 +6,9 @@ const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
 const OFFICE_SHEET_URL = "./assets/office/PixelOfficeAssets.png";
 
-// Canvas interno de la oficina (coincide con proporcion de LargePixelOffice limpio)
 const OFFICE_W = 720;
 const OFFICE_H = 630;
 
-// Sprites en la hoja PixelOfficeAssets.png: [x1, y1, x2, y2]
 const SPRITE_RECTS = {
   researcher:    [2, 105, 17, 128],
   memorizer:     [19, 104, 38, 128],
@@ -19,7 +17,6 @@ const SPRITE_RECTS = {
   internal:      [22, 132, 39, 155],
 };
 
-// Posiciones en el canvas 720x630 donde va cada personaje (sobre las sillas)
 const SPRITE_POSITIONS = {
   researcher:    [118, 330],
   memorizer:     [220, 330],
@@ -28,7 +25,6 @@ const SPRITE_POSITIONS = {
   internal:      [220, 500],
 };
 
-// Escala de cada sprite (x3 se ve bien en 720x630)
 const SPRITE_SCALE = 3;
 
 // ===========================================================================
@@ -319,7 +315,6 @@ let officeFetching = false;
 let officeAnimId = null;
 const OFFICE_REFRESH_MS = 5000;
 
-// Cache de canvas recortados por agente
 const spriteCache = {};
 
 function initOfficeFloor() {
@@ -362,7 +357,6 @@ function initOfficeFloor() {
   refreshOffice(true);
 }
 
-// Recorta cada sprite de la hoja a un canvas individual y los cachea
 function buildSpriteCache() {
   const img = officeSheetImage;
   if (!img) return;
@@ -404,10 +398,8 @@ function drawOffice() {
     return;
   }
 
-  // Fondo limpio
   officeCtx.drawImage(officeBgImage, 0, 0, W, H);
 
-  // Personajes
   officeAgents.forEach(a => {
     const role = a.role || "generic";
     const sprite = spriteCache[role];
@@ -417,7 +409,6 @@ function drawOffice() {
     const baseX = pos[0];
     const baseY = pos[1];
 
-    // Bobbing cuando busy
     let bob = 0;
     if (a.status === "busy") {
       bob = Math.sin(Date.now() * 0.005) * 3;
@@ -428,16 +419,13 @@ function drawOffice() {
     const dx = baseX - sw / 2;
     const dy = baseY - sh + bob;
 
-    // Sombra
     officeCtx.fillStyle = "rgba(0,0,0,0.35)";
     officeCtx.beginPath();
     officeCtx.ellipse(baseX, baseY + 3, sw * 0.4, 4, 0, 0, Math.PI * 2);
     officeCtx.fill();
 
-    // Sprite
     officeCtx.drawImage(sprite, dx, dy, sw, sh);
 
-    // LED de estado encima
     let ledColor = "#22c55e";
     if (a.status === "busy") ledColor = "#facc15";
     else if (a.status === "error") ledColor = "#ef4444";
@@ -447,7 +435,6 @@ function drawOffice() {
     officeCtx.lineWidth = 2;
     officeCtx.strokeRect(baseX + sw / 2 - 4, dy - 6, 8, 8);
 
-    // Nombre debajo
     officeCtx.fillStyle = "rgba(11, 11, 14, 0.85)";
     const label = (a.name || "?").slice(0, 14);
     officeCtx.font = "bold 11px monospace";
@@ -495,10 +482,6 @@ function updateOfficeStats() {
   if (!el) return;
   el.innerHTML = "<b>" + officeAgents.length + " agentes reales</b>";
 }
-
-// ---------------------------------------------------------------------------
-// Init
-// ---------------------------------------------------------------------------
 
 document.addEventListener("DOMContentLoaded", function () {
   setTimeout(function () {
