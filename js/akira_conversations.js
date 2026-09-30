@@ -1,6 +1,6 @@
-// AKIRA CONVERSATIONS V1.0 — Fase 10.7.2
+// AKIRA CONVERSATIONS V1.1 — Fase 10.7.2
 // Persistencia de conversaciones: sidebar + cargar/guardar chats.
-// Fase 10.7.2: creado. No modifica akira_brain.js (solo se comunica con él via window).
+// V1.1: fix — refrescar sidebar siempre que llega conversation_id (no solo cuando cambia).
 (function(){
   "use strict";
 
@@ -107,14 +107,15 @@
       return api.currentId || _getCurrentId();
     },
 
-    // Llamado por akira_brain.js cuando el backend responde con un conversation_id
+    // Llamado por akira_brain.js cuando el backend responde con un conversation_id.
+    // V1.1: SIEMPRE refresca el sidebar, aunque el id no haya cambiado
+    // (para actualizar message_count y timestamp de last_message_at).
     onConversationIdReceived: function(newId){
       if (!newId) return;
-      if (newId === api.currentId) return;
+      const changed = (newId !== api.currentId);
       api.currentId = newId;
       _setCurrentId(newId);
-      _highlightCurrentInList();
-      // Refrescar la lista (por si es una conversación nueva)
+      if (changed) _highlightCurrentInList();
       api.loadList();
     },
 
@@ -265,9 +266,6 @@
 
   window.akiraConversations = api;
 
-  // ============================================================
-  // Estilos del sidebar
-  // ============================================================
   function _injectStyles(){
     if (document.getElementById('akira-conv-styles')) return;
     const style = document.createElement('style');
