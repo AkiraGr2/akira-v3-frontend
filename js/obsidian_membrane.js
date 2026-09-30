@@ -1,6 +1,5 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V7.0
-// Oficina: personajes pixel-art reales recortados del sheet + fondo limpio.
-// Membrana: force layout con datos reales (Fase 6).
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V8.0
+// Oficina: agentes que se mueven por la oficina. Membrana: igual a V7.0.
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
@@ -17,15 +16,26 @@ const SPRITE_RECTS = {
   internal:      [22, 132, 39, 155],
 };
 
-const SPRITE_POSITIONS = {
-  researcher:    [118, 330],
-  memorizer:     [220, 330],
-  graph_builder: [430, 330],
-  learner:       [118, 500],
-  internal:      [220, 500],
+// Posiciones base (escritorio asignado) en el canvas 720x630
+const HOME_POSITIONS = {
+  researcher:    [118, 400],
+  memorizer:     [220, 400],
+  graph_builder: [430, 400],
+  learner:       [118, 540],
+  internal:      [220, 540],
 };
 
+// Waypoints: puntos por los que el agente puede pasear
+const WAYPOINTS = [
+  [118, 400], [220, 400], [430, 400], [540, 400], [640, 400],
+  [118, 540], [220, 540], [430, 540], [540, 540], [640, 540],
+  [80, 300], [300, 300], [500, 300], [680, 300],
+];
+
 const SPRITE_SCALE = 3;
+const WALK_SPEED = 0.9;     // px por frame
+const IDLE_WAIT_MS = 8000;  // ms quieto entre movimientos
+const BUSY_WAIT_MS = 4000;
 
 // ===========================================================================
 // MEMBRANA
@@ -300,7 +310,7 @@ function drawMembrane() {
 function addNeuronaToGraph() { /* no-op */ }
 
 // ===========================================================================
-// OFICINA — Personajes pixel-art reales
+// OFICINA — Agentes que caminan
 // ===========================================================================
 
 let officeCanvas, officeCtx;
@@ -374,6 +384,56 @@ function buildSpriteCache() {
   }
 }
 
+function _pickRandomWaypoint() {
+  const wp = WAYPOINTS[Math.floor(Math.random() * WAYPOINTS.length)];
+  return [wp[0] + (Math.random() - 0.5) * 30, wp[1] + (Math.random() - 0.5) * 20];
+}
+
+function _ensureMovementState(a) {
+  if (typeof a.x !== "number") {
+    const home = HOME_POSITIONS[a.role] || [360, 450];
+    a.x = home[0];
+    a.y = home[1];
+  }
+  if (typeof a.tx !== "number") { a.tx = a.x; a.ty = a.y; }
+  if (typeof a.nextMoveAt !== "number") a.nextMoveAt = Date.now() + Math.random() * IDLE_WAIT_MS;
+  if (typeof a.facing !== "string") a.facing = "idle";
+}
+
+function _updateAgentMovement(a) {
+  const now = Date.now();
+
+  if (a.status === "busy") {
+    // Los busy se quedan en su escritorio base (rebote sutil).
+    const home = HOME_POSITIONS[a.role] || [a.x, a.y];
+    a.tx = home[0];
+    a.ty = home[1];
+    if (now > a.nextMoveAt) a.nextMoveAt = now + BUSY_WAIT_MS;
+  } else {
+    if (now > a.nextMoveAt && Math.abs(a.x - a.tx) < 4 && Math.abs(a.y - a.ty) < 4) {
+      const target = _pickRandomWaypoint();
+      a.tx = target[0];
+      a.ty = target[1];
+      a.nextMoveAt = now + IDLE_WAIT_MS + Math.random() * 5000;
+    }
+  }
+
+  const dx = a.tx - a.x;
+  const dy = a.ty - a.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist > 2) {
+    const step = Math.min(WALK_SPEED, dist);
+    a.x += (dx / dist) * step;
+    a.y += (dy / dist) * step;
+    a.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+  } else {
+    a.x = a.tx;
+    a.y = a.ty;
+    a.facing = "idle";
+  }
+}
+
 function drawOffice() {
   if (!officeCtx) return;
   const W = OFFICE_W, H = OFFICE_H;
@@ -400,49 +460,62 @@ function drawOffice() {
 
   officeCtx.drawImage(officeBgImage, 0, 0, W, H);
 
-  officeAgents.forEach(a => {
+  // Ordenar por Y para que los de "adelante" se dibujen encima
+  const sorted = officeAgents.slice().sort((a, b) => {
+    _ensureMovementState(a); _ensureMovementState(b);
+    return a.y - b.y;
+  });
+
+  sorted.forEach(a => {
+    _ensureMovementState(a);
+    _updateAgentMovement(a);
+
     const role = a.role || "generic";
     const sprite = spriteCache[role];
-    const pos = SPRITE_POSITIONS[role];
-    if (!sprite || !pos) return;
-
-    const baseX = pos[0];
-    const baseY = pos[1];
-
-    let bob = 0;
-    if (a.status === "busy") {
-      bob = Math.sin(Date.now() * 0.005) * 3;
-    }
+    if (!sprite) return;
 
     const sw = sprite.width * SPRITE_SCALE;
     const sh = sprite.height * SPRITE_SCALE;
-    const dx = baseX - sw / 2;
-    const dy = baseY - sh + bob;
 
+    // Bobbing sutil al caminar
+    let bob = 0;
+    const moving = a.facing && a.facing !== "idle";
+    if (moving) {
+      bob = Math.sin(Date.now() * 0.02) * 1.2;
+    } else if (a.status === "busy") {
+      bob = Math.sin(Date.now() * 0.005) * 2;
+    }
+
+    const dx = a.x - sw / 2;
+    const dy = a.y - sh + bob;
+
+    // Sombra
     officeCtx.fillStyle = "rgba(0,0,0,0.35)";
     officeCtx.beginPath();
-    officeCtx.ellipse(baseX, baseY + 3, sw * 0.4, 4, 0, 0, Math.PI * 2);
+    officeCtx.ellipse(a.x, a.y + 3, sw * 0.4, 4, 0, 0, Math.PI * 2);
     officeCtx.fill();
 
     officeCtx.drawImage(sprite, dx, dy, sw, sh);
 
+    // LED de estado
     let ledColor = "#22c55e";
     if (a.status === "busy") ledColor = "#facc15";
     else if (a.status === "error") ledColor = "#ef4444";
     officeCtx.fillStyle = ledColor;
-    officeCtx.fillRect(baseX + sw / 2 - 4, dy - 6, 8, 8);
+    officeCtx.fillRect(a.x + sw / 2 - 4, dy - 6, 8, 8);
     officeCtx.strokeStyle = "#0b0b0e";
     officeCtx.lineWidth = 2;
-    officeCtx.strokeRect(baseX + sw / 2 - 4, dy - 6, 8, 8);
+    officeCtx.strokeRect(a.x + sw / 2 - 4, dy - 6, 8, 8);
 
+    // Nombre
     officeCtx.fillStyle = "rgba(11, 11, 14, 0.85)";
     const label = (a.name || "?").slice(0, 14);
     officeCtx.font = "bold 11px monospace";
     const tw = officeCtx.measureText(label).width;
-    officeCtx.fillRect(baseX - tw / 2 - 4, baseY + 8, tw + 8, 14);
+    officeCtx.fillRect(a.x - tw / 2 - 4, a.y + 8, tw + 8, 14);
     officeCtx.fillStyle = "#ececf1";
     officeCtx.textAlign = "center";
-    officeCtx.fillText(label, baseX, baseY + 19);
+    officeCtx.fillText(label, a.x, a.y + 19);
   });
 
   refreshOffice(false);
@@ -457,7 +530,13 @@ async function refreshOffice(force) {
   try {
     const data = await _fetchJson("/api/v8/agents");
     if (data && data.ok) {
-      officeAgents = data.agents || [];
+      const prevByName = new Map(officeAgents.map(a => [a.name, a]));
+      officeAgents = (data.agents || []).map(a => {
+        const prev = prevByName.get(a.name);
+        const merged = Object.assign({}, prev || {}, a);
+        _ensureMovementState(merged);
+        return merged;
+      });
     }
   } catch (e) {
     // silencioso
