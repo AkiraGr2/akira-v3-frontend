@@ -1,6 +1,7 @@
-// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V8.4
-// Routing por pasillos: el agente solo se mueve horizontal o vertical.
-// Nunca en diagonal. Nunca atraviesa muebles.
+// AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V10.0
+// Membrana: estilo Obsidian puro. Nodos solidos, fondo negro, aristas rectas,
+// labels tenues, pinch-zoom con dos dedos, tap-to-select, pan arrastrando.
+// Oficina: igual a V9.0.
 
 const AKIRA_API_BASE = "https://akira-empresa.onrender.com";
 const OFFICE_BG_URL = "./assets/office/LargePixelOffice.png";
@@ -17,19 +18,14 @@ const SPRITE_RECTS = {
   internal:      [22, 132, 39, 155],
 };
 
-// Geometria de los pasillos (coordenadas seguras confirmadas)
-const H_Y = 355;          // pasillo horizontal esta en Y=355
-const VL_X = 49;          // pasillo vertical izquierdo
-const VC_X = 362;         // pasillo vertical central
-const VR_X = 675;         // pasillo vertical derecho
-const V_Y_MIN = 355;      // vertical empieza abajo del pasillo horizontal
-const V_Y_MAX = 615;      // vertical termina cerca del borde inferior
+const H_Y = 355;
+const VL_X = 49;
+const VC_X = 362;
+const VR_X = 675;
 
-// Puntos libres en cada pasillo
 const H_POINTS = [60, 130, 200, 270, 340, 410, 480, 550, 620, 690];
 const V_POINTS = [380, 440, 500, 560, 610];
 
-// Home: cada agente arranca en un pasillo distinto
 const HOME_POSITIONS = {
   researcher:    [VL_X, 420],
   memorizer:     [VC_X, 420],
@@ -44,7 +40,7 @@ const IDLE_WAIT_MS = 8000;
 const BUSY_WAIT_MS = 4000;
 
 // ===========================================================================
-// MEMBRANA
+// MEMBRANA — estilo Obsidian puro
 // ===========================================================================
 
 let membraneCanvas, membraneCtx;
@@ -56,6 +52,30 @@ let membraneError = null;
 let membraneCounts = { nodes: 0, edges: 0, by_type: {}, by_relation: {} };
 let membranePhysicsOn = true;
 const MEMBRANE_REFRESH_MS = 7000;
+
+// Interaccion Obsidian
+let mSelectedNode = null;
+let mPanX = 0, mPanY = 0;
+let mZoom = 1.0;
+const M_ZOOM_MIN = 0.4;
+const M_ZOOM_MAX = 3.0;
+
+// Estado de pan
+let mIsPanning = false;
+let mLastPointer = { x: 0, y: 0 };
+
+// Estado de pinch-zoom
+let mPinchActive = false;
+let mPinchStartDist = 0;
+let mPinchStartZoom = 1.0;
+let mPinchStartMid = { x: 0, y: 0 };
+let mPinchStartPan = { x: 0, y: 0 };
+
+// Doble tap para reset
+let mLastTapTime = 0;
+
+// Drag de un nodo individual
+let mDraggingNode = null;
 
 const NODE_TYPE_COLORS = {
   concept:    "#8b5cf6",
@@ -106,9 +126,226 @@ function initMembraneGraph() {
   membraneCanvas.height = Math.max(320, Math.floor(rect.height));
   membraneCtx.imageSmoothingEnabled = false;
 
+  _bindMembraneInteractions();
+
   if (membraneAnimId) cancelAnimationFrame(membraneAnimId);
   drawMembrane();
   refreshMembrane(true);
+}
+
+// ---------------------------------------------------------------- interaccion
+function _bindMembraneInteractions() {
+  if (!membraneCanvas || membraneCanvas._akiraBound) return;
+  membraneCanvas._akiraBound = true;
+
+  const evPos = (clientX, clientY) => {
+    const r = membraneCanvas.getBoundingClientRect();
+    const cx = clientX - r.left;
+    const cy = clientY - r.top;
+    const sx = membraneCanvas.width / r.width;
+    const sy = membraneCanvas.height / r.height;
+    return { x: cx * sx, y: cy * sy };
+  };
+
+  // Convertir coordenadas de canvas a coordenadas mundo (aplicando pan/zoom)
+  const toWorld = (px, py) => {
+    return {
+      x: (px - mPanX) / mZoom,
+      y: (py - mPanY) / mZoom,
+    };
+  };
+
+  const hitNode = (px, py) => {
+    const w = toWorld(px, py);
+    let best = null, bestD = Infinity;
+    for (const nd of membraneNodes) {
+      const d = Math.hypot(nd.x - w.x, nd.y - w.y);
+      const threshold = nd.r + 8 / mZoom;
+      if (d < threshold && d < bestD) { best = nd; bestD = d; }
+    }
+    return best;
+  };
+
+  const dist2 = (t1, t2) => Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+  const mid2 = (t1, t2) => ({
+    x: (t1.clientX + t2.clientX) / 2,
+    y: (t1.clientY + t2.clientY) / 2,
+  });
+
+  // ---- Touch events (Android) ----
+  membraneCanvas.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      mPinchActive = true;
+      mIsPanning = false;
+      mDraggingNode = null;
+      mPinchStartDist = dist2(e.touches[0], e.touches[1]);
+      mPinchStartZoom = mZoom;
+      const mid = mid2(e.touches[0], e.touches[1]);
+      mPinchStartMid = evPos(mid.x, mid.y);
+      mPinchStartPan = { x: mPanX, y: mPanY };
+      return;
+    }
+    if (e.touches.length === 1) {
+      const p = evPos(e.touches[0].clientX, e.touches[0].clientY);
+      const hit = hitNode(p.x, p.y);
+      if (hit) {
+        // Arrastrar un nodo
+        mDraggingNode = hit;
+        mLastPointer = p;
+      } else {
+        mIsPanning = true;
+        mLastPointer = p;
+      }
+    }
+  }, { passive: false });
+
+  membraneCanvas.addEventListener("touchmove", (e) => {
+    if (mPinchActive && e.touches.length === 2) {
+      e.preventDefault();
+      const newDist = dist2(e.touches[0], e.touches[1]);
+      if (mPinchStartDist < 1) return;
+      let newZoom = mPinchStartZoom * (newDist / mPinchStartDist);
+      newZoom = Math.max(M_ZOOM_MIN, Math.min(M_ZOOM_MAX, newZoom));
+
+      // Anclar el zoom al punto medio del pinch
+      const mid = mid2(e.touches[0], e.touches[1]);
+      const midCanvas = evPos(mid.x, mid.y);
+      const worldX = (mPinchStartMid.x - mPinchStartPan.x) / mPinchStartZoom;
+      const worldY = (mPinchStartMid.y - mPinchStartPan.y) / mPinchStartZoom;
+
+      mZoom = newZoom;
+      mPanX = midCanvas.x - worldX * mZoom;
+      mPanY = midCanvas.y - worldY * mZoom;
+      return;
+    }
+    if (e.touches.length === 1) {
+      const p = evPos(e.touches[0].clientX, e.touches[0].clientY);
+      if (mDraggingNode) {
+        const w = toWorld(p.x, p.y);
+        mDraggingNode.x = w.x;
+        mDraggingNode.y = w.y;
+        mDraggingNode.vx = 0;
+        mDraggingNode.vy = 0;
+        mDraggingNode.fx = 0;
+        mDraggingNode.fy = 0;
+      } else if (mIsPanning) {
+        mPanX += p.x - mLastPointer.x;
+        mPanY += p.y - mLastPointer.y;
+        mLastPointer = p;
+      }
+      if (e.cancelable) e.preventDefault();
+    }
+  }, { passive: false });
+
+  membraneCanvas.addEventListener("touchend", (e) => {
+    if (e.touches.length < 2) mPinchActive = false;
+
+    if (e.touches.length === 0) {
+      // Chequeo de tap o doble tap
+      const wasDragging = mDraggingNode !== null || mIsPanning;
+
+      // Detectar tap simple (no drag)
+      if (!wasDragging || (mLastPointer && Math.abs(mLastPointer.x - mLastPointer.x) < 1)) {
+        // Esta condicion es dificil; mejor siempre comprobar tap con tiempo
+      }
+
+      // Detectar doble tap por tiempo
+      const now = Date.now();
+      if (now - mLastTapTime < 300) {
+        // Doble tap -> reset
+        mZoom = 1.0;
+        mPanX = 0;
+        mPanY = 0;
+        mSelectedNode = null;
+        mLastTapTime = 0;
+      } else {
+        mLastTapTime = now;
+      }
+
+      mIsPanning = false;
+      mDraggingNode = null;
+    }
+  });
+
+  // ---- Pointer events (desktop, por si acaso) ----
+  membraneCanvas.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch") return; // ya cubierto por touch events
+    const p = evPos(e.clientX, e.clientY);
+    const hit = hitNode(p.x, p.y);
+    if (hit) {
+      mDraggingNode = hit;
+      mLastPointer = p;
+    } else {
+      mIsPanning = true;
+      mLastPointer = p;
+      const now = Date.now();
+      if (now - mLastTapTime < 300) {
+        mZoom = 1.0; mPanX = 0; mPanY = 0; mSelectedNode = null;
+        mLastTapTime = 0;
+      } else {
+        mLastTapTime = now;
+      }
+    }
+  });
+
+  membraneCanvas.addEventListener("pointermove", (e) => {
+    if (e.pointerType === "touch") return;
+    const p = evPos(e.clientX, e.clientY);
+    if (mDraggingNode) {
+      const w = toWorld(p.x, p.y);
+      mDraggingNode.x = w.x;
+      mDraggingNode.y = w.y;
+      mDraggingNode.vx = 0;
+      mDraggingNode.vy = 0;
+    } else if (mIsPanning) {
+      mPanX += p.x - mLastPointer.x;
+      mPanY += p.y - mLastPointer.y;
+      mLastPointer = p;
+    }
+  });
+
+  membraneCanvas.addEventListener("pointerup", (e) => {
+    if (e.pointerType === "touch") return;
+    const p = evPos(e.clientX, e.clientY);
+    // Si no hubo drag, es un tap
+    if (mDraggingNode === null && mIsPanning) {
+      const moved = Math.hypot(p.x - mLastPointer.x, p.y - mLastPointer.y);
+      if (moved < 6) {
+        const hit = hitNode(p.x, p.y);
+        mSelectedNode = hit ? hit.id : null;
+      }
+    }
+    mIsPanning = false;
+    mDraggingNode = null;
+  });
+
+  membraneCanvas.addEventListener("pointerleave", () => {
+    mIsPanning = false;
+    mDraggingNode = null;
+  });
+
+  // Tap simple en touch (sin drag): manejar aqui el toggle de seleccion
+  membraneCanvas.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) return;
+    const p = evPos(e.touches[0].clientX, e.touches[0].clientY);
+    // Guardar la posicion de inicio del tap
+    membraneCanvas._tapStart = p;
+  }, { passive: true });
+
+  membraneCanvas.addEventListener("touchend", (e) => {
+    if (e.changedTouches.length !== 1) return;
+    if (mPinchActive) return;
+    const start = membraneCanvas._tapStart;
+    if (!start) return;
+    const end = evPos(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    const moved = Math.hypot(end.x - start.x, end.y - start.y);
+    if (moved < 8) {
+      const hit = hitNode(end.x, end.y);
+      mSelectedNode = hit ? hit.id : null;
+    }
+    membraneCanvas._tapStart = null;
+  }, { passive: true });
 }
 
 async function refreshMembrane(force) {
@@ -126,7 +363,8 @@ async function refreshMembrane(force) {
 
       membraneNodes = (data.nodes || []).map((n, i) => {
         const prev = prevById.get(n.id);
-        const r = 8 + Math.min((n.reuse_count || 0) * 1.5, 12) + Math.min((n.weight || 0) * 1.2, 8);
+        // Tamano estilo Obsidian: 5-16 px
+        const r = 5 + Math.min((n.reuse_count || 0) * 0.8, 8) + Math.min((n.weight || 0) * 0.5, 4);
         if (prev) return Object.assign({}, prev, n, { r: r, fx: 0, fy: 0 });
         const total = Math.max((data.nodes || []).length, 1);
         const angle = (i / total) * Math.PI * 2;
@@ -160,9 +398,9 @@ function stepMembranePhysics() {
 
   for (const nd of membraneNodes) { nd.fx = 0; nd.fy = 0; }
 
-  const rep = 2500;
-  const minD = 40;
-  const maxRepForce = 6;
+  const rep = 3000;
+  const minD = 50;
+  const maxRepForce = 5;
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       const a = membraneNodes[i], b = membraneNodes[j];
@@ -178,8 +416,8 @@ function stepMembranePhysics() {
     }
   }
 
-  const springK = 0.004;
-  const restLen = 140;
+  const springK = 0.005;
+  const restLen = 120;
   const byId = new Map(membraneNodes.map(nd => [nd.id, nd]));
   for (const e of membraneEdges) {
     const a = byId.get(e.from_node), b = byId.get(e.to_node);
@@ -192,15 +430,16 @@ function stepMembranePhysics() {
     b.fx -= fx; b.fy -= fy;
   }
 
-  const gk = 0.012;
+  const gk = 0.018;
   for (const nd of membraneNodes) {
     nd.fx += (cx - nd.x) * gk;
     nd.fy += (cy - nd.y) * gk;
   }
 
-  const damp = 0.7;
-  const maxV = 8;
+  const damp = 0.75;
+  const maxV = 6;
   for (const nd of membraneNodes) {
+    if (nd === mDraggingNode) continue; // No mover el nodo arrastrado por fisica
     nd.vx = (nd.vx + nd.fx) * damp;
     nd.vy = (nd.vy + nd.fy) * damp;
     if (nd.vx > maxV) nd.vx = maxV;
@@ -220,16 +459,9 @@ function drawMembrane() {
   if (!membraneCtx) return;
   const W = membraneCanvas.width, H = membraneCanvas.height;
 
-  membraneCtx.fillStyle = "#0b0b0e";
+  // Fondo negro puro (estilo Obsidian dark)
+  membraneCtx.fillStyle = "#0a0a0d";
   membraneCtx.fillRect(0, 0, W, H);
-  membraneCtx.strokeStyle = "rgba(35, 35, 42, 0.5)";
-  membraneCtx.lineWidth = 1;
-  for (let x = 0; x < W; x += 40) {
-    membraneCtx.beginPath(); membraneCtx.moveTo(x, 0); membraneCtx.lineTo(x, H); membraneCtx.stroke();
-  }
-  for (let y = 0; y < H; y += 40) {
-    membraneCtx.beginPath(); membraneCtx.moveTo(0, y); membraneCtx.lineTo(W, y); membraneCtx.stroke();
-  }
 
   if (membraneError) {
     membraneCtx.fillStyle = "#8a8a93";
@@ -254,60 +486,117 @@ function drawMembrane() {
 
   const byId = new Map(membraneNodes.map(nd => [nd.id, nd]));
 
+  const neighbors = new Set();
+  if (mSelectedNode) {
+    neighbors.add(mSelectedNode);
+    for (const e of membraneEdges) {
+      if (e.from_node === mSelectedNode) neighbors.add(e.to_node);
+      if (e.to_node === mSelectedNode) neighbors.add(e.from_node);
+    }
+  }
+
+  // Aplicar pan y zoom
+  membraneCtx.save();
+  membraneCtx.translate(mPanX, mPanY);
+  membraneCtx.scale(mZoom, mZoom);
+
+  // ---- ARISTAS RECTAS (estilo Obsidian) ----
   membraneCtx.lineCap = "round";
   for (const e of membraneEdges) {
     const a = byId.get(e.from_node), b = byId.get(e.to_node);
     if (!a || !b) continue;
+
+    const connectedToSelected = !mSelectedNode ||
+      (e.from_node === mSelectedNode || e.to_node === mSelectedNode);
+
     const w = e.weight || 1;
-    const alpha = Math.min(0.7, 0.2 + w * 0.12);
-    membraneCtx.strokeStyle = "rgba(150, 160, 240, " + alpha.toFixed(3) + ")";
-    membraneCtx.lineWidth = Math.min(3, 0.8 + w * 0.5);
+    let alpha = Math.min(0.55, 0.15 + w * 0.08);
+    if (!connectedToSelected) alpha = 0.05;
+
+    membraneCtx.strokeStyle = "rgba(160, 170, 200, " + alpha.toFixed(3) + ")";
+    membraneCtx.lineWidth = Math.min(2, 0.6 + w * 0.3);
     membraneCtx.beginPath();
     membraneCtx.moveTo(a.x, a.y);
     membraneCtx.lineTo(b.x, b.y);
     membraneCtx.stroke();
   }
 
+  // ---- NODOS SOLIDOS (estilo Obsidian) ----
   membraneCtx.textAlign = "center";
   for (const nd of membraneNodes) {
     const color = NODE_TYPE_COLORS[nd.node_type] || "#6366f1";
-    const glowR = nd.r + 6;
-    const gradient = membraneCtx.createRadialGradient(nd.x, nd.y, nd.r * 0.5, nd.x, nd.y, glowR);
-    gradient.addColorStop(0, color);
-    gradient.addColorStop(1, "rgba(0,0,0,0)");
-    membraneCtx.fillStyle = gradient;
-    membraneCtx.beginPath();
-    membraneCtx.arc(nd.x, nd.y, glowR, 0, Math.PI * 2);
-    membraneCtx.fill();
+    const isSelected = mSelectedNode === nd.id;
+    const isNeighbor = mSelectedNode && neighbors.has(nd.id);
+    const dimmed = mSelectedNode && !isNeighbor;
 
+    const opacity = dimmed ? 0.15 : 1.0;
+
+    // Círculo sólido
+    membraneCtx.globalAlpha = opacity;
     membraneCtx.fillStyle = color;
     membraneCtx.beginPath();
     membraneCtx.arc(nd.x, nd.y, nd.r, 0, Math.PI * 2);
     membraneCtx.fill();
 
-    membraneCtx.strokeStyle = "#0b0b0e";
-    membraneCtx.lineWidth = 2;
-    membraneCtx.stroke();
+    // Si está seleccionado, un aro fino alrededor
+    if (isSelected) {
+      membraneCtx.strokeStyle = "#ffffff";
+      membraneCtx.lineWidth = 1.5 / mZoom;
+      membraneCtx.beginPath();
+      membraneCtx.arc(nd.x, nd.y, nd.r + 3 / mZoom, 0, Math.PI * 2);
+      membraneCtx.stroke();
+    }
+    membraneCtx.globalAlpha = 1;
 
-    const label = String(nd.label || nd.id || "").slice(0, 22);
+    // Label: tenue y pequeño. Solo se ilumina el del nodo seleccionado.
+    const label = String(nd.label || nd.id || "").slice(0, 24);
     if (label) {
-      membraneCtx.font = "10px monospace";
+      const isHighlight = isSelected || (isNeighbor && mSelectedNode);
+      const labelAlpha = dimmed ? 0.12 : (isHighlight ? 1 : 0.55);
+      const fontSize = isHighlight ? 12 : 10;
+      membraneCtx.font = (isHighlight ? "bold " : "") + fontSize + "px monospace";
       const tw = membraneCtx.measureText(label).width;
-      const lx = nd.x, ly = nd.y + nd.r + 14;
-      membraneCtx.fillStyle = "rgba(11, 11, 14, 0.85)";
-      membraneCtx.fillRect(lx - tw / 2 - 4, ly - 9, tw + 8, 13);
-      membraneCtx.fillStyle = "#ececf1";
+      const lx = nd.x, ly = nd.y + nd.r + 12;
+
+      membraneCtx.globalAlpha = labelAlpha;
+      membraneCtx.fillStyle = isHighlight ? "#ffffff" : "#d0d0d8";
       membraneCtx.fillText(label, lx, ly);
+      membraneCtx.globalAlpha = 1;
     }
   }
 
+  membraneCtx.restore();
+
+  // ---- HUD ----
   membraneCtx.textAlign = "right";
   membraneCtx.font = "11px monospace";
-  membraneCtx.fillStyle = "#8a8a93";
+  membraneCtx.fillStyle = "#7a7a83";
   membraneCtx.fillText(
     (membraneCounts.nodes || 0) + " nodos · " + (membraneCounts.edges || 0) + " aristas",
-    W - 12, H - 12
+    W - 14, H - 14
   );
+
+  membraneCtx.textAlign = "left";
+  membraneCtx.font = "10px monospace";
+  membraneCtx.fillStyle = "#4a4a53";
+  if (mSelectedNode) {
+    const sel = byId.get(mSelectedNode);
+    const selLabel = sel ? (sel.label || sel.id) : mSelectedNode;
+    membraneCtx.fillStyle = "#facc15";
+    membraneCtx.fillText("Seleccionado: " + String(selLabel).slice(0, 30), 14, 22);
+    membraneCtx.fillStyle = "#4a4a53";
+    membraneCtx.fillText("Toca fuera para deseleccionar", 14, 38);
+  } else {
+    membraneCtx.fillText("Toca un nodo · Arrastra para mover · Pinch para zoom", 14, 22);
+  }
+
+  // Indicador de zoom
+  if (Math.abs(mZoom - 1.0) > 0.01) {
+    membraneCtx.textAlign = "right";
+    membraneCtx.font = "10px monospace";
+    membraneCtx.fillStyle = "#4a4a53";
+    membraneCtx.fillText(mZoom.toFixed(2) + "x", W - 14, 22);
+  }
 
   refreshMembrane(false);
   membraneAnimId = requestAnimationFrame(drawMembrane);
@@ -316,7 +605,7 @@ function drawMembrane() {
 function addNeuronaToGraph() { /* no-op */ }
 
 // ===========================================================================
-// OFICINA
+// OFICINA (sin cambios respecto a V9.0)
 // ===========================================================================
 
 let officeCanvas, officeCtx;
@@ -390,8 +679,6 @@ function buildSpriteCache() {
   }
 }
 
-// Clasifica si una posicion esta en el pasillo H o en alguno de los 3 verticales.
-// Devuelve la "corriente": "H", "VL", "VC", "VR".
 function _corridorOf(x, y) {
   const dh = Math.abs(y - H_Y);
   const dl = Math.abs(x - VL_X);
@@ -404,39 +691,31 @@ function _corridorOf(x, y) {
   return "VR";
 }
 
-// X exacta de cada pasillo vertical
 function _vX(kind) {
   if (kind === "VL") return VL_X;
   if (kind === "VC") return VC_X;
   return VR_X;
 }
 
-// Construye una ruta [ [x,y], [x,y], ... ] que solo usa tramos H o V.
-// Regla: si hay que cambiar de pasillo, se pasa por el cruce (vX, H_Y).
 function _buildPath(cx, cy, tx, ty) {
   const cCorr = _corridorOf(cx, cy);
   const tCorr = _corridorOf(tx, ty);
   const path = [];
 
   if (cCorr === "H" && tCorr === "H") {
-    // Recto por el pasillo H
     path.push([tx, H_Y]);
   } else if (cCorr === "H" && tCorr !== "H") {
-    // Ir por H hasta el cruce del pasillo objetivo, luego bajar
     const vx = _vX(tCorr);
     path.push([vx, H_Y]);
     path.push([vx, ty]);
   } else if (cCorr !== "H" && tCorr === "H") {
-    // Subir hasta el cruce, luego ir por H hasta el objetivo
     const vx = _vX(cCorr);
     path.push([vx, H_Y]);
     path.push([tx, H_Y]);
   } else {
-    // Vertical -> Vertical: subir, cruzar por H, bajar
     const vxC = _vX(cCorr);
     const vxT = _vX(tCorr);
     if (vxC === vxT) {
-      // Mismo vertical: bajar/subir derecho
       path.push([vxC, ty]);
     } else {
       path.push([vxC, H_Y]);
@@ -447,15 +726,12 @@ function _buildPath(cx, cy, tx, ty) {
   return path;
 }
 
-// Elige un punto aleatorio en cualquiera de los pasillos (a nivel de suelo).
 function _pickRandomTarget() {
   const r = Math.random();
   if (r < 0.5) {
-    // Pasillo H
     const x = H_POINTS[Math.floor(Math.random() * H_POINTS.length)];
     return [x, H_Y];
   }
-  // Vertical aleatorio
   const vk = ["VL", "VC", "VR"][Math.floor(Math.random() * 3)];
   const vx = _vX(vk);
   const y = V_POINTS[Math.floor(Math.random() * V_POINTS.length)];
@@ -477,7 +753,6 @@ function _updateAgentMovement(a) {
   const now = Date.now();
 
   if (a.status === "busy") {
-    // El busy siempre vuelve a su home, caminando por pasillos
     const home = HOME_POSITIONS[a.role] || [a.x, a.y];
     if (a.path.length === 0 && (Math.abs(a.x - home[0]) > 3 || Math.abs(a.y - home[1]) > 3)) {
       a.path = _buildPath(a.x, a.y, home[0], home[1]);
@@ -514,7 +789,6 @@ function _updateAgentMovement(a) {
   const step = Math.min(WALK_SPEED, dist);
   a.x += (dx / dist) * step;
   a.y += (dy / dist) * step;
-  // Facing: solo H o V (nunca diagonal)
   if (Math.abs(dx) > Math.abs(dy)) {
     a.facing = dx > 0 ? "right" : "left";
   } else {
