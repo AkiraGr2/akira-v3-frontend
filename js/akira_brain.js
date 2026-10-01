@@ -1,8 +1,12 @@
-// AKIRA ULTRA V2.2 - AUTO STREAM 100% INTERNO - SIN BOTON - AUTO-REPARABLE SEPT 2026
+// AKIRA ULTRA V2.3 - AUTO STREAM 100% INTERNO - SIN BOTON - AUTO-REPARABLE SEPT 2026
 // B1: cabeceras con sesion firmada (usa akiraAuthHeaders de index.html; si no existe, cabecera basica)
 // V8-B5-fix (H-05): ya NO se envia is_owner desde el cliente. El backend lo resuelve
 // unicamente por sesion firmada. El residuo anterior era inofensivo pero confuso.
 // Fase 10.7.2: envia y recibe conversation_id para persistir chats en el servidor.
+// Fase 11.0 (2026-10-01): guardado de chat crudo DESHABILITADO. Las 5 llamadas a
+//   saveNeuronaHibrida quedan comentadas. Razón: el chat crudo se estaba guardando
+//   como "memoria", llenando la base de ruido y violando P1 del Contrato V8.
+//   Se reactivará con extractor real de hechos en Fase 11. Ver Handoff Maestro.
 function _akiraH(){ return (typeof akiraAuthHeaders==='function') ? akiraAuthHeaders() : {'Content-Type':'application/json'}; }
 let selectedImageBase64 = null;
 let selectedImageMime = "image/jpeg";
@@ -10,7 +14,7 @@ let selectedImageMime = "image/jpeg";
 if(!localStorage.getItem("akira_backend_url")){
   localStorage.setItem("akira_backend_url", "https://akira-empresa.onrender.com");
 }
-// 100% AUTO INTERNO - Kira decide sola sin selector visible
+// 100% AUTO INTERNO - Akira decide sola sin selector visible
 let USE_STREAM = true;
 let BACKEND_HEALTHY = false;
 let LAST_LATENCY = 9999;
@@ -21,7 +25,7 @@ function logAutoRepair(action){
   try{
     AUTO_REPAIR_LOG.push({ts: new Date().toISOString(), action, latency: LAST_LATENCY, healthy: BACKEND_HEALTHY, stream: USE_STREAM});
     if(AUTO_REPAIR_LOG.length>20) AUTO_REPAIR_LOG.shift();
-    console.log(`[KIRA AUTO-REPAIR] ${action} | lat ${LAST_LATENCY}ms | healthy ${BACKEND_HEALTHY} | stream ${USE_STREAM}`);
+    console.log(`[AKIRA AUTO-REPAIR] ${action} | lat ${LAST_LATENCY}ms | healthy ${BACKEND_HEALTHY} | stream ${USE_STREAM}`);
     localStorage.setItem("akira_autorepair_log", JSON.stringify(AUTO_REPAIR_LOG.slice(-10)));
   }catch(_){}
 }
@@ -158,7 +162,9 @@ async function sendMsg(){
   const msgToSend = txt || (hasImage ? "Qué ves en esta imagen?" : "");
   inp.value=''; clearImagePreview();
   const tid=addTyping();
-  try{ await saveNeuronaHibrida(msgToSend + (hasImage ? " [imagen]" : ""), 'sensorial', 6, ['user_input', hasImage ? 'vision' : 'text']); }catch(e){}
+  // FASE 11.0 (2026-10-01): guardado de mensaje del usuario DESHABILITADO.
+  // Razón: el chat crudo no es memoria. Ver Handoff Maestro PARTE 16.
+  // try{ await saveNeuronaHibrida(msgToSend + (hasImage ? " [imagen]" : ""), 'sensorial', 6, ['user_input', hasImage ? 'vision' : 'text']); }catch(e){}
   const uid=localStorage.getItem('akira_user_id')||'anon';
   const uk=localStorage.getItem('akira_user_key')||'';
   const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
@@ -190,7 +196,8 @@ async function sendMsg(){
       BACKEND_HEALTHY = true;
     }
     addMsg(resp,'akira');
-    try{ await saveNeuronaHibrida(d.response || "", 'motora', 5, ['akira_response']); }catch(e){}
+    // FASE 11.0 (2026-10-01): guardado de respuesta de Akira DESHABILITADO.
+    // try{ await saveNeuronaHibrida(d.response || "", 'motora', 5, ['akira_response']); }catch(e){}
     await countNeuronas();
   }catch(e){
     removeTyping(tid); if(orb)orb.classList.remove('thinking');
@@ -219,7 +226,8 @@ async function sendMsgStream(){
   const currentImage = selectedImageBase64;
   const msgToSend = txt || (hasImage ? "Qué ves en esta imagen?" : "");
   inp.value=''; clearImagePreview();
-  try{ await saveNeuronaHibrida(msgToSend + (hasImage ? " [imagen]" : ""), 'sensorial', 6, ['user_input']); }catch(e){}
+  // FASE 11.0 (2026-10-01): guardado de mensaje del usuario (stream) DESHABILITADO.
+  // try{ await saveNeuronaHibrida(msgToSend + (hasImage ? " [imagen]" : ""), 'sensorial', 6, ['user_input']); }catch(e){}
   const uid=localStorage.getItem('akira_user_id')||'anon';
   const uk=localStorage.getItem('akira_user_key')||'';
   const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
@@ -276,7 +284,8 @@ async function sendMsgStream(){
                   window.akiraConversations.onConversationIdReceived(j.conversation_id);
                 }
               } catch(_){}
-              try{ await saveNeuronaHibrida(fullText, 'motora', 6, ['akira_response','stream']); }catch(e){}
+              // FASE 11.0 (2026-10-01): guardado de respuesta de Akira (stream) DESHABILITADO.
+              // try{ await saveNeuronaHibrida(fullText, 'motora', 6, ['akira_response','stream']); }catch(e){}
               await countNeuronas();
               if(orb)orb.classList.remove('thinking');
               BACKEND_HEALTHY = true;
@@ -322,7 +331,8 @@ async function sendMsgStream(){
       let resp2 = d2.response||'Conexión restablecida';
       if(b) b.innerHTML = escapeHtml(resp2).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
       if(orb)orb.classList.remove('thinking');
-      try{ await saveNeuronaHibrida(d2.response||"", 'motora', 6, ['akira_response','fallback_auto']); }catch(e2){}
+      // FASE 11.0 (2026-10-01): guardado de respuesta de Akira (fallback) DESHABILITADO.
+      // try{ await saveNeuronaHibrida(d2.response||"", 'motora', 6, ['akira_response','fallback_auto']); }catch(e2){}
       await countNeuronas();
       return;
     }catch(e2){
@@ -404,7 +414,7 @@ function renderLevels(){
     {nivel:"V3 Tavily + Jina", estado:"✅", desc:"Busqueda real web 1000 req/mes", costo:"$0"},
     {nivel:"V4 Streaming AUTO", estado:"✅", desc:"SSE 100% interno auto-reparable sin botón", costo:"$0"},
     {nivel:"V5 Imagen + Video", estado:"✅", desc:"Pollinations flux + gpt-oss-120b Groq", costo:"$0"},
-    {nivel:"V6 Auto-Repair", estado:"✅", desc:"Kira hija autónoma detecta y repara errores", costo:"$0"},
+    {nivel:"V6 Auto-Repair", estado:"✅", desc:"Akira hija autónoma detecta y repara errores", costo:"$0"},
   ];
   const container = document.getElementById("levelsList");
   if(!container) return;
