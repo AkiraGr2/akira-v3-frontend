@@ -1,8 +1,9 @@
-// AKIRA CONVERSATIONS V1.3 — Fase 10.7.2
+// AKIRA CONVERSATIONS V1.4 — Fase 10.7.2
 // Persistencia de conversaciones: sidebar + cargar/guardar chats.
 // V1.1: refrescar sidebar siempre que llega conversation_id.
 // V1.2: actualizaciones optimistas (sin esperar al servidor) + indicador de carga.
 // V1.3: menu contextual por chat (renombrar, eliminar) con boton ⋯ y long-press.
+// V1.4: fix — el listener global ya no mata el menu antes del click del boton.
 (function(){
   "use strict";
 
@@ -114,12 +115,17 @@
   // Menu contextual por chat
   // ============================================================
   let _openMenuEl = null;
+  let _openMenuCleanup = null;
 
   function _closeConvMenu(){
     if (_openMenuEl && _openMenuEl.parentNode) {
-      _openMenuEl.parentNode.removeChild(_openMenuEl);
+      try { _openMenuEl.parentNode.removeChild(_openMenuEl); } catch(_){}
     }
     _openMenuEl = null;
+    if (typeof _openMenuCleanup === 'function') {
+      try { _openMenuCleanup(); } catch(_){}
+      _openMenuCleanup = null;
+    }
   }
 
   function _showConvMenu(convId, anchorEl, title){
@@ -127,17 +133,15 @@
     const menu = document.createElement('div');
     menu.className = 'conv-menu';
     menu.innerHTML = ''
-      + '<button class="conv-menu-item" data-action="rename">✏️ Renombrar</button>'
-      + '<button class="conv-menu-item conv-menu-danger" data-action="delete">🗑️ Eliminar</button>';
+      + '<button type="button" class="conv-menu-item" data-action="rename">✏️ Renombrar</button>'
+      + '<button type="button" class="conv-menu-item conv-menu-danger" data-action="delete">🗑️ Eliminar</button>';
     document.body.appendChild(menu);
 
-    // Posicionar cerca del anchor
     try {
       const r = anchorEl.getBoundingClientRect();
       const menuRect = menu.getBoundingClientRect();
       let top = r.bottom + 4;
       let left = r.right - menuRect.width;
-      // Ajustes si se sale de la pantalla
       if (top + menuRect.height > window.innerHeight - 8) {
         top = r.top - menuRect.height - 4;
       }
@@ -162,15 +166,24 @@
 
     _openMenuEl = menu;
 
-    // Cerrar al tocar fuera
+    // Listener que cierra al tocar fuera — pero IGNORA clicks dentro del menu.
+    // Se registra despues de un tick para no capturar el evento que abrio el menu.
     setTimeout(function(){
-      document.addEventListener('click', _globalCloseOnce, {once: true});
-      document.addEventListener('touchstart', _globalCloseOnce, {once: true});
-    }, 50);
-  }
-
-  function _globalCloseOnce(){
-    _closeConvMenu();
+      if (!_openMenuEl) return;
+      const closer = function(ev){
+        const t = ev.target;
+        if (t && t.closest && t.closest('.conv-menu')) {
+          return;  // toque dentro del menu -> no cerrar
+        }
+        _closeConvMenu();
+      };
+      document.addEventListener('click', closer);
+      document.addEventListener('touchstart', closer);
+      _openMenuCleanup = function(){
+        document.removeEventListener('click', closer);
+        document.removeEventListener('touchstart', closer);
+      };
+    }, 120);
   }
 
   async function _renameConversation(convId, currentTitle){
@@ -188,7 +201,6 @@
       alert("No se pudo renombrar: " + reason);
       return;
     }
-    // Update optimista
     const idx = api.convsCache.findIndex(function(c){ return c.id === convId; });
     if (idx >= 0) {
       api.convsCache[idx].title = t;
@@ -207,10 +219,8 @@
       alert("No se pudo eliminar: " + reason);
       return;
     }
-    // Update optimista
     api.convsCache = api.convsCache.filter(function(c){ return c.id !== convId; });
     api.renderList(api.convsCache);
-    // Si era la activa, limpiar pantalla y estado
     if (_getCurrentId() === convId) {
       api.currentId = null;
       _setCurrentId(null);
@@ -219,7 +229,7 @@
   }
 
   // ============================================================
-  // Long press (mantener presionado)
+  // Long press
   // ============================================================
   function _attachLongPress(el, convId, title, anchor){
     let timer = null;
@@ -314,15 +324,14 @@
         const count = Number(c.message_count || 0);
         return ''
           + '<div class="conv-item" data-conv-id="' + _esc(id) + '">'
-          +   '<button class="conv-main" data-conv-id="' + _esc(id) + '" title="' + title + '">'
+          +   '<button type="button" class="conv-main" data-conv-id="' + _esc(id) + '" title="' + title + '">'
           +     '<span class="conv-title">' + title + '</span>'
           +     '<span class="conv-meta">' + count + '·' + date + '</span>'
           +   '</button>'
-          +   '<button class="conv-dots" data-conv-id="' + _esc(id) + '" title="Opciones" aria-label="Opciones">⋯</button>'
+          +   '<button type="button" class="conv-dots" data-conv-id="' + _esc(id) + '" title="Opciones" aria-label="Opciones">⋯</button>'
           + '</div>';
       }).join('');
 
-      // Handlers de click
       listEl.querySelectorAll('.conv-main').forEach(function(el){
         el.addEventListener('click', function(ev){
           ev.stopPropagation();
@@ -339,7 +348,6 @@
           _showConvMenu(convId, el, title);
         });
       });
-      // Long press en el item completo
       listEl.querySelectorAll('.conv-item').forEach(function(el){
         const convId = el.dataset.convId;
         const conv = api.convsCache.find(function(c){ return c.id === convId; });
@@ -435,9 +443,6 @@
 
   window.akiraConversations = api;
 
-  // ============================================================
-  // Estilos
-  // ============================================================
   function _injectStyles(){
     if (document.getElementById('akira-conv-styles')) return;
     const style = document.createElement('style');
@@ -469,7 +474,6 @@
       });
     }, 400);
     setInterval(function(){ api.loadList(); }, 60000);
-    // Cerrar menu al hacer scroll o resize
     window.addEventListener('resize', _closeConvMenu);
     window.addEventListener('scroll', _closeConvMenu, true);
   });
