@@ -1,12 +1,14 @@
-// AKIRA CONVERSATIONS V1.2 — Fase 10.7.2
+// AKIRA CONVERSATIONS V1.3 — Fase 10.7.2
 // Persistencia de conversaciones: sidebar + cargar/guardar chats.
 // V1.1: refrescar sidebar siempre que llega conversation_id.
 // V1.2: actualizaciones optimistas (sin esperar al servidor) + indicador de carga.
+// V1.3: menu contextual por chat (renombrar, eliminar) con boton ⋯ y long-press.
 (function(){
   "use strict";
 
   const BACKEND = () => localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
   const LS_CURRENT = "akira_current_conversation_id";
+  const LONG_PRESS_MS = 600;
 
   function _akiraH(){
     if (typeof window.akiraAuthHeaders === 'function') {
@@ -79,7 +81,9 @@
     return String(s == null ? "" : s)
       .replace(/&/g,'&amp;')
       .replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;');
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
   }
 
   function _formatTitle(t){
@@ -106,35 +110,179 @@
     } catch(_){ return ""; }
   }
 
+  // ============================================================
+  // Menu contextual por chat
+  // ============================================================
+  let _openMenuEl = null;
+
+  function _closeConvMenu(){
+    if (_openMenuEl && _openMenuEl.parentNode) {
+      _openMenuEl.parentNode.removeChild(_openMenuEl);
+    }
+    _openMenuEl = null;
+  }
+
+  function _showConvMenu(convId, anchorEl, title){
+    _closeConvMenu();
+    const menu = document.createElement('div');
+    menu.className = 'conv-menu';
+    menu.innerHTML = ''
+      + '<button class="conv-menu-item" data-action="rename">✏️ Renombrar</button>'
+      + '<button class="conv-menu-item conv-menu-danger" data-action="delete">🗑️ Eliminar</button>';
+    document.body.appendChild(menu);
+
+    // Posicionar cerca del anchor
+    try {
+      const r = anchorEl.getBoundingClientRect();
+      const menuRect = menu.getBoundingClientRect();
+      let top = r.bottom + 4;
+      let left = r.right - menuRect.width;
+      // Ajustes si se sale de la pantalla
+      if (top + menuRect.height > window.innerHeight - 8) {
+        top = r.top - menuRect.height - 4;
+      }
+      if (left < 8) left = 8;
+      if (left + menuRect.width > window.innerWidth - 8) {
+        left = window.innerWidth - menuRect.width - 8;
+      }
+      menu.style.top = top + 'px';
+      menu.style.left = left + 'px';
+    } catch(_){}
+
+    menu.querySelectorAll('.conv-menu-item').forEach(function(btn){
+      btn.addEventListener('click', function(ev){
+        ev.stopPropagation();
+        ev.preventDefault();
+        const action = btn.dataset.action;
+        _closeConvMenu();
+        if (action === 'rename') _renameConversation(convId, title);
+        else if (action === 'delete') _deleteConversation(convId, title);
+      });
+    });
+
+    _openMenuEl = menu;
+
+    // Cerrar al tocar fuera
+    setTimeout(function(){
+      document.addEventListener('click', _globalCloseOnce, {once: true});
+      document.addEventListener('touchstart', _globalCloseOnce, {once: true});
+    }, 50);
+  }
+
+  function _globalCloseOnce(){
+    _closeConvMenu();
+  }
+
+  async function _renameConversation(convId, currentTitle){
+    const newTitle = prompt("Nuevo nombre:", currentTitle || "");
+    if (newTitle === null) return;
+    const t = String(newTitle).trim();
+    if (!t) return;
+    if (t === currentTitle) return;
+    const r = await _fetchJson("/api/v8/conversations/" + encodeURIComponent(convId), {
+      method: "PATCH",
+      body: JSON.stringify({title: t})
+    });
+    if (!r.ok || !r.data || !r.data.ok) {
+      const reason = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
+      alert("No se pudo renombrar: " + reason);
+      return;
+    }
+    // Update optimista
+    const idx = api.convsCache.findIndex(function(c){ return c.id === convId; });
+    if (idx >= 0) {
+      api.convsCache[idx].title = t;
+      api.renderList(api.convsCache);
+    }
+  }
+
+  async function _deleteConversation(convId, title){
+    const ok = confirm("¿Eliminar el chat '" + (title || "") + "'?\n\nDesaparecerá de la lista. No se puede deshacer desde aquí.");
+    if (!ok) return;
+    const r = await _fetchJson("/api/v8/conversations/" + encodeURIComponent(convId), {
+      method: "DELETE"
+    });
+    if (!r.ok || !r.data || !r.data.ok) {
+      const reason = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
+      alert("No se pudo eliminar: " + reason);
+      return;
+    }
+    // Update optimista
+    api.convsCache = api.convsCache.filter(function(c){ return c.id !== convId; });
+    api.renderList(api.convsCache);
+    // Si era la activa, limpiar pantalla y estado
+    if (_getCurrentId() === convId) {
+      api.currentId = null;
+      _setCurrentId(null);
+      _showEmptyChat();
+    }
+  }
+
+  // ============================================================
+  // Long press (mantener presionado)
+  // ============================================================
+  function _attachLongPress(el, convId, title, anchor){
+    let timer = null;
+    let startX = 0, startY = 0;
+    let moved = false;
+
+    function _onStart(ev){
+      const t = ev.touches ? ev.touches[0] : ev;
+      startX = t.clientX;
+      startY = t.clientY;
+      moved = false;
+      timer = setTimeout(function(){
+        timer = null;
+        if (!moved) {
+          _showConvMenu(convId, anchor, title);
+        }
+      }, LONG_PRESS_MS);
+    }
+    function _onMove(ev){
+      const t = ev.touches ? ev.touches[0] : ev;
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        moved = true;
+        if (timer) { clearTimeout(timer); timer = null; }
+      }
+    }
+    function _onEnd(){
+      if (timer) { clearTimeout(timer); timer = null; }
+    }
+
+    el.addEventListener('touchstart', _onStart, {passive: true});
+    el.addEventListener('touchmove', _onMove, {passive: true});
+    el.addEventListener('touchend', _onEnd);
+    el.addEventListener('touchcancel', _onEnd);
+  }
+
+  // ============================================================
+  // API publica
+  // ============================================================
   const api = {
     currentId: null,
-    convsCache: [],   // Última lista recibida del servidor (para updates optimistas)
+    convsCache: [],
 
-    // Llamado por akira_brain.js al enviar mensajes
     getConversationIdForRequest: function(){
       return api.currentId || _getCurrentId();
     },
 
-    // Llamado por akira_brain.js cuando el backend responde con un conversation_id.
-    // V1.2: update optimista — incrementa contador y refresca la lista SIN esperar al servidor.
     onConversationIdReceived: function(newId){
       if (!newId) return;
       const changed = (newId !== api.currentId);
       api.currentId = newId;
       _setCurrentId(newId);
 
-      // Update optimista de la lista local (evita esperar al servidor)
       const idx = api.convsCache.findIndex(function(c){ return c.id === newId; });
       if (idx >= 0) {
         const conv = api.convsCache[idx];
-        conv.message_count = (Number(conv.message_count) || 0) + 2;  // user + assistant
+        conv.message_count = (Number(conv.message_count) || 0) + 2;
         conv.last_message_at = new Date().toISOString();
-        // Mover al top
         api.convsCache.splice(idx, 1);
         api.convsCache.unshift(conv);
         api.renderList(api.convsCache);
       } else {
-        // Conversación nueva: hay que pedir sus datos al servidor
         api.loadList();
       }
 
@@ -145,9 +293,7 @@
       const listEl = document.getElementById('historyList');
       if (!listEl) return;
       const r = await _fetchJson("/api/v8/conversations?limit=30");
-      if (!r.ok || !r.data || !r.data.ok) {
-        return;
-      }
+      if (!r.ok || !r.data || !r.data.ok) return;
       const convs = r.data.conversations || [];
       api.convsCache = convs;
       api.renderList(convs);
@@ -162,25 +308,50 @@
       }
       listEl.innerHTML = convs.map(function(c){
         const id = c.id;
-        const title = _esc(_formatTitle(c.title));
+        const rawTitle = String(c.title || "");
+        const title = _esc(_formatTitle(rawTitle));
         const date = _esc(_formatDate(c.last_message_at || c.created_at));
         const count = Number(c.message_count || 0);
-        return '<button class="conv-item" data-conv-id="' + _esc(id) + '" title="' + title + '">'
-          + '<span class="conv-title">' + title + '</span>'
-          + '<span class="conv-meta">' + count + '·' + date + '</span>'
-          + '</button>';
+        return ''
+          + '<div class="conv-item" data-conv-id="' + _esc(id) + '">'
+          +   '<button class="conv-main" data-conv-id="' + _esc(id) + '" title="' + title + '">'
+          +     '<span class="conv-title">' + title + '</span>'
+          +     '<span class="conv-meta">' + count + '·' + date + '</span>'
+          +   '</button>'
+          +   '<button class="conv-dots" data-conv-id="' + _esc(id) + '" title="Opciones" aria-label="Opciones">⋯</button>'
+          + '</div>';
       }).join('');
-      listEl.querySelectorAll('.conv-item').forEach(function(el){
-        el.addEventListener('click', function(){
+
+      // Handlers de click
+      listEl.querySelectorAll('.conv-main').forEach(function(el){
+        el.addEventListener('click', function(ev){
+          ev.stopPropagation();
           api.openConversation(el.dataset.convId);
         });
       });
+      listEl.querySelectorAll('.conv-dots').forEach(function(el){
+        el.addEventListener('click', function(ev){
+          ev.stopPropagation();
+          ev.preventDefault();
+          const convId = el.dataset.convId;
+          const conv = api.convsCache.find(function(c){ return c.id === convId; });
+          const title = conv ? conv.title : "";
+          _showConvMenu(convId, el, title);
+        });
+      });
+      // Long press en el item completo
+      listEl.querySelectorAll('.conv-item').forEach(function(el){
+        const convId = el.dataset.convId;
+        const conv = api.convsCache.find(function(c){ return c.id === convId; });
+        const title = conv ? conv.title : "";
+        _attachLongPress(el, convId, title, el.querySelector('.conv-dots') || el);
+      });
+
       _highlightCurrentInList();
     },
 
     async openConversation(convId){
       if (!convId) return;
-      // Feedback visual inmediato
       _showLoading("Abriendo conversación…");
       api.currentId = convId;
       _setCurrentId(convId);
@@ -231,43 +402,6 @@
       try { document.getElementById('msg').focus(); } catch(_){ }
     },
 
-    async renameCurrent(newTitle){
-      if (!api.currentId) { alert("No hay conversación activa"); return; }
-      const t = (newTitle || "").trim();
-      if (!t) return;
-      const r = await _fetchJson("/api/v8/conversations/" + encodeURIComponent(api.currentId), {
-        method: "PATCH",
-        body: JSON.stringify({title: t})
-      });
-      if (!r.ok || !r.data || !r.data.ok) {
-        const reason = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
-        alert("No se pudo renombrar: " + reason);
-        return;
-      }
-      // Update optimista del título en cache
-      const idx = api.convsCache.findIndex(function(c){ return c.id === api.currentId; });
-      if (idx >= 0) {
-        api.convsCache[idx].title = t;
-        api.renderList(api.convsCache);
-      }
-    },
-
-    async archiveCurrent(){
-      if (!api.currentId) { alert("No hay conversación activa"); return; }
-      const r = await _fetchJson("/api/v8/conversations/" + encodeURIComponent(api.currentId), {
-        method: "DELETE"
-      });
-      if (!r.ok || !r.data || !r.data.ok) {
-        const reason = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
-        alert("No se pudo archivar: " + reason);
-        return;
-      }
-      // Update optimista: quitarla de la lista
-      api.convsCache = api.convsCache.filter(function(c){ return c.id !== api.currentId; });
-      api.newChat();
-      api.renderList(api.convsCache);
-    },
-
     async restoreLast(){
       const lastId = _getCurrentId();
       if (!lastId) return;
@@ -301,18 +435,29 @@
 
   window.akiraConversations = api;
 
+  // ============================================================
+  // Estilos
+  // ============================================================
   function _injectStyles(){
     if (document.getElementById('akira-conv-styles')) return;
     const style = document.createElement('style');
     style.id = 'akira-conv-styles';
     style.textContent = ''
       + '#historyList { display:flex; flex-direction:column; gap:3px; margin-top:4px; overflow-y:auto; }'
-      + '.conv-item { display:flex; justify-content:space-between; align-items:center; gap:6px; background:transparent; border:2px solid transparent; color:#ececf1; font-family:"Pixelify Sans", sans-serif; font-size:12px; padding:8px 10px; cursor:pointer; text-align:left; border-radius:4px; width:100%; }'
+      + '.conv-item { display:flex; align-items:center; gap:2px; border-radius:4px; width:100%; }'
       + '.conv-item:hover { background:#1c1c22; }'
-      + '.conv-item.conv-active { background:#1e1e26; border-color:var(--border, #2a2a36); }'
+      + '.conv-item.conv-active { background:#1e1e26; box-shadow:inset 0 0 0 2px var(--border, #2a2a36); }'
+      + '.conv-main { flex:1; display:flex; justify-content:space-between; align-items:center; gap:6px; background:transparent; border:none; color:#ececf1; font-family:"Pixelify Sans", sans-serif; font-size:12px; padding:8px 6px 8px 10px; cursor:pointer; text-align:left; min-width:0; }'
       + '.conv-title { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#ececf1; }'
       + '.conv-meta { font-size:10px; color:#8a8a93; flex-shrink:0; }'
-      + '.conv-empty { font-size:11px; color:#8a8a93; padding:10px; text-align:center; font-family:"Pixelify Sans", sans-serif; }';
+      + '.conv-dots { background:transparent; border:none; color:#8a8a93; font-size:16px; padding:6px 8px; cursor:pointer; border-radius:4px; line-height:1; flex-shrink:0; }'
+      + '.conv-dots:hover { background:#2a2a36; color:#fff; }'
+      + '.conv-empty { font-size:11px; color:#8a8a93; padding:10px; text-align:center; font-family:"Pixelify Sans", sans-serif; }'
+      + '.conv-menu { position:fixed; z-index:9999; background:#1a1a20; border:2px solid #2a2a36; border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,0.5); padding:4px; min-width:150px; font-family:"Pixelify Sans", sans-serif; }'
+      + '.conv-menu-item { display:block; width:100%; background:transparent; border:none; color:#ececf1; font-family:inherit; font-size:13px; padding:10px 12px; text-align:left; cursor:pointer; border-radius:4px; }'
+      + '.conv-menu-item:hover { background:#2a2a36; }'
+      + '.conv-menu-danger { color:#ff7b72; }'
+      + '.conv-menu-danger:hover { background:#3a1f1f; }';
     document.head.appendChild(style);
   }
 
@@ -324,6 +469,9 @@
       });
     }, 400);
     setInterval(function(){ api.loadList(); }, 60000);
+    // Cerrar menu al hacer scroll o resize
+    window.addEventListener('resize', _closeConvMenu);
+    window.addEventListener('scroll', _closeConvMenu, true);
   });
 
 })();
