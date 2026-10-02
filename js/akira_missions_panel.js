@@ -1042,6 +1042,18 @@
     return [];
   }
 
+  function formatTaskPayload(value, maxChars = 1800) {
+    if (value === undefined || value === null) return "";
+    let raw = "";
+    try {
+      raw = JSON.stringify(value, null, 2);
+    } catch (e) {
+      raw = String(value);
+    }
+    raw = String(raw);
+    return escapeHtml(raw.slice(0, maxChars) + (raw.length > maxChars ? "\n…" : ""));
+  }
+
   function renderTasks(
     mission,
     tasks
@@ -1147,6 +1159,27 @@
                       : ""
                   }
 
+                  ${
+                    task?.inputs && Object.keys(task.inputs).length
+                      ? `
+                        <details class="mission-task-data">
+                          <summary>Entrada usada</summary>
+                          <pre>${formatTaskPayload(task.inputs)}</pre>
+                        </details>
+                      `
+                      : ""
+                  }
+
+                  ${
+                    task?.outputs && Object.keys(task.outputs).length
+                      ? `
+                        <details class="mission-task-data">
+                          <summary>Salida producida</summary>
+                          <pre>${formatTaskPayload(task.outputs)}</pre>
+                        </details>
+                      `
+                      : ""
+                  }
                 </div>
 
                 <span class="mission-status mission-status-${statusClass(
