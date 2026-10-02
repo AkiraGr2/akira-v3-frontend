@@ -698,8 +698,8 @@
     const adjacency = new Map(ids.map(id => [id, []]));
 
     for(const l of links){
-      const a = nodeId(l.source);
-      const b = nodeId(l.target);
+      const a = nodeId(l.source ?? l.from_node);
+      const b = nodeId(l.target ?? l.to_node);
       if(a === b || !adjacency.has(a) || !adjacency.has(b)) continue;
       const w = Math.max(0.02, Number(l.weight) || 0.5);
       adjacency.get(a).push([b, w]);
@@ -862,7 +862,7 @@
       maxes.reuse = Math.max(maxes.reuse, Number(n.reuse_count)||0);
     }
     for(const l of links){
-      const a=nodeId(l.source), b=nodeId(l.target);
+      const a=nodeId(l.source ?? l.from_node), b=nodeId(l.target ?? l.to_node);
       if(degree.has(a)) degree.set(a, degree.get(a)+1);
       if(degree.has(b)) degree.set(b, degree.get(b)+1);
     }
