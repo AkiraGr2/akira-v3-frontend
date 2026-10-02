@@ -106,6 +106,7 @@
     const selected = String(n.id) === String(selectedNodeId);
     const core = !!n._isCore;
     const related = nodeIsRelated(n);
+    const hub = !!n._isCommunityHub;
     const dim = !!selectedNodeId && !selected && !related;
     const body = group.userData.body;
     const glow = group.userData.glow;
@@ -123,9 +124,13 @@
       glow.material.opacity = dim ? 0.025 : (selected ? 0.25 : (core ? 0.18 : 0.09));
     }
     if(ring){
-      ring.visible = core || selected;
+      ring.visible = core || selected || hub;
       if(ring.material){
-        ring.material.color.setHex(selected ? 0xffffff : 0xff6b6b);
+        ring.material.color.setHex(
+          selected ? 0xffffff :
+          core ? 0xff6b6b :
+          hexColor(colorForNode(n,false))
+        );
         ring.material.opacity = dim ? 0.08 : 0.7;
       }
     }
@@ -135,6 +140,7 @@
       group.scale.setScalar(Math.max(0.55, Math.min(1.65, scale)));
     }
     group.userData.nodeId = String(n.id);
+    group.userData.importance = Number(n._importance) || 0.2;
     group.userData.dimmed = dim;
   }
 
@@ -324,6 +330,28 @@
       clusters.get(clusterId).push(id);
     });
 
+    const hubs = new Set();
+    clusters.forEach(members => {
+      let best = null;
+      let bestScore = -1;
+      for(const id of members){
+        const score =
+          (degree.get(id) || 0) +
+          (importance.get(id) || 0) * 2;
+        if(score > bestScore){
+          bestScore = score;
+          best = id;
+        }
+      }
+      if(best) hubs.add(best);
+    });
+
+    nodes.forEach(n => {
+      const id = String(n.id);
+      n._isCommunityHub = hubs.has(id);
+      n._communitySize = clusters.get(assignments.get(id))?.length || 1;
+    });
+
     const centers = new Map();
     const clusterList = [...clusters.entries()].sort((a,b) => b[1].length-a[1].length || a[0].localeCompare(b[0]));
     const ring = Math.max(95, Math.min(260, 90 + Math.sqrt(Math.max(nodes.length,1))*8));
@@ -341,7 +369,7 @@
       });
     });
 
-    communityState = {assignments, centers, count: clusterList.length};
+    communityState = {assignments, centers, hubs, count: clusterList.length};
     return communityState;
   }
 
@@ -352,19 +380,39 @@
       for(const n of nodes){
         const id=String(n.id);
         if(n._isCore){
-          n.vx += (0-n.x) * 0.16 * alpha;
-          n.vy += (0-n.y) * 0.16 * alpha;
-          n.vz += (0-n.z) * 0.16 * alpha;
+          n.vx += (0-n.x) * 0.18 * alpha;
+          n.vy += (0-n.y) * 0.18 * alpha;
+          n.vz += (0-n.z) * 0.18 * alpha;
           continue;
         }
+
         const clusterId = currentState.assignments.get(id);
         const center = currentState.centers.get(clusterId);
         if(!center) continue;
-        const strength = 0.055 + (Number(n._importance)||0) * 0.055;
+
+        const importance = Number(n._importance) || 0.2;
+        const hub = !!n._isCommunityHub;
+        const strength = hub
+          ? 0.085 + importance * 0.045
+          : 0.052 + importance * 0.052;
+
         n.vx += (center.x-n.x) * strength * alpha;
         n.vy += (center.y-n.y) * strength * alpha;
-        const targetZ = center.z + ((Number(n._importance)||0)-0.45) * 150;
+
+        const targetZ =
+          center.z +
+          (importance - 0.45) * 155;
+
         n.vz += (targetZ-n.z) * strength * alpha;
+
+        // Micro-órbita: movimiento tangencial muy suave alrededor
+        // del centro comunitario, derivado de la pertenencia al cluster.
+        const dx = n.x - center.x;
+        const dy = n.y - center.y;
+        const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+        const tangent = 0.0028 * (0.55 + importance) * (hub ? 0.35 : 1);
+        n.vx += (-dy / dist) * tangent * alpha;
+        n.vy += ( dx / dist) * tangent * alpha;
       }
     };
     force.initialize = _nodes => { nodes = _nodes || []; };
@@ -602,9 +650,9 @@
       .showNavInfo(false)
       .controlType("orbit")
       .enablePointerInteraction(true)
-      .cooldownTime(graphData.nodes.length > 280 ? 8500 : 6500)
-      .warmupTicks(graphData.nodes.length > 280 ? 120 : 80)
-      .cooldownTicks(220);
+      .cooldownTime(graphData.nodes.length > 280 ? 17000 : 12000)
+      .warmupTicks(graphData.nodes.length > 280 ? 150 : 95)
+      .cooldownTicks(360);
 
     try {
       const controls = fg.controls();
@@ -689,11 +737,17 @@
             if(obj.userData && obj.userData.ring){
               const pulse = 1 + Math.sin(t + phase) * 0.06;
               obj.userData.ring.scale.setScalar(pulse);
-              obj.userData.ring.rotation.z += 0.003;
+              obj.userData.ring.rotation.z += obj.userData.nodeId === String(selectedNodeId) ? 0.006 : 0.0025;
             }
             if(obj.userData && obj.userData.glow){
-              const pulse = 0.96 + (Math.sin(t * 1.15 + phase) + 1) * 0.07;
+              const importance = Number(obj.userData.importance) || 0.2;
+              const pulse = 0.95 + (Math.sin(t * (1.0 + importance * 0.5) + phase) + 1) * (0.055 + importance * 0.035);
               obj.userData.glow.scale.setScalar(pulse);
+            }
+            if(obj.userData && obj.userData.body){
+              const importance = Number(obj.userData.importance) || 0.2;
+              obj.userData.body.rotation.y += 0.0008 + importance * 0.0014;
+              obj.userData.body.rotation.x += 0.0003 + importance * 0.0005;
             }
           });
         });
