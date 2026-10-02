@@ -488,6 +488,8 @@ function _computeSeedPositions(
 
 function _forceFlowerPositions(nodes, edges, coreId) {
   if(!cyMembrane) return;
+  try { cyMembrane.resize(); } catch(_) {}
+
   const normalizedCoreId = coreId == null ? null : String(coreId);
   const W = cyMembrane.width() || 800;
   const H = cyMembrane.height() || 600;
@@ -497,13 +499,18 @@ function _forceFlowerPositions(nodes, edges, coreId) {
   const coreEl = normalizedCoreId
     ? cyMembrane.getElementById(normalizedCoreId)
     : cyMembrane.nodes(".core").first();
-
   if(!coreEl || coreEl.empty()) return;
   coreEl.position({x:cx,y:cy});
 
   const assignments = _communityState && _communityState.assignments instanceof Map
     ? _communityState.assignments
     : new Map();
+
+  const scoreNode = n =>
+    (Number(n.weight)||0) * 1.2 +
+    (Number(n.reuse_count)||0) * 0.55 +
+    (Number(n.confidence)||0) * 1.4 +
+    (Number(n._importance)||0) * 2;
 
   const groups = new Map();
   for(const n of nodes){
@@ -514,77 +521,97 @@ function _forceFlowerPositions(nodes, edges, coreId) {
     groups.get(cluster).push(n);
   }
 
-  let petals = [...groups.entries()]
-    .sort((a,b)=>b[1].length-a[1].length || String(a[0]).localeCompare(String(b[0])))
-    .slice(0,8);
+  const entries = [...groups.entries()]
+    .sort((a,b)=>b[1].length-a[1].length || String(a[0]).localeCompare(String(b[0])));
+  if(!entries.length) return;
 
-  if(!petals.length) return;
+  const PETAL_COUNT = Math.min(8, Math.max(5, entries.length));
+  const petals = Array.from({length:PETAL_COUNT},()=>[]);
+  entries.forEach((entry,i)=>petals[i % PETAL_COUNT].push(entry));
 
-  const maxPetalSize = Math.max(...petals.map(([,members])=>members.length),1);
-  const baseR = Math.min(W,H) * (petals.length <= 5 ? 0.29 : 0.33);
-  const maxR = Math.min(W,H) * 0.46;
-  const golden = Math.PI * (3 - Math.sqrt(5));
+  const minDim = Math.max(260, Math.min(W,H));
+  const innerR = Math.min(120, Math.max(78, minDim * 0.20));
+  const outerR = Math.min(minDim * 0.43, innerR + Math.max(100, minDim * 0.25));
+  const span = Math.max(70, outerR-innerR);
+  const halfSpread = Math.min(0.50, (Math.PI / PETAL_COUNT) * 0.72);
+  const golden = 0.6180339887498949;
 
-  petals.forEach(([clusterId,members], i)=>{
-    const angle = -Math.PI/2 + (i / petals.length) * Math.PI * 2;
-    const sizeFactor = Math.sqrt(members.length / maxPetalSize);
-    const petalR = Math.min(maxR, baseR + sizeFactor * 70);
-    const hubX = cx + Math.cos(angle) * petalR;
-    const hubY = cy + Math.sin(angle) * petalR;
+  petals.forEach((bundle,i)=>{
+    const angle = -Math.PI/2 + (i / PETAL_COUNT) * Math.PI * 2;
+    const members = bundle.flatMap(x=>x[1]);
+    members.sort((x,y)=>scoreNode(y)-scoreNode(x) || String(x.id).localeCompare(String(y.id)));
+    if(!members.length) return;
 
-    let hub = null;
-    let best = -1;
-    for(const n of members){
-      const el = cyMembrane.getElementById(String(n.id));
-      const score = (el && !el.empty() ? Number(el.data("weight")) || 0 : 0) +
-        (Number(n.confidence)||0) * 2 +
-        (Number(n.reuse_count)||0) * 0.5;
-      if(score > best){ best=score; hub=String(n.id); }
+    const hub = String(members[0].id);
+    const hubR = innerR + span * 0.32;
+    const hubEl = cyMembrane.getElementById(hub);
+    if(hubEl && !hubEl.empty()){
+      hubEl.position({x:cx+Math.cos(angle)*hubR,y:cy+Math.sin(angle)*hubR});
     }
 
-    if(hub){
-      const hubEl = cyMembrane.getElementById(hub);
-      if(hubEl && !hubEl.empty()) hubEl.position({x:hubX,y:hubY});
-    }
-
-    const satellites = members.filter(n => String(n.id) !== hub);
-    const petalRadius = Math.min(105, Math.max(58, 38 + Math.sqrt(members.length)*10));
-
+    const satellites = members.slice(1);
+    const count = Math.max(1,satellites.length);
     satellites.forEach((n,j)=>{
-      const id = String(n.id);
-      const el = cyMembrane.getElementById(id);
+      const el=cyMembrane.getElementById(String(n.id));
       if(!el || el.empty()) return;
-      const t = satellites.length ? j / satellites.length : 0;
-      const radial = petalRadius * (0.42 + 0.58 * Math.sqrt((j+1)/Math.max(1,satellites.length)));
-      const localAngle = angle + j * golden * 0.92;
-      const wobble = 1 + 0.055 * Math.sin(j * 1.7 + i * 2.1);
-      el.position({
-        x: hubX + Math.cos(localAngle) * radial * wobble,
-        y: hubY + Math.sin(localAngle) * radial * wobble
-      });
+      const t=(j+1)/count;
+      const spiral=((j*golden)%1);
+      const offset=(spiral*2-1)*halfSpread*(0.52+0.48*t);
+      const distance=innerR+span*(0.16+0.84*Math.sqrt(t));
+      const edgeNorm=Math.min(1,Math.abs(offset)/Math.max(halfSpread,0.001));
+      const lobeShape=1-0.26*Math.pow(edgeNorm,1.7);
+      const radial=distance*(0.88+0.12*lobeShape);
+      const localAngle=angle+offset;
+      el.position({x:cx+Math.cos(localAngle)*radial,y:cy+Math.sin(localAngle)*radial});
     });
-  });
 
-  // Pull unassigned/leftover nodes into the nearest petal instead of allowing
-  // them to remain at stale coordinates far from the core.
-  const assigned = new Set(petals.flatMap(([,members])=>members.map(n=>String(n.id))));
-  nodes.forEach(n=>{
-    const id=String(n.id);
-    if(id===normalizedCoreId || assigned.has(id)) return;
-    const el=cyMembrane.getElementById(id);
-    if(!el || el.empty()) return;
-    const angle=(id.split("").reduce((a,c)=>a+c.charCodeAt(0),0)%360)*Math.PI/180;
-    el.position({
-      x:cx + Math.cos(angle)*(baseR*0.72),
-      y:cy + Math.sin(angle)*(baseR*0.72)
-    });
+    if(members.length <= 6){
+      members.slice(1).forEach((n,j)=>{
+        const el=cyMembrane.getElementById(String(n.id));
+        if(!el || el.empty()) return;
+        const localAngle=angle+((j/Math.max(1,members.length-1))-0.5)*halfSpread*0.75;
+        const radial=innerR+26+j*9;
+        el.position({x:cx+Math.cos(localAngle)*radial,y:cy+Math.sin(localAngle)*radial});
+      });
+    }
   });
 
   _positionCache.clear();
   nodes.forEach(n=>{
     const el=cyMembrane.getElementById(String(n.id));
-    if(el && !el.empty()) _positionCache.set(String(n.id), el.position());
+    if(el && !el.empty()) _positionCache.set(String(n.id),el.position());
   });
+
+  try { coreEl.position({x:cx,y:cy}); } catch(_) {}
+}
+
+function _position2dContext(nodeId){
+  if(!cyMembrane) return;
+  const panel=document.getElementById("brainContext");
+  if(!panel || window.innerWidth <= 650) return;
+  const el=cyMembrane.getElementById(String(nodeId));
+  if(!el || el.empty()) return;
+
+  try{
+    const p=el.renderedPosition();
+    const width=cyMembrane.width()||800;
+    const height=cyMembrane.height()||600;
+    const panelWidth=Math.min(330,Math.max(250,width-28));
+    const gap=18;
+    let left=p.x+gap;
+    if(left+panelWidth>width-10) left=p.x-panelWidth-gap;
+    left=Math.max(10,left);
+
+    const panelHeight=Math.min(panel.scrollHeight||330,height-20);
+    let top=p.y-18;
+    if(top+panelHeight>height-10) top=height-panelHeight-10;
+    top=Math.max(10,top);
+
+    panel.style.left=left+"px";
+    panel.style.right="auto";
+    panel.style.top=top+"px";
+    panel.style.bottom="auto";
+  }catch(_){}
 }
 
 function _placeNearHub(
