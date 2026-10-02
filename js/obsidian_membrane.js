@@ -3679,6 +3679,12 @@ window.AkiraMembrane = {
   refreshOffice,
   addOfficeLog,
   updateOfficeStats,
+  resizeMembrane:
+    function(){
+      try {
+        if (cyMembrane) cyMembrane.resize();
+      } catch(_) {}
+    },
   reorganize:
     window.reorganizeMembrane,
 };
