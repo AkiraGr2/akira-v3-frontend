@@ -1408,10 +1408,20 @@
 
   function apply3dRuntime(){
     if(!fg) return;
+    fg.backgroundColor("#05060a");
+    // d3Force(name) returns the underlying force, not the graph instance.
+    // Keep force configuration separate so the fluent API cannot accidentally
+    // continue on the force object.
+    try {
+      const chargeForce = fg.d3Force("charge");
+      if(chargeForce && typeof chargeForce.strength === "function"){
+        chargeForce.strength(-78);
+      }
+    } catch(_) {}
+    try {
+      fg.d3Force("community", makeCommunityForce());
+    } catch(_) {}
     fg
-      .backgroundColor("#05060a")
-      .d3Force("charge").strength(-78)
-      .d3Force("community", makeCommunityForce())
       .nodeColor(n => {
         const id = String(n.id);
         if(id === String(selectedNodeId)) return "#ffffff";
