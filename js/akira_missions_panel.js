@@ -1,7 +1,7 @@
 /* ============================================================
    AKIRA — MISSIONS PANEL
    FASE 10.8 — Panel Unificado de Misiones
-   Version: V1.2
+   Version: V1.3
    ============================================================ */
 
 (function () {
@@ -222,6 +222,7 @@
       mission?.objective ||
       mission?.goal ||
       mission?.description ||
+      mission?.title ||
       mission?.name ||
       `Misión ${mission?.id || ""}`
     );
@@ -278,15 +279,15 @@
           `&status=${encodeURIComponent(status)}`;
       }
 
-      const data =
+      const response =
         await apiFetch(url);
 
       missionsCache =
-        Array.isArray(data)
-          ? data
-          : data?.missions ||
-            data?.items ||
-            data?.results ||
+        Array.isArray(response)
+          ? response
+          : response?.missions ||
+            response?.items ||
+            response?.results ||
             [];
 
       renderMissionList();
@@ -467,9 +468,9 @@
 
     try {
       const [
-        mission,
-        progress,
-        tasks
+        missionResponse,
+        progressResponse,
+        tasksResponse
       ] = await Promise.all([
         apiFetch(
           `${API_BASE()}/missions/${encodeURIComponent(
@@ -489,6 +490,48 @@
           )}`
         )
       ]);
+
+      /*
+       * CORRECCIÓN IMPORTANTE:
+       *
+       * El backend devuelve:
+       *
+       * {
+       *   ok: true,
+       *   mission: {...}
+       * }
+       */
+
+      const mission =
+        missionResponse?.mission ||
+        missionResponse;
+
+      /*
+       * El backend devuelve:
+       *
+       * {
+       *   ok: true,
+       *   mission: {...},
+       *   progress: {...}
+       * }
+       */
+
+      const progress =
+        progressResponse?.progress ||
+        progressResponse;
+
+      /*
+       * El endpoint de tareas puede devolver:
+       *
+       * {
+       *   ok: true,
+       *   tasks: [...]
+       * }
+       */
+
+      const tasks =
+        tasksResponse?.tasks ||
+        tasksResponse;
 
       renderMissionDetail(
         mission,
@@ -580,6 +623,7 @@
 
     const progressValue =
       Number(
+        progress?.percent ??
         progress?.progress ??
         progress?.percentage ??
         mission?.progress ??
@@ -601,6 +645,29 @@
 
     const taskList =
       normalizeTasks(tasks);
+
+    /*
+     * Buscar información de error
+     * disponible en la misión.
+     */
+
+    const result =
+      mission?.result || {};
+
+    const errorInfo =
+      mission?.error ||
+      result?.error ||
+      result?.reason ||
+      result?.detail ||
+      mission?.failure_reason ||
+      "";
+
+    const errorText =
+      typeof errorInfo === "string"
+        ? errorInfo
+        : JSON.stringify(
+            errorInfo
+          );
 
     elements.detail.innerHTML = `
       <div class="mission-detail-header">
@@ -679,6 +746,25 @@
 
       </div>
 
+      ${
+        status === "failed" &&
+        errorText
+          ? `
+            <div class="mission-error">
+              <strong>
+                Motivo del fallo
+              </strong>
+
+              <div>
+                ${escapeHtml(
+                  errorText
+                )}
+              </div>
+            </div>
+          `
+          : ""
+      }
+
       <div class="mission-actions">
         ${renderMissionActions(mission)}
       </div>
@@ -704,6 +790,9 @@
                     task?.description ||
                     `Tarea ${task?.id || ""}`;
 
+                  const taskError =
+                    task?.error || "";
+
                   return `
                     <div class="mission-task-row">
 
@@ -722,6 +811,24 @@
                                 ID:
                                 ${escapeHtml(
                                   task.id
+                                )}
+                              </small>
+                            `
+                            : ""
+                        }
+
+                        ${
+                          taskError
+                            ? `
+                              <small>
+                                Error:
+                                ${escapeHtml(
+                                  typeof taskError ===
+                                  "string"
+                                    ? taskError
+                                    : JSON.stringify(
+                                        taskError
+                                      )
                                 )}
                               </small>
                             `
@@ -772,8 +879,8 @@
     let html = "";
 
     /*
-     * Backend real:
-     * waiting_approval -> approve -> running
+     * waiting_approval
+     * → Aprobar / Rechazar
      */
 
     if (
@@ -804,9 +911,11 @@
     }
 
     /*
-     * Backend real:
-     * approve mueve la misión a running.
-     * execute acepta running.
+     * running
+     * → Ejecutar / Diagnosticar / Cancelar
+     *
+     * Este es el flujo que utiliza
+     * actualmente el backend de Akira.
      */
 
     if (
@@ -845,6 +954,11 @@
       `;
     }
 
+    /*
+     * Compatibilidad por si el backend
+     * devuelve approved.
+     */
+
     if (
       status === "approved"
     ) {
@@ -860,6 +974,10 @@
         </button>
       `;
     }
+
+    /*
+     * Estados terminales
+     */
 
     if (
       status === "completed" ||
@@ -939,16 +1057,6 @@
       );
 
     try {
-      /*
-       * El backend devuelve:
-       * {
-       *   ok: true,
-       *   mission: {...},
-       *   plan: ...,
-       *   model: ...
-       * }
-       */
-
       const response =
         await apiFetch(
           `${API_BASE()}/missions`,
@@ -961,6 +1069,16 @@
             })
           }
         );
+
+      /*
+       * Backend:
+       * {
+       *   ok: true,
+       *   mission: {...},
+       *   plan: {...},
+       *   model: ...
+       * }
+       */
 
       const createdMission =
         response?.mission ||
@@ -977,9 +1095,10 @@
       );
 
       /*
-       * Mostrarla inmediatamente,
-       * sin depender de una recarga.
+       * Mostrar inmediatamente
+       * la misión creada.
        */
+
       if (id) {
         const existingIndex =
           missionsCache.findIndex(
@@ -999,20 +1118,30 @@
           );
         }
 
+        selectedMissionId = id;
+
         renderMissionList();
 
-        await selectMission(id);
-      }
+        /*
+         * Esperamos un momento para permitir
+         * que el backend termine de persistir
+         * la transición de planificación.
+         */
+        await new Promise(
+          (resolve) =>
+            setTimeout(
+              resolve,
+              500
+            )
+        );
 
-      /*
-       * Después sincronizamos
-       * nuevamente con el backend.
-       */
-      await loadMissions();
+        await loadMissions();
 
-      if (id) {
-        selectedMissionId = id;
-        await loadMissionDetail(id);
+        await loadMissionDetail(
+          id
+        );
+      } else {
+        await loadMissions();
       }
     } catch (error) {
       console.error(
@@ -1052,10 +1181,6 @@
         "success"
       );
 
-      /*
-       * Usamos inmediatamente la misión
-       * devuelta por el backend.
-       */
       const updatedMission =
         response?.mission;
 
@@ -1456,17 +1581,25 @@
           }
 
           try {
-            const progress =
+            const progressResponse =
               await apiFetch(
                 `${API_BASE()}/missions/${encodeURIComponent(
                   selectedMissionId
                 )}/progress`
               );
 
+            const progress =
+              progressResponse?.progress ||
+              progressResponse;
+
             updateProgressOnly(
               progress
             );
 
+            /*
+             * Refresca también el estado
+             * de la misión.
+             */
             await loadMissionDetail(
               selectedMissionId
             );
@@ -1496,6 +1629,7 @@
   ) {
     const value =
       Number(
+        progress?.percent ??
         progress?.progress ??
         progress?.percentage ??
         0
