@@ -124,9 +124,20 @@
         if(!id || !status) return;
 
         btn.disabled = true;
+        let workingVersion = version;
+        if(status === "verified" && !await addEvidence(id, workingVersion)){
+          btn.disabled = false;
+          return;
+        }
+        if(status === "verified"){
+          const latest = await request("/api/v8/learning/"+encodeURIComponent(id));
+          if(latest.ok && latest.data && latest.data.learning){
+            workingVersion = Number(latest.data.learning.version || workingVersion);
+          }
+        }
         const r = await request("/api/v8/learning/"+encodeURIComponent(id)+"/status", {
           method:"PATCH",
-          body:JSON.stringify({status:status, expected_version:version})
+          body:JSON.stringify({status:status, expected_version:workingVersion})
         });
         btn.disabled = false;
 
@@ -137,6 +148,35 @@
         await api.load();
       });
     });
+  }
+
+  async function addEvidence(id, version){
+    const title = prompt("Título de la evidencia:", "Fuente de verificación");
+    if(title === null) return null;
+    const t = String(title).trim();
+    if(!t) return false;
+    const reference = prompt("Referencia o URL:", "");
+    if(reference === null) return null;
+    const ref = String(reference).trim();
+    if(!ref) return false;
+    const note = prompt("Nota breve (opcional):", "") || "";
+    const r = await request("/api/v8/learning/"+encodeURIComponent(id)+"/evidence", {
+      method:"POST",
+      body:JSON.stringify({
+        expected_version:version,
+        evidence:[{
+          type:"manual_verification",
+          title:t,
+          reference:ref,
+          note:String(note).trim()
+        }]
+      })
+    });
+    if(!r.ok || !r.data || !r.data.ok){
+      alert("No se pudo guardar la evidencia: " + ((r.data && r.data.reason) || ("HTTP "+r.status)));
+      return false;
+    }
+    return r.data.learning || null;
   }
 
   const api = {
