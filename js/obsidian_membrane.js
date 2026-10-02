@@ -551,8 +551,8 @@ function _computeSeedPositions(
   return positions;
 }
 
-function _forceFlowerPositions(nodes, edges, coreId) {
-  if(!cyMembrane) return;
+function _forceFlowerPositions(nodes, edges, coreId, forceSeed=false) {
+  if(!cyMembrane) return false;
   try { cyMembrane.resize(); } catch(_) {}
 
   const normalizedCoreId = coreId == null ? null : String(coreId);
@@ -564,18 +564,17 @@ function _forceFlowerPositions(nodes, edges, coreId) {
     ? cyMembrane.getElementById(normalizedCoreId)
     : cyMembrane.nodes(".core").first();
 
-  if(!coreEl || coreEl.empty()) return;
+  if(!coreEl || coreEl.empty()) return false;
 
   coreEl.position({x:cx,y:cy});
 
-  /*
-   * RADIAL SEED
-   *
-   * This is deliberately not a flower. We create concentric rings with a
-   * roughly constant packing distance around Akira. Communities get a soft
-   * angular preference, so relationships can gather naturally without being
-   * trapped inside hard petals.
-   */
+  if(!forceSeed &&
+     window.__akiraRadialTargets &&
+     window.__akiraRadialTargets.signature === _lastGraphSignature &&
+     _positionCache.size > 0){
+    return false;
+  }
+
   const assignments = _communityState && _communityState.assignments instanceof Map
     ? _communityState.assignments
     : new Map();
@@ -591,7 +590,7 @@ function _forceFlowerPositions(nodes, edges, coreId) {
     .slice()
     .sort((a,b)=>score(b)-score(a) || String(a.id).localeCompare(String(b.id)));
 
-  if(!list.length) return;
+  if(!list.length) return false;
 
   const groups = new Map();
   list.forEach(n=>{
@@ -612,40 +611,50 @@ function _forceFlowerPositions(nodes, edges, coreId) {
   });
 
   const minDim=Math.max(360,Math.min(W,H));
-  const spacing=Math.max(22,Math.min(30,minDim*0.032));
-  const coreSafe=38;
+  const spacing=Math.max(24,Math.min(34,minDim*0.036));
+  const coreSafe=48;
   const golden=Math.PI*(3-Math.sqrt(5));
 
-  /*
-   * Hex-like concentric capacity: each successive ring can carry more nodes.
-   * The radius grows with sqrt(index), which lets the graph expand naturally
-   * instead of forcing hundreds of nodes into one layer.
-   */
   let ring=0;
   let usedInRing=0;
-
   const positions={};
+  const preferredRadius=new Map();
+
   list.forEach((n,index)=>{
-    let capacity=Math.max(7,Math.floor((2*Math.PI*Math.max(1,coreSafe+(ring+1)*spacing))/(spacing*0.92)));
+    const radiusForRing=Math.max(coreSafe + spacing, coreSafe + (ring+1)*spacing);
+    let capacity=Math.max(
+      8,
+      Math.floor((2*Math.PI*radiusForRing)/(spacing*0.95))
+    );
+
     if(usedInRing>=capacity){
       ring++;
       usedInRing=0;
-      capacity=Math.max(7,Math.floor((2*Math.PI*Math.max(1,coreSafe+(ring+1)*spacing))/(spacing*0.92)));
+      capacity=Math.max(
+        8,
+        Math.floor((2*Math.PI*(coreSafe+(ring+1)*spacing))/(spacing*0.95))
+      );
     }
 
     const r=coreSafe+(ring+1)*spacing;
-    const ringAngle=-Math.PI/2 + (usedInRing/Math.max(1,capacity))*Math.PI*2;
+    const ringCount=Math.max(8,capacity);
+    const ringAngle=-Math.PI/2 + ((usedInRing + 0.37*Math.sin(index*golden))/ringCount)*Math.PI*2;
     const g=String(assignments.get(String(n.id)) || _detectGroup(n) || "other");
     const gAngle=groupAngles.get(g) ?? ringAngle;
 
-    // Blend the even global distribution with the community's soft sector.
-    const blend=0.30;
-    const angle=ringAngle*(1-blend)+gAngle*blend;
+    // Only a soft community bias is used. The global ring position still
+    // distributes nodes around the full circumference.
+    let angle=ringAngle*0.72 + gAngle*0.28;
+
+    // Tiny deterministic perturbation breaks rows without making the layout
+    // noisy or random on every refresh.
+    angle += 0.035*Math.sin(index*golden*7.0);
 
     positions[String(n.id)] = {
-      x: cx + r*Math.cos(angle),
-      y: cy + r*Math.sin(angle)
+      x:cx + r*Math.cos(angle),
+      y:cy + r*Math.sin(angle)
     };
+    preferredRadius.set(String(n.id),r);
 
     usedInRing++;
   });
@@ -655,27 +664,303 @@ function _forceFlowerPositions(nodes, edges, coreId) {
   nodes.forEach(n=>{
     const id=String(n.id);
     const p=positions[id];
-    if(p){
-      const el=cyMembrane.getElementById(id);
-      if(el && !el.empty()) el.position(p);
-      _positionCache.set(id,{x:p.x,y:p.y});
-    }
+    if(!p) return;
+    const el=cyMembrane.getElementById(id);
+    if(el && !el.empty()) el.position(p);
+    _positionCache.set(id,{x:p.x,y:p.y});
   });
 
-  // Store the radial target data for the force relaxation pass.
   window.__akiraRadialTargets = {
+    signature:_lastGraphSignature,
     coreId:normalizedCoreId,
     center:{x:cx,y:cy},
     groupAngles,
-    preferredRadius:new Map(
-      list.map((n,index)=>{
-        const ringRadius = coreSafe + Math.max(1,Math.floor(index/12)+1)*spacing;
-        return [String(n.id),ringRadius];
-      })
-    )
+    preferredRadius,
+    spacing,
+    coreSafe
   };
 
   try { coreEl.position({x:cx,y:cy}); } catch(_) {}
+  return true;
+}
+
+let _radialPhysicsRun = 0;
+let _radialPhysicsTimer = null;
+
+function _runFlowerPhysics(nodes, edges, coreId){
+  if(!cyMembrane) return;
+  const runId=++_radialPhysicsRun;
+
+  if(_radialPhysicsTimer){
+    try { cancelAnimationFrame(_radialPhysicsTimer); } catch(_) {}
+    _radialPhysicsTimer=null;
+  }
+
+  const state=window.__akiraRadialTargets;
+  if(!state) return;
+
+  const normalizedCoreId=coreId == null ? null : String(coreId);
+  const W=cyMembrane.width() || 800;
+  const H=cyMembrane.height() || 600;
+  const center=state.center || {x:W/2,y:H/2};
+  const preferredRadius=state.preferredRadius instanceof Map
+    ? state.preferredRadius
+    : new Map();
+  const groupAngles=state.groupAngles instanceof Map
+    ? state.groupAngles
+    : new Map();
+  const assignments=_communityState && _communityState.assignments instanceof Map
+    ? _communityState.assignments
+    : new Map();
+
+  const active=nodes.map(n=>{
+    const id=String(n.id);
+    if(id===normalizedCoreId) return null;
+    const el=cyMembrane.getElementById(id);
+    if(!el || el.empty()) return null;
+    const p=el.position();
+    const group=String(assignments.get(id) || _detectGroup(n) || "other");
+    return {
+      id,
+      el,
+      group,
+      x:Number(p.x)||0,
+      y:Number(p.y)||0,
+      vx:0,
+      vy:0,
+      radius:Math.max(4,Math.min(24,(Number(el.width())||12)/2)),
+      preferred:preferredRadius.get(id) || 100
+    };
+  }).filter(Boolean);
+
+  if(active.length<2) return;
+
+  const byId=new Map(active.map(n=>[n.id,n]));
+
+  /*
+   * Only the strongest few real links participate in the physics. The full
+   * graph is still drawn; this sparse physical graph prevents 1200 springs
+   * from collapsing the radial geometry.
+   */
+  const ranked=new Map();
+  (edges||[]).forEach(e=>{
+    const a=String(e.from_node);
+    const b=String(e.to_node);
+    const na=byId.get(a);
+    const nb=byId.get(b);
+    if(!na || !nb) return;
+
+    const w=Number(e.weight)||0;
+    if(!ranked.has(a)) ranked.set(a,[]);
+    if(!ranked.has(b)) ranked.set(b,[]);
+    ranked.get(a).push({other:b,weight:w});
+    ranked.get(b).push({other:a,weight:w});
+  });
+
+  const physicalLinks=[];
+  const seenLinks=new Set();
+  ranked.forEach((list,id)=>{
+    list.sort((a,b)=>b.weight-a.weight);
+    list.slice(0,3).forEach(item=>{
+      const key=[id,item.other].sort().join("::");
+      if(seenLinks.has(key)) return;
+      seenLinks.add(key);
+      physicalLinks.push({
+        a:byId.get(id),
+        b:byId.get(item.other),
+        weight:item.weight
+      });
+    });
+  });
+
+  // Core relations act as a soft radial anchor, not as a hard circle.
+  const coreIdString=normalizedCoreId;
+  const coreLinks=new Map();
+  (edges||[]).forEach(e=>{
+    if(!coreIdString) return;
+    const a=String(e.from_node);
+    const b=String(e.to_node);
+    if(a!==coreIdString && b!==coreIdString) return;
+    const other=a===coreIdString?b:a;
+    const w=Number(e.weight)||0;
+    const old=coreLinks.get(other);
+    if(!old || w>old) coreLinks.set(other,w);
+  });
+
+  const STEPS=52;
+  let step=0;
+
+  const tick=()=>{
+    if(runId!==_radialPhysicsRun || !cyMembrane) return;
+    step++;
+
+    const forces=new Map(active.map(n=>[n.id,{x:0,y:0}]));
+
+    /*
+     * Spatial grid: each node only checks nearby cells. This keeps the
+     * repulsion scalable when the brain grows beyond the current 369 nodes.
+     */
+    const cellSize=52;
+    const grid=new Map();
+    active.forEach(n=>{
+      const gx=Math.floor(n.x/cellSize);
+      const gy=Math.floor(n.y/cellSize);
+      const key=gx+","+gy;
+      if(!grid.has(key)) grid.set(key,[]);
+      grid.get(key).push(n);
+    });
+
+    // Every node owns a personal exclusion zone.
+    active.forEach(a=>{
+      const gx=Math.floor(a.x/cellSize);
+      const gy=Math.floor(a.y/cellSize);
+
+      for(let ox=-1;ox<=1;ox++){
+        for(let oy=-1;oy<=1;oy++){
+          const bucket=grid.get((gx+ox)+","+(gy+oy))||[];
+          for(const b of bucket){
+            if(a.id>=b.id) continue;
+
+            let dx=b.x-a.x;
+            let dy=b.y-a.y;
+            let d=Math.sqrt(dx*dx+dy*dy);
+
+            if(d<0.001){
+              const seed=((a.id.length+11)*92821+(b.id.length+17)*68917)%6283;
+              const ang=seed/1000;
+              dx=Math.cos(ang);
+              dy=Math.sin(ang);
+              d=1;
+            }
+
+            const desired=a.radius+b.radius+16;
+            if(d<desired){
+              const overlap=desired-d;
+              const strength=0.72+Math.min(0.55,overlap/20);
+              const ux=dx/d, uy=dy/d;
+              forces.get(a.id).x-=ux*overlap*strength;
+              forces.get(a.id).y-=uy*overlap*strength;
+              forces.get(b.id).x+=ux*overlap*strength;
+              forces.get(b.id).y+=uy*overlap*strength;
+            } else if(d<desired+26){
+              const soft=(desired+26-d)*0.025;
+              const ux=dx/d, uy=dy/d;
+              forces.get(a.id).x-=ux*soft;
+              forces.get(a.id).y-=uy*soft;
+              forces.get(b.id).x+=ux*soft;
+              forces.get(b.id).y+=uy*soft;
+            }
+          }
+        }
+      }
+    });
+
+    active.forEach(n=>{
+      const f=forces.get(n.id);
+      const dx=n.x-center.x;
+      const dy=n.y-center.y;
+      const r=Math.sqrt(dx*dx+dy*dy)||1;
+
+      // Radial equilibrium around Akira.
+      let desired=n.preferred;
+      const cw=coreLinks.get(n.id);
+      if(cw!=null){
+        desired=Math.min(
+          desired,
+          76 + Math.max(0,1-Math.min(1,cw))*90
+        );
+      }
+
+      const radialError=desired-r;
+      const radialForce=Math.max(-24,Math.min(24,radialError))*0.020;
+      f.x+=(dx/r)*radialForce;
+      f.y+=(dy/r)*radialForce;
+
+      // Soft community orbiting force. It rotates a group toward its sector,
+      // but it never creates a hard boundary or a pre-drawn petal.
+      const ga=groupAngles.get(n.group);
+      if(typeof ga==="number" && r>1){
+        const current=Math.atan2(dy,dx);
+        let diff=ga-current;
+        while(diff>Math.PI) diff-=Math.PI*2;
+        while(diff<-Math.PI) diff+=Math.PI*2;
+        const tangential=Math.max(-0.08,Math.min(0.08,diff))*r*0.012;
+        f.x+=(-dy/r)*tangential;
+        f.y+=(dx/r)*tangential;
+      }
+
+      // Akira's exclusion radius is absolute.
+      const minR=46+n.radius;
+      if(r<minR){
+        const push=(minR-r)*0.80;
+        f.x+=(dx/r)*push;
+        f.y+=(dy/r)*push;
+      }
+    });
+
+    // Strong real relations create local cohesion.
+    physicalLinks.forEach(link=>{
+      const a=link.a, b=link.b;
+      if(!a || !b) return;
+
+      let dx=b.x-a.x;
+      let dy=b.y-a.y;
+      const d=Math.sqrt(dx*dx+dy*dy)||1;
+      const ideal=72-Math.min(24,link.weight*16);
+      const spring=Math.max(-2.5,Math.min(2.5,(d-ideal)*0.006));
+      const ux=dx/d, uy=dy/d;
+
+      forces.get(a.id).x+=ux*spring;
+      forces.get(a.id).y+=uy*spring;
+      forces.get(b.id).x-=ux*spring;
+      forces.get(b.id).y-=uy*spring;
+    });
+
+    // Integrate with heavy damping: physical response, then stable rest.
+    active.forEach(n=>{
+      const f=forces.get(n.id);
+      n.vx=(n.vx+f.x)*0.66;
+      n.vy=(n.vy+f.y)*0.66;
+      n.x+=n.vx;
+      n.y+=n.vy;
+
+      const margin=18;
+      n.x=Math.max(margin,Math.min(W-margin,n.x));
+      n.y=Math.max(margin,Math.min(H-margin,n.y));
+      n.el.position({x:n.x,y:n.y});
+    });
+
+    const coreEl=normalizedCoreId
+      ? cyMembrane.getElementById(normalizedCoreId)
+      : cyMembrane.nodes(".core").first();
+
+    if(coreEl && !coreEl.empty()){
+      coreEl.position({x:W/2,y:H/2});
+    }
+
+    if(step<STEPS){
+      _radialPhysicsTimer=requestAnimationFrame(tick);
+      return;
+    }
+
+    _radialPhysicsTimer=null;
+    _positionCache.clear();
+    active.forEach(n=>_positionCache.set(n.id,{x:n.x,y:n.y}));
+    if(coreEl && !coreEl.empty()){
+      coreEl.position({x:W/2,y:H/2});
+      _positionCache.set(coreEl.id(),{x:W/2,y:H/2});
+    }
+
+    try{
+      const visible=cyMembrane.nodes().filter(n=>n.style("display")!=="none");
+      if(visible.length){
+        cyMembrane.fit(visible,72);
+        if(coreEl && !coreEl.empty()) cyMembrane.center(coreEl);
+      }
+    }catch(_){}
+  };
+
+  _radialPhysicsTimer=requestAnimationFrame(tick);
 }
 
 function _position2dContext(nodeId){
