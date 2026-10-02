@@ -1942,6 +1942,52 @@ function _updateMembraneStats() {
 // ===========================================================================
 // BRAIN 2D/3D — SINCRONIZACION DE SELECCION
 // ===========================================================================
+window.addEventListener("akira:brain-explore", function(ev){
+  if (!cyMembrane) return;
+
+  try {
+    const detail = ev && ev.detail ? ev.detail : {};
+    const visibleNodeIds = new Set(
+      Array.isArray(detail.visibleNodeIds)
+        ? detail.visibleNodeIds.map(id => String(id))
+        : []
+    );
+    const visibleLinkIds = new Set(
+      Array.isArray(detail.visibleLinkIds)
+        ? detail.visibleLinkIds.map(id => String(id))
+        : []
+    );
+    const depth = Number(detail.depth) || 0;
+
+    cyMembrane.nodes().forEach(n => {
+      const visible =
+        depth === 0 ||
+        visibleNodeIds.has(String(n.id()));
+
+      n.style("display", visible ? "element" : "none");
+    });
+
+    cyMembrane.edges().forEach(e => {
+      const visible =
+        depth === 0 ||
+        visibleLinkIds.has(String(e.id()));
+
+      e.style("display", visible ? "element" : "none");
+    });
+
+    if(depth === 0){
+      cyMembrane.fit(undefined, 80);
+    } else {
+      const visible = cyMembrane.nodes().filter(
+        n => n.style("display") !== "none"
+      );
+      if(visible.length){
+        cyMembrane.fit(visible, 70);
+      }
+    }
+  } catch(_) {}
+});
+
 window.addEventListener("akira:brain-route", function(ev){
   if (!cyMembrane) return;
 
@@ -1993,7 +2039,8 @@ window.addEventListener("akira:brain-select", function(ev){
         .unselect()
         .removeClass("highlighted")
         .removeClass("dimmed")
-        .removeClass("route");
+        .removeClass("route")
+        .forEach(el => el.style("display","element"));
       cyMembrane.nodes().forEach(n => {
         n.style("text-opacity", (n.hasClass("core") || n.hasClass("hub")) ? (n.hasClass("core") ? 1 : 0.95) : 0);
       });
