@@ -216,10 +216,9 @@
     }
 
     try{
-      fg = window.ForceGraph3D(container)({
+      fg = new window.ForceGraph3D(container, {
         controlType:"orbit",
-        rendererConfig:{antialias:true,alpha:true},
-        backgroundColor:"#09090c"
+        rendererConfig:{antialias:true,alpha:true}
       });
 
       fg
