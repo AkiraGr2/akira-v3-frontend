@@ -858,7 +858,77 @@
     });
 
     const centers = new Map();
-    const clusterList = [...clusters.entries()].sort((a,b)=>b[1].length-a[1].length || a[0].localeCompare(b[0]));
+    let clusterList = [...clusters.entries()].sort((a,b)=>b[1].length-a[1].length || a[0].localeCompare(b[0]));
+
+    // When the force topology is effectively one dense component, create
+    // deterministic graph-based visual petals rather than a single ring.
+    // Anchors are chosen by degree + weighted graph distance, so the split
+    // still comes from real links, not decorative/random placement.
+    if(clusterList.length === 1 && ids.length >= 18){
+      const targetPetals = Math.min(7, Math.max(5, Math.round(Math.sqrt(ids.length) / 3)));
+
+      function shortestDistances(startId){
+        const dist = new Map(ids.map(id => [id, Infinity]));
+        dist.set(startId, 0);
+        const used = new Set();
+        while(used.size < ids.length){
+          let best = null, bestDist = Infinity;
+          for(const [id,d] of dist){
+            if(!used.has(id) && d < bestDist){ best = id; bestDist = d; }
+          }
+          if(best === null || !Number.isFinite(bestDist)) break;
+          used.add(best);
+          for(const [other,w] of adjacency.get(best) || []){
+            const cost = 1 / Math.max(0.05, Math.sqrt(w));
+            const next = bestDist + cost;
+            if(next < (dist.get(other) ?? Infinity)) dist.set(other, next);
+          }
+        }
+        return dist;
+      }
+
+      const anchorScore = id => (degree.get(id) || 0) + (Number(nodes.find(n => String(n.id) === id)?._importance) || 0) * 2;
+      const firstAnchor = ids.slice().sort((a,b)=>anchorScore(b)-anchorScore(a) || a.localeCompare(b))[0];
+      const anchors = firstAnchor ? [firstAnchor] : [];
+
+      while(anchors.length < targetPetals && anchors.length < ids.length){
+        const distanceMaps = anchors.map(shortestDistances);
+        let candidate = null, candidateScore = -1;
+        for(const id of ids){
+          if(anchors.includes(id)) continue;
+          const minD = distanceMaps.reduce((m,d)=>Math.min(m, d.get(id) ?? Infinity), Infinity);
+          const score = (Number.isFinite(minD) ? minD : 0) * (1 + anchorScore(id) / Math.max(1, ids.length));
+          if(score > candidateScore || (Math.abs(score-candidateScore) < 0.0001 && String(id) < String(candidate))){
+            candidate = id;
+            candidateScore = score;
+          }
+        }
+        if(!candidate) break;
+        anchors.push(candidate);
+      }
+
+      const visualGroups = new Map(anchors.map((a,i)=>["petal_"+i,[]]));
+      const distToAnchors = anchors.map(shortestDistances);
+
+      ids.forEach(id=>{
+        let best=0, bestDist=Infinity;
+        distToAnchors.forEach((d,i)=>{
+          const value=d.get(id) ?? Infinity;
+          if(value < bestDist - 0.0001){ best=i; bestDist=value; }
+        });
+        visualGroups.get("petal_"+best).push(id);
+      });
+
+      clusters.clear();
+      assignments.clear();
+      [...visualGroups.values()].forEach((members,i)=>{
+        if(!members.length) return;
+        const clusterId="c"+String(i+1);
+        clusters.set(clusterId,members);
+        members.forEach(id=>assignments.set(id,clusterId));
+      });
+      clusterList=[...clusters.entries()].sort((a,b)=>b[1].length-a[1].length || a[0].localeCompare(b[0]));
+    }
     const ring = Math.max(115, Math.min(330, 105 + Math.sqrt(Math.max(nodes.length,1))*10));
     const golden = Math.PI * (3 - Math.sqrt(5));
 
