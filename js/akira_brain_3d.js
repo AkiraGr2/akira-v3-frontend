@@ -211,6 +211,44 @@
     return nodeId(l.source) === selectedNodeId || nodeId(l.target) === selectedNodeId;
   }
 
+  function updateContextPanel(){
+    const panel = document.getElementById("brainContext");
+    if(!panel) return;
+    const node = selectedNodeId
+      ? graphData.nodes.find(n => String(n.id) === String(selectedNodeId))
+      : null;
+    if(!node){
+      panel.classList.add("is-hidden");
+      return;
+    }
+    panel.classList.remove("is-hidden");
+    const type = document.getElementById("brainContextType");
+    const title = document.getElementById("brainContextTitle");
+    const meta = document.getElementById("brainContextMeta");
+    const rels = document.getElementById("brainContextRelations");
+    const relations = graphData.links
+      .filter(l => isRelatedLink(l))
+      .map(l => {
+        const otherId = nodeId(l.source) === String(node.id) ? nodeId(l.target) : nodeId(l.source);
+        const other = graphData.nodes.find(n => String(n.id) === otherId);
+        return {label:String(other?.label || otherId), type:String(l.relation_type || "related_to"), weight:Number(l.weight)||0};
+      })
+      .sort((a,b) => b.weight-a.weight)
+      .slice(0,12);
+    if(type) type.textContent = String(node.node_type || groupForNode(node)).toUpperCase();
+    if(title) title.textContent = String(node.label || node.id);
+    if(meta) meta.innerHTML =
+      "<div>PESO<b>" + (Number(node.weight)||0).toFixed(2) + "</b></div>" +
+      "<div>REUTILIZACIÓN<b>" + (Number(node.reuse_count)||0) + "</b></div>" +
+      "<div>CONFIANZA<b>" + (Number(node.confidence)||0).toFixed(2) + "</b></div>" +
+      "<div>GRUPO<b>" + escapeHtml(groupForNode(node)) + "</b></div>";
+    if(rels){
+      rels.innerHTML = relations.length
+        ? relations.map(r => "<div class='brain-relation'><span>" + escapeHtml(r.label) + "</span><span>" + escapeHtml(r.type) + "</span></div>").join("")
+        : "<div style='color:#8a8a93;font-size:10px'>Sin relaciones visibles.</div>";
+    }
+  }
+
   function updateStats(){
     const el = document.getElementById("brainStats");
     if(!el) return;
@@ -500,6 +538,15 @@
     try {
       window.dispatchEvent(new CustomEvent("akira:brain-select",{detail:{nodeId:selectedNodeId}}));
     } catch(_) {}
+  };
+
+  window.akiraBrainClearSelection = function(){
+    selectedNodeId = null;
+    hoveredNodeId = null;
+    hudText();
+    updateContextPanel();
+    apply3dRuntime();
+    try { window.dispatchEvent(new CustomEvent("akira:brain-select",{detail:{nodeId:null}})); } catch(_) {}
   };
 
   window.akiraBrainToggleOrbit = function(){
