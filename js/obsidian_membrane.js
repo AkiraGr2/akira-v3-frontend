@@ -585,10 +585,43 @@ function _forceFlowerPositions(nodes, edges, coreId, forceSeed=false) {
     (Number(n.confidence)||0) * 1.20 +
     (Number(n._importance)||0) * 2.0;
 
+  // Radial hierarchy follows the real graph distance from Akira:
+  // 1-hop knowledge stays closest, 2-hop knowledge goes farther, etc.
+  // Within each hop we still sort by importance so the strongest nodes get
+  // the cleanest positions. This makes "distance from Akira" meaningful
+  // instead of being an arbitrary visual ordering.
+  const adjacency = new Map();
+  (edges || []).forEach(e=>{
+    const a=String(e.from_node), b=String(e.to_node);
+    if(!adjacency.has(a)) adjacency.set(a,[]);
+    if(!adjacency.has(b)) adjacency.set(b,[]);
+    adjacency.get(a).push(b);
+    adjacency.get(b).push(a);
+  });
+
+  const hop = new Map();
+  if(normalizedCoreId){
+    hop.set(normalizedCoreId,0);
+    const queue=[normalizedCoreId];
+    for(let qi=0; qi<queue.length; qi++){
+      const cur=queue[qi];
+      const next=(adjacency.get(cur)||[]);
+      for(const other of next){
+        if(hop.has(other)) continue;
+        hop.set(other,(hop.get(cur)||0)+1);
+        queue.push(other);
+      }
+    }
+  }
+
   const list = nodes
     .filter(n => String(n.id) !== normalizedCoreId)
     .slice()
-    .sort((a,b)=>score(b)-score(a) || String(a.id).localeCompare(String(b.id)));
+    .sort((a,b)=>{
+      const ha=hop.get(String(a.id)) ?? 99;
+      const hb=hop.get(String(b.id)) ?? 99;
+      return ha-hb || score(b)-score(a) || String(a.id).localeCompare(String(b.id));
+    });
 
   if(!list.length) return false;
 
@@ -623,7 +656,20 @@ function _forceFlowerPositions(nodes, edges, coreId, forceSeed=false) {
   const preferredRadius=new Map();
 
   list.forEach((n,index)=>{
-    const radiusForRing=Math.max(coreSafe + spacing, coreSafe + (ring+1)*spacing);
+    const nodeHop=hop.get(String(n.id)) ?? 99;
+
+    // Keep real graph layers separated. Nodes in the same hop can occupy
+    // several concentric rings when that layer is dense.
+    const desiredLayer = Math.max(0, Math.min(8, nodeHop-1));
+    if(desiredLayer > ring){
+      ring=desiredLayer;
+      usedInRing=0;
+    }
+
+    let radiusForRing=Math.max(
+      coreSafe + spacing,
+      coreSafe + (ring+1)*spacing
+    );
     let capacity=Math.max(
       8,
       Math.floor((2*Math.PI*radiusForRing)/(spacing*0.95))
@@ -632,9 +678,10 @@ function _forceFlowerPositions(nodes, edges, coreId, forceSeed=false) {
     if(usedInRing>=capacity){
       ring++;
       usedInRing=0;
+      radiusForRing=coreSafe+(ring+1)*spacing;
       capacity=Math.max(
         8,
-        Math.floor((2*Math.PI*(coreSafe+(ring+1)*spacing))/(spacing*0.95))
+        Math.floor((2*Math.PI*radiusForRing)/(spacing*0.95))
       );
     }
 
@@ -870,14 +917,16 @@ function _runFlowerPhysics(nodes, edges, coreId){
       let desired=n.preferred;
       const cw=coreLinks.get(n.id);
       if(cw!=null){
-        desired=Math.min(
-          desired,
-          76 + Math.max(0,1-Math.min(1,cw))*90
+        // A real direct link may pull a node slightly inward, but it must
+        // never collapse a whole layer toward Akira.
+        desired=Math.max(
+          coreSafe + spacing,
+          desired - Math.min(80, Math.max(0,cw)*30)
         );
       }
 
       const radialError=desired-r;
-      const radialForce=Math.max(-24,Math.min(24,radialError))*0.020;
+      const radialForce=Math.max(-42,Math.min(42,radialError))*0.055;
       f.x+=(dx/r)*radialForce;
       f.y+=(dy/r)*radialForce;
 
@@ -965,7 +1014,7 @@ function _runFlowerPhysics(nodes, edges, coreId){
         if(!window.__akiraRadialInitialViewportDone){
           const targetZoom = Math.max(
             0.45,
-            Math.min(0.68, cyMembrane.maxZoom())
+            Math.min(0.60, cyMembrane.maxZoom())
           );
           cyMembrane.zoom(targetZoom);
           cyMembrane.center(coreEl);
