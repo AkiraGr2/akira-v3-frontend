@@ -63,6 +63,7 @@
     const buttons = [];
     if(status === "candidate"){
       buttons.push('<button class="learning-action" data-learning-action="investigate" data-learning-id="'+id+'" data-learning-version="'+v+'">🔎 INVESTIGAR</button>');
+      buttons.push('<button class="learning-action" data-learning-action="evaluate" data-learning-id="'+id+'" data-learning-version="'+v+'">🧪 EVALUAR</button>');
       buttons.push('<button class="learning-action" data-learning-action="verified" data-learning-id="'+id+'" data-learning-version="'+v+'">✓ VERIFICAR</button>');
       buttons.push('<button class="learning-action" data-learning-action="conflicted" data-learning-id="'+id+'" data-learning-version="'+v+'">⚠ CONFLICTO</button>');
       buttons.push('<button class="learning-action danger" data-learning-action="discarded" data-learning-id="'+id+'" data-learning-version="'+v+'">✕ DESCARTAR</button>');
@@ -132,6 +133,12 @@
           await api.load();
           return;
         }
+        if(status === "evaluate"){
+          await evaluate(id, version);
+          btn.disabled = false;
+          await api.load();
+          return;
+        }
         if(status === "verified" && !await addEvidence(id, workingVersion)){
           btn.disabled = false;
           return;
@@ -155,6 +162,19 @@
         await api.load();
       });
     });
+  }
+
+  async function evaluate(id, version){
+    const r = await request("/api/v8/learning/"+encodeURIComponent(id)+"/evaluate", {
+      method:"POST",
+      body:JSON.stringify({expected_version:version})
+    });
+    if(!r.ok || !r.data || !r.data.ok){
+      alert("No se pudo evaluar: " + ((r.data && r.data.reason) || ("HTTP "+r.status)));
+      return;
+    }
+    const a = r.data.analysis || {};
+    alert("EVALUACIÓN: "+String(a.verdict || "insufficient").toUpperCase()+"\n\n"+String(a.summary || "Sin resumen.")+"\n\nEstado sugerido: "+String(r.data.recommended_status || "candidate").toUpperCase()+"\n\nLa decisión de estado sigue siendo manual.");
   }
 
   async function investigate(id, version){
