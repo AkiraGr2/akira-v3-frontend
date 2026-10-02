@@ -52,6 +52,10 @@
     visibleLinkIds: new Set()
   };
 
+  const navigationHistory = [];
+  let navigationIndex = -1;
+  const MAX_NAV_HISTORY = 40;
+
   function authHeaders(){
     try {
       return typeof window.akiraAuthHeaders === "function"
@@ -105,6 +109,77 @@
       const a = nodeId(l.source), b = nodeId(l.target);
       return (a === String(selectedNodeId) && b === id) || (b === String(selectedNodeId) && a === id);
     });
+  }
+
+  function currentNavigationNode(){
+    if(navigationIndex < 0) return null;
+    return navigationHistory[navigationIndex] || null;
+  }
+
+  function updateNavigationUI(){
+    const back = document.getElementById("brainNavBack");
+    const forward = document.getElementById("brainNavForward");
+    const status = document.getElementById("brainNavStatus");
+    if(back) back.disabled = navigationIndex <= 0;
+    if(forward) forward.disabled = navigationIndex < 0 || navigationIndex >= navigationHistory.length - 1;
+
+    if(status){
+      const node = currentNavigationNode();
+      const item = node
+        ? graphData.nodes.find(n => String(n.id) === String(node))
+        : null;
+      status.textContent = node
+        ? "RECORRIDO · " + String(item?.label || node)
+        : "RECORRIDO · —";
+    }
+  }
+
+  function navigateToNode(id, pushHistory){
+    const next = id ? String(id) : null;
+    if(!next) return;
+
+    const exists = graphData.nodes.some(n => String(n.id) === next);
+    if(!exists) return;
+
+    selectedNodeId = next;
+
+    if(pushHistory){
+      if(navigationIndex >= 0 && navigationHistory[navigationIndex] === next){
+        // same location; do not duplicate
+      } else {
+        navigationHistory.splice(navigationIndex + 1);
+        navigationHistory.push(next);
+        if(navigationHistory.length > MAX_NAV_HISTORY){
+          navigationHistory.shift();
+        }
+        navigationIndex = navigationHistory.length - 1;
+      }
+    }
+
+    computeSemanticRoute();
+    setExplorerDepth(1);
+    hudText();
+    apply3dRuntime();
+    dispatchSemanticRoute();
+    dispatchExplorerState();
+    updateNavigationUI();
+
+    try {
+      window.dispatchEvent(new CustomEvent("akira:brain-select", {
+        detail:{nodeId:next, navigation:true}
+      }));
+    } catch(_) {}
+
+    setTimeout(focusSemanticRoute, 90);
+  }
+
+  function navigateHistory(delta){
+    const target = navigationIndex + Number(delta || 0);
+    if(target < 0 || target >= navigationHistory.length) return;
+
+    navigationIndex = target;
+    const id = navigationHistory[navigationIndex];
+    navigateToNode(id, false);
   }
 
   function computeExplorerScope(depth){
@@ -1032,9 +1107,7 @@
         .showNavInfo(false)
         .nodeLabel(n => escapeHtml(n.label || n.id))
         .onNodeClick((node) => {
-          selectedNodeId = String(node.id);
-          computeSemanticRoute();
-          setExplorerDepth(1);
+          navigateToNode(String(node.id), true);
           hudText();
           apply3dRuntime();
           dispatchSemanticRoute();
@@ -1107,8 +1180,20 @@
     const id = ev && ev.detail ? ev.detail.nodeId : null;
     selectedNodeId = id ? String(id) : null;
     computeSemanticRoute();
-    if(selectedNodeId) setExplorerDepth(1);
-    else {
+    if(selectedNodeId) {
+      if(!(ev && ev.detail && ev.detail.navigation)){
+        const existingIndex = navigationHistory.lastIndexOf(selectedNodeId);
+        if(existingIndex >= 0){
+          navigationIndex = existingIndex;
+        } else {
+          navigationHistory.splice(navigationIndex + 1);
+          navigationHistory.push(selectedNodeId);
+          if(navigationHistory.length > MAX_NAV_HISTORY) navigationHistory.shift();
+          navigationIndex = navigationHistory.length - 1;
+        }
+      }
+      setExplorerDepth(1);
+    } else {
       explorerState = {depth:0,visibleNodeIds:new Set(),visibleLinkIds:new Set()};
       dispatchExplorerState();
     }
@@ -1153,6 +1238,8 @@
   window.akiraBrainClearSelection = function(){
     selectedNodeId = null;
     hoveredNodeId = null;
+    navigationHistory.length = 0;
+    navigationIndex = -1;
     semanticRoute = {nodeIds:new Set(),linkIds:new Set(),bridges:0,hops:0,paths:[]};
     explorerState = {depth:0,visibleNodeIds:new Set(),visibleLinkIds:new Set()};
     hudText();
@@ -1160,6 +1247,14 @@
     apply3dRuntime();
     dispatchSemanticRoute();
     try { window.dispatchEvent(new CustomEvent("akira:brain-select",{detail:{nodeId:null}})); } catch(_) {}
+  };
+
+  window.akiraBrainNavigateBack = function(){
+    navigateHistory(-1);
+  };
+
+  window.akiraBrainNavigateForward = function(){
+    navigateHistory(1);
   };
 
   window.akiraBrainExploreDepth = function(depth){
@@ -1219,6 +1314,7 @@
       setModeUI("2d");
       updateOrbitUI();
       updateStats();
+      updateNavigationUI();
       fetchGraph();
       if(window.AkiraMembrane && window.AkiraMembrane.resizeMembrane) window.AkiraMembrane.resizeMembrane();
     },650);
