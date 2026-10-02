@@ -590,78 +590,139 @@ function _forceFlowerPositions(nodes, edges, coreId) {
     .sort((a,b)=>b[1].length-a[1].length || String(a[0]).localeCompare(String(b[0])));
   if(!entries.length) return;
 
-  // One real community = one petal. Never merge communities into the same lobe.
+  /*
+   * V25 floral packing.
+   *
+   * The previous versions gave every petal the same angular territory.
+   * That is visually unfair when one community contains 100+ nodes and
+   * another contains 10.  Here the territory is proportional to sqrt(size):
+   * large communities receive a wider + longer petal, small communities
+   * remain compact.  A real angular gutter separates every petal.
+   */
   const PETAL_COUNT = Math.min(8, Math.max(5, entries.length));
   const petals = Array.from({length:PETAL_COUNT},()=>[]);
   entries.forEach((entry,i)=>petals[i].push(entry));
 
-  /*
-   * V23 floral layout:
-   * - Akira is the geometric origin.
-   * - Petals are farther from the origin than before.
-   * - Each petal gets a narrower angular sector, creating visible gaps.
-   * - Nodes use a bounded radial spiral, avoiding giant triangular wedges.
-   */
   const minDim = Math.max(300, Math.min(W,H));
-  const innerR = Math.min(128, Math.max(92, minDim * 0.22));
-  const outerR = Math.min(
-    minDim * 0.54,
-    innerR + Math.max(135, minDim * 0.34)
+  const maxCount = Math.max(1, ...entries.map(e => e[1].length));
+  const gapAngle = Math.min(
+    0.16,
+    (Math.PI * 2) / PETAL_COUNT * 0.12
   );
-  const span = Math.max(70, outerR - innerR);
-  const halfSpread = Math.min(
-    0.44,
-    (Math.PI / PETAL_COUNT) * 0.66
+  const availableAngle = Math.max(
+    0.6,
+    Math.PI * 2 - gapAngle * PETAL_COUNT
+  );
+
+  const rawAngleWeights = entries.map(e => Math.sqrt(Math.max(1,e[1].length)));
+  const rawWeightTotal = rawAngleWeights.reduce((a,b)=>a+b,0) || 1;
+  const minPetalAngle = 0.20;
+
+  let widths = rawAngleWeights.map(w => availableAngle * w / rawWeightTotal);
+  let deficit = 0;
+  widths = widths.map(w => {
+    if(w < minPetalAngle){
+      deficit += minPetalAngle - w;
+      return minPetalAngle;
+    }
+    return w;
+  });
+  if(deficit > 0){
+    const expandable = widths.map((w,i)=>w > minPetalAngle ? i : -1).filter(i=>i >= 0);
+    if(expandable.length){
+      const extraWeight = expandable.reduce((sum,i)=>sum+rawAngleWeights[i],0) || 1;
+      expandable.forEach(i => {
+        widths[i] = Math.max(minPetalAngle, widths[i] - deficit * rawAngleWeights[i] / extraWeight);
+      });
+    }
+  }
+  const widthTotal = widths.reduce((a,b)=>a+b,0) || availableAngle;
+  const widthScale = availableAngle / widthTotal;
+  widths = widths.map(w => w * widthScale);
+
+  const innerR = Math.min(132, Math.max(92, minDim * 0.22));
+  const baseSpan = Math.max(
+    175,
+    minDim * 0.46
   );
   const golden = 0.6180339887498949;
 
-  petals.forEach((bundle,i)=>{
-    const angle = -Math.PI/2 + (i / PETAL_COUNT) * Math.PI * 2;
-    const members = bundle.flatMap(x=>x[1]);
-    members.sort((a,b)=>scoreNode(b)-scoreNode(a) || String(a.id).localeCompare(String(b.id)));
+  let cursor = -Math.PI / 2 - availableAngle / 2;
+
+  entries.forEach((entry,i)=>{
+    const width = widths[i] || (availableAngle / PETAL_COUNT);
+    const angle = cursor + width / 2;
+    cursor += width + gapAngle;
+
+    const members = entry[1].slice()
+      .sort((a,b)=>scoreNode(b)-scoreNode(a) || String(a.id).localeCompare(String(b.id)));
     if(!members.length) return;
 
+    const sizeRatio = Math.sqrt(members.length / maxCount);
+    const petalSpan =
+      baseSpan *
+      (0.78 + 0.72 * sizeRatio);
+
     const hub = String(members[0].id);
-    const hubR = innerR + span * 0.30;
+    const hubR = innerR + petalSpan * 0.20;
     const hubEl = cyMembrane.getElementById(hub);
     if(hubEl && !hubEl.empty()){
       hubEl.position({
-        x:cx+Math.cos(angle)*hubR,
-        y:cy+Math.sin(angle)*hubR
+        x:cx + Math.cos(angle) * hubR,
+        y:cy + Math.sin(angle) * hubR
       });
     }
 
     const satellites = members.slice(1);
-    const count = Math.max(1,satellites.length);
+    const count = satellites.length;
+    const halfWidth = Math.max(
+      0.10,
+      Math.min(width * 0.46, 0.64)
+    );
 
     satellites.forEach((n,j)=>{
       const el = cyMembrane.getElementById(String(n.id));
       if(!el || el.empty()) return;
 
-      const t = (j+1)/count;
-      const spiral = ((j*golden)%1);
-      const offset = (spiral*2-1) * halfSpread * (0.34 + 0.66*t);
-      const distance = innerR + span * (0.10 + 0.90*Math.sqrt(t));
-      const edgeNorm = Math.min(1,Math.abs(offset)/Math.max(halfSpread,0.001));
-      const lobeShape = 1 - 0.18*Math.pow(edgeNorm,1.7);
-      const radial = distance * (0.93 + 0.07*lobeShape);
+      const q = (j + 0.5) / Math.max(1,count);
+      const radial01 = Math.sqrt(q);
+      const radial = innerR + petalSpan * (0.17 + 0.83 * radial01);
+
+      /*
+       * The lateral term grows toward the middle of the petal and contracts
+       * near its tip.  This creates a rounded lobe instead of a triangle.
+       */
+      const spread01 = Math.sin(Math.PI * radial01);
+      const goldenPhase = ((j * golden) % 1) * 2 - 1;
+      const wave = Math.sin((j + 1) * golden * Math.PI * 2) * 0.10;
+      const offset =
+        (goldenPhase * 0.78 + wave) *
+        halfWidth *
+        (0.35 + 0.65 * spread01);
+
       const localAngle = angle + offset;
+      const radialShape = radial * (0.96 + 0.04 * spread01);
 
       el.position({
-        x:cx+Math.cos(localAngle)*radial,
-        y:cy+Math.sin(localAngle)*radial
+        x:cx + Math.cos(localAngle) * radialShape,
+        y:cy + Math.sin(localAngle) * radialShape
       });
     });
 
+    /*
+     * Tiny communities get a compact inner fan, so they still read as
+     * deliberate petals rather than isolated dots.
+     */
     if(members.length <= 6){
-      members.slice(1).forEach((n,j)=>{
-        const el=cyMembrane.getElementById(String(n.id));
+      satellites.forEach((n,j)=>{
+        const el = cyMembrane.getElementById(String(n.id));
         if(!el || el.empty()) return;
-        const localAngle=angle+((j/Math.max(1,members.length-1))-0.5)*halfSpread*0.72;
-        const radial=innerR+28+j*10;
+        const t = count <= 1 ? 0 : (j / Math.max(1,count-1) - 0.5);
+        const localAngle = angle + t * Math.min(halfWidth,0.26);
+        const radial = innerR + 24 + j * 12;
         el.position({
-          x:cx+Math.cos(localAngle)*radial,
-          y:cy+Math.sin(localAngle)*radial
+          x:cx + Math.cos(localAngle) * radial,
+          y:cy + Math.sin(localAngle) * radial
         });
       });
     }
@@ -670,13 +731,13 @@ function _forceFlowerPositions(nodes, edges, coreId) {
   _positionCache.clear();
   nodes.forEach(n=>{
     const el = cyMembrane.getElementById(String(n.id));
-    if(el && !el.empty()) _positionCache.set(String(n.id),el.position());
+    if(el && !el.empty()){
+      _positionCache.set(String(n.id),el.position());
+    }
   });
 
   try { coreEl.position({x:cx,y:cy}); } catch(_) {}
 }
-setTimeout(() => { try { _bindBrainContextDragging(); } catch(_) {} }, 0);
-
 
 function _position2dContext(nodeId){
   _bindBrainContextDragging();
