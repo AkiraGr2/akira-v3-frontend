@@ -462,6 +462,7 @@
     const routeNodes = new Set([selected]);
     const routeLinks = new Set();
     const candidates = [];
+    const chosenCandidates = [];
 
     for(const first of byNode.get(selected) || []){
       const firstCluster = communityState.assignments.get(first.other);
@@ -502,6 +503,7 @@
       const targetCluster = communityState.assignments.get(target) || target;
       if(seenTargetClusters.has(targetCluster)) continue;
       seenTargetClusters.add(targetCluster);
+      chosenCandidates.push(candidate);
 
       candidate.nodes.forEach(id => routeNodes.add(String(id)));
       candidate.links.forEach(id => routeLinks.add(String(id)));
@@ -511,7 +513,7 @@
 
     const paths = [];
     const seenPaths = new Set();
-    for(const candidate of candidates){
+    for(const candidate of chosenCandidates){
       const key = candidate.nodes.join(">");
       if(seenPaths.has(key)) continue;
       seenPaths.add(key);
@@ -528,7 +530,7 @@
     };
 
     let maxHops = 0;
-    for(const candidate of candidates){
+    for(const candidate of chosenCandidates){
       if(candidate.links.some(id => routeLinks.has(String(id)))){
         maxHops = Math.max(maxHops,candidate.hops);
       }
