@@ -17,6 +17,7 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
 <script src="https://unpkg.com/cytoscape-cose-bilkent@4.1.0/cytoscape-cose-bilkent.js"></script>
+<script src="https://unpkg.com/3d-force-graph@1.80.1/dist/3d-force-graph.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -71,6 +72,26 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 .section-tools p{font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5;}
 .section-tools .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
 .section-tools pre{background:#0a0a0d;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:180px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;}
+
+
+/* AKIRA BRAIN 2D/3D */
+.brain-shell{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:12px;min-height:0}
+.brain-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.brain-mode-group{display:flex;gap:0;border:3px solid var(--border);background:#0e0e12}
+.brain-mode{font-family:'Press Start 2P',monospace;font-size:9px;color:var(--muted);background:#15151b;border:0;border-right:2px solid var(--border);padding:10px 13px;cursor:pointer}
+.brain-mode:last-child{border-right:0}
+.brain-mode.active{background:var(--accent);color:#fff}
+.brain-live{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--muted);padding:7px 9px;border:3px solid var(--border);background:#0e0e12}
+.brain-stage{position:relative;flex:1;min-height:160px;background:
+  radial-gradient(600px 320px at 50% 45%,rgba(167,139,250,.10),transparent 65%),
+  radial-gradient(420px 220px at 50% 55%,rgba(78,205,196,.07),transparent 68%),
+  #09090c;border:3px solid var(--border);overflow:hidden}
+.brain-view{position:absolute;inset:0;transition:opacity .2s ease}
+.brain-view.is-hidden{opacity:0;pointer-events:none}
+#membraneCy,#membrane3d{position:absolute;inset:0}
+#membrane3d canvas{display:block;width:100%!important;height:100%!important}
+.brain-hud{position:absolute;left:10px;bottom:10px;z-index:5;max-width:min(520px,calc(100% - 20px));padding:7px 9px;background:rgba(10,10,13,.82);border:2px solid var(--border);font-family:'Press Start 2P',monospace;font-size:7px;color:var(--muted);pointer-events:none}
+.brain-hud strong{color:#fff}
 
 /* Fase 10.8 — Panel de Misiones */
 .mission-shell{flex:1;min-height:0;overflow:auto;padding:14px;background:radial-gradient(700px 320px at 50% 0%,rgba(99,102,241,.10),transparent)}
@@ -172,9 +193,22 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
       <h2>🧠 Cerebro Akira</h2>
       <p>Red neuronal de conceptos, conexiones y aprendizajes. Cada nodo es algo que Akira sabe; cada línea, una relación real.</p>
     </div>
-    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;padding:12px;min-height:0">
-      <div style="flex:1;position:relative;background:#0a0a0d;border:3px solid var(--border);min-height:160px;overflow:hidden">
-        <div id="membraneCy" style="position:absolute;inset:0"></div>
+    <div class="brain-shell">
+      <div class="brain-toolbar">
+        <div class="brain-mode-group" role="tablist" aria-label="Vista del cerebro">
+          <button id="brainMode2d" class="brain-mode active" type="button" onclick="window.akiraBrainSetMode && akiraBrainSetMode('2d')">2D</button>
+          <button id="brainMode3d" class="brain-mode" type="button" onclick="window.akiraBrainSetMode && akiraBrainSetMode('3d')">3D</button>
+        </div>
+        <div id="brainModeStatus" class="brain-live">BRAIN · 2D</div>
+      </div>
+      <div class="brain-stage">
+        <div id="brainView2d" class="brain-view">
+          <div id="membraneCy"></div>
+        </div>
+        <div id="brainView3d" class="brain-view is-hidden">
+          <div id="membrane3d"></div>
+        </div>
+        <div id="brainHud" class="brain-hud">Selecciona un nodo para explorar sus conexiones.</div>
       </div>
       <div id="membraneStats" style="padding:8px 0 0;font-size:11px;color:var(--muted);font-family:'Press Start 2P', monospace;text-align:center"></div>
     </div>
@@ -494,6 +528,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
 <script src="./js/obsidian_membrane.js?v=akira-membrane-v18-2"></script>
+<script src="./js/akira_brain_3d.js?v=akira-brain-2d3d-v1"></script>
 <script src="./js/akira_brain.js?v=akira-final-v6"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
 <script src="./js/akira_conversations.js?v=akira-conv-v5"></script>
