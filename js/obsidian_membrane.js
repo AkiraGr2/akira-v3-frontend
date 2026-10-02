@@ -64,6 +64,18 @@ const GROUP_COLORS = {
   other:    "#8b949e",
 };
 
+function _brainFilterNodeVisible(cyNode) {
+  if (!cyNode) return false;
+  if (membraneBrainFilterGroup === "all") return true;
+  if (cyNode.hasClass("core")) return true;
+  if (String(cyNode.id()) === String(membraneSelectedBrainNodeId || "")) return true;
+  return String(cyNode.data("group") || _detectGroup(cyNode.data())) === membraneBrainFilterGroup;
+}
+
+let membraneExploreDepth = 0;
+let membraneExploreVisibleNodeIds = new Set();
+let membraneExploreVisibleLinkIds = new Set();
+
 function _detectGroup(node) {
   const s = String(node.label || "");
 
@@ -152,6 +164,8 @@ let membraneCounts = {
 let membraneError = null;
 let membraneLayoutRunning = false;
 let _communityState = null;
+let membraneBrainFilterGroup = "all";
+let membraneSelectedBrainNodeId = null;
 
 const MEMBRANE_REFRESH_MS = 7000;
 const MIN_EDGE_WEIGHT_VISIBLE = 0.4;
@@ -1960,6 +1974,32 @@ window.addEventListener("akira:brain-navigation", function(ev){
   } catch(_) {}
 });
 
+window.addEventListener("akira:brain-filter", function(ev){
+  if (!cyMembrane) return;
+  try {
+    const group = ev && ev.detail ? String(ev.detail.group || "all") : "all";
+    membraneBrainFilterGroup = group || "all";
+
+    cyMembrane.nodes().forEach(n => {
+      const visible = _brainFilterNodeVisible(n) &&
+        (membraneExploreDepth === 0 || membraneExploreVisibleNodeIds.has(String(n.id())));
+      n.style("display", visible ? "element" : "none");
+    });
+
+    cyMembrane.edges().forEach(e => {
+      const source = cyMembrane.getElementById(String(e.data("source")));
+      const target = cyMembrane.getElementById(String(e.data("target")));
+      const visible = source.length && target.length &&
+        _brainFilterNodeVisible(source) && _brainFilterNodeVisible(target) &&
+        (membraneExploreDepth === 0 || membraneExploreVisibleLinkIds.has(String(e.id())));
+      e.style("display", visible ? "element" : "none");
+    });
+
+    const visibleNodes = cyMembrane.nodes().filter(n => n.style("display") !== "none");
+    if(visibleNodes.length) cyMembrane.fit(visibleNodes, 70);
+  } catch(_) {}
+});
+
 window.addEventListener("akira:brain-explore", function(ev){
   if (!cyMembrane) return;
 
@@ -1976,19 +2016,24 @@ window.addEventListener("akira:brain-explore", function(ev){
         : []
     );
     const depth = Number(detail.depth) || 0;
+    membraneExploreDepth = depth;
+    membraneExploreVisibleNodeIds = visibleNodeIds;
+    membraneExploreVisibleLinkIds = visibleLinkIds;
 
     cyMembrane.nodes().forEach(n => {
       const visible =
-        depth === 0 ||
-        visibleNodeIds.has(String(n.id()));
+        _brainFilterNodeVisible(n) &&
+        (depth === 0 || visibleNodeIds.has(String(n.id())));
 
       n.style("display", visible ? "element" : "none");
     });
 
     cyMembrane.edges().forEach(e => {
-      const visible =
-        depth === 0 ||
-        visibleLinkIds.has(String(e.id()));
+      const source = cyMembrane.getElementById(String(e.data("source")));
+      const target = cyMembrane.getElementById(String(e.data("target")));
+      const visible = source.length && target.length &&
+        _brainFilterNodeVisible(source) && _brainFilterNodeVisible(target) &&
+        (depth === 0 || visibleLinkIds.has(String(e.id())));
 
       e.style("display", visible ? "element" : "none");
     });
@@ -2052,6 +2097,7 @@ window.addEventListener("akira:brain-select", function(ev){
   if (!cyMembrane) return;
   const nodeId = ev && ev.detail ? ev.detail.nodeId : null;
   try {
+    membraneSelectedBrainNodeId = nodeId ? String(nodeId) : null;
     if (!nodeId) {
       cyMembrane.elements()
         .unselect()
