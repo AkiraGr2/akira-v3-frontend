@@ -27,6 +27,8 @@
   let currentMode = "2d";
   let initialized = false;
   let refreshTimer = null;
+  let autoOrbit = false;
+  let lastFetchAt = 0;
 
   function authHeaders(){
     try {
@@ -63,6 +65,20 @@
     return nodeId(l.source) === selectedNodeId || nodeId(l.target) === selectedNodeId;
   }
 
+  function updateStats(){
+    const el = document.getElementById("brainStats");
+    if(!el) return;
+    const selected = selectedNodeId ? graphData.links.filter(isRelatedLink).length : 0;
+    el.innerHTML = "<strong>" + graphData.nodes.length + "</strong> NODOS · <strong>" +
+      graphData.links.length + "</strong> RELACIONES" +
+      (selected ? " · <strong>" + selected + "</strong> EN FOCO" : "");
+  }
+
+  function updateOrbitUI(){
+    const b = document.getElementById("brainOrbitBtn");
+    if(b) b.classList.toggle("active-orbit", autoOrbit);
+  }
+
   function hudText(){
     const hud = document.getElementById("brainHud");
     if(!hud) return;
@@ -74,6 +90,7 @@
     const label = n ? String(n.label || n.id) : selectedNodeId;
     const degree = graphData.links.filter(l => isRelatedLink(l)).length;
     hud.innerHTML = "<strong>" + escapeHtml(label) + "</strong> · " + degree + " conexiones";
+    updateStats();
   }
 
   function escapeHtml(s){
@@ -126,7 +143,9 @@
         }));
 
       graphData = {nodes, links};
+      lastFetchAt = Date.now();
       hudText();
+      updateStats();
 
       if(fg){
         fg.graphData(graphData);
@@ -170,16 +189,18 @@
         const reuse = Number(n.reuse_count) || 0;
         return "<div style='padding:6px 8px;background:rgba(10,10,13,.94);border:1px solid #3b3b4a;font-family:monospace;font-size:11px;color:#fff'><b>" + label + "</b><br><span style='color:#9ca3af'>" + type + " · reuse " + reuse + "</span></div>";
       })
-      .nodeResolution(8)
+      .nodeResolution(10)
+      .nodeRelSize(5.5)
+      .nodeVisibility(true)
       .linkColor(l => isRelatedLink(l) ? "#c4b5fd" : "#3f4650")
       .linkWidth(l => isRelatedLink(l) ? Math.min(5, 1.5 + (Number(l.weight)||0.5)) : Math.min(1.6, 0.35 + (Number(l.weight)||0.5) * 0.4))
       .linkOpacity(l => selectedNodeId && !isRelatedLink(l) ? 0.10 : 0.46)
       .linkDirectionalArrowLength(l => isRelatedLink(l) ? 4 : 0)
       .linkDirectionalArrowColor(l => isRelatedLink(l) ? "#ddd6fe" : "#5b6470")
-      .linkDirectionalParticles(l => isRelatedLink(l) ? 2 : 0)
+      .linkDirectionalParticles(l => isRelatedLink(l) ? 4 : (selectedNodeId ? 0 : 1))
       .linkDirectionalParticleWidth(l => isRelatedLink(l) ? 1.7 : 0.8)
       .linkDirectionalParticleColor(l => isRelatedLink(l) ? "#ffffff" : "#7c8795")
-      .linkDirectionalParticleSpeed(0.012)
+      .linkDirectionalParticleSpeed(l => isRelatedLink(l) ? 0.025 : 0.009)
       .linkPositionUpdate((linkObj, coords, link) => {
         // Keep default link geometry; this callback is intentionally a no-op hook.
         return false;
@@ -197,6 +218,7 @@
         controls.rotateSpeed = 0.45;
         controls.zoomSpeed = 0.7;
         controls.enablePan = true;
+        controls.autoRotate = autoOrbit;
       }
     } catch(_) {}
   }
@@ -286,6 +308,37 @@
     }
   });
 
+  window.akiraBrainFocus = function(){
+    selectedNodeId = null;
+    const akira = graphData.nodes.find(n => String(n.label || "").trim().toLowerCase() === "akira");
+    if(akira) selectedNodeId = String(akira.id);
+    hudText();
+    apply3dRuntime();
+    if(fg && akira && akira.x !== undefined){
+      try {
+        fg.cameraPosition(
+          {x:(akira.x||0)+130,y:(akira.y||0)+90,z:(akira.z||0)+130},
+          {x:akira.x||0,y:akira.y||0,z:akira.z||0},
+          900
+        );
+      } catch(_) {}
+    }
+    try {
+      window.dispatchEvent(new CustomEvent("akira:brain-select",{detail:{nodeId:selectedNodeId}}));
+    } catch(_) {}
+  };
+
+  window.akiraBrainToggleOrbit = function(){
+    autoOrbit = !autoOrbit;
+    updateOrbitUI();
+    if(fg){
+      try {
+        const controls = fg.controls();
+        if(controls) controls.autoRotate = autoOrbit;
+      } catch(_) {}
+    }
+  };
+
   window.akiraBrainSetMode = function(mode){
     setModeUI(mode);
     if(mode === "3d" && !initialized) ensure3d();
@@ -311,6 +364,8 @@
   document.addEventListener("DOMContentLoaded", function(){
     setTimeout(() => {
       setModeUI("2d");
+      updateOrbitUI();
+      updateStats();
       if(window.AkiraMembrane && window.AkiraMembrane.resizeMembrane) window.AkiraMembrane.resizeMembrane();
     },650);
   });
