@@ -392,6 +392,7 @@ function _computeSeedPositions(
   coreId
 ) {
   try { cyMembrane.resize(); } catch(_) {}
+  const normalizedCoreId = coreId == null ? null : String(coreId);
   const W = cyMembrane.width() || 800;
   const H = cyMembrane.height() || 600;
   const cx = W / 2;
@@ -399,7 +400,7 @@ function _computeSeedPositions(
   const positions = {};
 
   if (coreId) {
-    positions[coreId] = { x: cx, y: cy };
+    positions[normalizedCoreId] = { x: cx, y: cy };
   }
 
   const assignments =
@@ -416,7 +417,7 @@ function _computeSeedPositions(
 
   const clustersMap = new Map();
   for (const n of nodes) {
-    if (n.id === coreId) continue;
+    if (String(n.id) === normalizedCoreId) continue;
     const key = assignments
       ? (assignments.get(String(n.id)) || _detectGroup(n))
       : _detectGroup(n);
@@ -453,7 +454,7 @@ function _computeSeedPositions(
     let hubScore = -1;
     for (const id of ids) {
       const d = degree.get(id) || 0;
-      const n = nodes.find(x => x.id === id);
+      const n = nodes.find(x => String(x.id) === String(id));
       const score = d + (Number(n && n._importance) || 0) * 2;
       if (score > hubScore) {
         hubScore = score;
@@ -1504,7 +1505,7 @@ function _applyGraphToCy(
 
   for (const n of nodes) {
     if (
-      n.id === coreId
+      String(n.id) === String(coreId)
     ) {
       continue;
     }
@@ -1587,10 +1588,10 @@ function _applyGraphToCy(
     nodeIds.add(n.id);
 
     const isCore =
-      n.id === coreId;
+      String(n.id) === String(coreId);
 
     const isHub =
-      hubIds.has(n.id);
+      hubIds.has(String(n.id));
 
     const group =
       _detectGroup(n);
@@ -1980,6 +1981,24 @@ function _updateMembraneStats() {
     clusterCount +
     " clusters";
 }
+
+// Core focus follows the documented graph-view interaction model: center
+// the selected node, then zoom enough to inspect its immediate neighborhood.
+window.addEventListener("akira:brain-select", function(ev){
+  try{
+    if(!cyMembrane) return;
+    const id = ev && ev.detail ? ev.detail.nodeId : null;
+    if(id){
+      const el = cyMembrane.getElementById(String(id));
+      if(el && !el.empty()){
+        const isCore = el.hasClass("core");
+        const targetZoom = isCore ? 1.55 : Math.max(cyMembrane.zoom(), 1.05);
+        cyMembrane.animate({center:{eles:el}, zoom:targetZoom}, {duration:500, easing:"ease-out"});
+        setTimeout(() => { try { cyMembrane.resize(); cyMembrane.center(el); } catch(_){} }, 540);
+      }
+    }
+  }catch(_){ }
+});
 
 // ===========================================================================
 // BRAIN 2D/3D — SINCRONIZACION DE SELECCION
