@@ -1447,7 +1447,8 @@
         const importance = Math.round((Number(n._importance)||0) * 100);
         return "<div style='padding:6px 8px;background:rgba(10,10,13,.94);border:1px solid #3b3b4a;font-family:monospace;font-size:11px;color:#fff'><b>" + label + "</b><br><span style='color:#9ca3af'>" + type + " · reuse " + reuse + " · importancia " + importance + "%</span></div>";
       })
-      .nodeResolution(10)
+      // Some mobile-served UMD builds do not expose nodeResolution.
+      // Keep the default geometry for compatibility.
       .nodeRelSize(5.5)
       .nodeVisibility(n => isExplorerVisibleNode(n) && nodeMatchesActiveFilters(n))
       .nodeThreeObject(n => makeGlowNode(n) || undefined)
