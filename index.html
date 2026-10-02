@@ -84,6 +84,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 .brain-live{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--muted);padding:7px 9px;border:3px solid var(--border);background:#0e0e12}
 .brain-toolbar-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .brain-mode.active-orbit{background:#7c3aed;color:#fff}
+.brain-explore-btn{font-size:8px;padding:9px 10px}
+#brainExploreStatus{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .brain-stats{position:absolute;right:10px;bottom:10px;z-index:5;padding:7px 9px;background:rgba(10,10,13,.82);border:2px solid var(--border);font-family:'Press Start 2P',monospace;font-size:7px;color:var(--muted);pointer-events:none}
 .brain-stats strong{color:#fff}
 .brain-stage{position:relative;flex:1;min-height:160px;background:
@@ -222,7 +224,12 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
         <div class="brain-toolbar-actions">
           <button id="brainFocusBtn" class="brain-mode" type="button" onclick="window.akiraBrainFocus && akiraBrainFocus()" title="Centrar Akira">⌾ FOCO</button>
           <button id="brainOrbitBtn" class="brain-mode" type="button" onclick="window.akiraBrainToggleOrbit && akiraBrainToggleOrbit()" title="Rotación automática">◉ ÓRBITA</button>
+          <button class="brain-mode brain-explore-btn" type="button" onclick="window.akiraBrainExploreDepth && akiraBrainExploreDepth(1)" title="Mostrar vecinos directos">1 SALTO</button>
+          <button class="brain-mode brain-explore-btn" type="button" onclick="window.akiraBrainExploreDepth && akiraBrainExploreDepth(2)" title="Expandir dos saltos">2 SALTOS</button>
+          <button class="brain-mode brain-explore-btn" type="button" onclick="window.akiraBrainExploreDepth && akiraBrainExploreDepth(3)" title="Expandir tres saltos">3 SALTOS</button>
+          <button class="brain-mode brain-explore-btn" type="button" onclick="window.akiraBrainExploreAll && akiraBrainExploreAll()" title="Mostrar toda la red">TODO</button>
           <div id="brainModeStatus" class="brain-live">BRAIN · 2D</div>
+          <div id="brainExploreStatus" class="brain-live">MEMORIA · TODO</div>
         </div>
       </div>
       <div class="brain-stage">
