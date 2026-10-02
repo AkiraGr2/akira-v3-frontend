@@ -1616,13 +1616,13 @@
       const scene = typeof fg.scene === "function" ? fg.scene() : null;
       if(!scene) return;
 
-      const count = 190;
+      const count = 260;
       const positions = new Float32Array(count * 3);
       const speeds = new Float32Array(count);
       for(let i=0;i<count;i++){
         const a = i * 2.3999632297;
-        const r = 260 + ((i * 83) % 720);
-        const y = -320 + ((i * 137) % 640);
+        const r = 300 + ((i * 83) % 820);
+        const y = -420 + ((i * 137) % 840);
         positions[i*3] = Math.cos(a) * r;
         positions[i*3+1] = y;
         positions[i*3+2] = Math.sin(a) * r;
@@ -1636,7 +1636,7 @@
         size:1.15,
         sizeAttenuation:true,
         transparent:true,
-        opacity:0.13,
+        opacity:0.18,
         depthWrite:false
       });
       neuralParticleField = new THREE.Points(geometry, neuralParticleMaterial);
@@ -1668,7 +1668,7 @@
   function apply3dRuntime(){
     if(!fg) return;
 
-    _set3dMethod("backgroundColor", "#151a29");
+    _set3dMethod("backgroundColor", "#1b2232");
     ensureNeuralParticleField();
 
     try {
@@ -1789,7 +1789,7 @@
       (isSemanticRouteLink(l) ? 1 : 0)
     );
     _set3dMethod("linkDirectionalParticleWidth", l =>
-      isRelatedLink(l) ? 1.05 : 0.72
+      isRelatedLink(l) ? 1.15 : 0.55
     );
     _set3dMethod("linkDirectionalParticleColor", l =>
       isRelatedLink(l) ? "#f4fbff" :
