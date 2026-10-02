@@ -1418,7 +1418,29 @@
 
     if (
       status === "completed" ||
-      status === "failed" ||
+      status === "failed"
+    ) {
+      html += `
+        <button
+          type="button"
+          class="mission-action mission-action-primary"
+          data-mission-action="learn"
+          data-mission-id="${escapeHtml(id)}"
+        >
+          🧠 Aprender de esta misión
+        </button>
+        <button
+          type="button"
+          class="mission-action"
+          data-mission-action="diagnose"
+          data-mission-id="${escapeHtml(id)}"
+        >
+          🔎 Diagnosticar
+        </button>
+      `;
+    }
+
+    if (
       status === "cancelled" ||
       status === "canceled" ||
       status === "rejected"
@@ -2494,6 +2516,44 @@
      MISSION ACTION EVENTS
      ============================================================ */
 
+  async function captureMissionExperience(id) {
+    const mission = missionsCache.find((item) => String(missionId(item)) === String(id));
+    const objective = missionObjective(mission);
+    const resultValue = mission?.result || {};
+    const workedInput = prompt(
+      "¿La misión funcionó? Escribe SI, NO o DESCONOCIDO:",
+      mission?.status === "completed" ? "SI" : "NO"
+    );
+    if (workedInput === null) return;
+    const normalized = String(workedInput).trim().toLowerCase();
+    const worked = (normalized === "si" || normalized === "sí") ? true : (normalized === "no" ? false : null);
+    if (!["si", "sí", "no", "desconocido"].includes(normalized)) {
+      notify("Responde SI, NO o DESCONOCIDO.", "warning");
+      return;
+    }
+    const why = prompt("¿Qué pasó o por qué funcionó/no funcionó?", "");
+    if (why === null) return;
+    const lesson = prompt("¿Qué aprendizaje concreto conviene conservar?", "");
+    if (lesson === null || !String(lesson).trim()) {
+      notify("El aprendizaje no puede estar vacío.", "warning");
+      return;
+    }
+    const response = await apiFetch(`${API_BASE()}/learning/experience`, {
+      method: "POST",
+      body: JSON.stringify({
+        mission_id: String(id),
+        task: objective,
+        result: typeof resultValue === "string" ? resultValue : JSON.stringify(resultValue || {}),
+        worked,
+        why: String(why || "").trim(),
+        lesson: String(lesson).trim(),
+        confidence: worked === true ? 0.7 : worked === false ? 0.65 : 0.5,
+        idempotency_key: `mission_experience:${String(id)}:${Date.now()}`
+      })
+    });
+    notify(response?.message || "Experiencia registrada como candidato de aprendizaje.", response ? "success" : "warning");
+  }
+
   function runMissionAction(
     action,
     id
@@ -2540,6 +2600,10 @@
         void diagnoseMission(
           id
         );
+        break;
+
+      case "learn":
+        void captureMissionExperience(id);
         break;
     }
   }
