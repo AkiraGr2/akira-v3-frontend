@@ -104,6 +104,16 @@
       const source = String(item.source || "unknown");
       const conf = Math.round(Number(item.confidence || 0) * 100);
       const nodes = Array.isArray(item.knowledge_nodes) ? item.knowledge_nodes.length : 0;
+      const evidence = Array.isArray(item.evidence) ? item.evidence : [];
+      const analysis = item.verification_analysis && typeof item.verification_analysis === "object" ? item.verification_analysis : null;
+      const verdict = analysis ? String(analysis.verdict || "insufficient").toUpperCase() : "";
+      const analysisHtml = analysis
+        ? '<div class="learning-analysis">'
+          + '<div class="learning-analysis-head">🧪 EVALUACIÓN · '+esc(verdict)+'</div>'
+          + '<div class="learning-analysis-summary">'+esc(String(analysis.summary || "Sin resumen."))+'</div>'
+          + '<div class="learning-analysis-meta">confianza evaluador: '+Math.round(Number(analysis.confidence || 0) * 100)+'% · evaluado: '+esc(String(analysis.evaluated_at || "—"))+'</div>'
+          + '</div>'
+        : "";
       return ''
         + '<article class="learning-card">'
         +   '<div class="learning-card-head">'
@@ -112,8 +122,9 @@
         +   '</div>'
         +   '<div class="learning-lesson">'+esc(lesson).replace(/\n/g,"<br>")+'</div>'
         +   '<div class="learning-meta">'
-        +      'fuente: '+esc(source)+' · nodos: '+nodes+' · reutilizado: '+Number(item.reuse_count || 0)+' veces'
+        +      'fuente: '+esc(source)+' · nodos: '+nodes+' · evidencia: '+evidence.length+' · reutilizado: '+Number(item.reuse_count || 0)+' veces'
         +   '</div>'
+        +   analysisHtml
         +   '<div class="learning-actions">'+actionButtons(item)+'</div>'
         + '</article>';
     }).join("");
@@ -173,8 +184,7 @@
       alert("No se pudo evaluar: " + ((r.data && r.data.reason) || ("HTTP "+r.status)));
       return;
     }
-    const a = r.data.analysis || {};
-    alert("EVALUACIÓN: "+String(a.verdict || "insufficient").toUpperCase()+"\n\n"+String(a.summary || "Sin resumen.")+"\n\nEstado sugerido: "+String(r.data.recommended_status || "candidate").toUpperCase()+"\n\nLa decisión de estado sigue siendo manual.");
+    await api.load();
   }
 
   async function investigate(id, version){
@@ -271,6 +281,10 @@
       + '.learning-confidence{font:8px "Press Start 2P",monospace;color:var(--muted);}'
       + '.learning-lesson{font-size:12px;line-height:1.5;color:#fff;word-break:break-word;}'
       + '.learning-meta{font-size:9px;color:var(--muted);margin-top:7px;line-height:1.4;}'
+      + '.learning-analysis{margin-top:7px;padding:7px;border:1px solid #3b3b48;background:#101017;}'
+      + '.learning-analysis-head{font:10px "Pixelify Sans",sans-serif;color:#fff;letter-spacing:.03em;margin-bottom:4px;}'
+      + '.learning-analysis-summary{font-size:11px;color:#d9d9e2;line-height:1.4;}'
+      + '.learning-analysis-meta{margin-top:4px;color:var(--muted);font-size:9px;}'
       + '.learning-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px;}'
       + '.learning-action{border:2px solid var(--border);background:#111116;color:#ddd;padding:5px 7px;font:8px "Pixelify Sans",sans-serif;cursor:pointer;}'
       + '.learning-action:hover{background:#20202a;color:#fff;}'
