@@ -85,6 +85,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 .brain-toolbar-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .brain-mode.active-orbit{background:#7c3aed;color:#fff}
 .brain-explore-btn{font-size:8px;padding:9px 10px}
+#brainNavStatus{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brain-mode:disabled{opacity:.35;cursor:default}
 #brainExploreStatus{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .brain-stats{position:absolute;right:10px;bottom:10px;z-index:5;padding:7px 9px;background:rgba(10,10,13,.82);border:2px solid var(--border);font-family:'Press Start 2P',monospace;font-size:7px;color:var(--muted);pointer-events:none}
 .brain-stats strong{color:#fff}
@@ -224,6 +226,9 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
         <div class="brain-toolbar-actions">
           <button id="brainFocusBtn" class="brain-mode" type="button" onclick="window.akiraBrainFocus && akiraBrainFocus()" title="Centrar Akira">⌾ FOCO</button>
           <button id="brainOrbitBtn" class="brain-mode" type="button" onclick="window.akiraBrainToggleOrbit && akiraBrainToggleOrbit()" title="Rotación automática">◉ ÓRBITA</button>
+          <button id="brainNavBack" class="brain-mode" type="button" onclick="window.akiraBrainNavigateBack && akiraBrainNavigateBack()" title="Volver al nodo anterior" disabled>←</button>
+          <button id="brainNavForward" class="brain-mode" type="button" onclick="window.akiraBrainNavigateForward && akiraBrainNavigateForward()" title="Avanzar al siguiente nodo" disabled>→</button>
+          <div id="brainNavStatus" class="brain-live">RECORRIDO · —</div>
           <button class="brain-mode brain-explore-btn" type="button" onclick="window.akiraBrainExploreDepth && akiraBrainExploreDepth(1)" title="Mostrar vecinos directos">1 SALTO</button>
           <button class="brain-mode brain-explore-btn" type="button" onclick="window.akiraBrainExploreDepth && akiraBrainExploreDepth(2)" title="Expandir dos saltos">2 SALTOS</button>
           <button class="brain-mode brain-explore-btn" type="button" onclick="window.akiraBrainExploreDepth && akiraBrainExploreDepth(3)" title="Expandir tres saltos">3 SALTOS</button>
