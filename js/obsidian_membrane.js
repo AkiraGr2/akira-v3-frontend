@@ -1350,10 +1350,10 @@ function _cytoscapeStyle() {
           "#ff8a8a",
 
         "opacity":
-          0.6,
+          0.12,
 
         "width":
-          1.4
+          0.7
       }
     },
 
