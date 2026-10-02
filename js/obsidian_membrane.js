@@ -1416,6 +1416,54 @@ function _cytoscapeStyle() {
         "opacity":
           0.04
       }
+    },
+
+    {
+      selector:
+        "node.drag-root",
+
+      style: {
+        "border-width":
+          3,
+        "border-color":
+          "#ffffff",
+        "shadow-blur":
+          34,
+        "shadow-opacity":
+          1
+      }
+    },
+
+    {
+      selector:
+        "node.drag-neighbor",
+
+      style: {
+        "border-width":
+          1.5,
+        "border-color":
+          "#ffffff",
+        "shadow-blur":
+          24,
+        "shadow-opacity":
+          0.9,
+        "opacity":
+          1
+      }
+    },
+
+    {
+      selector:
+        "edge.drag-active",
+
+      style: {
+        "opacity":
+          0.92,
+        "line-color":
+          "#ffffff",
+        "width":
+          2.1
+      }
     }
   ];
 }
@@ -1541,6 +1589,8 @@ function initMembraneGraph() {
         autoungrabify:
           false,
       });
+
+    _bindElasticNodeInteraction();
 
     cyMembrane.on(
       "tap",
@@ -1723,6 +1773,156 @@ function initMembraneGraph() {
       ) +
       "</div>";
   }
+}
+
+let membraneElasticDragState = null;
+
+function _buildElasticDragState(node){
+  if(!cyMembrane || !node || node.empty()) return null;
+
+  const rootId = String(node.id());
+  const adjacency = new Map();
+
+  cyMembrane.edges().forEach(e=>{
+    const a = String(e.data("source"));
+    const b = String(e.data("target"));
+    if(!adjacency.has(a)) adjacency.set(a,[]);
+    if(!adjacency.has(b)) adjacency.set(b,[]);
+    adjacency.get(a).push({id:b,edge:e});
+    adjacency.get(b).push({id:a,edge:e});
+  });
+
+  const distance = new Map([[rootId,0]]);
+  const queue = [rootId];
+
+  while(queue.length){
+    const current = queue.shift();
+    const d = distance.get(current) || 0;
+    if(d >= 2) continue;
+
+    for(const item of adjacency.get(current) || []){
+      if(!distance.has(item.id)){
+        distance.set(item.id,d+1);
+        queue.push(item.id);
+      }
+    }
+  }
+
+  const home = new Map();
+  _positionCache.forEach((p,id)=>{
+    home.set(String(id),{x:Number(p.x)||0,y:Number(p.y)||0});
+  });
+
+  const rootPosition = node.position();
+  const affected = [];
+
+  for(const [id,d] of distance.entries()){
+    if(id === rootId) continue;
+    const el = cyMembrane.getElementById(id);
+    if(!el || el.empty()) continue;
+    const hp = home.get(id) || el.position();
+    affected.push({
+      id,
+      distance:d,
+      element:el,
+      home:{x:hp.x,y:hp.y}
+    });
+  }
+
+  return {
+    rootId,
+    rootStart:{x:Number(rootPosition.x)||0,y:Number(rootPosition.y)||0},
+    affected,
+    startedAt:Date.now()
+  };
+}
+
+function _updateElasticDrag(node){
+  const state = membraneElasticDragState;
+  if(!state || !cyMembrane || !node) return;
+
+  const p = node.position();
+  const dx = (Number(p.x)||0) - state.rootStart.x;
+  const dy = (Number(p.y)||0) - state.rootStart.y;
+
+  // Soft elastic displacement: direct neighbors move noticeably, second-hop
+  // neighbors only slightly. The maximum displacement prevents a dragged
+  // community from leaving its petal.
+  const maxShift = 95;
+
+  cyMembrane.batch(()=>{
+    state.affected.forEach(item=>{
+      const damping = item.distance === 1 ? 0.30 : 0.10;
+      const magnitude = Math.sqrt(dx*dx + dy*dy);
+      const scale = magnitude > maxShift ? maxShift / magnitude : 1;
+
+      item.element.position({
+        x:item.home.x + dx * damping * scale,
+        y:item.home.y + dy * damping * scale
+      });
+    });
+  });
+}
+
+function _finishElasticDrag(){
+  const state = membraneElasticDragState;
+  if(!state || !cyMembrane) return;
+
+  const affected = state.affected.slice();
+  membraneElasticDragState = null;
+
+  affected.forEach(item=>{
+    try{
+      item.element.stop();
+      item.element.animate(
+        {position:item.home},
+        {
+          duration:280,
+          easing:"ease-out"
+        }
+      );
+    }catch(_){
+      try { item.element.position(item.home); } catch(__){}
+    }
+  });
+
+  try{
+    cyMembrane.nodes().removeClass("drag-root").removeClass("drag-neighbor");
+    cyMembrane.edges().removeClass("drag-active");
+  }catch(_){}
+}
+
+function _bindElasticNodeInteraction(){
+  if(!cyMembrane || cyMembrane._akiraElasticDragBound) return;
+  cyMembrane._akiraElasticDragBound = true;
+
+  cyMembrane.on("grab","node",evt=>{
+    try{
+      _finishElasticDrag();
+      const node = evt.target;
+      membraneElasticDragState = _buildElasticDragState(node);
+      if(!membraneElasticDragState) return;
+
+      node.addClass("drag-root");
+      membraneElasticDragState.affected.forEach(item=>item.element.addClass("drag-neighbor"));
+
+      cyMembrane.edges().forEach(edge=>{
+        const source = String(edge.data("source"));
+        const target = String(edge.data("target"));
+        if(source === membraneElasticDragState.rootId || target === membraneElasticDragState.rootId){
+          edge.addClass("drag-active");
+        }
+      });
+    }catch(_){}
+  });
+
+  cyMembrane.on("drag","node",evt=>{
+    try { _updateElasticDrag(evt.target); } catch(_) {}
+  });
+
+  cyMembrane.on("free","node",()=>{
+    try { _finishElasticDrag(); } catch(_) {}
+  });
 }
 
 function _highlightNeighbors(node) {
