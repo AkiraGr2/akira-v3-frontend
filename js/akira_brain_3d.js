@@ -228,10 +228,7 @@
     if(!fg) return;
     fg
       .backgroundColor("#05060a")
-      .d3Force("charge").strength(n => {
-        const reuse = Number(n && n.reuse_count) || 0;
-        return -55 - Math.min(90, reuse * 3);
-      })
+      .d3Force("charge").strength(-78)
       .nodeColor(n => {
         const id = String(n.id);
         if(id === String(selectedNodeId)) return "#ffffff";
