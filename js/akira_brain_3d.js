@@ -50,6 +50,70 @@
     return GROUP_COLORS[t] ? t : "other";
   }
 
+  function hexColor(hex){
+    try { return Number.parseInt(String(hex).replace("#",""),16); } catch(_) { return 0xffffff; }
+  }
+
+  function makeGlowNode(n){
+    const THREE = window.THREE;
+    if(!THREE) return null;
+    const group = new THREE.Group();
+    const base = groupForNode(n);
+    const color = hexColor(colorForNode(n,false));
+    const reuse = Number(n.reuse_count) || 0;
+    const weight = Number(n.weight) || 0;
+    const core = !!n._isCore;
+    const selected = String(n.id) === String(selectedNodeId);
+    const radius = core ? 8.5 : Math.max(2.2, Math.min(7.5, 2.3 + reuse * 0.35 + weight * 0.9));
+
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: selected ? 0xffffff : color,
+      transparent:true,
+      opacity: selected ? 0.20 : (core ? 0.18 : 0.09),
+      blending:THREE.AdditiveBlending,
+      depthWrite:false
+    });
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(radius * (core ? 1.9 : 1.65), 16, 16), glowMat);
+    group.add(glow);
+
+    const mat = new THREE.MeshStandardMaterial({
+      color: selected ? 0xffffff : (core ? 0xff6b6b : color),
+      emissive:selected ? 0xffffff : (core ? 0x551111 : color),
+      emissiveIntensity:selected ? 1.6 : (core ? 1.25 : 0.75),
+      roughness:0.28,
+      metalness:0.18,
+      transparent:true,
+      opacity:1
+    });
+    const geometry = core
+      ? new THREE.IcosahedronGeometry(radius, 2)
+      : (base === "agent" || base === "tool"
+          ? new THREE.OctahedronGeometry(radius * 0.82, 1)
+          : new THREE.SphereGeometry(radius * 0.82, 18, 18));
+    const body = new THREE.Mesh(geometry, mat);
+    group.add(body);
+
+    if(core || selected){
+      const ringMat = new THREE.MeshBasicMaterial({
+        color:selected ? 0xffffff : 0xff6b6b,
+        transparent:true,
+        opacity:0.7,
+        blending:THREE.AdditiveBlending,
+        depthWrite:false
+      });
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(radius * 1.35, Math.max(0.35,radius*0.075), 10, 32),
+        ringMat
+      );
+      ring.rotation.x = Math.PI / 2;
+      group.add(ring);
+      group.userData.ring = ring;
+    }
+    group.userData.glow = glow;
+    group.userData.baseColor = color;
+    return group;
+  }
+
   function colorForNode(n, bright){
     const base = GROUP_COLORS[groupForNode(n)] || GROUP_COLORS.other;
     if(bright) return "#ffffff";
@@ -163,7 +227,11 @@
   function apply3dRuntime(){
     if(!fg) return;
     fg
-      .backgroundColor("#09090c")
+      .backgroundColor("#05060a")
+      .d3Force("charge").strength(n => {
+        const reuse = Number(n && n.reuse_count) || 0;
+        return -55 - Math.min(90, reuse * 3);
+      })
       .nodeColor(n => {
         const id = String(n.id);
         if(id === String(selectedNodeId)) return "#ffffff";
@@ -192,6 +260,8 @@
       .nodeResolution(10)
       .nodeRelSize(5.5)
       .nodeVisibility(true)
+      .nodeThreeObject(n => makeGlowNode(n) || undefined)
+      .nodeThreeObjectExtend(false)
       .linkColor(l => isRelatedLink(l) ? "#c4b5fd" : "#3f4650")
       .linkWidth(l => isRelatedLink(l) ? Math.min(5, 1.5 + (Number(l.weight)||0.5)) : Math.min(1.6, 0.35 + (Number(l.weight)||0.5) * 0.4))
       .linkOpacity(l => selectedNodeId && !isRelatedLink(l) ? 0.10 : 0.46)
@@ -201,10 +271,6 @@
       .linkDirectionalParticleWidth(l => isRelatedLink(l) ? 1.7 : 0.8)
       .linkDirectionalParticleColor(l => isRelatedLink(l) ? "#ffffff" : "#7c8795")
       .linkDirectionalParticleSpeed(l => isRelatedLink(l) ? 0.025 : 0.009)
-      .linkPositionUpdate((linkObj, coords, link) => {
-        // Keep default link geometry; this callback is intentionally a no-op hook.
-        return false;
-      })
       .showNavInfo(false)
       .controlType("orbit")
       .enablePointerInteraction(true)
@@ -279,6 +345,22 @@
         });
 
       initialized = true;
+      try {
+        fg.onRenderFramePre(() => {
+          const t = performance.now() * 0.002;
+          fg.scene().traverse(obj => {
+            if(obj && obj.userData && obj.userData.ring){
+              const pulse = 1 + Math.sin(t + (obj.id || 0)) * 0.06;
+              obj.userData.ring.scale.setScalar(pulse);
+              obj.userData.ring.rotation.z += 0.003;
+            }
+            if(obj && obj.userData && obj.userData.glow){
+              const pulse = 0.96 + (Math.sin(t * 1.15 + (obj.id || 0)) + 1) * 0.07;
+              obj.userData.glow.scale.setScalar(pulse);
+            }
+          });
+        });
+      } catch(_) {}
       fetchGraph();
       clearInterval(refreshTimer);
       refreshTimer = setInterval(fetchGraph, REFRESH_MS);
