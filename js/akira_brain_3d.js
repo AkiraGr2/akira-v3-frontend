@@ -10,7 +10,7 @@
   const API = "https://akira-empresa.onrender.com";
   const REFRESH_MS = 7000;
   const MAX_NODES = 500;
-  const MAX_EDGES = 1000;
+  const MAX_EDGES = 1200;
 
   const GROUP_COLORS = {
     memory:"#7ee787", learning:"#56d4dd", agent:"#f778ba",
@@ -29,13 +29,11 @@
   let refreshTimer = null;
   let autoOrbit = false;
   let lastFetchAt = 0;
-  let threeLoading = null;
   let forceGraphLoading = null;
   const EXTERNAL_SCRIPT_TIMEOUT_MS = 10000;
-  const THREE_SOURCES = [
-    "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.min.js",
-    "https://unpkg.com/three@0.180.0/build/three.min.js"
-  ];
+  // 3d-force-graph UMD bundles its Three.js dependency. Do not load a
+  // separate global THREE build: Three r161+ removed the UMD build/three.min.js
+  // and the graph package already carries the renderer dependency.
   const FORCE_GRAPH_SOURCES = [
     "https://cdn.jsdelivr.net/npm/3d-force-graph@1.80.1/dist/3d-force-graph.min.js",
     "https://unpkg.com/3d-force-graph@1.80.1/dist/3d-force-graph.min.js"
@@ -147,17 +145,6 @@
     });
 
     return tryNext(0);
-  }
-
-  function loadThree(){
-    if(window.THREE) return Promise.resolve(window.THREE);
-    if(threeLoading) return threeLoading;
-    threeLoading = _loadExternalScript(
-      THREE_SOURCES,
-      "three",
-      () => !!window.THREE
-    ).then(() => window.THREE).finally(() => { threeLoading = null; });
-    return threeLoading;
   }
 
   function loadForceGraph3D(){
@@ -610,6 +597,9 @@
   }
 
   function makeGlowNode(n){
+    // The UMD graph owns its Three.js instance. Custom node objects are
+    // optional; when no global THREE exists, let the library render its native
+    // spheres instead of failing the entire 3D view.
     const THREE = window.THREE;
     if(!THREE) return null;
     const key = String(n.id);
@@ -1511,24 +1501,13 @@
 
     const container = document.getElementById("membrane3d");
     if(!container) return;
-    try {
-      await loadThree();
-    } catch(e) {
-      container.innerHTML =
-        '<div style="padding:24px;color:#ff7b72;font-family:monospace;text-align:center">' +
-        '<div style="margin-bottom:12px">No se pudo cargar Three.js desde los proveedores disponibles.</div>' +
-        '<button type="button" class="pixel-btn" onclick="window.akiraBrainRetry3d && akiraBrainRetry3d()">🔄 REINTENTAR 3D</button>' +
-        '</div>';
-      console.warn("[akira-brain-3d] three", e);
-      return;
-    }
     if(typeof window.ForceGraph3D !== "function"){
       try {
         await loadForceGraph3D();
       } catch(e) {
         container.innerHTML =
           '<div style="padding:24px;color:#ff7b72;font-family:monospace;text-align:center">' +
-          '<div style="margin-bottom:12px">No se pudo cargar el motor 3D desde los proveedores disponibles.</div>' +
+          '<div style="margin-bottom:12px">No se pudo cargar el motor 3D desde los proveedores disponibles. Puedes reintentar.</div>' +
           '<button type="button" class="pixel-btn" onclick="window.akiraBrainRetry3d && akiraBrainRetry3d()">🔄 REINTENTAR 3D</button>' +
           '</div>';
         console.warn("[akira-brain-3d] force-graph", e);
