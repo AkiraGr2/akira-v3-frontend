@@ -1,14 +1,14 @@
 /* ============================================================
    AKIRA — MISSIONS PANEL
    FASE 10.8 — Panel Unificado de Misiones
-   Version: V1.3
+   Version: V1.4
    ============================================================ */
 
 (function () {
   "use strict";
 
   /* ============================================================
-     BACKEND
+     CONFIG
      ============================================================ */
 
   const BACKEND = () =>
@@ -33,7 +33,10 @@
   }
 
   function escapeHtml(value) {
-    if (value === null || value === undefined) {
+    if (
+      value === null ||
+      value === undefined
+    ) {
       return "";
     }
 
@@ -60,7 +63,10 @@
       "Content-Type": "application/json"
     };
 
-    if (typeof window.akiraAuthHeaders === "function") {
+    if (
+      typeof window.akiraAuthHeaders ===
+      "function"
+    ) {
       try {
         headers = Object.assign(
           headers,
@@ -121,14 +127,29 @@
     return data;
   }
 
-  function notify(message, type = "info") {
-    if (typeof window.showToast === "function") {
-      window.showToast(message, type);
+  function notify(
+    message,
+    type = "info"
+  ) {
+    if (
+      typeof window.showToast ===
+      "function"
+    ) {
+      window.showToast(
+        message,
+        type
+      );
       return;
     }
 
-    if (typeof window.akToast === "function") {
-      window.akToast(message, type);
+    if (
+      typeof window.akToast ===
+      "function"
+    ) {
+      window.akToast(
+        message,
+        type
+      );
       return;
     }
 
@@ -137,7 +158,9 @@
     );
   }
 
-  function priorityToNumber(priority) {
+  function priorityToNumber(
+    priority
+  ) {
     if (
       priority === undefined ||
       priority === null ||
@@ -147,24 +170,36 @@
     }
 
     const value =
-      String(priority).toLowerCase();
+      String(priority)
+        .toLowerCase();
 
-    if (value === "low") return 1;
-    if (value === "normal") return 5;
-    if (value === "high") return 9;
-
-    const numeric = Number(priority);
-
-    if (!Number.isNaN(numeric)) {
-      return numeric;
+    if (value === "low") {
+      return 1;
     }
 
-    return 5;
+    if (value === "normal") {
+      return 5;
+    }
+
+    if (value === "high") {
+      return 9;
+    }
+
+    const numeric =
+      Number(priority);
+
+    return Number.isNaN(numeric)
+      ? 5
+      : numeric;
   }
 
-  function priorityLabel(priority) {
+  function priorityLabel(
+    priority
+  ) {
     const numeric =
-      priorityToNumber(priority);
+      priorityToNumber(
+        priority
+      );
 
     if (numeric >= 8) {
       return "Alta";
@@ -177,12 +212,15 @@
     return "Normal";
   }
 
-  function statusLabel(status) {
+  function statusLabel(
+    status
+  ) {
     const labels = {
       pending: "Pendiente",
       created: "Creada",
       planning: "Planificando",
-      waiting_approval: "Esperando aprobación",
+      waiting_approval:
+        "Esperando aprobación",
       approved: "Aprobada",
       running: "En ejecución",
       completed: "Completada",
@@ -199,12 +237,15 @@
     );
   }
 
-  function statusClass(status) {
+  function statusClass(
+    status
+  ) {
     const map = {
       pending: "pending",
       created: "pending",
       planning: "waiting",
-      waiting_approval: "waiting",
+      waiting_approval:
+        "waiting",
       approved: "approved",
       running: "running",
       completed: "completed",
@@ -214,26 +255,33 @@
       rejected: "cancelled"
     };
 
-    return map[status] || "pending";
+    return (
+      map[status] ||
+      "pending"
+    );
   }
 
-  function missionObjective(mission) {
+  function missionId(
+    mission
+  ) {
+    return (
+      mission?.id ||
+      mission?.mission_id ||
+      mission?.uuid ||
+      ""
+    );
+  }
+
+  function missionObjective(
+    mission
+  ) {
     return (
       mission?.objective ||
       mission?.goal ||
       mission?.description ||
       mission?.title ||
       mission?.name ||
-      `Misión ${mission?.id || ""}`
-    );
-  }
-
-  function missionId(mission) {
-    return (
-      mission?.id ||
-      mission?.mission_id ||
-      mission?.uuid ||
-      ""
+      "Misión"
     );
   }
 
@@ -243,17 +291,28 @@
 
   function getPanelElements() {
     return {
-      list: $("missionPanelList"),
-      detail: $("missionPanelDetail"),
-      search: $("missionPanelSearch"),
-      status: $("missionPanelStatus"),
-      goal: $("missionPanelGoal"),
-      priority: $("missionPanelPriority")
+      list:
+        $("missionPanelList"),
+
+      detail:
+        $("missionPanelDetail"),
+
+      search:
+        $("missionPanelSearch"),
+
+      status:
+        $("missionPanelStatus"),
+
+      goal:
+        $("missionPanelGoal"),
+
+      priority:
+        $("missionPanelPriority")
     };
   }
 
   /* ============================================================
-     LOAD MISSIONS
+     LOAD LIST
      ============================================================ */
 
   async function loadMissions() {
@@ -268,15 +327,18 @@
       elements.list.innerHTML =
         '<div class="mission-empty">Cargando misiones...</div>';
 
-      const status =
-        elements.status?.value || "";
-
       let url =
         `${API_BASE()}/missions?limit=50`;
 
+      const status =
+        elements.status?.value ||
+        "";
+
       if (status) {
         url +=
-          `&status=${encodeURIComponent(status)}`;
+          `&status=${encodeURIComponent(
+            status
+          )}`;
       }
 
       const response =
@@ -292,18 +354,32 @@
 
       renderMissionList();
 
+      /*
+       * Si ya había una misión seleccionada,
+       * intentamos mantenerla.
+       */
       if (selectedMissionId) {
-        const exists =
-          missionsCache.some(
+        const selected =
+          missionsCache.find(
             (mission) =>
               String(
                 missionId(mission)
               ) ===
-              String(selectedMissionId)
+              String(
+                selectedMissionId
+              )
           );
 
-        if (exists) {
-          await loadMissionDetail(
+        if (selected) {
+          renderMissionSummary(
+            selected
+          );
+
+          /*
+           * Carga completa sin bloquear
+           * la lista.
+           */
+          loadMissionDetail(
             selectedMissionId
           );
         }
@@ -317,14 +393,11 @@
       elements.list.innerHTML = `
         <div class="mission-error">
           Error cargando misiones:<br>
-          ${escapeHtml(error.message)}
+          ${escapeHtml(
+            error.message
+          )}
         </div>
       `;
-
-      notify(
-        `Error cargando misiones: ${error.message}`,
-        "error"
-      );
     }
   }
 
@@ -357,14 +430,18 @@
 
           const text = [
             missionId(mission),
-            missionObjective(mission),
+            missionObjective(
+              mission
+            ),
             mission.status,
             mission.priority
           ]
             .join(" ")
             .toLowerCase();
 
-          return text.includes(search);
+          return text.includes(
+            search
+          );
         }
       );
 
@@ -380,75 +457,231 @@
 
     elements.list.innerHTML =
       filtered
-        .map((mission) => {
-          const id =
-            missionId(mission);
+        .map(
+          (mission) => {
+            const id =
+              missionId(
+                mission
+              );
 
-          const objective =
-            missionObjective(mission);
+            const objective =
+              missionObjective(
+                mission
+              );
 
-          const status =
-            mission.status ||
-            "pending";
+            const status =
+              mission?.status ||
+              "pending";
 
-          const priority =
-            priorityLabel(
-              mission.priority
-            );
+            const priority =
+              priorityLabel(
+                mission?.priority
+              );
 
-          const selected =
-            String(id) ===
-            String(selectedMissionId)
-              ? " selected"
-              : "";
+            const selected =
+              String(id) ===
+              String(
+                selectedMissionId
+              )
+                ? " selected"
+                : "";
 
-          return `
-            <button
-              type="button"
-              class="mission-card${selected}"
-              onclick="window.missionPanelSelect('${escapeHtml(
-                id
-              )}')"
-            >
+            return `
+              <button
+                type="button"
+                class="mission-card${selected}"
+                onclick="window.missionPanelSelect('${escapeHtml(
+                  id
+                )}')"
+              >
 
-              <div class="mission-card-top">
+                <div class="mission-card-top">
 
-                <span class="mission-id">
-                  #${escapeHtml(id)}
-                </span>
+                  <span class="mission-id">
+                    #${escapeHtml(id)}
+                  </span>
 
-                <span class="mission-status mission-status-${statusClass(
-                  status
-                )}">
+                  <span class="mission-status mission-status-${statusClass(
+                    status
+                  )}">
+                    ${escapeHtml(
+                      statusLabel(
+                        status
+                      )
+                    )}
+                  </span>
+
+                </div>
+
+                <div class="mission-objective">
                   ${escapeHtml(
-                    statusLabel(status)
+                    objective
                   )}
-                </span>
+                </div>
 
-              </div>
+                <div class="mission-card-bottom">
+                  <span>
+                    Prioridad:
+                    ${escapeHtml(
+                      priority
+                    )}
+                  </span>
+                </div>
 
-              <div class="mission-objective">
-                ${escapeHtml(objective)}
-              </div>
-
-              <div class="mission-card-bottom">
-                <span>
-                  Prioridad:
-                  ${escapeHtml(priority)}
-                </span>
-              </div>
-
-            </button>
-          `;
-        })
+              </button>
+            `;
+          }
+        )
         .join("");
   }
 
   /* ============================================================
-     DETAIL
+     IMMEDIATE SUMMARY
      ============================================================ */
 
-  async function loadMissionDetail(id) {
+  function renderMissionSummary(
+    mission
+  ) {
+    const elements =
+      getPanelElements();
+
+    if (!elements.detail) {
+      return;
+    }
+
+    const id =
+      missionId(mission);
+
+    const objective =
+      missionObjective(
+        mission
+      );
+
+    const status =
+      mission?.status ||
+      "pending";
+
+    const priority =
+      priorityLabel(
+        mission?.priority
+      );
+
+    elements.detail.innerHTML = `
+      <div class="mission-detail-header">
+
+        <div>
+
+          <div class="mission-detail-kicker">
+            MISIÓN #${escapeHtml(
+              id
+            )}
+          </div>
+
+          <h3>
+            ${escapeHtml(
+              objective
+            )}
+          </h3>
+
+        </div>
+
+        <span class="mission-status mission-status-${statusClass(
+          status
+        )}">
+          ${escapeHtml(
+            statusLabel(
+              status
+            )
+          )}
+        </span>
+
+      </div>
+
+      <div class="mission-detail-meta">
+
+        <div>
+          <span>Prioridad</span>
+          <strong>
+            ${escapeHtml(
+              priority
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <span>Estado</span>
+          <strong>
+            ${escapeHtml(
+              statusLabel(
+                status
+              )
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <span>Progreso</span>
+          <strong>
+            Cargando...
+          </strong>
+        </div>
+
+      </div>
+
+      <div class="mission-progress-box">
+
+        <div class="mission-progress-label">
+
+          <span>
+            Progreso de misión
+          </span>
+
+          <strong>
+            Cargando...
+          </strong>
+
+        </div>
+
+        <div class="mission-progress-track">
+
+          <div
+            class="mission-progress-fill"
+            style="width:0%"
+          ></div>
+
+        </div>
+
+      </div>
+
+      <div class="mission-actions">
+
+        ${renderMissionActions(
+          mission
+        )}
+
+      </div>
+
+      <div class="mission-tasks">
+
+        <div class="mission-section-title">
+          Tareas
+        </div>
+
+        <div class="mission-empty">
+          Cargando información adicional...
+        </div>
+
+      </div>
+    `;
+  }
+
+  /* ============================================================
+     LOAD DETAIL
+     ============================================================ */
+
+  async function loadMissionDetail(
+    id
+  ) {
     const elements =
       getPanelElements();
 
@@ -459,111 +692,310 @@
       return;
     }
 
-    selectedMissionId = id;
+    /*
+     * Protección contra respuestas
+     * antiguas pisando una selección nueva.
+     */
+    const requestId =
+      String(id);
 
-    elements.detail.innerHTML =
-      '<div class="mission-empty">Cargando detalle...</div>';
+    selectedMissionId =
+      id;
+
+    const missionFromCache =
+      missionsCache.find(
+        (mission) =>
+          String(
+            missionId(mission)
+          ) === requestId
+      );
+
+    if (missionFromCache) {
+      renderMissionSummary(
+        missionFromCache
+      );
+    }
 
     renderMissionList();
 
+    /*
+     * 1. Cargar misión primero.
+     * No esperamos progreso ni tareas.
+     */
     try {
-      const [
-        missionResponse,
-        progressResponse,
-        tasksResponse
-      ] = await Promise.all([
-        apiFetch(
+      const missionResponse =
+        await apiFetch(
           `${API_BASE()}/missions/${encodeURIComponent(
             id
           )}`
-        ),
-
-        apiFetch(
-          `${API_BASE()}/missions/${encodeURIComponent(
-            id
-          )}/progress`
-        ),
-
-        apiFetch(
-          `${API_BASE()}/tasks?mission_id=${encodeURIComponent(
-            id
-          )}`
-        )
-      ]);
+        );
 
       /*
-       * CORRECCIÓN IMPORTANTE:
-       *
-       * El backend devuelve:
-       *
-       * {
-       *   ok: true,
-       *   mission: {...}
-       * }
+       * Si el usuario cambió de misión
+       * mientras esperábamos, no seguimos.
        */
+      if (
+        String(
+          selectedMissionId
+        ) !== requestId
+      ) {
+        return;
+      }
 
       const mission =
         missionResponse?.mission ||
         missionResponse;
 
       /*
-       * El backend devuelve:
-       *
-       * {
-       *   ok: true,
-       *   mission: {...},
-       *   progress: {...}
-       * }
+       * Actualizar caché.
        */
+      const index =
+        missionsCache.findIndex(
+          (item) =>
+            String(
+              missionId(item)
+            ) === requestId
+        );
 
-      const progress =
-        progressResponse?.progress ||
-        progressResponse;
+      if (index >= 0) {
+        missionsCache[index] =
+          mission;
+      }
 
       /*
-       * El endpoint de tareas puede devolver:
-       *
-       * {
-       *   ok: true,
-       *   tasks: [...]
-       * }
+       * Mostrar inmediatamente
+       * la misión real.
        */
+      renderMissionSummary(
+        mission
+      );
 
-      const tasks =
-        tasksResponse?.tasks ||
-        tasksResponse;
+      /*
+       * 2. Ahora cargamos progreso
+       *    y tareas de forma independiente.
+       */
+      loadProgress(
+        id,
+        mission
+      );
 
-      renderMissionDetail(
-        mission,
-        progress,
-        tasks
+      loadTasks(
+        id,
+        mission
       );
 
       startPollingIfNeeded(
         mission
       );
     } catch (error) {
+      if (
+        String(
+          selectedMissionId
+        ) !== requestId
+      ) {
+        return;
+      }
+
       console.error(
-        "Akira mission detail error:",
+        "Mission detail error:",
         error
       );
 
+      /*
+       * No destruimos toda la interfaz.
+       */
       elements.detail.innerHTML = `
         <div class="mission-error">
           Error cargando misión:<br>
-          ${escapeHtml(error.message)}
+          ${escapeHtml(
+            error.message
+          )}
         </div>
       `;
+    }
+  }
 
-      notify(
-        `Error cargando misión: ${error.message}`,
-        "error"
+  /* ============================================================
+     LOAD PROGRESS
+     ============================================================ */
+
+  async function loadProgress(
+    id,
+    mission
+  ) {
+    try {
+      const response =
+        await apiFetch(
+          `${API_BASE()}/missions/${encodeURIComponent(
+            id
+          )}/progress`
+        );
+
+      if (
+        String(
+          selectedMissionId
+        ) !== String(id)
+      ) {
+        return;
+      }
+
+      const progress =
+        response?.progress ||
+        response;
+
+      renderProgress(
+        mission,
+        progress
+      );
+    } catch (error) {
+      console.warn(
+        "Mission progress unavailable:",
+        error
+      );
+
+      /*
+       * El detalle sigue funcionando.
+       */
+    }
+  }
+
+  function renderProgress(
+    mission,
+    progress
+  ) {
+    const elements =
+      getPanelElements();
+
+    if (
+      !elements.detail ||
+      String(
+        selectedMissionId
+      ) !==
+      String(
+        missionId(mission)
+      )
+    ) {
+      return;
+    }
+
+    const value =
+      Number(
+        progress?.percent ??
+        progress?.progress ??
+        progress?.percentage ??
+        mission?.progress ??
+        0
+      );
+
+    const safe =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number.isFinite(
+            value
+          )
+            ? value
+            : 0
+        )
+      );
+
+    document
+      .querySelectorAll(
+        ".mission-progress-fill"
+      )
+      .forEach(
+        (element) => {
+          element.style.width =
+            `${safe}%`;
+        }
+      );
+
+    document
+      .querySelectorAll(
+        ".mission-progress-label strong"
+      )
+      .forEach(
+        (element) => {
+          element.textContent =
+            `${safe}%`;
+        }
+      );
+
+    const meta =
+      document.querySelector(
+        ".mission-detail-meta"
+      );
+
+    if (meta) {
+      const values =
+        meta.querySelectorAll(
+          "div strong"
+        );
+
+      if (
+        values.length >= 3
+      ) {
+        values[2]
+          .textContent =
+          `${safe}%`;
+      }
+    }
+  }
+
+  /* ============================================================
+     LOAD TASKS
+     ============================================================ */
+
+  async function loadTasks(
+    id,
+    mission
+  ) {
+    try {
+      const response =
+        await apiFetch(
+          `${API_BASE()}/tasks?mission_id=${encodeURIComponent(
+            id
+          )}`
+        );
+
+      if (
+        String(
+          selectedMissionId
+        ) !== String(id)
+      ) {
+        return;
+      }
+
+      const tasks =
+        normalizeTasks(
+          response?.tasks ||
+          response
+        );
+
+      renderTasks(
+        mission,
+        tasks
+      );
+    } catch (error) {
+      console.warn(
+        "Mission tasks unavailable:",
+        error
+      );
+
+      renderTasks(
+        mission,
+        []
       );
     }
   }
 
-  function normalizeTasks(tasks) {
-    if (Array.isArray(tasks)) {
+  function normalizeTasks(
+    tasks
+  ) {
+    if (
+      Array.isArray(tasks)
+    ) {
       return tasks;
     }
 
@@ -594,272 +1026,128 @@
     return [];
   }
 
-  function renderMissionDetail(
+  function renderTasks(
     mission,
-    progress,
     tasks
   ) {
     const elements =
       getPanelElements();
 
-    if (!elements.detail) {
+    if (
+      !elements.detail ||
+      String(
+        selectedMissionId
+      ) !==
+      String(
+        missionId(mission)
+      )
+    ) {
       return;
     }
 
-    const id =
-      missionId(mission);
-
-    const objective =
-      missionObjective(mission);
-
-    const status =
-      mission?.status ||
-      "pending";
-
-    const priority =
-      priorityLabel(
-        mission?.priority
+    const container =
+      elements.detail.querySelector(
+        ".mission-tasks"
       );
 
-    const progressValue =
-      Number(
-        progress?.percent ??
-        progress?.progress ??
-        progress?.percentage ??
-        mission?.progress ??
-        0
-      );
+    if (!container) {
+      return;
+    }
 
-    const safeProgress =
-      Math.max(
-        0,
-        Math.min(
-          100,
-          Number.isFinite(
-            progressValue
-          )
-            ? progressValue
-            : 0
-        )
-      );
-
-    const taskList =
-      normalizeTasks(tasks);
-
-    /*
-     * Buscar información de error
-     * disponible en la misión.
-     */
-
-    const result =
-      mission?.result || {};
-
-    const errorInfo =
-      mission?.error ||
-      result?.error ||
-      result?.reason ||
-      result?.detail ||
-      mission?.failure_reason ||
-      "";
-
-    const errorText =
-      typeof errorInfo === "string"
-        ? errorInfo
-        : JSON.stringify(
-            errorInfo
-          );
-
-    elements.detail.innerHTML = `
-      <div class="mission-detail-header">
-
-        <div>
-
-          <div class="mission-detail-kicker">
-            MISIÓN #${escapeHtml(id)}
-          </div>
-
-          <h3>
-            ${escapeHtml(objective)}
-          </h3>
-
-        </div>
-
-        <span class="mission-status mission-status-${statusClass(
-          status
-        )}">
-          ${escapeHtml(
-            statusLabel(status)
-          )}
-        </span>
-
-      </div>
-
-      <div class="mission-detail-meta">
-
-        <div>
-          <span>Prioridad</span>
-          <strong>
-            ${escapeHtml(priority)}
-          </strong>
-        </div>
-
-        <div>
-          <span>Estado</span>
-          <strong>
-            ${escapeHtml(
-              statusLabel(status)
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <span>Progreso</span>
-          <strong>
-            ${safeProgress}%
-          </strong>
-        </div>
-
-      </div>
-
-      <div class="mission-progress-box">
-
-        <div class="mission-progress-label">
-
-          <span>
-            Progreso de misión
-          </span>
-
-          <strong>
-            ${safeProgress}%
-          </strong>
-
-        </div>
-
-        <div class="mission-progress-track">
-
-          <div
-            class="mission-progress-fill"
-            style="width:${safeProgress}%"
-          ></div>
-
-        </div>
-
-      </div>
-
-      ${
-        status === "failed" &&
-        errorText
-          ? `
-            <div class="mission-error">
-              <strong>
-                Motivo del fallo
-              </strong>
-
-              <div>
-                ${escapeHtml(
-                  errorText
-                )}
-              </div>
-            </div>
-          `
-          : ""
-      }
-
-      <div class="mission-actions">
-        ${renderMissionActions(mission)}
-      </div>
-
-      <div class="mission-tasks">
-
+    if (!tasks.length) {
+      container.innerHTML = `
         <div class="mission-section-title">
           Tareas
         </div>
 
-        ${
-          taskList.length
-            ? taskList
-                .map((task) => {
-                  const taskStatus =
-                    task?.status ||
-                    task?.state ||
-                    "pending";
+        <div class="mission-empty">
+          No hay tareas registradas para esta misión.
+        </div>
+      `;
 
-                  const taskName =
-                    task?.name ||
-                    task?.title ||
-                    task?.description ||
-                    `Tarea ${task?.id || ""}`;
+      return;
+    }
 
-                  const taskError =
-                    task?.error || "";
-
-                  return `
-                    <div class="mission-task-row">
-
-                      <div>
-
-                        <strong>
-                          ${escapeHtml(
-                            taskName
-                          )}
-                        </strong>
-
-                        ${
-                          task?.id
-                            ? `
-                              <small>
-                                ID:
-                                ${escapeHtml(
-                                  task.id
-                                )}
-                              </small>
-                            `
-                            : ""
-                        }
-
-                        ${
-                          taskError
-                            ? `
-                              <small>
-                                Error:
-                                ${escapeHtml(
-                                  typeof taskError ===
-                                  "string"
-                                    ? taskError
-                                    : JSON.stringify(
-                                        taskError
-                                      )
-                                )}
-                              </small>
-                            `
-                            : ""
-                        }
-
-                      </div>
-
-                      <span class="mission-status mission-status-${statusClass(
-                        taskStatus
-                      )}">
-                        ${escapeHtml(
-                          statusLabel(
-                            taskStatus
-                          )
-                        )}
-                      </span>
-
-                    </div>
-                  `;
-                })
-                .join("")
-            : `
-              <div class="mission-empty">
-                No hay tareas registradas
-                para esta misión.
-              </div>
-            `
-        }
-
+    container.innerHTML = `
+      <div class="mission-section-title">
+        Tareas
       </div>
+
+      ${tasks
+        .map(
+          (task) => {
+            const status =
+              task?.status ||
+              task?.state ||
+              "pending";
+
+            const name =
+              task?.name ||
+              task?.title ||
+              task?.description ||
+              `Tarea ${
+                task?.id || ""
+              }`;
+
+            return `
+              <div class="mission-task-row">
+
+                <div>
+
+                  <strong>
+                    ${escapeHtml(
+                      name
+                    )}
+                  </strong>
+
+                  ${
+                    task?.id
+                      ? `
+                        <small>
+                          ID:
+                          ${escapeHtml(
+                            task.id
+                          )}
+                        </small>
+                      `
+                      : ""
+                  }
+
+                  ${
+                    task?.error
+                      ? `
+                        <small>
+                          Error:
+                          ${escapeHtml(
+                            typeof task.error ===
+                            "string"
+                              ? task.error
+                              : JSON.stringify(
+                                  task.error
+                                )
+                          )}
+                        </small>
+                      `
+                      : ""
+                  }
+
+                </div>
+
+                <span class="mission-status mission-status-${statusClass(
+                  status
+                )}">
+                  ${escapeHtml(
+                    statusLabel(
+                      status
+                    )
+                  )}
+                </span>
+
+              </div>
+            `;
+          }
+        )
+        .join("")}
     `;
   }
 
@@ -874,14 +1162,10 @@
       missionId(mission);
 
     const status =
-      mission?.status || "";
+      mission?.status ||
+      "";
 
     let html = "";
-
-    /*
-     * waiting_approval
-     * → Aprobar / Rechazar
-     */
 
     if (
       status ===
@@ -909,14 +1193,6 @@
         </button>
       `;
     }
-
-    /*
-     * running
-     * → Ejecutar / Diagnosticar / Cancelar
-     *
-     * Este es el flujo que utiliza
-     * actualmente el backend de Akira.
-     */
 
     if (
       status === "running"
@@ -954,11 +1230,6 @@
       `;
     }
 
-    /*
-     * Compatibilidad por si el backend
-     * devuelve approved.
-     */
-
     if (
       status === "approved"
     ) {
@@ -974,10 +1245,6 @@
         </button>
       `;
     }
-
-    /*
-     * Estados terminales
-     */
 
     if (
       status === "completed" ||
@@ -1003,25 +1270,53 @@
       html ||
       `
         <span class="mission-no-actions">
-          Sin acciones disponibles
-          para este estado.
+          Sin acciones disponibles para este estado.
         </span>
       `
     );
   }
 
   /* ============================================================
-     SELECT
+     SELECT MISSION
      ============================================================ */
 
-  async function selectMission(id) {
+  async function selectMission(
+    id
+  ) {
     if (!id) {
       return;
     }
 
-    selectedMissionId = id;
+    /*
+     * Cambio inmediato de selección.
+     */
+    selectedMissionId =
+      String(id);
 
-    await loadMissionDetail(id);
+    const mission =
+      missionsCache.find(
+        (item) =>
+          String(
+            missionId(item)
+          ) ===
+          String(id)
+      );
+
+    if (mission) {
+      renderMissionSummary(
+        mission
+      );
+    }
+
+    renderMissionList();
+
+    /*
+     * Carga de datos reales
+     * sin bloquear el cambio visual.
+     */
+    await loadMissionDetail(
+      id
+    );
   }
 
   /* ============================================================
@@ -1064,88 +1359,71 @@
             method: "POST",
 
             body: JSON.stringify({
-              objective: goal,
+              objective:
+                goal,
               priority
             })
           }
         );
 
-      /*
-       * Backend:
-       * {
-       *   ok: true,
-       *   mission: {...},
-       *   plan: {...},
-       *   model: ...
-       * }
-       */
-
-      const createdMission =
+      const mission =
         response?.mission ||
         response;
 
       const id =
-        missionId(createdMission);
+        missionId(mission);
 
-      elements.goal.value = "";
+      elements.goal.value =
+        "";
 
       notify(
         "Misión creada correctamente.",
         "success"
       );
 
-      /*
-       * Mostrar inmediatamente
-       * la misión creada.
-       */
-
       if (id) {
-        const existingIndex =
+        const index =
           missionsCache.findIndex(
-            (mission) =>
+            (item) =>
               String(
-                missionId(mission)
-              ) === String(id)
+                missionId(item)
+              ) ===
+              String(id)
           );
 
-        if (existingIndex >= 0) {
-          missionsCache[
-            existingIndex
-          ] = createdMission;
+        if (index >= 0) {
+          missionsCache[index] =
+            mission;
         } else {
           missionsCache.unshift(
-            createdMission
+            mission
           );
         }
 
-        selectedMissionId = id;
+        selectedMissionId =
+          String(id);
 
         renderMissionList();
 
-        /*
-         * Esperamos un momento para permitir
-         * que el backend termine de persistir
-         * la transición de planificación.
-         */
-        await new Promise(
-          (resolve) =>
-            setTimeout(
-              resolve,
-              500
-            )
+        renderMissionSummary(
+          mission
         );
 
-        await loadMissions();
-
-        await loadMissionDetail(
-          id
+        /*
+         * Sincronización posterior.
+         */
+        setTimeout(
+          () => {
+            loadMissions();
+          },
+          700
         );
       } else {
-        await loadMissions();
+        loadMissions();
       }
     } catch (error) {
       console.error(
-        "Akira mission create error:",
+        "Akira create mission error:",
         error
       );
 
@@ -1160,7 +1438,9 @@
      APPROVE
      ============================================================ */
 
-  async function approveMission(id) {
+  async function approveMission(
+    id
+  ) {
     if (!id) {
       return;
     }
@@ -1176,40 +1456,52 @@
           }
         );
 
-      notify(
-        "Misión aprobada. Pasó a ejecución.",
-        "success"
-      );
-
-      const updatedMission =
+      const mission =
         response?.mission;
 
-      if (updatedMission) {
+      if (mission) {
         const index =
           missionsCache.findIndex(
-            (mission) =>
+            (item) =>
               String(
-                missionId(mission)
-              ) === String(id)
+                missionId(item)
+              ) ===
+              String(id)
           );
 
         if (index >= 0) {
           missionsCache[index] =
-            updatedMission;
-        } else {
-          missionsCache.unshift(
-            updatedMission
-          );
+            mission;
         }
 
         renderMissionList();
+        renderMissionSummary(
+          mission
+        );
       }
 
-      await loadMissions();
-      await loadMissionDetail(id);
+      notify(
+        "Misión aprobada. Ahora está en ejecución.",
+        "success"
+      );
+
+      /*
+       * Sincronizar sin obligar
+       * al usuario a pulsar Actualizar.
+       */
+      setTimeout(
+        () => {
+          loadMissions();
+        },
+        300
+      );
+
+      await loadMissionDetail(
+        id
+      );
     } catch (error) {
       console.error(
-        "Akira mission approve error:",
+        "Akira approve error:",
         error
       );
 
@@ -1224,17 +1516,18 @@
      REJECT
      ============================================================ */
 
-  async function rejectMission(id) {
+  async function rejectMission(
+    id
+  ) {
     if (!id) {
       return;
     }
 
-    const confirmed =
-      window.confirm(
+    if (
+      !window.confirm(
         "¿Seguro que quieres rechazar esta misión?"
-      );
-
-    if (!confirmed) {
+      )
+    ) {
       return;
     }
 
@@ -1249,36 +1542,44 @@
           }
         );
 
+      const mission =
+        response?.mission;
+
+      if (mission) {
+        const index =
+          missionsCache.findIndex(
+            (item) =>
+              String(
+                missionId(item)
+              ) ===
+              String(id)
+          );
+
+        if (index >= 0) {
+          missionsCache[index] =
+            mission;
+        }
+
+        renderMissionList();
+        renderMissionSummary(
+          mission
+        );
+      }
+
       notify(
         "Misión rechazada.",
         "success"
       );
 
-      const updatedMission =
-        response?.mission;
-
-      if (updatedMission) {
-        const index =
-          missionsCache.findIndex(
-            (mission) =>
-              String(
-                missionId(mission)
-              ) === String(id)
-          );
-
-        if (index >= 0) {
-          missionsCache[index] =
-            updatedMission;
-        }
-
-        renderMissionList();
-      }
-
-      await loadMissions();
-      await loadMissionDetail(id);
+      setTimeout(
+        () => {
+          loadMissions();
+        },
+        300
+      );
     } catch (error) {
       console.error(
-        "Akira mission reject error:",
+        "Akira reject error:",
         error
       );
 
@@ -1293,7 +1594,9 @@
      EXECUTE
      ============================================================ */
 
-  async function executeMission(id) {
+  async function executeMission(
+    id
+  ) {
     if (!id) {
       return;
     }
@@ -1309,36 +1612,48 @@
           }
         );
 
-      notify(
-        "Ejecución de misión iniciada.",
-        "success"
-      );
-
-      const updatedMission =
+      const mission =
         response?.mission;
 
-      if (updatedMission) {
+      if (mission) {
         const index =
           missionsCache.findIndex(
-            (mission) =>
+            (item) =>
               String(
-                missionId(mission)
-              ) === String(id)
+                missionId(item)
+              ) ===
+              String(id)
           );
 
         if (index >= 0) {
           missionsCache[index] =
-            updatedMission;
+            mission;
         }
 
         renderMissionList();
+        renderMissionSummary(
+          mission
+        );
       }
 
-      await loadMissions();
-      await loadMissionDetail(id);
+      notify(
+        "Ejecución iniciada.",
+        "success"
+      );
+
+      await loadMissionDetail(
+        id
+      );
+
+      setTimeout(
+        () => {
+          loadMissions();
+        },
+        300
+      );
     } catch (error) {
       console.error(
-        "Akira mission execute error:",
+        "Akira execute error:",
         error
       );
 
@@ -1353,17 +1668,18 @@
      CANCEL
      ============================================================ */
 
-  async function cancelMission(id) {
+  async function cancelMission(
+    id
+  ) {
     if (!id) {
       return;
     }
 
-    const confirmed =
-      window.confirm(
+    if (
+      !window.confirm(
         "¿Seguro que quieres cancelar esta misión?"
-      );
-
-    if (!confirmed) {
+      )
+    ) {
       return;
     }
 
@@ -1378,38 +1694,46 @@
           }
         );
 
+      stopPolling();
+
+      const mission =
+        response?.mission;
+
+      if (mission) {
+        const index =
+          missionsCache.findIndex(
+            (item) =>
+              String(
+                missionId(item)
+              ) ===
+              String(id)
+          );
+
+        if (index >= 0) {
+          missionsCache[index] =
+            mission;
+        }
+
+        renderMissionList();
+        renderMissionSummary(
+          mission
+        );
+      }
+
       notify(
         "Misión cancelada.",
         "success"
       );
 
-      stopPolling();
-
-      const updatedMission =
-        response?.mission;
-
-      if (updatedMission) {
-        const index =
-          missionsCache.findIndex(
-            (mission) =>
-              String(
-                missionId(mission)
-              ) === String(id)
-          );
-
-        if (index >= 0) {
-          missionsCache[index] =
-            updatedMission;
-        }
-
-        renderMissionList();
-      }
-
-      await loadMissions();
-      await loadMissionDetail(id);
+      setTimeout(
+        () => {
+          loadMissions();
+        },
+        300
+      );
     } catch (error) {
       console.error(
-        "Akira mission cancel error:",
+        "Akira cancel error:",
         error
       );
 
@@ -1424,7 +1748,9 @@
      DIAGNOSE
      ============================================================ */
 
-  async function diagnoseMission(id) {
+  async function diagnoseMission(
+    id
+  ) {
     const elements =
       getPanelElements();
 
@@ -1435,29 +1761,41 @@
       return;
     }
 
-    try {
-      elements.detail.innerHTML =
-        '<div class="mission-empty">Ejecutando diagnóstico...</div>';
+    const previous =
+      elements.detail.innerHTML;
 
-      const data =
+    elements.detail.innerHTML = `
+      <div class="mission-empty">
+        Ejecutando diagnóstico...
+      </div>
+    `;
+
+    try {
+      const response =
         await apiFetch(
           `${API_BASE()}/missions/${encodeURIComponent(
             id
           )}/diagnose`
         );
 
+      if (
+        String(
+          selectedMissionId
+        ) !== String(id)
+      ) {
+        return;
+      }
+
       elements.detail.innerHTML = `
         <div class="mission-diagnose">
 
           <div class="mission-section-title">
-            Diagnóstico de misión #${escapeHtml(
-              id
-            )}
+            Diagnóstico de misión
           </div>
 
           <pre>${escapeHtml(
             JSON.stringify(
-              data,
+              response,
               null,
               2
             )
@@ -1477,16 +1815,34 @@
       `;
     } catch (error) {
       console.error(
-        "Akira mission diagnose error:",
+        "Akira diagnose error:",
         error
       );
 
+      /*
+       * No dejamos la pantalla vacía.
+       */
       elements.detail.innerHTML = `
         <div class="mission-error">
+
           Error en diagnóstico:<br>
+
           ${escapeHtml(
             error.message
           )}
+
+          <br><br>
+
+          <button
+            type="button"
+            class="mission-action"
+            onclick="window.missionPanelSelect('${escapeHtml(
+              id
+            )}')"
+          >
+            ← Volver al detalle
+          </button>
+
         </div>
       `;
     }
@@ -1504,11 +1860,14 @@
       return;
     }
 
-    try {
-      elements.detail.innerHTML =
-        '<div class="mission-empty">Ejecutando selftest...</div>';
+    elements.detail.innerHTML = `
+      <div class="mission-empty">
+        Ejecutando selftest...
+      </div>
+    `;
 
-      const data =
+    try {
+      const response =
         await apiFetch(
           `${API_BASE()}/missions/selftest`
         );
@@ -1522,7 +1881,7 @@
 
           <pre>${escapeHtml(
             JSON.stringify(
-              data,
+              response,
               null,
               2
             )
@@ -1539,11 +1898,6 @@
         </div>
       `;
     } catch (error) {
-      console.error(
-        "Akira mission selftest error:",
-        error
-      );
-
       elements.detail.innerHTML = `
         <div class="mission-error">
           Error ejecutando selftest:<br>
@@ -1565,7 +1919,8 @@
     stopPolling();
 
     const status =
-      mission?.status || "";
+      mission?.status ||
+      "";
 
     if (
       status !== "running"
@@ -1576,33 +1931,78 @@
     pollTimer =
       window.setInterval(
         async () => {
-          if (!selectedMissionId) {
+          if (
+            !selectedMissionId
+          ) {
             return;
           }
 
+          const id =
+            selectedMissionId;
+
           try {
-            const progressResponse =
-              await apiFetch(
-                `${API_BASE()}/missions/${encodeURIComponent(
-                  selectedMissionId
-                )}/progress`
-              );
-
-            const progress =
-              progressResponse?.progress ||
-              progressResponse;
-
-            updateProgressOnly(
-              progress
+            await loadProgressOnly(
+              id
             );
 
             /*
-             * Refresca también el estado
-             * de la misión.
+             * Refrescar estado de misión
+             * sin destruir selección.
              */
-            await loadMissionDetail(
-              selectedMissionId
+            const response =
+              await apiFetch(
+                `${API_BASE()}/missions/${encodeURIComponent(
+                  id
+                )}`
+              );
+
+            if (
+              String(
+                selectedMissionId
+              ) !== String(id)
+            ) {
+              return;
+            }
+
+            const updated =
+              response?.mission ||
+              response;
+
+            const index =
+              missionsCache.findIndex(
+                (item) =>
+                  String(
+                    missionId(item)
+                  ) ===
+                  String(id)
+              );
+
+            if (index >= 0) {
+              missionsCache[index] =
+                updated;
+            }
+
+            renderMissionList();
+
+            /*
+             * Actualizar botones/estado
+             * sin reconstruir toda la pantalla.
+             */
+            updateMissionHeader(
+              updated
             );
+
+            if (
+              updated?.status !==
+              "running"
+            ) {
+              stopPolling();
+
+              loadTasks(
+                id,
+                updated
+              );
+            }
           } catch (error) {
             console.warn(
               "Mission polling error:",
@@ -1612,6 +2012,167 @@
         },
         POLL_INTERVAL
       );
+  }
+
+  async function loadProgressOnly(
+    id
+  ) {
+    try {
+      const response =
+        await apiFetch(
+          `${API_BASE()}/missions/${encodeURIComponent(
+            id
+          )}/progress`
+        );
+
+      if (
+        String(
+          selectedMissionId
+        ) !== String(id)
+      ) {
+        return;
+      }
+
+      const progress =
+        response?.progress ||
+        response;
+
+      renderProgressValue(
+        progress
+      );
+    } catch (error) {
+      console.warn(
+        "Progress polling error:",
+        error
+      );
+    }
+  }
+
+  function renderProgressValue(
+    progress
+  ) {
+    const value =
+      Number(
+        progress?.percent ??
+        progress?.progress ??
+        progress?.percentage ??
+        0
+      );
+
+    const safe =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number.isFinite(
+            value
+          )
+            ? value
+            : 0
+        )
+      );
+
+    document
+      .querySelectorAll(
+        ".mission-progress-fill"
+      )
+      .forEach(
+        (element) => {
+          element.style.width =
+            `${safe}%`;
+        }
+      );
+
+    document
+      .querySelectorAll(
+        ".mission-progress-label strong"
+      )
+      .forEach(
+        (element) => {
+          element.textContent =
+            `${safe}%`;
+        }
+      );
+
+    const meta =
+      document.querySelector(
+        ".mission-detail-meta"
+      );
+
+    if (meta) {
+      const values =
+        meta.querySelectorAll(
+          "div strong"
+        );
+
+      if (
+        values.length >= 3
+      ) {
+        values[2]
+          .textContent =
+          `${safe}%`;
+      }
+    }
+  }
+
+  function updateMissionHeader(
+    mission
+  ) {
+    const elements =
+      getPanelElements();
+
+    if (
+      !elements.detail
+    ) {
+      return;
+    }
+
+    const status =
+      mission?.status ||
+      "pending";
+
+    const badge =
+      elements.detail.querySelector(
+        ".mission-detail-header .mission-status"
+      );
+
+    if (badge) {
+      badge.className =
+        `mission-status mission-status-${statusClass(
+          status
+        )}`;
+
+      badge.textContent =
+        statusLabel(
+          status
+        );
+    }
+
+    const values =
+      elements.detail.querySelectorAll(
+        ".mission-detail-meta div strong"
+      );
+
+    if (
+      values.length >= 2
+    ) {
+      values[1].textContent =
+        statusLabel(
+          status
+        );
+    }
+
+    const actions =
+      elements.detail.querySelector(
+        ".mission-actions"
+      );
+
+    if (actions) {
+      actions.innerHTML =
+        renderMissionActions(
+          mission
+        );
+    }
   }
 
   function stopPolling() {
@@ -1624,55 +2185,8 @@
     }
   }
 
-  function updateProgressOnly(
-    progress
-  ) {
-    const value =
-      Number(
-        progress?.percent ??
-        progress?.progress ??
-        progress?.percentage ??
-        0
-      );
-
-    const safeValue =
-      Math.max(
-        0,
-        Math.min(
-          100,
-          Number.isFinite(value)
-            ? value
-            : 0
-        )
-      );
-
-    const fills =
-      document.querySelectorAll(
-        ".mission-progress-fill"
-      );
-
-    fills.forEach(
-      (fill) => {
-        fill.style.width =
-          `${safeValue}%`;
-      }
-    );
-
-    const labels =
-      document.querySelectorAll(
-        ".mission-progress-label strong"
-      );
-
-    labels.forEach(
-      (label) => {
-        label.textContent =
-          `${safeValue}%`;
-      }
-    );
-  }
-
   /* ============================================================
-     SEARCH / FILTER
+     FILTERS
      ============================================================ */
 
   function bindFilters() {
@@ -1682,24 +2196,20 @@
     if (elements.search) {
       elements.search.addEventListener(
         "input",
-        () => {
-          renderMissionList();
-        }
+        renderMissionList
       );
     }
 
     if (elements.status) {
       elements.status.addEventListener(
         "change",
-        () => {
-          loadMissions();
-        }
+        loadMissions
       );
     }
   }
 
   /* ============================================================
-     INITIALIZATION
+     INIT
      ============================================================ */
 
   function init() {
