@@ -1,13 +1,24 @@
 /* ============================================================
    AKIRA — MISSIONS PANEL
    FASE 10.8 — Panel Unificado de Misiones
-   Version: V1
+   Version: V1.1
    ============================================================ */
 
 (function () {
   "use strict";
 
-  const API_BASE = "/api/v8";
+  /*
+   * IMPORTANTE:
+   * El frontend está en GitHub Pages.
+   * El backend real está en Render.
+   * Usamos la misma base que akira_admin.js.
+   */
+  const BACKEND = () =>
+    localStorage.getItem("akira_backend_url") ||
+    "https://akira-empresa.onrender.com";
+
+  const API_BASE = () => BACKEND() + "/api/v8";
+
   const POLL_INTERVAL = 5000;
 
   let selectedMissionId = null;
@@ -24,6 +35,7 @@
 
   function escapeHtml(value) {
     if (value === null || value === undefined) return "";
+
     return String(value)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
@@ -34,6 +46,7 @@
 
   function getToken() {
     return (
+      localStorage.getItem("akira_session_token") ||
       localStorage.getItem("akira_token") ||
       localStorage.getItem("token") ||
       localStorage.getItem("access_token") ||
@@ -42,22 +55,54 @@
   }
 
   async function apiFetch(url, options = {}) {
-    const headers = Object.assign(
-      {
-        "Content-Type": "application/json"
-      },
-      options.headers || {}
-    );
+    let headers = {
+      "Content-Type": "application/json"
+    };
 
+    /*
+     * Si el sistema principal ya tiene una función de autenticación,
+     * la reutilizamos.
+     */
+    if (typeof window.akiraAuthHeaders === "function") {
+      try {
+        headers = Object.assign(
+          headers,
+          window.akiraAuthHeaders() || {}
+        );
+      } catch (_) {}
+    }
+
+    /*
+     * Fallback para sesiones existentes.
+     */
     const token = getToken();
 
-    if (token) {
+    if (
+      token &&
+      !headers.Authorization &&
+      !headers.authorization
+    ) {
       headers.Authorization = token.startsWith("Bearer ")
         ? token
         : `Bearer ${token}`;
     }
 
-    const response = await fetch(url, Object.assign({}, options, { headers }));
+    headers = Object.assign(
+      headers,
+      options.headers || {}
+    );
+
+    const response = await fetch(
+      url,
+      Object.assign(
+        {},
+        options,
+        {
+          headers,
+          cache: "no-store"
+        }
+      )
+    );
 
     let data = null;
 
@@ -95,7 +140,11 @@
   }
 
   function priorityToNumber(priority) {
-    if (priority === undefined || priority === null || priority === "") {
+    if (
+      priority === undefined ||
+      priority === null ||
+      priority === ""
+    ) {
       return 5;
     }
 
@@ -119,6 +168,7 @@
 
     if (numeric >= 8) return "Alta";
     if (numeric <= 3) return "Baja";
+
     return "Normal";
   }
 
@@ -165,7 +215,12 @@
   }
 
   function missionId(mission) {
-    return mission?.id || mission?.mission_id || mission?.uuid || "";
+    return (
+      mission?.id ||
+      mission?.mission_id ||
+      mission?.uuid ||
+      ""
+    );
   }
 
   /* ============================================================
@@ -198,7 +253,7 @@
 
       const status = elements.status?.value || "";
 
-      let url = `${API_BASE}/missions?limit=50`;
+      let url = `${API_BASE()}/missions?limit=50`;
 
       if (status) {
         url += `&status=${encodeURIComponent(status)}`;
@@ -208,13 +263,18 @@
 
       missionsCache = Array.isArray(data)
         ? data
-        : data?.missions || data?.items || data?.results || [];
+        : data?.missions ||
+          data?.items ||
+          data?.results ||
+          [];
 
       renderMissionList();
 
       if (selectedMissionId) {
         const exists = missionsCache.some(
-          (mission) => String(missionId(mission)) === String(selectedMissionId)
+          (mission) =>
+            String(missionId(mission)) ===
+            String(selectedMissionId)
         );
 
         if (exists) {
@@ -222,7 +282,10 @@
         }
       }
     } catch (error) {
-      console.error("Akira missions load error:", error);
+      console.error(
+        "Akira missions load error:",
+        error
+      );
 
       elements.list.innerHTML = `
         <div class="mission-error">
@@ -231,7 +294,10 @@
         </div>
       `;
 
-      notify(`Error cargando misiones: ${error.message}`, "error");
+      notify(
+        `Error cargando misiones: ${error.message}`,
+        "error"
+      );
     }
   }
 
@@ -240,22 +306,28 @@
 
     if (!elements.list) return;
 
-    const search = (elements.search?.value || "").trim().toLowerCase();
+    const search = (
+      elements.search?.value || ""
+    )
+      .trim()
+      .toLowerCase();
 
-    const filtered = missionsCache.filter((mission) => {
-      if (!search) return true;
+    const filtered = missionsCache.filter(
+      (mission) => {
+        if (!search) return true;
 
-      const text = [
-        missionId(mission),
-        missionObjective(mission),
-        mission.status,
-        mission.priority
-      ]
-        .join(" ")
-        .toLowerCase();
+        const text = [
+          missionId(mission),
+          missionObjective(mission),
+          mission.status,
+          mission.priority
+        ]
+          .join(" ")
+          .toLowerCase();
 
-      return text.includes(search);
-    });
+        return text.includes(search);
+      }
+    );
 
     if (!filtered.length) {
       elements.list.innerHTML = `
@@ -263,33 +335,48 @@
           No hay misiones para mostrar.
         </div>
       `;
+
       return;
     }
 
     elements.list.innerHTML = filtered
       .map((mission) => {
         const id = missionId(mission);
-        const objective = missionObjective(mission);
-        const status = mission.status || "pending";
-        const priority = priorityLabel(mission.priority);
+        const objective =
+          missionObjective(mission);
+        const status =
+          mission.status || "pending";
+        const priority =
+          priorityLabel(mission.priority);
 
         const selected =
-          String(id) === String(selectedMissionId) ? " selected" : "";
+          String(id) ===
+          String(selectedMissionId)
+            ? " selected"
+            : "";
 
         return `
           <button
             type="button"
             class="mission-card${selected}"
-            onclick="window.missionPanelSelect('${escapeHtml(id)}')"
+            onclick="window.missionPanelSelect('${escapeHtml(
+              id
+            )}')"
           >
             <div class="mission-card-top">
+
               <span class="mission-id">
                 #${escapeHtml(id)}
               </span>
 
-              <span class="mission-status mission-status-${statusClass(status)}">
-                ${escapeHtml(statusLabel(status))}
+              <span class="mission-status mission-status-${statusClass(
+                status
+              )}">
+                ${escapeHtml(
+                  statusLabel(status)
+                )}
               </span>
+
             </div>
 
             <div class="mission-objective">
@@ -297,8 +384,12 @@
             </div>
 
             <div class="mission-card-bottom">
-              <span>Prioridad: ${escapeHtml(priority)}</span>
+              <span>
+                Prioridad:
+                ${escapeHtml(priority)}
+              </span>
             </div>
+
           </button>
         `;
       })
@@ -322,18 +413,42 @@
     renderMissionList();
 
     try {
-      const [mission, progress, tasks] = await Promise.all([
-        apiFetch(`${API_BASE}/missions/${encodeURIComponent(id)}`),
-        apiFetch(`${API_BASE}/missions/${encodeURIComponent(id)}/progress`),
+      const [
+        mission,
+        progress,
+        tasks
+      ] = await Promise.all([
         apiFetch(
-          `${API_BASE}/tasks?mission_id=${encodeURIComponent(id)}`
+          `${API_BASE()}/missions/${encodeURIComponent(
+            id
+          )}`
+        ),
+
+        apiFetch(
+          `${API_BASE()}/missions/${encodeURIComponent(
+            id
+          )}/progress`
+        ),
+
+        apiFetch(
+          `${API_BASE()}/tasks?mission_id=${encodeURIComponent(
+            id
+          )}`
         )
       ]);
 
-      renderMissionDetail(mission, progress, tasks);
+      renderMissionDetail(
+        mission,
+        progress,
+        tasks
+      );
+
       startPollingIfNeeded(mission);
     } catch (error) {
-      console.error("Akira mission detail error:", error);
+      console.error(
+        "Akira mission detail error:",
+        error
+      );
 
       elements.detail.innerHTML = `
         <div class="mission-error">
@@ -342,29 +457,52 @@
         </div>
       `;
 
-      notify(`Error cargando misión: ${error.message}`, "error");
+      notify(
+        `Error cargando misión: ${error.message}`,
+        "error"
+      );
     }
   }
 
   function normalizeTasks(tasks) {
-    if (Array.isArray(tasks)) return tasks;
+    if (Array.isArray(tasks)) {
+      return tasks;
+    }
 
-    if (Array.isArray(tasks?.tasks)) return tasks.tasks;
-    if (Array.isArray(tasks?.items)) return tasks.items;
-    if (Array.isArray(tasks?.results)) return tasks.results;
+    if (Array.isArray(tasks?.tasks)) {
+      return tasks.tasks;
+    }
+
+    if (Array.isArray(tasks?.items)) {
+      return tasks.items;
+    }
+
+    if (Array.isArray(tasks?.results)) {
+      return tasks.results;
+    }
 
     return [];
   }
 
-  function renderMissionDetail(mission, progress, tasks) {
+  function renderMissionDetail(
+    mission,
+    progress,
+    tasks
+  ) {
     const elements = getPanelElements();
 
     if (!elements.detail) return;
 
     const id = missionId(mission);
-    const objective = missionObjective(mission);
-    const status = mission?.status || "pending";
-    const priority = priorityLabel(mission?.priority);
+
+    const objective =
+      missionObjective(mission);
+
+    const status =
+      mission?.status || "pending";
+
+    const priority =
+      priorityLabel(mission?.priority);
 
     const progressValue = Number(
       progress?.progress ??
@@ -375,14 +513,22 @@
 
     const safeProgress = Math.max(
       0,
-      Math.min(100, Number.isFinite(progressValue) ? progressValue : 0)
+      Math.min(
+        100,
+        Number.isFinite(progressValue)
+          ? progressValue
+          : 0
+      )
     );
 
-    const taskList = normalizeTasks(tasks);
+    const taskList =
+      normalizeTasks(tasks);
 
     elements.detail.innerHTML = `
       <div class="mission-detail-header">
+
         <div>
+
           <div class="mission-detail-kicker">
             MISIÓN #${escapeHtml(id)}
           </div>
@@ -390,42 +536,67 @@
           <h3>
             ${escapeHtml(objective)}
           </h3>
+
         </div>
 
-        <span class="mission-status mission-status-${statusClass(status)}">
-          ${escapeHtml(statusLabel(status))}
+        <span class="mission-status mission-status-${statusClass(
+          status
+        )}">
+          ${escapeHtml(
+            statusLabel(status)
+          )}
         </span>
+
       </div>
 
       <div class="mission-detail-meta">
+
         <div>
           <span>Prioridad</span>
-          <strong>${escapeHtml(priority)}</strong>
+          <strong>
+            ${escapeHtml(priority)}
+          </strong>
         </div>
 
         <div>
           <span>Estado</span>
-          <strong>${escapeHtml(statusLabel(status))}</strong>
+          <strong>
+            ${escapeHtml(
+              statusLabel(status)
+            )}
+          </strong>
         </div>
 
         <div>
           <span>Progreso</span>
-          <strong>${safeProgress}%</strong>
+          <strong>
+            ${safeProgress}%
+          </strong>
         </div>
+
       </div>
 
       <div class="mission-progress-box">
+
         <div class="mission-progress-label">
-          <span>Progreso de misión</span>
-          <strong>${safeProgress}%</strong>
+          <span>
+            Progreso de misión
+          </span>
+
+          <strong>
+            ${safeProgress}%
+          </strong>
         </div>
 
         <div class="mission-progress-track">
+
           <div
             class="mission-progress-fill"
             style="width:${safeProgress}%"
           ></div>
+
         </div>
+
       </div>
 
       <div class="mission-actions">
@@ -433,6 +604,7 @@
       </div>
 
       <div class="mission-tasks">
+
         <div class="mission-section-title">
           Tareas
         </div>
@@ -454,31 +626,52 @@
 
                   return `
                     <div class="mission-task-row">
+
                       <div>
+
                         <strong>
-                          ${escapeHtml(taskName)}
+                          ${escapeHtml(
+                            taskName
+                          )}
                         </strong>
 
                         ${
                           task?.id
-                            ? `<small>ID: ${escapeHtml(task.id)}</small>`
+                            ? `
+                              <small>
+                                ID:
+                                ${escapeHtml(
+                                  task.id
+                                )}
+                              </small>
+                            `
                             : ""
                         }
+
                       </div>
 
-                      <span class="mission-status mission-status-${statusClass(taskStatus)}">
-                        ${escapeHtml(statusLabel(taskStatus))}
+                      <span class="mission-status mission-status-${statusClass(
+                        taskStatus
+                      )}">
+                        ${escapeHtml(
+                          statusLabel(
+                            taskStatus
+                          )
+                        )}
                       </span>
+
                     </div>
                   `;
                 })
                 .join("")
             : `
               <div class="mission-empty">
-                No hay tareas registradas para esta misión.
+                No hay tareas registradas
+                para esta misión.
               </div>
             `
         }
+
       </div>
     `;
   }
@@ -487,18 +680,26 @@
      ACTIONS
      ============================================================ */
 
-  function renderMissionActions(mission) {
+  function renderMissionActions(
+    mission
+  ) {
     const id = missionId(mission);
-    const status = mission?.status || "";
+    const status =
+      mission?.status || "";
 
     let html = "";
 
-    if (status === "waiting_approval") {
+    if (
+      status ===
+      "waiting_approval"
+    ) {
       html += `
         <button
           type="button"
           class="mission-action mission-action-primary"
-          onclick="window.missionPanelApprove('${escapeHtml(id)}')"
+          onclick="window.missionPanelApprove('${escapeHtml(
+            id
+          )}')"
         >
           ✓ Aprobar
         </button>
@@ -506,7 +707,9 @@
         <button
           type="button"
           class="mission-action"
-          onclick="window.missionPanelReject('${escapeHtml(id)}')"
+          onclick="window.missionPanelReject('${escapeHtml(
+            id
+          )}')"
         >
           ✕ Rechazar
         </button>
@@ -514,16 +717,17 @@
     }
 
     /*
-     * Execute is intentionally exposed only for statuses where
-     * the backend has already moved the mission past approval.
-     * The exact backend transition should remain the source of truth.
+     * Ejecutar solamente cuando la misión
+     * ya está aprobada.
      */
     if (status === "approved") {
       html += `
         <button
           type="button"
           class="mission-action mission-action-primary"
-          onclick="window.missionPanelExecute('${escapeHtml(id)}')"
+          onclick="window.missionPanelExecute('${escapeHtml(
+            id
+          )}')"
         >
           ▶ Ejecutar
         </button>
@@ -535,7 +739,9 @@
         <button
           type="button"
           class="mission-action"
-          onclick="window.missionPanelDiagnose('${escapeHtml(id)}')"
+          onclick="window.missionPanelDiagnose('${escapeHtml(
+            id
+          )}')"
         >
           🔎 Diagnosticar
         </button>
@@ -543,7 +749,9 @@
         <button
           type="button"
           class="mission-action mission-action-danger"
-          onclick="window.missionPanelCancel('${escapeHtml(id)}')"
+          onclick="window.missionPanelCancel('${escapeHtml(
+            id
+          )}')"
         >
           ■ Cancelar
         </button>
@@ -561,18 +769,24 @@
         <button
           type="button"
           class="mission-action"
-          onclick="window.missionPanelDiagnose('${escapeHtml(id)}')"
+          onclick="window.missionPanelDiagnose('${escapeHtml(
+            id
+          )}')"
         >
           🔎 Diagnosticar
         </button>
       `;
     }
 
-    return html || `
-      <span class="mission-no-actions">
-        Sin acciones disponibles para este estado.
-      </span>
-    `;
+    return (
+      html ||
+      `
+        <span class="mission-no-actions">
+          Sin acciones disponibles
+          para este estado.
+        </span>
+      `
+    );
   }
 
   /* ============================================================
@@ -592,46 +806,70 @@
      ============================================================ */
 
   async function createMission() {
-    const elements = getPanelElements();
+    const elements =
+      getPanelElements();
 
     if (!elements.goal) return;
 
-    const goal = elements.goal.value.trim();
+    const goal =
+      elements.goal.value.trim();
 
     if (!goal) {
-      notify("Escribe el objetivo de la misión.", "warning");
+      notify(
+        "Escribe el objetivo de la misión.",
+        "warning"
+      );
+
       elements.goal.focus();
+
       return;
     }
 
-    const priority = priorityToNumber(
-      elements.priority?.value || "normal"
-    );
+    const priority =
+      priorityToNumber(
+        elements.priority?.value ||
+        "normal"
+      );
 
     try {
-      const mission = await apiFetch(`${API_BASE}/missions`, {
-        method: "POST",
-        body: JSON.stringify({
-          objective: goal,
-          priority
-        })
-      });
+      const mission =
+        await apiFetch(
+          `${API_BASE()}/missions`,
+          {
+            method: "POST",
+
+            body: JSON.stringify({
+              objective: goal,
+              priority
+            })
+          }
+        );
 
       elements.goal.value = "";
 
-      notify("Misión creada correctamente.", "success");
+      notify(
+        "Misión creada correctamente.",
+        "success"
+      );
 
       await loadMissions();
 
-      const id = missionId(mission);
+      const id =
+        missionId(mission);
 
       if (id) {
         await selectMission(id);
       }
     } catch (error) {
-      console.error("Akira mission create error:", error);
+      console.error(
+        "Akira mission create error:",
+        error
+      );
 
-      notify(`No se pudo crear la misión: ${error.message}`, "error");
+      notify(
+        `No se pudo crear la misión: ${error.message}`,
+        "error"
+      );
     }
   }
 
@@ -644,20 +882,31 @@
 
     try {
       await apiFetch(
-        `${API_BASE}/missions/${encodeURIComponent(id)}/approve`,
+        `${API_BASE()}/missions/${encodeURIComponent(
+          id
+        )}/approve`,
         {
           method: "POST"
         }
       );
 
-      notify("Misión aprobada.", "success");
+      notify(
+        "Misión aprobada.",
+        "success"
+      );
 
       await loadMissions();
       await loadMissionDetail(id);
     } catch (error) {
-      console.error("Akira mission approve error:", error);
+      console.error(
+        "Akira mission approve error:",
+        error
+      );
 
-      notify(`No se pudo aprobar: ${error.message}`, "error");
+      notify(
+        `No se pudo aprobar: ${error.message}`,
+        "error"
+      );
     }
   }
 
@@ -668,28 +917,40 @@
   async function rejectMission(id) {
     if (!id) return;
 
-    const confirmed = window.confirm(
-      "¿Seguro que quieres rechazar esta misión?"
-    );
+    const confirmed =
+      window.confirm(
+        "¿Seguro que quieres rechazar esta misión?"
+      );
 
     if (!confirmed) return;
 
     try {
       await apiFetch(
-        `${API_BASE}/missions/${encodeURIComponent(id)}/reject`,
+        `${API_BASE()}/missions/${encodeURIComponent(
+          id
+        )}/reject`,
         {
           method: "POST"
         }
       );
 
-      notify("Misión rechazada.", "success");
+      notify(
+        "Misión rechazada.",
+        "success"
+      );
 
       await loadMissions();
       await loadMissionDetail(id);
     } catch (error) {
-      console.error("Akira mission reject error:", error);
+      console.error(
+        "Akira mission reject error:",
+        error
+      );
 
-      notify(`No se pudo rechazar: ${error.message}`, "error");
+      notify(
+        `No se pudo rechazar: ${error.message}`,
+        "error"
+      );
     }
   }
 
@@ -702,20 +963,31 @@
 
     try {
       await apiFetch(
-        `${API_BASE}/missions/${encodeURIComponent(id)}/execute`,
+        `${API_BASE()}/missions/${encodeURIComponent(
+          id
+        )}/execute`,
         {
           method: "POST"
         }
       );
 
-      notify("Ejecución de misión iniciada.", "success");
+      notify(
+        "Ejecución de misión iniciada.",
+        "success"
+      );
 
       await loadMissions();
       await loadMissionDetail(id);
     } catch (error) {
-      console.error("Akira mission execute error:", error);
+      console.error(
+        "Akira mission execute error:",
+        error
+      );
 
-      notify(`No se pudo ejecutar: ${error.message}`, "error");
+      notify(
+        `No se pudo ejecutar: ${error.message}`,
+        "error"
+      );
     }
   }
 
@@ -726,30 +998,42 @@
   async function cancelMission(id) {
     if (!id) return;
 
-    const confirmed = window.confirm(
-      "¿Seguro que quieres cancelar esta misión?"
-    );
+    const confirmed =
+      window.confirm(
+        "¿Seguro que quieres cancelar esta misión?"
+      );
 
     if (!confirmed) return;
 
     try {
       await apiFetch(
-        `${API_BASE}/missions/${encodeURIComponent(id)}/cancel`,
+        `${API_BASE()}/missions/${encodeURIComponent(
+          id
+        )}/cancel`,
         {
           method: "POST"
         }
       );
 
-      notify("Misión cancelada.", "success");
+      notify(
+        "Misión cancelada.",
+        "success"
+      );
 
       stopPolling();
 
       await loadMissions();
       await loadMissionDetail(id);
     } catch (error) {
-      console.error("Akira mission cancel error:", error);
+      console.error(
+        "Akira mission cancel error:",
+        error
+      );
 
-      notify(`No se pudo cancelar: ${error.message}`, "error");
+      notify(
+        `No se pudo cancelar: ${error.message}`,
+        "error"
+      );
     }
   }
 
@@ -758,44 +1042,65 @@
      ============================================================ */
 
   async function diagnoseMission(id) {
-    const elements = getPanelElements();
+    const elements =
+      getPanelElements();
 
-    if (!elements.detail || !id) return;
+    if (!elements.detail || !id) {
+      return;
+    }
 
     try {
       elements.detail.innerHTML =
         '<div class="mission-empty">Ejecutando diagnóstico...</div>';
 
-      const data = await apiFetch(
-        `${API_BASE}/missions/${encodeURIComponent(id)}/diagnose`
-      );
+      const data =
+        await apiFetch(
+          `${API_BASE()}/missions/${encodeURIComponent(
+            id
+          )}/diagnose`
+        );
 
       elements.detail.innerHTML = `
         <div class="mission-diagnose">
+
           <div class="mission-section-title">
-            Diagnóstico de misión #${escapeHtml(id)}
+            Diagnóstico de misión #${escapeHtml(
+              id
+            )}
           </div>
 
           <pre>${escapeHtml(
-            JSON.stringify(data, null, 2)
+            JSON.stringify(
+              data,
+              null,
+              2
+            )
           )}</pre>
 
           <button
             type="button"
             class="mission-action"
-            onclick="window.missionPanelSelect('${escapeHtml(id)}')"
+            onclick="window.missionPanelSelect('${escapeHtml(
+              id
+            )}')"
           >
             ← Volver al detalle
           </button>
+
         </div>
       `;
     } catch (error) {
-      console.error("Akira mission diagnose error:", error);
+      console.error(
+        "Akira mission diagnose error:",
+        error
+      );
 
       elements.detail.innerHTML = `
         <div class="mission-error">
           Error en diagnóstico:<br>
-          ${escapeHtml(error.message)}
+          ${escapeHtml(
+            error.message
+          )}
         </div>
       `;
     }
@@ -806,7 +1111,8 @@
      ============================================================ */
 
   async function runSelftest() {
-    const elements = getPanelElements();
+    const elements =
+      getPanelElements();
 
     if (!elements.detail) return;
 
@@ -814,18 +1120,24 @@
       elements.detail.innerHTML =
         '<div class="mission-empty">Ejecutando selftest...</div>';
 
-      const data = await apiFetch(
-        `${API_BASE}/missions/selftest`
-      );
+      const data =
+        await apiFetch(
+          `${API_BASE()}/missions/selftest`
+        );
 
       elements.detail.innerHTML = `
         <div class="mission-diagnose">
+
           <div class="mission-section-title">
             Selftest del motor de misiones
           </div>
 
           <pre>${escapeHtml(
-            JSON.stringify(data, null, 2)
+            JSON.stringify(
+              data,
+              null,
+              2
+            )
           )}</pre>
 
           <button
@@ -835,15 +1147,21 @@
           >
             ← Volver a misiones
           </button>
+
         </div>
       `;
     } catch (error) {
-      console.error("Akira mission selftest error:", error);
+      console.error(
+        "Akira mission selftest error:",
+        error
+      );
 
       elements.detail.innerHTML = `
         <div class="mission-error">
           Error ejecutando selftest:<br>
-          ${escapeHtml(error.message)}
+          ${escapeHtml(
+            error.message
+          )}
         </div>
       `;
     }
@@ -853,68 +1171,104 @@
      POLLING
      ============================================================ */
 
-  function startPollingIfNeeded(mission) {
+  function startPollingIfNeeded(
+    mission
+  ) {
     stopPolling();
 
-    const status = mission?.status || "";
+    const status =
+      mission?.status || "";
 
     if (status !== "running") {
       return;
     }
 
-    pollTimer = window.setInterval(async () => {
-      if (!selectedMissionId) return;
+    pollTimer =
+      window.setInterval(
+        async () => {
+          if (!selectedMissionId) {
+            return;
+          }
 
-      try {
-        const progress = await apiFetch(
-          `${API_BASE}/missions/${encodeURIComponent(
-            selectedMissionId
-          )}/progress`
-        );
+          try {
+            const progress =
+              await apiFetch(
+                `${API_BASE()}/missions/${encodeURIComponent(
+                  selectedMissionId
+                )}/progress`
+              );
 
-        updateProgressOnly(progress);
+            updateProgressOnly(
+              progress
+            );
 
-        await loadMissionDetail(selectedMissionId);
-      } catch (error) {
-        console.warn("Mission polling error:", error);
-      }
-    }, POLL_INTERVAL);
+            await loadMissionDetail(
+              selectedMissionId
+            );
+          } catch (error) {
+            console.warn(
+              "Mission polling error:",
+              error
+            );
+          }
+        },
+        POLL_INTERVAL
+      );
   }
 
   function stopPolling() {
     if (pollTimer) {
-      window.clearInterval(pollTimer);
+      window.clearInterval(
+        pollTimer
+      );
+
       pollTimer = null;
     }
   }
 
-  function updateProgressOnly(progress) {
+  function updateProgressOnly(
+    progress
+  ) {
     const value = Number(
       progress?.progress ??
       progress?.percentage ??
       0
     );
 
-    const safeValue = Math.max(
-      0,
-      Math.min(100, Number.isFinite(value) ? value : 0)
+    const safeValue =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number.isFinite(value)
+            ? value
+            : 0
+        )
+      );
+
+    const fills =
+      document.querySelectorAll(
+        ".mission-progress-fill"
+      );
+
+    fills.forEach(
+      (fill) => {
+        fill.style.width =
+          `${safeValue}%`;
+      }
     );
 
-    const fills = document.querySelectorAll(
-      ".mission-progress-fill"
+    const labels =
+      document.querySelectorAll(
+        ".mission-progress-label strong"
+      );
+
+    labels.forEach(
+      (label) => {
+        label.textContent =
+          `${safeValue}%`;
+      }
     );
-
-    fills.forEach((fill) => {
-      fill.style.width = `${safeValue}%`;
-    });
-
-    const labels = document.querySelectorAll(
-      ".mission-progress-label strong"
-    );
-
-    labels.forEach((label) => {
-      label.textContent = `${safeValue}%`;
-    });
   }
 
   /* ============================================================
@@ -922,18 +1276,25 @@
      ============================================================ */
 
   function bindFilters() {
-    const elements = getPanelElements();
+    const elements =
+      getPanelElements();
 
     if (elements.search) {
-      elements.search.addEventListener("input", () => {
-        renderMissionList();
-      });
+      elements.search.addEventListener(
+        "input",
+        () => {
+          renderMissionList();
+        }
+      );
     }
 
     if (elements.status) {
-      elements.status.addEventListener("change", () => {
-        loadMissions();
-      });
+      elements.status.addEventListener(
+        "change",
+        () => {
+          loadMissions();
+        }
+      );
     }
   }
 
@@ -953,19 +1314,43 @@
      GLOBAL API
      ============================================================ */
 
-  window.missionPanelLoad = loadMissions;
-  window.missionPanelSelect = selectMission;
-  window.missionPanelCreate = createMission;
-  window.missionPanelApprove = approveMission;
-  window.missionPanelReject = rejectMission;
-  window.missionPanelExecute = executeMission;
-  window.missionPanelCancel = cancelMission;
-  window.missionPanelDiagnose = diagnoseMission;
-  window.missionPanelSelftest = runSelftest;
+  window.missionPanelLoad =
+    loadMissions;
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+  window.missionPanelSelect =
+    selectMission;
+
+  window.missionPanelCreate =
+    createMission;
+
+  window.missionPanelApprove =
+    approveMission;
+
+  window.missionPanelReject =
+    rejectMission;
+
+  window.missionPanelExecute =
+    executeMission;
+
+  window.missionPanelCancel =
+    cancelMission;
+
+  window.missionPanelDiagnose =
+    diagnoseMission;
+
+  window.missionPanelSelftest =
+    runSelftest;
+
+  if (
+    document.readyState ===
+    "loading"
+  ) {
+    document.addEventListener(
+      "DOMContentLoaded",
+      init
+    );
   } else {
     init();
   }
+
 })();
