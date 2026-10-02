@@ -82,6 +82,10 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 .brain-mode:last-child{border-right:0}
 .brain-mode.active{background:var(--accent);color:#fff}
 .brain-live{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--muted);padding:7px 9px;border:3px solid var(--border);background:#0e0e12}
+.brain-toolbar-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.brain-mode.active-orbit{background:#7c3aed;color:#fff}
+.brain-stats{position:absolute;right:10px;bottom:10px;z-index:5;padding:7px 9px;background:rgba(10,10,13,.82);border:2px solid var(--border);font-family:'Press Start 2P',monospace;font-size:7px;color:var(--muted);pointer-events:none}
+.brain-stats strong{color:#fff}
 .brain-stage{position:relative;flex:1;min-height:160px;background:
   radial-gradient(600px 320px at 50% 45%,rgba(167,139,250,.10),transparent 65%),
   radial-gradient(420px 220px at 50% 55%,rgba(78,205,196,.07),transparent 68%),
@@ -199,7 +203,11 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           <button id="brainMode2d" class="brain-mode active" type="button" onclick="window.akiraBrainSetMode && akiraBrainSetMode('2d')">2D</button>
           <button id="brainMode3d" class="brain-mode" type="button" onclick="window.akiraBrainSetMode && akiraBrainSetMode('3d')">3D</button>
         </div>
-        <div id="brainModeStatus" class="brain-live">BRAIN · 2D</div>
+        <div class="brain-toolbar-actions">
+          <button id="brainFocusBtn" class="brain-mode" type="button" onclick="window.akiraBrainFocus && akiraBrainFocus()" title="Centrar Akira">⌾ FOCO</button>
+          <button id="brainOrbitBtn" class="brain-mode" type="button" onclick="window.akiraBrainToggleOrbit && akiraBrainToggleOrbit()" title="Rotación automática">◉ ÓRBITA</button>
+          <div id="brainModeStatus" class="brain-live">BRAIN · 2D</div>
+        </div>
       </div>
       <div class="brain-stage">
         <div id="brainView2d" class="brain-view">
@@ -209,6 +217,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           <div id="membrane3d"></div>
         </div>
         <div id="brainHud" class="brain-hud">Selecciona un nodo para explorar sus conexiones.</div>
+        <div id="brainStats" class="brain-stats">0 NODOS · 0 RELACIONES</div>
       </div>
       <div id="membraneStats" style="padding:8px 0 0;font-size:11px;color:var(--muted);font-family:'Press Start 2P', monospace;text-align:center"></div>
     </div>
