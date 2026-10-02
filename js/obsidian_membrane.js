@@ -1972,6 +1972,15 @@ window.addEventListener("akira:brain-route", function(ev){
         e.addClass("route");
       }
     });
+
+    if(nodeIds.size){
+      const routeNodes = cyMembrane.nodes().filter(
+        n => nodeIds.has(String(n.id()))
+      );
+      if(routeNodes.length){
+        cyMembrane.fit(routeNodes, 70);
+      }
+    }
   } catch(_) {}
 });
 
