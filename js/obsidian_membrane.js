@@ -1168,6 +1168,11 @@ function initMembraneGraph() {
         _highlightNeighbors(
           evt.target
         );
+        try {
+          window.dispatchEvent(new CustomEvent("akira:brain-select", {
+            detail: { nodeId: evt.target.id() }
+          }));
+        } catch(_) {}
       }
     );
 
@@ -1274,6 +1279,11 @@ function initMembraneGraph() {
                 );
               }
             });
+          try {
+            window.dispatchEvent(new CustomEvent("akira:brain-select", {
+              detail: { nodeId: null }
+            }));
+          } catch(_) {}
         }
       }
     );
@@ -1889,6 +1899,29 @@ function _updateMembraneStats() {
     (c.edges || 0) +
     " aristas";
 }
+
+// ===========================================================================
+// BRAIN 2D/3D — SINCRONIZACION DE SELECCION
+// ===========================================================================
+window.addEventListener("akira:brain-select", function(ev){
+  if (!cyMembrane) return;
+  const nodeId = ev && ev.detail ? ev.detail.nodeId : null;
+  try {
+    if (!nodeId) {
+      cyMembrane.elements().unselect().removeClass("highlighted").removeClass("dimmed");
+      cyMembrane.nodes().forEach(n => {
+        n.style("text-opacity", (n.hasClass("core") || n.hasClass("hub")) ? (n.hasClass("core") ? 1 : 0.95) : 0);
+      });
+      return;
+    }
+    const node = cyMembrane.getElementById(String(nodeId));
+    if (node && !node.empty()) {
+      cyMembrane.elements().unselect();
+      node.select();
+      _highlightNeighbors(node);
+    }
+  } catch(_) {}
+});
 
 // ===========================================================================
 // NAVEGACION
