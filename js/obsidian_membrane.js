@@ -2120,7 +2120,18 @@ window.addEventListener("akira:brain-select", function(ev){
         .removeClass("route")
         .forEach(el => el.style("display","element"));
       cyMembrane.nodes().forEach(n => {
+        const visible = _brainFilterNodeVisible(n) &&
+          (membraneExploreDepth === 0 || membraneExploreVisibleNodeIds.has(String(n.id())));
+        n.style("display", visible ? "element" : "none");
         n.style("text-opacity", (n.hasClass("core") || n.hasClass("hub")) ? (n.hasClass("core") ? 1 : 0.95) : 0);
+      });
+      cyMembrane.edges().forEach(e => {
+        const source = cyMembrane.getElementById(String(e.data("source")));
+        const target = cyMembrane.getElementById(String(e.data("target")));
+        const visible = source.length && target.length &&
+          _brainFilterNodeVisible(source) && _brainFilterNodeVisible(target) &&
+          (membraneExploreDepth === 0 || membraneExploreVisibleLinkIds.has(String(e.id())));
+        e.style("display", visible ? "element" : "none");
       });
       return;
     }
