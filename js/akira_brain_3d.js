@@ -1429,6 +1429,76 @@
           _weight: Number(e.weight) || 0.5
         }));
 
+      // Real graph distance from Akira drives the 3D radial layers.
+      const adjacency = new Map();
+      links.forEach(e => {
+        const a = String(e.from_node);
+        const b = String(e.to_node);
+        if(!adjacency.has(a)) adjacency.set(a,[]);
+        if(!adjacency.has(b)) adjacency.set(b,[]);
+        adjacency.get(a).push(b);
+        adjacency.get(b).push(a);
+      });
+
+      const coreNode = nodes.find(n => n._isCore);
+      if(coreNode){
+        const hop = new Map([[String(coreNode.id),0]]);
+        const q=[String(coreNode.id)];
+        for(let qi=0; qi<q.length; qi++){
+          const cur=q[qi];
+          const next=adjacency.get(cur)||[];
+          next.forEach(other=>{
+            if(hop.has(other)) return;
+            hop.set(other,(hop.get(cur)||0)+1);
+            q.push(other);
+          });
+        }
+        nodes.forEach(n => {
+          n._graphHop = hop.get(String(n.id)) ?? 7;
+        });
+      }
+
+      // Deterministic spherical seed. Existing graph relations determine hop;
+      // communities determine a soft sector; nodes retain enough freedom for
+      // ForceGraph3D to settle them naturally.
+      const golden = Math.PI * (3 - Math.sqrt(5));
+      const centerByCluster = new Map();
+      const clusterIds=[...new Set(nodes.map(n => communityState.assignments.get(String(n.id)) || "other"))]
+        .filter(id => id !== "core");
+      clusterIds.forEach((id,i)=>{
+        const count=Math.max(1,clusterIds.length);
+        const y=1-(i/(count-1||1))*2;
+        const rr=Math.sqrt(Math.max(0,1-y*y));
+        const theta=i*golden + 0.7;
+        centerByCluster.set(id,{x:Math.cos(theta),y:y*0.72,z:Math.sin(theta)});
+      });
+
+      nodes.forEach((n,i)=>{
+        if(n._isCore){
+          n.x=0; n.y=0; n.z=0;
+          n.fx=0; n.fy=0; n.fz=0;
+          return;
+        }
+
+        const hop=Math.max(1,Math.min(7,Number(n._graphHop)||1));
+        const radius=105 + hop*78 + (Number(n._importance)||0)*42;
+        const clusterId=communityState.assignments.get(String(n.id)) || "other";
+        const dir=centerByCluster.get(clusterId) || {x:1,y:0,z:0};
+
+        // Fibonacci-like offset around the community direction.
+        const a=i*golden + (String(n.id).length*0.17);
+        const b=((i*0.61803398875)%1)*Math.PI - Math.PI/2;
+        const spread=0.33;
+        const x=dir.x + spread*Math.cos(a)*Math.cos(b);
+        const y=dir.y + spread*Math.sin(b);
+        const z=dir.z + spread*Math.sin(a)*Math.cos(b);
+        const len=Math.sqrt(x*x+y*y+z*z)||1;
+
+        n.x=radius*x/len;
+        n.y=radius*y/len;
+        n.z=radius*z/len;
+      });
+
       graphData = {nodes, links};
       const coreNode = nodes.find(n => n._isCore);
       computeCommunities(nodes, links, coreNode ? coreNode.id : null);
@@ -1656,6 +1726,13 @@
         rendererConfig:{antialias:true,alpha:true}
       });
 
+      try {
+        fg
+          .backgroundColor("#05060a")
+          .enableNodeDrag(true)
+          .enablePointerInteraction(true);
+      } catch(_) {}
+
       fg
         .showNavInfo(false)
         .nodeLabel(n => escapeHtml(n.label || n.id))
@@ -1720,6 +1797,13 @@
         });
       } catch(_) {}
       fetchGraph();
+      try {
+        fg.cameraPosition(
+          {x:0,y:120,z:920},
+          {x:0,y:0,z:0},
+          900
+        );
+      } catch(_) {}
       clearInterval(refreshTimer);
       refreshTimer = setInterval(fetchGraph, REFRESH_MS);
       apply3dRuntime();
