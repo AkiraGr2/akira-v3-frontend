@@ -396,6 +396,10 @@
     return "#3f4650";
   }
 
+  window.AkiraBrainCommunity = function(nodes, links, coreId){
+    return computeCommunities(nodes, links, coreId);
+  };
+
   function updateContextPanel(){
     const panel = document.getElementById("brainContext");
     if(!panel) return;
