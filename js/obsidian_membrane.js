@@ -1942,6 +1942,24 @@ function _updateMembraneStats() {
 // ===========================================================================
 // BRAIN 2D/3D — SINCRONIZACION DE SELECCION
 // ===========================================================================
+window.addEventListener("akira:brain-navigation", function(ev){
+  try {
+    const detail = ev && ev.detail ? ev.detail : {};
+    const id = detail.nodeId ? String(detail.nodeId) : null;
+    if(!id || !cyMembrane) return;
+
+    const node = cyMembrane.getElementById(id);
+    if(node && node.length){
+      cyMembrane.nodes().unselect();
+      node.select();
+      cyMembrane.animate({
+        center:{eles:node},
+        duration:500
+      });
+    }
+  } catch(_) {}
+});
+
 window.addEventListener("akira:brain-explore", function(ev){
   if (!cyMembrane) return;
 
