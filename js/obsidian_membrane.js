@@ -1,3 +1,67 @@
+let _brainContextDragBound = false;
+let _brainContextManualNodeId = null;
+
+function _bindBrainContextDragging(){
+  if(_brainContextDragBound) return;
+  const panel = document.getElementById("brainContext");
+  const stage = document.querySelector(".brain-stage");
+  const head = panel && panel.querySelector(".brain-context-head");
+  if(!panel || !stage || !head) return;
+  _brainContextDragBound = true;
+
+  let dragging = false;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  head.addEventListener("pointerdown", function(ev){
+    if(ev.target && ev.target.closest(".brain-context-close")) return;
+    try { head.setPointerCapture(ev.pointerId); } catch(_) {}
+    const panelRect = panel.getBoundingClientRect();
+    offsetX = ev.clientX - panelRect.left;
+    offsetY = ev.clientY - panelRect.top;
+    dragging = true;
+    head.classList.add("is-dragging");
+    panel.dataset.brainDragging = "1";
+    ev.preventDefault();
+  });
+
+  head.addEventListener("pointermove", function(ev){
+    if(!dragging) return;
+    const stageRect = stage.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+
+    const minLeft = 8;
+    const minTop = 8;
+    const maxLeft = Math.max(minLeft, stageRect.width - panelRect.width - 8);
+    const maxTop = Math.max(minTop, stageRect.height - panelRect.height - 8);
+
+    const rawLeft = ev.clientX - stageRect.left - offsetX;
+    const rawTop = ev.clientY - stageRect.top - offsetY;
+
+    const left = Math.max(minLeft, Math.min(maxLeft, rawLeft));
+    const top = Math.max(minTop, Math.min(maxTop, rawTop));
+
+    panel.style.left = left + "px";
+    panel.style.top = top + "px";
+    panel.style.right = "auto";
+    panel.style.bottom = "auto";
+    panel.dataset.brainManualPosition = "1";
+    _brainContextManualNodeId = panel.dataset.brainNodeId || null;
+    ev.preventDefault();
+  });
+
+  const finishDrag = function(ev){
+    if(!dragging) return;
+    dragging = false;
+    head.classList.remove("is-dragging");
+    panel.dataset.brainDragging = "0";
+    try { head.releasePointerCapture(ev.pointerId); } catch(_) {}
+  };
+
+  head.addEventListener("pointerup", finishDrag);
+  head.addEventListener("pointercancel", finishDrag);
+}
+
 // AKIRA OBSIDIAN MEMBRANE + OFFICE FLOOR - V18.2 + OFFICE V1
 // V18.2:
 //   - MIN_EDGE_WEIGHT_VISIBLE bajado a 0.4.
@@ -613,6 +677,7 @@ function _forceFlowerPositions(nodes, edges, coreId) {
 }
 
 function _position2dContext(nodeId){
+  _bindBrainContextDragging();
   if(!cyMembrane) return;
   const panel=document.getElementById("brainContext");
   if(!panel) return;
