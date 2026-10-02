@@ -1876,11 +1876,19 @@ function _updateMembraneStats() {
       edges: 0
     };
 
+  const clusterCount =
+    _communityState &&
+    Number(_communityState.count) > 0
+      ? Number(_communityState.count)
+      : 0;
+
   el.textContent =
     (c.nodes || 0) +
     " nodos · " +
     (c.edges || 0) +
-    " aristas";
+    " aristas · " +
+    clusterCount +
+    " clusters";
 }
 
 // ===========================================================================
