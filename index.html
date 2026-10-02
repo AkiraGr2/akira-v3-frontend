@@ -96,6 +96,10 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 .mission-progress-wrap{border:3px solid var(--border);height:24px;background:#09090c;margin:10px 0;position:relative;overflow:hidden}
 .mission-progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--sky));transition:width .25s ease}
 .mission-progress-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:8px;text-shadow:1px 1px #000}
+.mission-progress-box{border:3px solid var(--border);background:#09090c;margin:12px 0;padding:10px;position:relative;overflow:hidden}
+.mission-progress-box .mission-progress-label{position:static;inset:auto;min-height:22px;display:flex;align-items:center;justify-content:space-between}
+.mission-progress-track{height:18px;background:#0e0e12;border:3px solid var(--border);margin-top:8px;position:relative;overflow:hidden}
+.mission-progress-fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--sky));transition:width .25s ease}
 .mission-pre{background:#09090c;border:3px solid var(--border);padding:10px;font-size:10px;color:#aaa;white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto}
 .mission-note{font-size:10px;color:var(--muted);line-height:1.5;margin-top:6px}
 @media(max-width:900px){.mission-grid{grid-template-columns:1fr}.mission-kv{grid-template-columns:110px 1fr}}
