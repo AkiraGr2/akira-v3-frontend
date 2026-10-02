@@ -376,6 +376,26 @@
     return communityState.count + " CLUSTERS";
   }
 
+  function linkClusterType(l){
+    const a = nodeId(l.source);
+    const b = nodeId(l.target);
+    const ca = communityState.assignments.get(a);
+    const cb = communityState.assignments.get(b);
+    if(ca && cb && ca === cb && ca !== "core"){
+      const n = graphData.nodes.find(x => String(x.id) === a);
+      return n ? colorForNode(n,false) : "#59616d";
+    }
+    if(a === "core" || b === "core"){
+      const an = graphData.nodes.find(x => String(x.id) === a);
+      const bn = graphData.nodes.find(x => String(x.id) === b);
+      if(an?._isCore || bn?._isCore) return "#ff6b6b";
+    }
+    const na = graphData.nodes.find(x => String(x.id) === a);
+    const nb = graphData.nodes.find(x => String(x.id) === b);
+    if(na?._isCore || nb?._isCore) return "#ff6b6b";
+    return "#3f4650";
+  }
+
   function updateContextPanel(){
     const panel = document.getElementById("brainContext");
     if(!panel) return;
@@ -556,9 +576,19 @@
       .nodeVisibility(true)
       .nodeThreeObject(n => makeGlowNode(n) || undefined)
       .nodeThreeObjectExtend(false)
-      .linkColor(l => isRelatedLink(l) ? "#c4b5fd" : "#3f4650")
+      .linkColor(l => isRelatedLink(l) ? "#c4b5fd" : linkClusterType(l))
       .linkWidth(l => isRelatedLink(l) ? Math.min(5, 1.5 + (Number(l.weight)||0.5)) : Math.min(1.6, 0.35 + (Number(l.weight)||0.5) * 0.4))
-      .linkOpacity(l => selectedNodeId && !isRelatedLink(l) ? 0.10 : 0.46)
+      .linkOpacity(l => {
+        if(selectedNodeId && !isRelatedLink(l)) return 0.10;
+        const a = nodeId(l.source), b = nodeId(l.target);
+        const ca = communityState.assignments.get(a);
+        const cb = communityState.assignments.get(b);
+        if(ca && cb && ca === cb && ca !== "core") return 0.32;
+        const na = graphData.nodes.find(x => String(x.id) === a);
+        const nb = graphData.nodes.find(x => String(x.id) === b);
+        if(na?._isCore || nb?._isCore) return 0.42;
+        return 0.18;
+      })
       .linkDirectionalArrowLength(l => isRelatedLink(l) ? 4 : 0)
       .linkDirectionalArrowColor(l => isRelatedLink(l) ? "#ddd6fe" : "#5b6470")
       .linkDirectionalParticles(l => isRelatedLink(l) ? 4 : (selectedNodeId ? 0 : 1))
