@@ -992,17 +992,32 @@
       });
       clusterList=[...clusters.entries()].sort((a,b)=>b[1].length-a[1].length || a[0].localeCompare(b[0]));
     }
-    const ring = Math.max(115, Math.min(330, 105 + Math.sqrt(Math.max(nodes.length,1))*10));
+    // Spherical community centers: the 3D Brain is radial around Akira,
+    // not a flat XY flower. Communities occupy different directions in space.
+    const sphereRadius = Math.max(260, Math.min(620, 220 + Math.sqrt(Math.max(nodes.length,1))*18));
     const golden = Math.PI * (3 - Math.sqrt(5));
 
     clusterList.forEach(([clusterId,members],index)=>{
-      const a = (index / Math.max(clusterList.length,1)) * Math.PI * 2 - Math.PI / 2;
-      const r = ring + Math.min(145, members.length * 2.4);
-      const z = ((index % 3) - 1) * Math.min(110, ring * 0.22);
-      centers.set(clusterId,{x:Math.cos(a)*r,y:Math.sin(a)*r,z,angle:a});
+      const count=Math.max(1,clusterList.length);
+      const y=1 - (index/(count-1 || 1))*2;
+      const rr=Math.sqrt(Math.max(0,1-y*y));
+      const theta=index*golden + Math.PI*0.25;
+      const x=Math.cos(theta)*rr*sphereRadius;
+      const z=Math.sin(theta)*rr*sphereRadius;
+      const yy=y*sphereRadius*0.72;
+
+      centers.set(clusterId,{
+        x,y:yy,z,
+        angle:Math.atan2(z,x),
+        radius:sphereRadius
+      });
+
       members.forEach((id,j)=>{
         const n=nodes.find(x=>String(x.id)===id);
-        if(n) n._clusterAngle = a + j * golden;
+        if(n){
+          n._clusterAngle = theta + (j % 9) * 0.055;
+          n._clusterIndex = index;
+        }
       });
     });
 
@@ -1017,9 +1032,9 @@
       for(const n of nodes){
         const id=String(n.id);
         if(n._isCore){
-          n.vx += (0-n.x) * 0.18 * alpha;
-          n.vy += (0-n.y) * 0.18 * alpha;
-          n.vz += (0-n.z) * 0.18 * alpha;
+          n.vx += (0-n.x) * 0.24 * alpha;
+          n.vy += (0-n.y) * 0.24 * alpha;
+          n.vz += (0-n.z) * 0.24 * alpha;
           continue;
         }
 
@@ -1030,26 +1045,40 @@
         const importance = Number(n._importance) || 0.2;
         const hub = !!n._isCommunityHub;
         const strength = hub
-          ? 0.085 + importance * 0.045
-          : 0.052 + importance * 0.052;
+          ? 0.075 + importance * 0.055
+          : 0.045 + importance * 0.040;
 
+        // Community gravity: pull toward a 3D sector, not a flat plane.
         n.vx += (center.x-n.x) * strength * alpha;
         n.vy += (center.y-n.y) * strength * alpha;
+        n.vz += (center.z-n.z) * strength * alpha;
 
-        const targetZ =
-          center.z +
-          (importance - 0.45) * 155;
+        // Soft spherical orbit: enough movement to feel alive, but heavily damped.
+        const dx=n.x-center.x;
+        const dz=n.z-center.z;
+        const dist=Math.sqrt(dx*dx+dz*dz)||1;
+        const tangent=0.0022*(0.55+importance)*(hub?0.35:1);
+        n.vx += (-dz/dist)*tangent*alpha;
+        n.vz += ( dx/dist)*tangent*alpha;
 
-        n.vz += (targetZ-n.z) * strength * alpha;
+        // Global radial gravity around Akira, with a real equilibrium radius.
+        const rx=n.x, ry=n.y, rz=n.z;
+        const r=Math.sqrt(rx*rx+ry*ry+rz*rz)||1;
+        const hop=Math.max(1,Math.min(7,Number(n._graphHop)||1));
+        const desired=105 + hop*78 + (Number(n._importance)||0)*42;
+        const radialError=Math.max(-110,Math.min(110,desired-r));
+        const radialForce=radialError*0.007;
+        n.vx += (rx/r)*radialForce*alpha;
+        n.vy += (ry/r)*radialForce*alpha;
+        n.vz += (rz/r)*radialForce*alpha;
 
-        // Micro-órbita: movimiento tangencial muy suave alrededor
-        // del centro comunitario, derivado de la pertenencia al cluster.
-        const dx = n.x - center.x;
-        const dy = n.y - center.y;
-        const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-        const tangent = 0.0028 * (0.55 + importance) * (hub ? 0.35 : 1);
-        n.vx += (-dy / dist) * tangent * alpha;
-        n.vy += ( dx / dist) * tangent * alpha;
+        // Never allow a node to collapse into Akira's personal zone.
+        if(r < 72){
+          const push=(72-r)*0.035;
+          n.vx += (rx/r)*push*alpha;
+          n.vy += (ry/r)*push*alpha;
+          n.vz += (rz/r)*push*alpha;
+        }
       }
     };
     force.initialize = _nodes => { nodes = _nodes || []; };
@@ -1444,7 +1473,13 @@
     try {
       const chargeForce = fg.d3Force("charge");
       if(chargeForce && typeof chargeForce.strength === "function"){
-        chargeForce.strength(-78);
+        chargeForce.strength(-155);
+      }
+
+      const linkForce = fg.d3Force("link");
+      if(linkForce){
+        if(typeof linkForce.distance === "function") linkForce.distance(78);
+        if(typeof linkForce.strength === "function") linkForce.strength(0.055);
       }
     } catch(err) {
       console.warn("[akira-brain-3d] charge", err);
@@ -1500,8 +1535,12 @@
       isExplorerVisibleNode(n) && nodeMatchesActiveFilters(n)
     );
 
-    _set3dMethod("nodeThreeObject", n => makeGlowNode(n) || undefined);
-    _set3dMethod("nodeThreeObjectExtend", false);
+    // Custom glowing geometry when Three is available. Otherwise leave the
+    // native ForceGraph spheres untouched so nodes are never invisible.
+    if(window.THREE && typeof window.THREE.Group === "function"){
+      _set3dMethod("nodeThreeObject", n => makeGlowNode(n) || null);
+      _set3dMethod("nodeThreeObjectExtend", false);
+    }
 
     _set3dMethod("linkVisibility", l =>
       isExplorerVisibleLink(l) &&
@@ -1560,9 +1599,9 @@
     _set3dMethod("showNavInfo", false);
     _set3dMethod("controlType", "orbit");
     _set3dMethod("enablePointerInteraction", true);
-    _set3dMethod("cooldownTime", graphData.nodes.length > 280 ? 17000 : 12000);
-    _set3dMethod("warmupTicks", graphData.nodes.length > 280 ? 150 : 95);
-    _set3dMethod("cooldownTicks", 360);
+    _set3dMethod("cooldownTime", graphData.nodes.length > 280 ? 21000 : 14000);
+    _set3dMethod("warmupTicks", graphData.nodes.length > 280 ? 260 : 150);
+    _set3dMethod("cooldownTicks", 520);
 
     try {
       const controls = typeof fg.controls === "function" ? fg.controls() : null;
