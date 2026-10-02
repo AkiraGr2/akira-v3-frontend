@@ -151,6 +151,7 @@ let membraneCounts = {
 
 let membraneError = null;
 let membraneLayoutRunning = false;
+let _communityState = null;
 
 const MEMBRANE_REFRESH_MS = 7000;
 const MIN_EDGE_WEIGHT_VISIBLE = 0.4;
@@ -368,17 +369,11 @@ function _computeSeedPositions(
     positions[coreId] = { x: cx, y: cy };
   }
 
-  let assignments = null;
-  if (typeof window.AkiraBrainCommunity === "function") {
-    try {
-      const community = window.AkiraBrainCommunity(nodes, edges, coreId);
-      assignments = community && community.assignments instanceof Map
-        ? community.assignments
-        : null;
-    } catch (e) {
-      console.warn("[membrane] community analysis fallback:", e);
-    }
-  }
+  const assignments =
+    _communityState &&
+    _communityState.assignments instanceof Map
+      ? _communityState.assignments
+      : null;
 
   const degree = new Map();
   for (const e of edges) {
@@ -509,11 +504,28 @@ function _applySeedPositions(
   edges,
   coreId
 ) {
-  const sig =
+  const nodeSig =
     nodes
       .map(n => n.id)
       .sort()
       .join(",");
+
+  const edgeSig =
+    edges
+      .map(e =>
+        String(e.id) +
+        ":" +
+        String(e.from_node) +
+        ">" +
+        String(e.to_node)
+      )
+      .sort()
+      .join(",");
+
+  const sig =
+    nodeSig +
+    "||" +
+    edgeSig;
 
   if (
     sig !== _lastGraphSignature
@@ -1398,6 +1410,8 @@ function _applyGraphToCy(
       ? community.assignments
       : null;
 
+  _communityState = community || null;
+
   const degree = {};
 
   for (const e of edges) {
@@ -1785,6 +1799,12 @@ function _applyGraphToCy(
             n.data("label"),
           node_type:
             n.data("node_type"),
+          weight:
+            Number(n.data("weight")) || 0,
+          reuse_count:
+            Number(n.data("reuse_count")) || 0,
+          confidence:
+            Number(n.data("confidence")) || 0,
         })
       );
 
