@@ -1,7 +1,7 @@
 /* ============================================================
    AKIRA — MISSIONS PANEL
    FASE 10.8 — Panel Unificado de Misiones
-   Version: V1.5
+   Version: V1.6
    ============================================================ */
 
 (function () {
@@ -1271,8 +1271,9 @@
         <button
           type="button"
           class="mission-action mission-action-primary"
+          data-mission-action="approve"
+          data-mission-id="${escapeHtml(id)}"
           ${approveBusy || rejectBusy ? "disabled" : ""}
-          onclick="window.missionPanelApprove('${escapeHtml(id)}')"
         >
           ${approveBusy ? "⏳ Aprobando..." : "✓ Aprobar"}
         </button>
@@ -1280,8 +1281,9 @@
         <button
           type="button"
           class="mission-action"
+          data-mission-action="reject"
+          data-mission-id="${escapeHtml(id)}"
           ${approveBusy || rejectBusy ? "disabled" : ""}
-          onclick="window.missionPanelReject('${escapeHtml(id)}')"
         >
           ${rejectBusy ? "⏳ Rechazando..." : "✕ Rechazar"}
         </button>
@@ -1295,7 +1297,8 @@
         <button
           type="button"
           class="mission-action mission-action-primary"
-          onclick="window.missionPanelExecute('${escapeHtml(id)}')"
+          data-mission-action="execute"
+          data-mission-id="${escapeHtml(id)}"
         >
           ▶ Ejecutar
         </button>
@@ -1303,7 +1306,8 @@
         <button
           type="button"
           class="mission-action"
-          onclick="window.missionPanelDiagnose('${escapeHtml(id)}')"
+          data-mission-action="diagnose"
+          data-mission-id="${escapeHtml(id)}"
         >
           🔎 Diagnosticar
         </button>
@@ -1311,7 +1315,8 @@
         <button
           type="button"
           class="mission-action mission-action-danger"
-          onclick="window.missionPanelCancel('${escapeHtml(id)}')"
+          data-mission-action="cancel"
+          data-mission-id="${escapeHtml(id)}"
         >
           ■ Cancelar
         </button>
@@ -1325,7 +1330,8 @@
         <button
           type="button"
           class="mission-action mission-action-primary"
-          onclick="window.missionPanelExecute('${escapeHtml(id)}')"
+          data-mission-action="execute"
+          data-mission-id="${escapeHtml(id)}"
         >
           ▶ Ejecutar
         </button>
@@ -1343,7 +1349,8 @@
         <button
           type="button"
           class="mission-action"
-          onclick="window.missionPanelDiagnose('${escapeHtml(id)}')"
+          data-mission-action="diagnose"
+          data-mission-id="${escapeHtml(id)}"
         >
           🔎 Diagnosticar
         </button>
@@ -2391,6 +2398,108 @@
   }
 
   /* ============================================================
+     MISSION ACTION EVENTS
+     ============================================================ */
+
+  function bindMissionActions() {
+    const elements =
+      getPanelElements();
+
+    const detail =
+      elements.detail;
+
+    if (
+      !detail ||
+      detail.dataset.missionActionsBound ===
+        "1"
+    ) {
+      return;
+    }
+
+    detail.dataset.missionActionsBound =
+      "1";
+
+    detail.addEventListener(
+      "click",
+      (event) => {
+        const button =
+          event.target.closest(
+            "[data-mission-action]"
+          );
+
+        if (
+          !button ||
+          !detail.contains(button)
+        ) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (
+          button.disabled
+        ) {
+          return;
+        }
+
+        const action =
+          button.dataset.missionAction ||
+          "";
+
+        const id =
+          button.dataset.missionId ||
+          "";
+
+        if (
+          !id ||
+          !action
+        ) {
+          return;
+        }
+
+        console.log(
+          "Akira mission action:",
+          action,
+          id
+        );
+
+        switch (action) {
+          case "approve":
+            void approveMission(
+              id
+            );
+            break;
+
+          case "reject":
+            void rejectMission(
+              id
+            );
+            break;
+
+          case "execute":
+            void executeMission(
+              id
+            );
+            break;
+
+          case "cancel":
+            void cancelMission(
+              id
+            );
+            break;
+
+          case "diagnose":
+            void diagnoseMission(
+              id
+            );
+            break;
+        }
+      }
+    );
+  }
+
+  /* ============================================================
      FILTERS
      ============================================================ */
 
@@ -2411,6 +2520,8 @@
         loadMissions
       );
     }
+
+    bindMissionActions();
   }
 
   /* ============================================================
