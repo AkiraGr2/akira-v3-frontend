@@ -147,6 +147,26 @@
     return tryNext(0);
   }
 
+  let threeModuleLoading = null;
+
+  function loadThreeModule(){
+    if(window.THREE && typeof window.THREE.Group === "function"){
+      return Promise.resolve(window.THREE);
+    }
+    if(threeModuleLoading) return threeModuleLoading;
+
+    threeModuleLoading = import(
+      "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"
+    ).then(mod=>{
+      window.THREE = mod;
+      return mod;
+    }).finally(()=>{
+      threeModuleLoading = null;
+    });
+
+    return threeModuleLoading;
+  }
+
   function loadForceGraph3D(){
     if(typeof window.ForceGraph3D === "function") return Promise.resolve(window.ForceGraph3D);
     if(forceGraphLoading) return forceGraphLoading;
@@ -1570,6 +1590,13 @@
 
     const container = document.getElementById("membrane3d");
     if(!container) return;
+    try {
+      await loadThreeModule();
+    } catch(e) {
+      // Custom geometry is optional; ForceGraph3D can still render defaults.
+      console.warn("[akira-brain-3d] three module", e);
+    }
+
     if(typeof window.ForceGraph3D !== "function"){
       try {
         await loadForceGraph3D();
