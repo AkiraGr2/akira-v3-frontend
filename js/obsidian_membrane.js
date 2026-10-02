@@ -1720,7 +1720,8 @@ function _restoreFlowerAfterViewportResize() {
       weight: Number(e.data("weight")) || 0.5
     }));
 
-    _forceFlowerPositions(nodes, edges, coreEl.id());
+    _forceFlowerPositions(nodes, edges, coreEl.id(), true);
+    _runFlowerPhysics(nodes, edges, coreEl.id());
 
     const W = cyMembrane.width() || 800;
     const H = cyMembrane.height() || 600;
@@ -2701,21 +2702,20 @@ function _applyGraphToCy(
   // every community petal is placed around that origin.
   try {
     cyMembrane.resize();
-    _forceFlowerPositions(nodesForSeed, edges, coreId);
+    const seededRadial = _forceFlowerPositions(
+      nodesForSeed,
+      edges,
+      coreId,
+      !!seedRan
+    );
     const coreEl = cyMembrane.nodes(".core");
     if(coreEl && coreEl.length){
       cyMembrane.center(coreEl);
-      // Let the deterministic flower provide the target positions, then let
-      // the local physics settle collisions and breathing room between nodes.
-      _runFlowerPhysics(nodesForSeed, edges, coreId);
-      if(seedRan) setTimeout(() => {
-        try {
-          cyMembrane.resize();
-          _forceFlowerPositions(nodesForSeed, edges, coreId);
-          _runFlowerPhysics(nodesForSeed, edges, coreId);
-          cyMembrane.center(coreEl);
-        } catch(_) {}
-      }, 180);
+      if(seededRadial){
+        // Radial target first; then force simulation resolves personal space,
+        // Akira gravity, community cohesion and real-link attraction.
+        _runFlowerPhysics(nodesForSeed, edges, coreId);
+      }
     }
   } catch(_) {}
 
