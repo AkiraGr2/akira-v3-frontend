@@ -486,6 +486,107 @@ function _computeSeedPositions(
   return positions;
 }
 
+function _forceFlowerPositions(nodes, edges, coreId) {
+  if(!cyMembrane) return;
+  const normalizedCoreId = coreId == null ? null : String(coreId);
+  const W = cyMembrane.width() || 800;
+  const H = cyMembrane.height() || 600;
+  const cx = W / 2;
+  const cy = H / 2;
+
+  const coreEl = normalizedCoreId
+    ? cyMembrane.getElementById(normalizedCoreId)
+    : cyMembrane.nodes(".core").first();
+
+  if(!coreEl || coreEl.empty()) return;
+  coreEl.position({x:cx,y:cy});
+
+  const assignments = _communityState && _communityState.assignments instanceof Map
+    ? _communityState.assignments
+    : new Map();
+
+  const groups = new Map();
+  for(const n of nodes){
+    const id = String(n.id);
+    if(id === normalizedCoreId) continue;
+    const cluster = assignments.get(id) || _detectGroup(n) || "other";
+    if(!groups.has(cluster)) groups.set(cluster, []);
+    groups.get(cluster).push(n);
+  }
+
+  let petals = [...groups.entries()]
+    .sort((a,b)=>b[1].length-a[1].length || String(a[0]).localeCompare(String(b[0])))
+    .slice(0,8);
+
+  if(!petals.length) return;
+
+  const maxPetalSize = Math.max(...petals.map(([,members])=>members.length),1);
+  const baseR = Math.min(W,H) * (petals.length <= 5 ? 0.29 : 0.33);
+  const maxR = Math.min(W,H) * 0.46;
+  const golden = Math.PI * (3 - Math.sqrt(5));
+
+  petals.forEach(([clusterId,members], i)=>{
+    const angle = -Math.PI/2 + (i / petals.length) * Math.PI * 2;
+    const sizeFactor = Math.sqrt(members.length / maxPetalSize);
+    const petalR = Math.min(maxR, baseR + sizeFactor * 70);
+    const hubX = cx + Math.cos(angle) * petalR;
+    const hubY = cy + Math.sin(angle) * petalR;
+
+    let hub = null;
+    let best = -1;
+    for(const n of members){
+      const el = cyMembrane.getElementById(String(n.id));
+      const score = (el && !el.empty() ? Number(el.data("weight")) || 0 : 0) +
+        (Number(n.confidence)||0) * 2 +
+        (Number(n.reuse_count)||0) * 0.5;
+      if(score > best){ best=score; hub=String(n.id); }
+    }
+
+    if(hub){
+      const hubEl = cyMembrane.getElementById(hub);
+      if(hubEl && !hubEl.empty()) hubEl.position({x:hubX,y:hubY});
+    }
+
+    const satellites = members.filter(n => String(n.id) !== hub);
+    const petalRadius = Math.min(105, Math.max(58, 38 + Math.sqrt(members.length)*10));
+
+    satellites.forEach((n,j)=>{
+      const id = String(n.id);
+      const el = cyMembrane.getElementById(id);
+      if(!el || el.empty()) return;
+      const t = satellites.length ? j / satellites.length : 0;
+      const radial = petalRadius * (0.42 + 0.58 * Math.sqrt((j+1)/Math.max(1,satellites.length)));
+      const localAngle = angle + j * golden * 0.92;
+      const wobble = 1 + 0.055 * Math.sin(j * 1.7 + i * 2.1);
+      el.position({
+        x: hubX + Math.cos(localAngle) * radial * wobble,
+        y: hubY + Math.sin(localAngle) * radial * wobble
+      });
+    });
+  });
+
+  // Pull unassigned/leftover nodes into the nearest petal instead of allowing
+  // them to remain at stale coordinates far from the core.
+  const assigned = new Set(petals.flatMap(([,members])=>members.map(n=>String(n.id))));
+  nodes.forEach(n=>{
+    const id=String(n.id);
+    if(id===normalizedCoreId || assigned.has(id)) return;
+    const el=cyMembrane.getElementById(id);
+    if(!el || el.empty()) return;
+    const angle=(id.split("").reduce((a,c)=>a+c.charCodeAt(0),0)%360)*Math.PI/180;
+    el.position({
+      x:cx + Math.cos(angle)*(baseR*0.72),
+      y:cy + Math.sin(angle)*(baseR*0.72)
+    });
+  });
+
+  _positionCache.clear();
+  nodes.forEach(n=>{
+    const el=cyMembrane.getElementById(String(n.id));
+    if(el && !el.empty()) _positionCache.set(String(n.id), el.position());
+  });
+}
+
 function _placeNearHub(
   nodeId,
   hubId,
@@ -1903,28 +2004,17 @@ function _applyGraphToCy(
       coreId
     );
 
-  // Preserve the deterministic community flower. The previous force-directed
-  // relax was mathematically valid but visually collapsed the petals into a
-  // ring on dense graphs.
+  // Final authoritative 2D placement: Akira is the geometric origin and
+  // every community petal is placed around that origin.
   try {
     cyMembrane.resize();
+    _forceFlowerPositions(nodesForSeed, edges, coreId);
     const coreEl = cyMembrane.nodes(".core");
-    if (coreEl && coreEl.length) {
-      const centerCore = () => {
-        try {
-          cyMembrane.resize();
-          cyMembrane.center(coreEl);
-        } catch(_) {}
-      };
-      if (seedRan) {
-        centerCore();
-        setTimeout(centerCore, 120);
-        setTimeout(centerCore, 420);
-      } else if (!membraneLayoutRunning) {
-        setTimeout(centerCore, 120);
-      }
-    } else if (seedRan) {
-      cyMembrane.fit(undefined, 80);
+    if(coreEl && coreEl.length){
+      cyMembrane.center(coreEl);
+      if(seedRan) setTimeout(() => {
+        try { cyMembrane.resize(); _forceFlowerPositions(nodesForSeed, edges, coreId); cyMembrane.center(coreEl); } catch(_) {}
+      }, 180);
     }
   } catch(_) {}
 
