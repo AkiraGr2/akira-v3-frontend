@@ -84,6 +84,7 @@
     threeLoading = new Promise((resolve,reject) => {
       const existing = document.querySelector('script[data-akira-three="1"]');
       if(existing){
+        if(window.THREE) return resolve(window.THREE);
         existing.addEventListener("load", () => resolve(window.THREE), {once:true});
         existing.addEventListener("error", reject, {once:true});
         return;
@@ -97,6 +98,31 @@
       document.head.appendChild(s);
     }).finally(() => { threeLoading = null; });
     return threeLoading;
+  }
+
+  function loadForceGraph3D(){
+    if(typeof window.ForceGraph3D === "function") return Promise.resolve(window.ForceGraph3D);
+    return new Promise((resolve,reject) => {
+      const existing = document.querySelector('script[data-akira-force-graph="1"]');
+      if(existing){
+        if(typeof window.ForceGraph3D === "function") return resolve(window.ForceGraph3D);
+        existing.addEventListener("load", () => {
+          if(typeof window.ForceGraph3D === "function") resolve(window.ForceGraph3D);
+          else reject(new Error("ForceGraph3D no disponible tras cargar el motor"));
+        }, {once:true});
+        existing.addEventListener("error", () => reject(new Error("No se pudo cargar 3d-force-graph")), {once:true});
+        return;
+      }
+      const s = document.createElement("script");
+      s.src = "https://unpkg.com/3d-force-graph@1.80.1/dist/3d-force-graph.min.js";
+      s.async = true;
+      s.dataset.akiraForceGraph = "1";
+      s.onload = () => typeof window.ForceGraph3D === "function"
+        ? resolve(window.ForceGraph3D)
+        : reject(new Error("ForceGraph3D no disponible"));
+      s.onerror = () => reject(new Error("No se pudo cargar 3d-force-graph"));
+      document.head.appendChild(s);
+    });
   }
 
   function hexColor(hex){
@@ -621,44 +647,49 @@
   }
 
   function computeCommunities(nodes, links, coreId){
-    const ids = nodes.map(n => String(n.id)).sort();
-    const labels = new Map(ids.map(id => [id, id]));
+    const core = String(coreId || "");
+    const ids = nodes.map(n => String(n.id)).filter(id => id !== core);
     const adjacency = new Map(ids.map(id => [id, []]));
 
     for(const l of links){
       const a = nodeId(l.source);
       const b = nodeId(l.target);
       if(a === b || !adjacency.has(a) || !adjacency.has(b)) continue;
-      let w = Number(l.weight) || 0.5;
-      if(a === String(coreId) || b === String(coreId)) w *= 0.08;
+      const w = Math.max(0.02, Number(l.weight) || 0.5);
       adjacency.get(a).push([b, w]);
       adjacency.get(b).push([a, w]);
     }
 
-    for(let iter=0; iter<7; iter++){
+    // Weighted label propagation. The old threshold left sparse real-world
+    // graphs with hundreds of singleton "communities". Lower switching cost
+    // lets actual connected neighborhoods coalesce before the visual stage.
+    const labels = new Map(ids.map(id => [id, id]));
+    for(let iter = 0; iter < 18; iter++){
       let changed = 0;
       for(const id of ids){
-        if(id === String(coreId)) continue;
         const scores = new Map();
-        for(const [other, w] of adjacency.get(id) || []){
-          const lab = labels.get(other);
-          scores.set(lab, (scores.get(lab) || 0) + w);
+        for(const [other, rawW] of adjacency.get(id) || []){
+          const label = labels.get(other);
+          if(!label) continue;
+          const w = Math.sqrt(rawW);
+          scores.set(label, (scores.get(label) || 0) + w);
         }
         if(!scores.size) continue;
 
         const current = labels.get(id);
-        const currentScore = scores.get(current) || 0;
         let best = current;
-        let bestScore = currentScore;
+        let bestScore = scores.get(current) || 0;
 
-        for(const [lab, score] of scores){
-          if(score > bestScore + 0.0001 || (Math.abs(score-bestScore) <= 0.0001 && String(lab) < String(best))){
-            best = lab;
+        for(const [label, score] of scores){
+          if(score > bestScore + 0.005 ||
+             (Math.abs(score - bestScore) <= 0.005 && String(label) < String(best))){
+            best = label;
             bestScore = score;
           }
         }
 
-        if(best !== current && bestScore > Math.max(0.12, currentScore * 1.08)){
+        const currentScore = scores.get(current) || 0;
+        if(best !== current && bestScore >= Math.max(0.03, currentScore * 1.01)){
           labels.set(id, best);
           changed++;
         }
@@ -666,27 +697,121 @@
       if(!changed) break;
     }
 
-    const groups = new Map();
-    for(const [id, label] of labels){
-      if(!groups.has(label)) groups.set(label, []);
-      groups.get(label).push(id);
+    const rawGroups = new Map();
+    for(const id of ids){
+      const label = labels.get(id) || id;
+      if(!rawGroups.has(label)) rawGroups.set(label, []);
+      rawGroups.get(label).push(id);
     }
 
-    const ordered = [...groups.entries()].sort((a,b) => b[1].length - a[1].length || String(a[0]).localeCompare(String(b[0])));
+    // Merge tiny communities into the strongest neighboring community. This
+    // turns isolated label-propagation fragments into a small number of
+    // meaningful "petals" without inventing any knowledge nodes.
+    const rawClusterOf = new Map();
+    rawGroups.forEach((members, key) => members.forEach(id => rawClusterOf.set(id, key)));
+    const typeOf = id => {
+      const n = nodes.find(x => String(x.id) === id);
+      return groupForNode(n || {});
+    };
+    const clusterMembers = new Map(rawGroups);
+    const MIN_COMMUNITY_SIZE = Math.max(4, Math.min(8, Math.round(ids.length / 60)));
+
+    function mergeGroup(fromKey, toKey){
+      if(fromKey === toKey) return;
+      const from = clusterMembers.get(fromKey) || [];
+      const to = clusterMembers.get(toKey) || [];
+      if(!from.length) return;
+      clusterMembers.set(toKey, to.concat(from));
+      clusterMembers.delete(fromKey);
+      from.forEach(id => rawClusterOf.set(id, toKey));
+    }
+
+    for(let pass = 0; pass < 6; pass++){
+      const small = [...clusterMembers.entries()]
+        .filter(([,members]) => members.length < MIN_COMMUNITY_SIZE)
+        .sort((a,b) => a[1].length - b[1].length);
+      if(!small.length) break;
+
+      let merged = false;
+      for(const [smallKey, members] of small){
+        if(!clusterMembers.has(smallKey) || members.length >= MIN_COMMUNITY_SIZE) continue;
+        const scores = new Map();
+        for(const id of members){
+          for(const [other, w] of adjacency.get(id) || []){
+            const otherCluster = rawClusterOf.get(other);
+            if(!otherCluster || otherCluster === smallKey || !clusterMembers.has(otherCluster)) continue;
+            const typeBonus = typeOf(id) === typeOf(other) ? 0.08 : 0;
+            scores.set(otherCluster, (scores.get(otherCluster) || 0) + w + typeBonus);
+          }
+        }
+        let bestKey = null, bestScore = -1;
+        for(const [candidate, score] of scores){
+          if(score > bestScore || (Math.abs(score-bestScore) < 0.0001 && String(candidate) < String(bestKey))){
+            bestKey = candidate;
+            bestScore = score;
+          }
+        }
+        if(!bestKey){
+          const byType = [...clusterMembers.entries()]
+            .filter(([k]) => k !== smallKey)
+            .map(([k,m]) => ({k,m,score:m.reduce((acc,id)=>acc+(typeOf(id)===typeOf(members[0])?1:0),0)}))
+            .sort((a,b)=>b.score-a.score || b.m.length-a.m.length);
+          bestKey = byType[0]?.k || null;
+        }
+        if(bestKey){
+          mergeGroup(smallKey, bestKey);
+          merged = true;
+        }
+      }
+      if(!merged) break;
+    }
+
+    // Hard cap the number of visual communities. We preserve the strongest
+    // inter-community edge whenever possible, otherwise merge the smallest
+    // group into the largest one.
+    while(clusterMembers.size > 12){
+      const entries = [...clusterMembers.entries()].sort((a,b)=>a[1].length-b[1].length);
+      const [smallKey, smallMembers] = entries[0];
+      const candidates = new Map();
+
+      for(const id of smallMembers){
+        for(const [other, w] of adjacency.get(id) || []){
+          const otherCluster = rawClusterOf.get(other);
+          if(otherCluster && otherCluster !== smallKey && clusterMembers.has(otherCluster)){
+            candidates.set(otherCluster, (candidates.get(otherCluster) || 0) + w);
+          }
+        }
+      }
+
+      let target = null, targetScore = -1;
+      for(const [k,score] of candidates){
+        if(score > targetScore) { target = k; targetScore = score; }
+      }
+      if(!target) target = entries[entries.length - 1][0];
+      mergeGroup(smallKey, target);
+    }
+
+    if(!clusterMembers.size && ids.length){
+      clusterMembers.set("fallback", ids.slice());
+    }
+
+    const ordered = [...clusterMembers.entries()]
+      .sort((a,b)=>b[1].length-a[1].length || String(a[0]).localeCompare(String(b[0])));
+
     const assignments = new Map();
-    ordered.forEach(([label, members], index) => {
+    ordered.forEach(([key, members], index) => {
       const clusterId = "c" + String(index + 1);
       members.forEach(id => assignments.set(id, clusterId));
     });
-
-    if(coreId && assignments.has(String(coreId))){
-      assignments.set(String(coreId), "core");
+    if(core && nodes.some(n => String(n.id) === core)){
+      assignments.set(core, "core");
     }
 
     const degree = new Map();
     const maxes = {weight:0,reuse:0,degree:0};
     for(const n of nodes){
-      degree.set(String(n.id), 0);
+      const id = String(n.id);
+      degree.set(id, 0);
       maxes.weight = Math.max(maxes.weight, Number(n.weight)||0);
       maxes.reuse = Math.max(maxes.reuse, Number(n.reuse_count)||0);
     }
@@ -699,13 +824,13 @@
 
     const importance = new Map();
     for(const n of nodes){
-      const id=String(n.id);
+      const id = String(n.id);
       const weight = maxes.weight ? (Number(n.weight)||0)/maxes.weight : 0;
       const reuse = maxes.reuse ? (Number(n.reuse_count)||0)/maxes.reuse : 0;
       const confidence = Math.max(0, Math.min(1, Number(n.confidence)||0));
       const deg = (degree.get(id)||0)/maxes.degree;
       const score = Math.max(0, Math.min(1, 0.28*weight + 0.27*reuse + 0.18*confidence + 0.27*deg));
-      n._importance = id === String(coreId) ? 1 : score;
+      n._importance = id === core ? 1 : score;
       n._degree = degree.get(id)||0;
     }
 
@@ -718,16 +843,10 @@
 
     const hubs = new Set();
     clusters.forEach(members => {
-      let best = null;
-      let bestScore = -1;
+      let best = null, bestScore = -1;
       for(const id of members){
-        const score =
-          (degree.get(id) || 0) +
-          (importance.get(id) || 0) * 2;
-        if(score > bestScore){
-          bestScore = score;
-          best = id;
-        }
+        const score = (degree.get(id)||0) + (importance.get(id)||0) * 2;
+        if(score > bestScore){ bestScore = score; best = id; }
       }
       if(best) hubs.add(best);
     });
@@ -739,19 +858,18 @@
     });
 
     const centers = new Map();
-    const clusterList = [...clusters.entries()].sort((a,b) => b[1].length-a[1].length || a[0].localeCompare(b[0]));
-    const ring = Math.max(95, Math.min(260, 90 + Math.sqrt(Math.max(nodes.length,1))*8));
+    const clusterList = [...clusters.entries()].sort((a,b)=>b[1].length-a[1].length || a[0].localeCompare(b[0]));
+    const ring = Math.max(115, Math.min(330, 105 + Math.sqrt(Math.max(nodes.length,1))*10));
     const golden = Math.PI * (3 - Math.sqrt(5));
 
     clusterList.forEach(([clusterId,members],index)=>{
-      const a = (index / Math.max(clusterList.length,1)) * Math.PI * 2;
-      const z = ((index % 3) - 1) * Math.min(90, ring*0.24);
-      const r = ring + Math.min(130, members.length * 2.2);
+      const a = (index / Math.max(clusterList.length,1)) * Math.PI * 2 - Math.PI / 2;
+      const r = ring + Math.min(145, members.length * 2.4);
+      const z = ((index % 3) - 1) * Math.min(110, ring * 0.22);
       centers.set(clusterId,{x:Math.cos(a)*r,y:Math.sin(a)*r,z,angle:a});
       members.forEach((id,j)=>{
         const n=nodes.find(x=>String(x.id)===id);
-        if(!n) return;
-        n._clusterAngle = a + (j * golden);
+        if(n) n._clusterAngle = a + j * golden;
       });
     });
 
@@ -1268,8 +1386,13 @@
       return;
     }
     if(typeof window.ForceGraph3D !== "function"){
-      container.innerHTML = '<div style="padding:24px;color:#ff7b72;font-family:monospace;text-align:center">No se pudo cargar el motor 3D.</div>';
-      return;
+      try {
+        await loadForceGraph3D();
+      } catch(e) {
+        container.innerHTML = '<div style="padding:24px;color:#ff7b72;font-family:monospace;text-align:center">No se pudo cargar el motor 3D.</div>';
+        console.warn("[akira-brain-3d] force-graph", e);
+        return;
+      }
     }
 
     try{
