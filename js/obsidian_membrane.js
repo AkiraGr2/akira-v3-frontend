@@ -391,6 +391,7 @@ function _computeSeedPositions(
   edges,
   coreId
 ) {
+  try { cyMembrane.resize(); } catch(_) {}
   const W = cyMembrane.width() || 800;
   const H = cyMembrane.height() || 600;
   const cx = W / 2;
@@ -1904,39 +1905,27 @@ function _applyGraphToCy(
   // Preserve the deterministic community flower. The previous force-directed
   // relax was mathematically valid but visually collapsed the petals into a
   // ring on dense graphs.
-  if (
-    seedRan
-  ) {
-    try {
-      cyMembrane.fit(undefined, 80);
-      const coreEl = cyMembrane.nodes(".core");
-      if(coreEl && coreEl.length) cyMembrane.center(coreEl);
-    } catch(_) {}
-  } else if (
-    !seedRan &&
-    !membraneLayoutRunning
-  ) {
-    try {
-      cyMembrane.fit(
-        undefined,
-        80
-      );
-
-      const coreEl =
-        cyMembrane.nodes(
-          ".core"
-        );
-
-      if (
-        coreEl &&
-        coreEl.length > 0
-      ) {
-        cyMembrane.center(
-          coreEl
-        );
+  try {
+    cyMembrane.resize();
+    const coreEl = cyMembrane.nodes(".core");
+    if (coreEl && coreEl.length) {
+      const centerCore = () => {
+        try {
+          cyMembrane.resize();
+          cyMembrane.center(coreEl);
+        } catch(_) {}
+      };
+      if (seedRan) {
+        centerCore();
+        setTimeout(centerCore, 120);
+        setTimeout(centerCore, 420);
+      } else if (!membraneLayoutRunning) {
+        setTimeout(centerCore, 120);
       }
-    } catch(_) {}
-  }
+    } else if (seedRan) {
+      cyMembrane.fit(undefined, 80);
+    }
+  } catch(_) {}
 
   membraneCounts =
     data.counts || {
