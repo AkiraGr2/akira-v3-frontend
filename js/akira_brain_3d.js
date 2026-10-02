@@ -30,6 +30,16 @@
   let autoOrbit = false;
   let lastFetchAt = 0;
   let threeLoading = null;
+  let forceGraphLoading = null;
+  const EXTERNAL_SCRIPT_TIMEOUT_MS = 10000;
+  const THREE_SOURCES = [
+    "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.min.js",
+    "https://unpkg.com/three@0.180.0/build/three.min.js"
+  ];
+  const FORCE_GRAPH_SOURCES = [
+    "https://cdn.jsdelivr.net/npm/3d-force-graph@1.80.1/dist/3d-force-graph.min.js",
+    "https://unpkg.com/3d-force-graph@1.80.1/dist/3d-force-graph.min.js"
+  ];
   const glowNodeObjects = new Map();
   let communityState = {
     assignments: new Map(),
@@ -78,48 +88,87 @@
     return GROUP_COLORS[t] ? t : "other";
   }
 
+  function _loadExternalScript(sources, marker, available){
+    if(typeof available === "function" && available()) return Promise.resolve();
+
+    const existing = document.querySelector('script[data-akira-script="' + marker + '"]');
+    if(existing){
+      if(typeof available === "function" && available()) return Promise.resolve();
+      try { existing.remove(); } catch(_) {}
+    }
+
+    const list = Array.isArray(sources) ? sources.slice() : [];
+    let lastError = new Error(marker + " unavailable");
+
+    const tryNext = (index) => new Promise((resolve,reject) => {
+      if(index >= list.length){
+        reject(lastError);
+        return;
+      }
+
+      const src = list[index];
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.dataset.akiraScript = marker;
+
+      let settled = false;
+      const finish = (ok, err) => {
+        if(settled) return;
+        settled = true;
+        clearTimeout(timer);
+        script.onload = null;
+        script.onerror = null;
+        if(ok){
+          resolve();
+        }else{
+          lastError = err || new Error("No se pudo cargar " + marker);
+          try { script.remove(); } catch(_) {}
+          tryNext(index + 1).then(resolve).catch(reject);
+        }
+      };
+
+      const timer = setTimeout(() => {
+        finish(false, new Error("Timeout cargando " + src));
+      }, EXTERNAL_SCRIPT_TIMEOUT_MS);
+
+      script.onload = () => {
+        if(typeof available === "function" && available()){
+          finish(true);
+        }else{
+          finish(false, new Error(marker + " no disponible tras cargar " + src));
+        }
+      };
+      script.onerror = () => {
+        finish(false, new Error("Error cargando " + src));
+      };
+
+      document.head.appendChild(script);
+    });
+
+    return tryNext(0);
+  }
+
   function loadThree(){
     if(window.THREE) return Promise.resolve(window.THREE);
     if(threeLoading) return threeLoading;
-    threeLoading = new Promise((resolve,reject) => {
-      const existing = document.querySelector('script[data-akira-three="1"]');
-      if(existing){
-        if(window.THREE) return resolve(window.THREE);
-        existing.addEventListener("load", () => resolve(window.THREE), {once:true});
-        existing.addEventListener("error", reject, {once:true});
-        return;
-      }
-      const s = document.createElement("script");
-      s.src = "https://unpkg.com/three@0.180.0/build/three.min.js";
-      s.async = true;
-      s.dataset.akiraThree = "1";
-      s.onload = () => window.THREE ? resolve(window.THREE) : reject(new Error("THREE no disponible"));
-      s.onerror = () => reject(new Error("No se pudo cargar Three.js"));
-      document.head.appendChild(s);
-    }).finally(() => { threeLoading = null; });
+    threeLoading = _loadExternalScript(
+      THREE_SOURCES,
+      "three",
+      () => !!window.THREE
+    ).then(() => window.THREE).finally(() => { threeLoading = null; });
     return threeLoading;
   }
 
   function loadForceGraph3D(){
     if(typeof window.ForceGraph3D === "function") return Promise.resolve(window.ForceGraph3D);
-    return new Promise((resolve,reject) => {
-      const existing = document.querySelector('script[data-akira-force-graph="1"]');
-      if(existing){
-        if(typeof window.ForceGraph3D === "function") return resolve(window.ForceGraph3D);
-        // The first static load can finish before THREE exists. Replace it
-        // so the engine is evaluated again only after Three.js is ready.
-        try { existing.remove(); } catch(_) {}
-      }
-      const s = document.createElement("script");
-      s.src = "https://unpkg.com/3d-force-graph@1.80.1/dist/3d-force-graph.min.js";
-      s.async = true;
-      s.dataset.akiraForceGraph = "1";
-      s.onload = () => typeof window.ForceGraph3D === "function"
-        ? resolve(window.ForceGraph3D)
-        : reject(new Error("ForceGraph3D no disponible"));
-      s.onerror = () => reject(new Error("No se pudo cargar 3d-force-graph"));
-      document.head.appendChild(s);
-    });
+    if(forceGraphLoading) return forceGraphLoading;
+    forceGraphLoading = _loadExternalScript(
+      FORCE_GRAPH_SOURCES,
+      "force-graph-3d",
+      () => typeof window.ForceGraph3D === "function"
+    ).then(() => window.ForceGraph3D).finally(() => { forceGraphLoading = null; });
+    return forceGraphLoading;
   }
 
   function hexColor(hex){
@@ -1448,7 +1497,11 @@
     try {
       await loadThree();
     } catch(e) {
-      container.innerHTML = '<div style="padding:24px;color:#ff7b72;font-family:monospace;text-align:center">No se pudo cargar Three.js.</div>';
+      container.innerHTML =
+        '<div style="padding:24px;color:#ff7b72;font-family:monospace;text-align:center">' +
+        '<div style="margin-bottom:12px">No se pudo cargar Three.js desde los proveedores disponibles.</div>' +
+        '<button type="button" class="pixel-btn" onclick="window.akiraBrainRetry3d && akiraBrainRetry3d()">🔄 REINTENTAR 3D</button>' +
+        '</div>';
       console.warn("[akira-brain-3d] three", e);
       return;
     }
@@ -1456,7 +1509,11 @@
       try {
         await loadForceGraph3D();
       } catch(e) {
-        container.innerHTML = '<div style="padding:24px;color:#ff7b72;font-family:monospace;text-align:center">No se pudo cargar el motor 3D.</div>';
+        container.innerHTML =
+          '<div style="padding:24px;color:#ff7b72;font-family:monospace;text-align:center">' +
+          '<div style="margin-bottom:12px">No se pudo cargar el motor 3D desde los proveedores disponibles.</div>' +
+          '<button type="button" class="pixel-btn" onclick="window.akiraBrainRetry3d && akiraBrainRetry3d()">🔄 REINTENTAR 3D</button>' +
+          '</div>';
         console.warn("[akira-brain-3d] force-graph", e);
         return;
       }
@@ -1650,6 +1707,20 @@
         if(controls) controls.autoRotate = autoOrbit;
       } catch(_) {}
     }
+  };
+
+  window.akiraBrainRetry3d = function(){
+    const container = document.getElementById("membrane3d");
+    try{
+      document.querySelectorAll('script[data-akira-script="three"],script[data-akira-script="force-graph-3d"]')
+        .forEach(el => { try { el.remove(); } catch(_) {} });
+    }catch(_) {}
+    threeLoading = null;
+    forceGraphLoading = null;
+    if(container){
+      container.innerHTML = '<div style="padding:24px;color:#9ca3af;font-family:monospace;text-align:center">Cargando motor 3D…</div>';
+    }
+    return ensure3d();
   };
 
   window.akiraBrainSetMode = function(mode){
