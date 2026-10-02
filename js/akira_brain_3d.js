@@ -1862,7 +1862,7 @@
 
       try {
         fg
-          .backgroundColor("#151a29")
+          .backgroundColor("#1b2232")
           .enableNodeDrag(true)
           .enablePointerInteraction(true);
       } catch(_) {}
