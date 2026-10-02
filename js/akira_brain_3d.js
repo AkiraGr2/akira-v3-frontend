@@ -1406,101 +1406,159 @@
     }
   }
 
+  function _set3dMethod(name, ...args){
+    try{
+      if(fg && typeof fg[name] === "function"){
+        fg[name](...args);
+      }
+    }catch(err){
+      console.warn("[akira-brain-3d] method", name, err);
+    }
+  }
+
   function apply3dRuntime(){
     if(!fg) return;
-    fg.backgroundColor("#05060a");
-    // d3Force(name) returns the underlying force, not the graph instance.
-    // Keep force configuration separate so the fluent API cannot accidentally
-    // continue on the force object.
+
+    _set3dMethod("backgroundColor", "#05060a");
+
     try {
       const chargeForce = fg.d3Force("charge");
       if(chargeForce && typeof chargeForce.strength === "function"){
         chargeForce.strength(-78);
       }
-    } catch(_) {}
-    try {
-      fg.d3Force("community", makeCommunityForce());
-    } catch(_) {}
-    fg
-      .nodeColor(n => {
-        const id = String(n.id);
-        if(id === String(selectedNodeId)) return "#ffffff";
-        if(String(n.label || "").trim().toLowerCase() === "akira") return "#ff6b6b";
-        return colorForNode(n, hoveredNodeId && id === String(hoveredNodeId));
-      })
-      .nodeVal(n => {
-        if(String(n.label || "").trim().toLowerCase() === "akira") return 12;
-        return Math.max(2.5, 2.7 + (Number(n._importance)||0.25) * 10.5);
-      })
-      .nodeOpacity(n => {
-        if(!selectedNodeId) return 0.82;
-        const id = String(n.id);
-        if(id === String(selectedNodeId)) return 1;
-        if(isSemanticRouteNode(n)) return 0.84;
-        const related = graphData.links.some(l => isRelatedLink(l) && (nodeId(l.source) === id || nodeId(l.target) === id));
-        return related ? 0.95 : 0.13;
-      })
-      .nodeLabel(n => {
-        const type = escapeHtml(n.node_type || "concept");
-        const label = escapeHtml(n.label || n.id);
-        const reuse = Number(n.reuse_count) || 0;
-        const importance = Math.round((Number(n._importance)||0) * 100);
-        return "<div style='padding:6px 8px;background:rgba(10,10,13,.94);border:1px solid #3b3b4a;font-family:monospace;font-size:11px;color:#fff'><b>" + label + "</b><br><span style='color:#9ca3af'>" + type + " · reuse " + reuse + " · importancia " + importance + "%</span></div>";
-      })
-      // Some mobile-served UMD builds do not expose nodeResolution.
-      // Keep the default geometry for compatibility.
-      .nodeRelSize(5.5)
-      .nodeVisibility(n => isExplorerVisibleNode(n) && nodeMatchesActiveFilters(n))
-      .nodeThreeObject(n => makeGlowNode(n) || undefined)
-      .nodeThreeObjectExtend(false)
-      .linkVisibility(l => isExplorerVisibleLink(l) && linkMatchesRelationFilter(l) && nodeIdPassesActiveFilters(l.source) && nodeIdPassesActiveFilters(l.target))
-      .linkColor(l => isRelatedLink(l) ? "#c4b5fd" : (isSemanticRouteLink(l) ? "#ffffff" : linkClusterType(l)))
-      .linkWidth(l => {
-        if(isRelatedLink(l)) return Math.min(5, 1.5 + (Number(l.weight)||0.5));
-        if(isSemanticRouteLink(l)) return Math.min(3.8, 1.1 + (Number(l.weight)||0.5));
-        if(isCoreLink(l)) return 0.55;
-        return Math.min(1.6, 0.35 + (Number(l.weight)||0.5) * 0.4);
-      })
-      .linkOpacity(l => {
-        if(selectedNodeId && isRelatedLink(l)) return 0.90;
-        if(selectedNodeId && !isRelatedLink(l) && !isSemanticRouteLink(l)) return 0.08;
-        const a = nodeId(l.source), b = nodeId(l.target);
-        const ca = communityState.assignments.get(a);
-        const cb = communityState.assignments.get(b);
-        if(isSemanticRouteLink(l)) return 0.62;
-        if(isCoreLink(l)) return 0.12;
-        if(ca && cb && ca === cb && ca !== "core") return 0.32;
-        return 0.18;
-      })
-      .linkColor(l => {
-        if(isRelatedLink(l)) return "#ddd6fe";
-        if(isSemanticRouteLink(l)) return "#ffffff";
-        if(isCoreLink(l)) return "#ff8a8a";
-        return "#5b6470";
-      })
-      .linkDirectionalArrowLength(l => isRelatedLink(l) || isSemanticRouteLink(l) ? 4 : 0)
-      .linkDirectionalArrowColor(l => isRelatedLink(l) ? "#ddd6fe" : (isSemanticRouteLink(l) ? "#ffffff" : "#ff8a8a"))
-      .linkDirectionalParticles(l => isRelatedLink(l) ? 4 : (isSemanticRouteLink(l) ? 2 : (selectedNodeId ? 0 : 1)))
-      .linkDirectionalParticleWidth(l => isRelatedLink(l) ? 1.7 : (isSemanticRouteLink(l) ? 1.2 : 0.8))
-      .linkDirectionalParticleColor(l => isRelatedLink(l) ? "#ffffff" : (isSemanticRouteLink(l) ? "#ffffff" : "#7c8795"))
-      .linkDirectionalParticleSpeed(l => isRelatedLink(l) ? 0.025 : (isSemanticRouteLink(l) ? 0.017 : 0.009))
-      .showNavInfo(false)
-      .controlType("orbit")
-      .enablePointerInteraction(true)
-      .cooldownTime(graphData.nodes.length > 280 ? 17000 : 12000)
-      .warmupTicks(graphData.nodes.length > 280 ? 150 : 95)
-      .cooldownTicks(360);
+    } catch(err) {
+      console.warn("[akira-brain-3d] charge", err);
+    }
 
     try {
-      const controls = fg.controls();
+      if(typeof fg.d3Force === "function"){
+        fg.d3Force("community", makeCommunityForce());
+      }
+    } catch(err) {
+      console.warn("[akira-brain-3d] community force", err);
+    }
+
+    // Apply each optional API method independently. This keeps the 3D view
+    // alive even if a CDN-served build exposes a slightly different API.
+    _set3dMethod("nodeColor", n => {
+      const id = String(n.id);
+      if(id === String(selectedNodeId)) return "#ffffff";
+      if(String(n.label || "").trim().toLowerCase() === "akira") return "#ff6b6b";
+      return colorForNode(n, hoveredNodeId && id === String(hoveredNodeId));
+    });
+
+    _set3dMethod("nodeVal", n => {
+      if(String(n.label || "").trim().toLowerCase() === "akira") return 12;
+      return Math.max(2.5, 2.7 + (Number(n._importance)||0.25) * 10.5);
+    });
+
+    _set3dMethod("nodeOpacity", n => {
+      if(!selectedNodeId) return 0.82;
+      const id = String(n.id);
+      if(id === String(selectedNodeId)) return 1;
+      if(isSemanticRouteNode(n)) return 0.84;
+      const related = graphData.links.some(l =>
+        isRelatedLink(l) &&
+        (nodeId(l.source) === id || nodeId(l.target) === id)
+      );
+      return related ? 0.95 : 0.13;
+    });
+
+    _set3dMethod("nodeLabel", n => {
+      const type = escapeHtml(n.node_type || "concept");
+      const label = escapeHtml(n.label || n.id);
+      const reuse = Number(n.reuse_count) || 0;
+      const importance = Math.round((Number(n._importance)||0) * 100);
+      return "<div style='padding:6px 8px;background:rgba(10,10,13,.94);border:1px solid #3b3b4a;font-family:monospace;font-size:11px;color:#fff'><b>" +
+        label + "</b><br><span style='color:#9ca3af'>" + type +
+        " · reuse " + reuse + " · importancia " + importance + "%</span></div>";
+    });
+
+    // Deliberately omit nodeResolution/nodeRelSize: they are visual tuning
+    // only and have varied across CDN-served builds.
+    _set3dMethod("nodeVisibility", n =>
+      isExplorerVisibleNode(n) && nodeMatchesActiveFilters(n)
+    );
+
+    _set3dMethod("nodeThreeObject", n => makeGlowNode(n) || undefined);
+    _set3dMethod("nodeThreeObjectExtend", false);
+
+    _set3dMethod("linkVisibility", l =>
+      isExplorerVisibleLink(l) &&
+      linkMatchesRelationFilter(l) &&
+      nodeIdPassesActiveFilters(l.source) &&
+      nodeIdPassesActiveFilters(l.target)
+    );
+
+    _set3dMethod("linkColor", l =>
+      isRelatedLink(l) ? "#c4b5fd" :
+      (isSemanticRouteLink(l) ? "#ffffff" : linkClusterType(l))
+    );
+
+    _set3dMethod("linkWidth", l => {
+      if(isRelatedLink(l)) return Math.min(5, 1.5 + (Number(l.weight)||0.5));
+      if(isSemanticRouteLink(l)) return Math.min(3.8, 1.1 + (Number(l.weight)||0.5));
+      if(isCoreLink(l)) return 0.55;
+      return Math.min(1.6, 0.35 + (Number(l.weight)||0.5) * 0.4);
+    });
+
+    _set3dMethod("linkOpacity", l => {
+      if(selectedNodeId && isRelatedLink(l)) return 0.90;
+      if(selectedNodeId && !isRelatedLink(l) && !isSemanticRouteLink(l)) return 0.08;
+      const a = nodeId(l.source), b = nodeId(l.target);
+      const ca = communityState.assignments.get(a);
+      const cb = communityState.assignments.get(b);
+      if(isSemanticRouteLink(l)) return 0.62;
+      if(isCoreLink(l)) return 0.12;
+      if(ca && cb && ca === cb && ca !== "core") return 0.32;
+      return 0.18;
+    });
+
+    _set3dMethod("linkDirectionalArrowLength", l =>
+      isRelatedLink(l) || isSemanticRouteLink(l) ? 4 : 0
+    );
+    _set3dMethod("linkDirectionalArrowColor", l =>
+      isRelatedLink(l) ? "#ddd6fe" :
+      (isSemanticRouteLink(l) ? "#ffffff" : "#ff8a8a")
+    );
+    _set3dMethod("linkDirectionalParticles", l =>
+      isRelatedLink(l) ? 4 :
+      (isSemanticRouteLink(l) ? 2 : (selectedNodeId ? 0 : 1))
+    );
+    _set3dMethod("linkDirectionalParticleWidth", l =>
+      isRelatedLink(l) ? 1.7 : (isSemanticRouteLink(l) ? 1.2 : 0.8)
+    );
+    _set3dMethod("linkDirectionalParticleColor", l =>
+      isRelatedLink(l) ? "#ffffff" :
+      (isSemanticRouteLink(l) ? "#ffffff" : "#7c8795")
+    );
+    _set3dMethod("linkDirectionalParticleSpeed", l =>
+      isRelatedLink(l) ? 0.025 :
+      (isSemanticRouteLink(l) ? 0.017 : 0.009)
+    );
+
+    _set3dMethod("showNavInfo", false);
+    _set3dMethod("controlType", "orbit");
+    _set3dMethod("enablePointerInteraction", true);
+    _set3dMethod("cooldownTime", graphData.nodes.length > 280 ? 17000 : 12000);
+    _set3dMethod("warmupTicks", graphData.nodes.length > 280 ? 150 : 95);
+    _set3dMethod("cooldownTicks", 360);
+
+    try {
+      const controls = typeof fg.controls === "function" ? fg.controls() : null;
       if(controls) {
         controls.rotateSpeed = 0.45;
         controls.zoomSpeed = 0.7;
         controls.enablePan = true;
         controls.autoRotate = autoOrbit;
       }
-    } catch(_) {}
-    syncAllGlowNodes();
+    } catch(err) {
+      console.warn("[akira-brain-3d] controls", err);
+    }
+
+    try { syncAllGlowNodes(); } catch(err) {
+      console.warn("[akira-brain-3d] glow sync", err);
+    }
   }
 
   async function ensure3d(){
