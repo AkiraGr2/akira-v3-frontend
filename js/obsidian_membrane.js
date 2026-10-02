@@ -2069,6 +2069,12 @@ window.addEventListener("akira:brain-select", function(ev){
       cyMembrane.elements().unselect();
       node.select();
       _highlightNeighbors(node);
+
+      try {
+        window.dispatchEvent(new CustomEvent("akira:brain-navigation", {
+          detail:{nodeId:String(nodeId)}
+        }));
+      } catch(_) {}
     }
   } catch(_) {}
 });
