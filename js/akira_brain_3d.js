@@ -114,6 +114,11 @@
     return !!(n && (n._isCore || id === String(selectedNodeId) || groupForNode(n) === brainTypeFilter));
   }
 
+  function nodeIdPassesTypeFilter(id){
+    const n = graphData.nodes.find(x => String(x.id) === String(id));
+    return n ? nodeMatchesTypeFilter(n) : false;
+  }
+
   function updateTypeFilterUI(){
     const el = document.getElementById("brainTypeFilters");
     if(!el) return;
@@ -1133,7 +1138,7 @@
       .nodeVisibility(n => isExplorerVisibleNode(n) && nodeMatchesTypeFilter(n))
       .nodeThreeObject(n => makeGlowNode(n) || undefined)
       .nodeThreeObjectExtend(false)
-      .linkVisibility(l => isExplorerVisibleLink(l) && nodeMatchesTypeFilter({id:nodeId(l.source)}) && nodeMatchesTypeFilter({id:nodeId(l.target)}))
+      .linkVisibility(l => isExplorerVisibleLink(l) && nodeIdPassesTypeFilter(l.source) && nodeIdPassesTypeFilter(l.target))
       .linkColor(l => isRelatedLink(l) ? "#c4b5fd" : (isSemanticRouteLink(l) ? "#ffffff" : linkClusterType(l)))
       .linkWidth(l => isRelatedLink(l) ? Math.min(5, 1.5 + (Number(l.weight)||0.5)) : (isSemanticRouteLink(l) ? Math.min(3.8, 1.1 + (Number(l.weight)||0.5)) : Math.min(1.6, 0.35 + (Number(l.weight)||0.5) * 0.4)))
       .linkOpacity(l => {
