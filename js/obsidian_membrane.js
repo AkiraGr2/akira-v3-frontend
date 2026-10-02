@@ -885,7 +885,9 @@ function _runFlowerPhysics(nodes, edges, coreId){
               d=1;
             }
 
-            const desired=a.radius+b.radius+16;
+            // Small final breathing-room increase. The global radial
+            // layout stays unchanged; only local node spacing gets wider.
+            const desired=a.radius+b.radius+20;
             if(d<desired){
               const overlap=desired-d;
               const strength=0.72+Math.min(0.55,overlap/20);
@@ -894,8 +896,8 @@ function _runFlowerPhysics(nodes, edges, coreId){
               forces.get(a.id).y-=uy*overlap*strength;
               forces.get(b.id).x+=ux*overlap*strength;
               forces.get(b.id).y+=uy*overlap*strength;
-            } else if(d<desired+26){
-              const soft=(desired+26-d)*0.025;
+            } else if(d<desired+32){
+              const soft=(desired+32-d)*0.025;
               const ux=dx/d, uy=dy/d;
               forces.get(a.id).x-=ux*soft;
               forces.get(a.id).y-=uy*soft;
