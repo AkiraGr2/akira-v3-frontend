@@ -530,12 +530,27 @@ function _forceFlowerPositions(nodes, edges, coreId) {
   const petals = Array.from({length:PETAL_COUNT},()=>[]);
   entries.forEach((entry,i)=>petals[i % PETAL_COUNT].push(entry));
 
-  const minDim = Math.max(260, Math.min(W,H));
-  const innerR = Math.min(120, Math.max(78, minDim * 0.20));
-  const outerR = Math.min(minDim * 0.43, innerR + Math.max(100, minDim * 0.25));
-  const span = Math.max(70, outerR-innerR);
-  const halfSpread = Math.min(0.50, (Math.PI / PETAL_COUNT) * 0.72);
-  const golden = 0.6180339887498949;
+  /*
+   * V19 floral packing:
+   * - communities get a wider angular gap;
+   * - large communities get pushed farther from the core;
+   * - nodes use deterministic Fermat/elliptical packing so dense communities
+   *   gain real breathing room instead of becoming a tight ball;
+   * - the layout may occupy more of the graph canvas; fitting can then zoom out.
+   */
+  const minDim = Math.max(300, Math.min(W,H));
+  const innerR = Math.min(120, Math.max(82, minDim * 0.20));
+  const maxCommunitySize = Math.max(1, ...entries.map(e => e[1].length));
+  const communitySpan = Math.min(
+    Math.max(190, minDim * 0.56),
+    230 + Math.sqrt(maxCommunitySize) * 15
+  );
+  const halfSpread = Math.min(
+    0.40,
+    (Math.PI / PETAL_COUNT) * 0.58
+  );
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const nodeGap = Math.max(20, Math.min(28, minDim * 0.055));
 
   petals.forEach((bundle,i)=>{
     const angle = -Math.PI/2 + (i / PETAL_COUNT) * Math.PI * 2;
@@ -543,49 +558,89 @@ function _forceFlowerPositions(nodes, edges, coreId) {
     members.sort((x,y)=>scoreNode(y)-scoreNode(x) || String(x.id).localeCompare(String(y.id)));
     if(!members.length) return;
 
-    const hub = String(members[0].id);
-    const hubR = innerR + span * 0.32;
-    const hubEl = cyMembrane.getElementById(hub);
+    const sizeScale = Math.min(1.8, 0.85 + Math.sqrt(members.length) / 24);
+    const petalDistance =
+      innerR +
+      55 +
+      Math.min(120, Math.sqrt(members.length) * 9.5);
+
+    const hubX = cx + Math.cos(angle) * petalDistance;
+    const hubY = cy + Math.sin(angle) * petalDistance;
+
+    const hubId = String(members[0].id);
+    const hubEl = cyMembrane.getElementById(hubId);
     if(hubEl && !hubEl.empty()){
-      hubEl.position({x:cx+Math.cos(angle)*hubR,y:cy+Math.sin(angle)*hubR});
+      hubEl.position({x:hubX,y:hubY});
     }
 
     const satellites = members.slice(1);
-    const count = Math.max(1,satellites.length);
+    const count = satellites.length;
+
     satellites.forEach((n,j)=>{
-      const el=cyMembrane.getElementById(String(n.id));
+      const el = cyMembrane.getElementById(String(n.id));
       if(!el || el.empty()) return;
-      const t=(j+1)/count;
-      const spiral=((j*golden)%1);
-      const offset=(spiral*2-1)*halfSpread*(0.52+0.48*t);
-      const distance=innerR+span*(0.16+0.84*Math.sqrt(t));
-      const edgeNorm=Math.min(1,Math.abs(offset)/Math.max(halfSpread,0.001));
-      const lobeShape=1-0.26*Math.pow(edgeNorm,1.7);
-      const radial=distance*(0.88+0.12*lobeShape);
-      const localAngle=angle+offset;
-      el.position({x:cx+Math.cos(localAngle)*radial,y:cy+Math.sin(localAngle)*radial});
+
+      /*
+       * Fermat spiral in a petal-shaped ellipse. The square-root growth keeps
+       * nearest-neighbour distance substantially more uniform as a community
+       * grows, instead of forcing hundreds of nodes into one narrow strip.
+       */
+      const r = nodeGap * 1.55 * Math.sqrt(j + 1);
+      const theta = j * goldenAngle;
+
+      const forward = r * (1.05 + 0.18 * sizeScale);
+      const lateral = r * (0.36 + 0.06 * sizeScale);
+
+      const localForward = Math.cos(theta) * forward;
+      const localLateral = Math.sin(theta) * lateral;
+
+      /*
+       * Keep the lobe pointed away from Akira while allowing enough sideways
+       * width to remain visibly floral.
+       */
+      const x =
+        hubX +
+        Math.cos(angle) * localForward -
+        Math.sin(angle) * localLateral;
+      const y =
+        hubY +
+        Math.sin(angle) * localForward +
+        Math.cos(angle) * localLateral;
+
+      el.position({x,y});
     });
 
-    if(members.length <= 6){
-      members.slice(1).forEach((n,j)=>{
-        const el=cyMembrane.getElementById(String(n.id));
+    /*
+     * Small communities receive an extra close inner ring so their shape
+     * remains readable instead of becoming an empty ray.
+     */
+    if(count > 0 && count <= 6){
+      satellites.forEach((n,j)=>{
+        const el = cyMembrane.getElementById(String(n.id));
         if(!el || el.empty()) return;
-        const localAngle=angle+((j/Math.max(1,members.length-1))-0.5)*halfSpread*0.75;
-        const radial=innerR+26+j*9;
-        el.position({x:cx+Math.cos(localAngle)*radial,y:cy+Math.sin(localAngle)*radial});
+
+        const local = count === 1 ? 0 : (j / Math.max(1,count-1) - 0.5);
+        const localAngle = angle + local * halfSpread * 0.72;
+        const radial = innerR + 25 + j * 14;
+
+        el.position({
+          x: cx + Math.cos(localAngle) * radial,
+          y: cy + Math.sin(localAngle) * radial
+        });
       });
     }
   });
 
   _positionCache.clear();
   nodes.forEach(n=>{
-    const el=cyMembrane.getElementById(String(n.id));
+    const el = cyMembrane.getElementById(String(n.id));
     if(el && !el.empty()) _positionCache.set(String(n.id),el.position());
   });
 
-  try { coreEl.position({x:cx,y:cy}); } catch(_) {}
+  try {
+    coreEl.position({x:cx,y:cy});
+  } catch(_) {}
 }
-
 function _position2dContext(nodeId){
   if(!cyMembrane) return;
   const panel=document.getElementById("brainContext");
