@@ -611,8 +611,10 @@ function _forceFlowerPositions(nodes, edges, coreId, forceSeed=false) {
   });
 
   const minDim=Math.max(360,Math.min(W,H));
-  const spacing=Math.max(24,Math.min(34,minDim*0.036));
-  const coreSafe=48;
+  // Virtual graph space: the Brain is allowed to grow well beyond the
+  // viewport. The viewport is a camera, not a physical wall.
+  const spacing=Math.max(42,Math.min(58,minDim*0.060));
+  const coreSafe=72;
   const golden=Math.PI*(3-Math.sqrt(5));
 
   let ring=0;
@@ -644,7 +646,10 @@ function _forceFlowerPositions(nodes, edges, coreId, forceSeed=false) {
 
     // Only a soft community bias is used. The global ring position still
     // distributes nodes around the full circumference.
-    let angle=ringAngle*0.72 + gAngle*0.28;
+    // Community identity is only a soft preference. Most of the angular
+    // position comes from the global radial packing, so nodes distribute
+    // around Akira instead of piling into one sector.
+    let angle=ringAngle*0.90 + gAngle*0.10;
 
     // Tiny deterministic perturbation breaks rows without making the layout
     // noisy or random on every refresh.
@@ -924,9 +929,8 @@ function _runFlowerPhysics(nodes, edges, coreId){
       n.x+=n.vx;
       n.y+=n.vy;
 
-      const margin=18;
-      n.x=Math.max(margin,Math.min(W-margin,n.x));
-      n.y=Math.max(margin,Math.min(H-margin,n.y));
+      // No viewport clamp: coordinates may expand beyond the visible
+      // canvas. Cytoscape's camera/pan/zoom handles what the user sees.
       n.el.position({x:n.x,y:n.y});
     });
 
@@ -952,10 +956,21 @@ function _runFlowerPhysics(nodes, edges, coreId){
     }
 
     try{
-      const visible=cyMembrane.nodes().filter(n=>n.style("display")!=="none");
-      if(visible.length){
-        cyMembrane.fit(visible,72);
-        if(coreEl && !coreEl.empty()) cyMembrane.center(coreEl);
+      if(coreEl && !coreEl.empty()){
+        coreEl.position({x:center.x,y:center.y});
+
+        // On the first global build only, choose a comfortable camera zoom.
+        // Do not call fit(): fitting the whole graph would compress an
+        // expanding Brain back into the viewport.
+        if(!window.__akiraRadialInitialViewportDone){
+          const targetZoom = Math.max(
+            0.45,
+            Math.min(0.68, cyMembrane.maxZoom())
+          );
+          cyMembrane.zoom(targetZoom);
+          cyMembrane.center(coreEl);
+          window.__akiraRadialInitialViewportDone = true;
+        }
       }
     }catch(_){}
   };
