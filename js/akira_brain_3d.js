@@ -860,7 +860,7 @@
       .map(l => {
         const otherId = nodeId(l.source) === String(node.id) ? nodeId(l.target) : nodeId(l.source);
         const other = graphData.nodes.find(n => String(n.id) === otherId);
-        return {label:String(other?.label || otherId), type:String(l.relation_type || "related_to"), weight:Number(l.weight)||0};
+        return {nodeId:otherId, label:String(other?.label || otherId), type:String(l.relation_type || "related_to"), weight:Number(l.weight)||0};
       })
       .sort((a,b) => b.weight-a.weight)
       .slice(0,12);
@@ -877,7 +877,7 @@
       "<div>CLUSTER<b>" + escapeHtml(clusterId) + "</b></div>";
     if(rels){
       rels.innerHTML = relations.length
-        ? relations.map(r => "<div class='brain-relation'><span>" + escapeHtml(r.label) + "</span><span>" + escapeHtml(r.type) + "</span></div>").join("")
+        ? relations.map(r => "<button type='button' class='brain-relation brain-relation-btn' data-brain-nav='" + escapeHtml(r.nodeId) + "'><span>" + escapeHtml(r.label) + "</span><span>" + escapeHtml(r.type) + "</span></button>").join("")
         : "<div style='color:#8a8a93;font-size:10px'>Sin relaciones visibles.</div>";
       if(semanticRoute.bridges){
         rels.innerHTML += "<div class='brain-relation'><span>RUTA</span><span>" +
@@ -893,6 +893,18 @@
         });
       }
     }
+  }
+
+  function bindContextNavigation(){
+    const rels = document.getElementById("brainContextRelations");
+    if(!rels || rels.dataset.brainNavBound === "1") return;
+    rels.dataset.brainNavBound = "1";
+    rels.addEventListener("click", function(ev){
+      const btn = ev.target.closest("[data-brain-nav]");
+      if(!btn) return;
+      const id = btn.getAttribute("data-brain-nav");
+      if(id) navigateToNode(id, true);
+    });
   }
 
   function updateStats(){
@@ -914,6 +926,7 @@
     const hud = document.getElementById("brainHud");
     updateStats();
     updateContextPanel();
+    bindContextNavigation();
     if(!hud) return;
     if(!selectedNodeId){
       hud.textContent = "Selecciona un nodo para explorar sus conexiones.";
