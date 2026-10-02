@@ -692,6 +692,13 @@
     return nodeId(l.source) === selectedNodeId || nodeId(l.target) === selectedNodeId;
   }
 
+  function isCoreLink(l){
+    const a = nodeId(l.source);
+    const b = nodeId(l.target);
+    return graphData.nodes.some(n => String(n.id) === a && n._isCore) ||
+           graphData.nodes.some(n => String(n.id) === b && n._isCore);
+  }
+
   function computeCommunities(nodes, links, coreId){
     const core = String(coreId || "");
     const ids = nodes.map(n => String(n.id)).filter(id => id !== core);
@@ -1447,21 +1454,31 @@
       .nodeThreeObjectExtend(false)
       .linkVisibility(l => isExplorerVisibleLink(l) && linkMatchesRelationFilter(l) && nodeIdPassesActiveFilters(l.source) && nodeIdPassesActiveFilters(l.target))
       .linkColor(l => isRelatedLink(l) ? "#c4b5fd" : (isSemanticRouteLink(l) ? "#ffffff" : linkClusterType(l)))
-      .linkWidth(l => isRelatedLink(l) ? Math.min(5, 1.5 + (Number(l.weight)||0.5)) : (isSemanticRouteLink(l) ? Math.min(3.8, 1.1 + (Number(l.weight)||0.5)) : Math.min(1.6, 0.35 + (Number(l.weight)||0.5) * 0.4)))
+      .linkWidth(l => {
+        if(isRelatedLink(l)) return Math.min(5, 1.5 + (Number(l.weight)||0.5));
+        if(isSemanticRouteLink(l)) return Math.min(3.8, 1.1 + (Number(l.weight)||0.5));
+        if(isCoreLink(l)) return 0.55;
+        return Math.min(1.6, 0.35 + (Number(l.weight)||0.5) * 0.4);
+      })
       .linkOpacity(l => {
+        if(selectedNodeId && isRelatedLink(l)) return 0.90;
         if(selectedNodeId && !isRelatedLink(l) && !isSemanticRouteLink(l)) return 0.08;
         const a = nodeId(l.source), b = nodeId(l.target);
         const ca = communityState.assignments.get(a);
         const cb = communityState.assignments.get(b);
         if(isSemanticRouteLink(l)) return 0.62;
+        if(isCoreLink(l)) return 0.12;
         if(ca && cb && ca === cb && ca !== "core") return 0.32;
-        const na = graphData.nodes.find(x => String(x.id) === a);
-        const nb = graphData.nodes.find(x => String(x.id) === b);
-        if(na?._isCore || nb?._isCore) return 0.42;
         return 0.18;
       })
+      .linkColor(l => {
+        if(isRelatedLink(l)) return "#ddd6fe";
+        if(isSemanticRouteLink(l)) return "#ffffff";
+        if(isCoreLink(l)) return "#ff8a8a";
+        return "#5b6470";
+      })
       .linkDirectionalArrowLength(l => isRelatedLink(l) || isSemanticRouteLink(l) ? 4 : 0)
-      .linkDirectionalArrowColor(l => isRelatedLink(l) ? "#ddd6fe" : (isSemanticRouteLink(l) ? "#ffffff" : "#5b6470"))
+      .linkDirectionalArrowColor(l => isRelatedLink(l) ? "#ddd6fe" : (isSemanticRouteLink(l) ? "#ffffff" : "#ff8a8a"))
       .linkDirectionalParticles(l => isRelatedLink(l) ? 4 : (isSemanticRouteLink(l) ? 2 : (selectedNodeId ? 0 : 1)))
       .linkDirectionalParticleWidth(l => isRelatedLink(l) ? 1.7 : (isSemanticRouteLink(l) ? 1.2 : 0.8))
       .linkDirectionalParticleColor(l => isRelatedLink(l) ? "#ffffff" : (isSemanticRouteLink(l) ? "#ffffff" : "#7c8795"))
