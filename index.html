@@ -274,6 +274,17 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
       </div>
       <div id="membraneStats" style="padding:8px 0 0;font-size:11px;color:var(--muted);font-family:'Press Start 2P', monospace;text-align:center"></div>
     </div>
+    <div class="learning-review" id="learningReviewPanel">
+      <div class="learning-review-head">
+        <div>
+          <span class="learning-review-title">🧠 CONOCIMIENTO EN REVISIÓN</span>
+          <span id="learningReviewCount" class="learning-review-count">0 candidatos</span>
+        </div>
+        <button type="button" class="learning-review-refresh" onclick="window.akiraLearningReview && akiraLearningReview.load()">↻ ACTUALIZAR</button>
+      </div>
+      <div class="learning-review-note">Las enseñanzas explícitas llegan como candidatas. Verificar las convierte en conocimiento confiable; consolidar permite que Akira las use como conocimiento normal.</div>
+      <div id="learningReviewList"></div>
+    </div>
     <div class="section-tools">
       <h4>🌐 Fase 6 — Grafo + Aprendizaje</h4>
       <p>Crea nodos, aristas y aprendizajes reales. Auto-conexión por tags activa.</p>
@@ -594,6 +605,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 <script src="./js/akira_brain.js?v=akira-final-v6"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
 <script src="./js/akira_conversations.js?v=akira-conv-v5"></script>
+<script src="./js/akira_learning.js?v=akira-learning-v1"></script>
 <script src="./js/akira_admin.js?v=akira-admin-v1-6"></script>
 <script src="./js/akira_missions_panel.js?v=akira-missions-v5"></script>
 <script>
