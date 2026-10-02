@@ -102,6 +102,7 @@
       const status = item.status || "candidate";
       const lesson = String(item.lesson || "").trim();
       const source = String(item.source || "unknown");
+      const sourceLabel = source === "explicit_user_teaching" ? "ENSEÑANZA" : source === "experience_feedback" ? "EXPERIENCIA" : source;
       const conf = Math.round(Number(item.confidence || 0) * 100);
       const nodes = Array.isArray(item.knowledge_nodes) ? item.knowledge_nodes.length : 0;
       const evidence = Array.isArray(item.evidence) ? item.evidence : [];
@@ -122,7 +123,7 @@
         +   '</div>'
         +   '<div class="learning-lesson">'+esc(lesson).replace(/\n/g,"<br>")+'</div>'
         +   '<div class="learning-meta">'
-        +      'fuente: '+esc(source)+' · nodos: '+nodes+' · evidencia: '+evidence.length+' · reutilizado: '+Number(item.reuse_count || 0)+' veces'
+        +      'origen: '+esc(sourceLabel)+' · fuente: '+esc(source)+' · nodos: '+nodes+' · evidencia: '+evidence.length+' · reutilizado: '+Number(item.reuse_count || 0)+' veces'
         +   '</div>'
         +   analysisHtml
         +   '<div class="learning-actions">'+actionButtons(item)+'</div>'
@@ -265,7 +266,7 @@
       const root = reviewRoot();
       if(!root) return;
       root.innerHTML = '<div class="learning-empty">Cargando conocimiento…</div>';
-      const r = await request("/api/v8/learning?source="+encodeURIComponent(SOURCE)+"&limit=40");
+      const r = await request("/api/v8/learning?limit=80");
       if(!r.ok || !r.data || !r.data.ok){
         root.innerHTML = '<div class="learning-empty">No se pudo cargar la revisión: '+esc((r.data && r.data.reason) || r.error || ("HTTP "+r.status))+'</div>';
         return;
