@@ -358,165 +358,95 @@ function _computeSeedPositions(
   edges,
   coreId
 ) {
-  const W =
-    cyMembrane.width() || 800;
-
-  const H =
-    cyMembrane.height() || 600;
-
+  const W = cyMembrane.width() || 800;
+  const H = cyMembrane.height() || 600;
   const cx = W / 2;
   const cy = H / 2;
-
-  const groups = new Map();
-
-  for (const n of nodes) {
-    if (n.id === coreId) continue;
-
-    const key = _detectGroup(n);
-
-    if (!groups.has(key)) {
-      groups.set(key, []);
-    }
-
-    groups.get(key).push(n.id);
-  }
-
-  const degree = new Map();
-
-  for (const e of edges) {
-    degree.set(
-      e.from_node,
-      (degree.get(e.from_node) || 0) + 1
-    );
-
-    degree.set(
-      e.to_node,
-      (degree.get(e.to_node) || 0) + 1
-    );
-  }
-
-  const clusters = [];
-
-  for (const [key, ids] of groups.entries()) {
-    const subs = _subdivideGroup(ids);
-
-    subs.forEach(subIds => {
-      clusters.push({
-        key,
-        ids: subIds
-      });
-    });
-  }
-
-  clusters.sort(
-    (a, b) =>
-      b.ids.length - a.ids.length
-  );
-
   const positions = {};
 
   if (coreId) {
-    positions[coreId] = {
-      x: cx,
-      y: cy
-    };
+    positions[coreId] = { x: cx, y: cy };
   }
 
-  const N = clusters.length;
-
-  const R =
-    Math.max(
-      Math.min(W, H) * 0.44,
-      200
-    );
-
-  clusters.forEach(
-    ({ key, ids }, i) => {
-      const angle =
-        (i / Math.max(N, 1)) *
-          2 *
-          Math.PI -
-        Math.PI / 2;
-
-      const Nsat = ids.length;
-
-      const clusterR =
-        Math.min(
-          180,
-          50 +
-            Math.log2(1 + Nsat) * 28
-        );
-
-      const hubX =
-        cx +
-        (R + clusterR * 0.4) *
-          Math.cos(angle);
-
-      const hubY =
-        cy +
-        (R + clusterR * 0.4) *
-          Math.sin(angle);
-
-      let hubId = ids[0];
-      let hubDeg = -1;
-
-      for (const id of ids) {
-        const d = degree.get(id) || 0;
-
-        if (d > hubDeg) {
-          hubDeg = d;
-          hubId = id;
-        }
-      }
-
-      positions[hubId] = {
-        x: hubX,
-        y: hubY
-      };
-
-      const satellites =
-        ids.filter(
-          id => id !== hubId
-        );
-
-      if (
-        satellites.length === 0
-      ) {
-        return;
-      }
-
-      const golden =
-        Math.PI *
-        (3 - Math.sqrt(5));
-
-      satellites.forEach(
-        (sid, j) => {
-          const t =
-            (j + 1) /
-            satellites.length;
-
-          const r =
-            clusterR *
-            Math.sqrt(t);
-
-          const theta =
-            j * golden + angle;
-
-          positions[sid] = {
-            x:
-              hubX +
-              r *
-                Math.cos(theta),
-
-            y:
-              hubY +
-              r *
-                Math.sin(theta)
-          };
-        }
-      );
+  let assignments = null;
+  if (typeof window.AkiraBrainCommunity === "function") {
+    try {
+      const community = window.AkiraBrainCommunity(nodes, edges, coreId);
+      assignments = community && community.assignments instanceof Map
+        ? community.assignments
+        : null;
+    } catch (e) {
+      console.warn("[membrane] community analysis fallback:", e);
     }
+  }
+
+  const degree = new Map();
+  for (const e of edges) {
+    degree.set(e.from_node, (degree.get(e.from_node) || 0) + 1);
+    degree.set(e.to_node, (degree.get(e.to_node) || 0) + 1);
+  }
+
+  const clustersMap = new Map();
+  for (const n of nodes) {
+    if (n.id === coreId) continue;
+    const key = assignments
+      ? (assignments.get(String(n.id)) || _detectGroup(n))
+      : _detectGroup(n);
+    if (!clustersMap.has(key)) clustersMap.set(key, []);
+    clustersMap.get(key).push(n.id);
+  }
+
+  const clusters = [...clustersMap.entries()].map(([key, ids]) => ({key, ids}));
+  clusters.sort(
+    (a, b) =>
+      b.ids.length - a.ids.length ||
+      String(a.key).localeCompare(String(b.key))
   );
+
+  const N = clusters.length;
+  const R = Math.max(Math.min(W, H) * 0.38, 150);
+
+  clusters.forEach(({key, ids}, i) => {
+    const angle =
+      (i / Math.max(N, 1)) * 2 * Math.PI - Math.PI / 2;
+    const clusterR =
+      Math.min(170, 42 + Math.log2(1 + ids.length) * 25);
+    const hubX =
+      cx + (R + clusterR * 0.35) * Math.cos(angle);
+    const hubY =
+      cy + (R + clusterR * 0.35) * Math.sin(angle);
+
+    let hubId = ids[0];
+    let hubScore = -1;
+    for (const id of ids) {
+      const d = degree.get(id) || 0;
+      const n = nodes.find(x => x.id === id);
+      const score = d + (Number(n && n._importance) || 0) * 2;
+      if (score > hubScore) {
+        hubScore = score;
+        hubId = id;
+      }
+    }
+
+    positions[hubId] = {x: hubX, y: hubY};
+
+    const satellites = ids.filter(id => id !== hubId);
+    const golden = Math.PI * (3 - Math.sqrt(5));
+
+    satellites.forEach((sid, j) => {
+      const node = nodes.find(x => x.id === sid);
+      const importance = Number(node && node._importance) || 0.25;
+      const t = (j + 1) / Math.max(satellites.length, 1);
+      const r = clusterR * (0.6 + 0.75 * Math.sqrt(t)) *
+        (1 - Math.min(0.18, importance * 0.12));
+      const theta = j * golden + angle;
+
+      positions[sid] = {
+        x: hubX + r * Math.cos(theta),
+        y: hubY + r * Math.sin(theta)
+      };
+    });
+  });
 
   return positions;
 }
@@ -1454,6 +1384,20 @@ function _applyGraphToCy(
     }
   }
 
+  let community = null;
+  if (typeof window.AkiraBrainCommunity === "function") {
+    try {
+      community = window.AkiraBrainCommunity(nodes, edges, coreId);
+    } catch (e) {
+      console.warn("[membrane] community analysis failed:", e);
+    }
+  }
+
+  const assignments =
+    community && community.assignments instanceof Map
+      ? community.assignments
+      : null;
+
   const degree = {};
 
   for (const e of edges) {
@@ -1475,7 +1419,9 @@ function _applyGraphToCy(
     }
 
     const g =
-      _detectGroup(n);
+      assignments
+        ? (assignments.get(String(n.id)) || _detectGroup(n))
+        : _detectGroup(n);
 
     if (
       !groupsMap.has(g)
@@ -1561,31 +1507,40 @@ function _applyGraphToCy(
 
     let radius;
 
+    const importance =
+      Math.max(
+        0,
+        Math.min(
+          1,
+          Number(n._importance) || 0
+        )
+      );
+
     if (isCore) {
       radius = 64;
     } else if (isHub) {
       radius =
         Math.min(
-          32,
-          22 +
+          34,
+          20 +
             Math.min(
               deg,
-              6
-            )
+              7
+            ) +
+            importance * 5
         );
     } else {
-      const baseR = 11;
-
+      const baseR = 10;
       const bonus =
         Math.min(
-          deg * 1.2,
-          10
+          deg * 1.05,
+          9
         );
 
       radius =
         Math.min(
-          22,
-          baseR + bonus
+          23,
+          baseR + bonus + importance * 3
         );
     }
 
@@ -1636,6 +1591,14 @@ function _applyGraphToCy(
 
         is_core:
           isCore,
+
+        cluster:
+          assignments
+            ? (assignments.get(String(n.id)) || "—")
+            : "—",
+
+        importance:
+          importance,
       },
 
       classes:
