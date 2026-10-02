@@ -56,6 +56,7 @@
   let navigationIndex = -1;
   const MAX_NAV_HISTORY = 40;
   let brainTypeFilter = "all";
+  let brainRelationFilter = "all";
 
   function authHeaders(){
     try {
@@ -114,6 +115,26 @@
     return !!(n && (n._isCore || id === String(selectedNodeId) || groupForNode(n) === brainTypeFilter));
   }
 
+  function linkMatchesRelationFilter(l){
+    if(brainRelationFilter === "all") return true;
+    return String(l && l.relation_type || "").toLowerCase() === brainRelationFilter;
+  }
+
+  function nodeMatchesActiveFilters(n){
+    if(!n || !nodeMatchesTypeFilter(n)) return false;
+    const id = String(n.id);
+    if(brainRelationFilter === "all" || n._isCore || id === String(selectedNodeId)) return true;
+    return graphData.links.some(l =>
+      linkMatchesRelationFilter(l) &&
+      (nodeId(l.source) === id || nodeId(l.target) === id)
+    );
+  }
+
+  function nodeIdPassesActiveFilters(id){
+    const n = graphData.nodes.find(x => String(x.id) === String(id));
+    return n ? nodeMatchesActiveFilters(n) : false;
+  }
+
   function nodeIdPassesTypeFilter(id){
     const n = graphData.nodes.find(x => String(x.id) === String(id));
     return n ? nodeMatchesTypeFilter(n) : false;
@@ -162,6 +183,57 @@
   }
 
   window.akiraBrainSetTypeFilter = setBrainTypeFilter;
+
+  function updateRelationFilterUI(){
+    const el = document.getElementById("brainRelationFilters");
+    if(!el) return;
+    const counts = new Map();
+    graphData.links.forEach(l => {
+      const rel = String(l.relation_type || "related_to").toLowerCase();
+      counts.set(rel, (counts.get(rel) || 0) + 1);
+    });
+    const relations = ["all", ...[...counts.keys()].sort()];
+    el.innerHTML = relations.map(rel => {
+      const count = rel === "all" ? graphData.links.length : (counts.get(rel) || 0);
+      const active = rel === brainRelationFilter;
+      const label = rel === "all" ? "TODAS" : rel.replace(/_/g," ").toUpperCase();
+      return "<button type='button' class='brain-type-filter" + (active ? " active" : "") +
+        "' data-brain-relation-filter='" + escapeHtml(rel) + "'>" + escapeHtml(label) +
+        " <span>" + count + "</span></button>";
+    }).join("");
+    if(el.dataset.bound !== "1"){
+      el.dataset.bound = "1";
+      el.addEventListener("click", function(ev){
+        const btn = ev.target.closest("[data-brain-relation-filter]");
+        if(!btn) return;
+        setBrainRelationFilter(btn.getAttribute("data-brain-relation-filter") || "all");
+      });
+    }
+  }
+
+  function setBrainRelationFilter(relation){
+    const rel = String(relation || "all").toLowerCase();
+    brainRelationFilter = rel === "all" ? "all" :
+      (graphData.links.some(l => String(l.relation_type || "related_to").toLowerCase() === rel) ? rel : "all");
+    updateRelationFilterUI();
+    apply3dRuntime();
+    try{
+      window.dispatchEvent(new CustomEvent("akira:brain-relation-filter",{detail:{relation:brainRelationFilter}}));
+    }catch(_){}
+    const visible = graphData.nodes.filter(nodeMatchesActiveFilters);
+    if(fg && visible.length){
+      setTimeout(() => {
+        try { fg.zoomToFit(700, 70, n => nodeMatchesActiveFilters(n)); } catch(_) {}
+      }, 40);
+    }
+    hudText();
+  }
+
+  window.akiraBrainSetRelationFilter = setBrainRelationFilter;
+  window.akiraBrainSetCombinedFilters = function(type, relation){
+    setBrainTypeFilter(type || "all");
+    setBrainRelationFilter(relation || "all");
+  };
 
   function nodeIsRelated(n){
     if(!selectedNodeId) return true;
@@ -1086,6 +1158,7 @@
       });
       lastFetchAt = Date.now();
       updateTypeFilterUI();
+      updateRelationFilterUI();
       hudText();
       updateStats();
 
@@ -1135,10 +1208,10 @@
       })
       .nodeResolution(10)
       .nodeRelSize(5.5)
-      .nodeVisibility(n => isExplorerVisibleNode(n) && nodeMatchesTypeFilter(n))
+      .nodeVisibility(n => isExplorerVisibleNode(n) && nodeMatchesActiveFilters(n))
       .nodeThreeObject(n => makeGlowNode(n) || undefined)
       .nodeThreeObjectExtend(false)
-      .linkVisibility(l => isExplorerVisibleLink(l) && nodeIdPassesTypeFilter(l.source) && nodeIdPassesTypeFilter(l.target))
+      .linkVisibility(l => isExplorerVisibleLink(l) && linkMatchesRelationFilter(l) && nodeIdPassesActiveFilters(l.source) && nodeIdPassesActiveFilters(l.target))
       .linkColor(l => isRelatedLink(l) ? "#c4b5fd" : (isSemanticRouteLink(l) ? "#ffffff" : linkClusterType(l)))
       .linkWidth(l => isRelatedLink(l) ? Math.min(5, 1.5 + (Number(l.weight)||0.5)) : (isSemanticRouteLink(l) ? Math.min(3.8, 1.1 + (Number(l.weight)||0.5)) : Math.min(1.6, 0.35 + (Number(l.weight)||0.5) * 0.4)))
       .linkOpacity(l => {
