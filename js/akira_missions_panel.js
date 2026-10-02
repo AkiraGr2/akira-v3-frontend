@@ -1,7 +1,7 @@
 /* ============================================================
    AKIRA — MISSIONS PANEL
    FASE 10.8 — Panel Unificado de Misiones
-   Version: V1.7
+   Version: V1.8
    ============================================================ */
 
 (function () {
@@ -1293,6 +1293,21 @@
     }
 
     if (
+      status === "planning"
+    ) {
+      html += `
+        <button
+          type="button"
+          class="mission-action"
+          data-mission-action="diagnose"
+          data-mission-id="${escapeHtml(id)}"
+        >
+          🔎 Diagnosticar planificación
+        </button>
+      `;
+    }
+
+    if (
       status === "running"
     ) {
       html += `
@@ -2137,7 +2152,8 @@
       "";
 
     if (
-      status !== "running"
+      status !== "running" &&
+      status !== "planning"
     ) {
       return;
     }
@@ -2207,15 +2223,27 @@
             );
 
             if (
-              updated?.status !==
-              "running"
+              updated?.status !== status
             ) {
-              stopPolling();
+              if (
+                updated?.status !== "running" &&
+                updated?.status !== "planning"
+              ) {
+                stopPolling();
+              }
 
-              loadTasks(
-                id,
-                updated
-              );
+              if (
+                updated?.status === "waiting_approval" ||
+                updated?.status === "running" ||
+                updated?.status === "failed"
+              ) {
+                loadMissionDetail(id);
+              } else {
+                loadTasks(
+                  id,
+                  updated
+                );
+              }
             }
           } catch (error) {
             console.warn(
