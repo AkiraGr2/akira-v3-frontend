@@ -1011,6 +1011,44 @@ function _cytoscapeStyle() {
 
     {
       selector:
+        "node.route",
+
+      style: {
+        "border-width":
+          2,
+
+        "border-color":
+          "#ffffff",
+
+        "text-opacity":
+          1,
+
+        "shadow-blur":
+          28,
+
+        "shadow-opacity":
+          0.92
+      }
+    },
+
+    {
+      selector:
+        "edge.route",
+
+      style: {
+        "opacity":
+          0.95,
+
+        "line-color":
+          "#ffffff",
+
+        "width":
+          2.2
+      }
+    },
+
+    {
+      selector:
         "edge.highlighted",
 
       style: {
@@ -1904,12 +1942,49 @@ function _updateMembraneStats() {
 // ===========================================================================
 // BRAIN 2D/3D — SINCRONIZACION DE SELECCION
 // ===========================================================================
+window.addEventListener("akira:brain-route", function(ev){
+  if (!cyMembrane) return;
+
+  try {
+    const detail = ev && ev.detail ? ev.detail : {};
+    const nodeIds = new Set(
+      Array.isArray(detail.nodeIds)
+        ? detail.nodeIds.map(id => String(id))
+        : []
+    );
+    const linkIds = new Set(
+      Array.isArray(detail.linkIds)
+        ? detail.linkIds.map(id => String(id))
+        : []
+    );
+
+    cyMembrane.elements()
+      .removeClass("route");
+
+    cyMembrane.nodes().forEach(n => {
+      if(nodeIds.has(String(n.id()))){
+        n.addClass("route");
+      }
+    });
+
+    cyMembrane.edges().forEach(e => {
+      if(linkIds.has(String(e.id()))){
+        e.addClass("route");
+      }
+    });
+  } catch(_) {}
+});
+
 window.addEventListener("akira:brain-select", function(ev){
   if (!cyMembrane) return;
   const nodeId = ev && ev.detail ? ev.detail.nodeId : null;
   try {
     if (!nodeId) {
-      cyMembrane.elements().unselect().removeClass("highlighted").removeClass("dimmed");
+      cyMembrane.elements()
+        .unselect()
+        .removeClass("highlighted")
+        .removeClass("dimmed")
+        .removeClass("route");
       cyMembrane.nodes().forEach(n => {
         n.style("text-opacity", (n.hasClass("core") || n.hasClass("hub")) ? (n.hasClass("core") ? 1 : 0.95) : 0);
       });
