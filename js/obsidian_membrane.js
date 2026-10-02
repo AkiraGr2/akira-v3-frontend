@@ -431,17 +431,22 @@ function _computeSeedPositions(
   );
 
   const N = clusters.length;
-  const R = Math.max(Math.min(W, H) * 0.38, 150);
+  const baseRadius = Math.max(0.42 * Math.min(W, H), 150);
+  const petalGap = Math.min(54, Math.max(24, 180 / Math.max(N, 1)));
 
   clusters.forEach(({key, ids}, i) => {
     const angle =
-      (i / Math.max(N, 1)) * 2 * Math.PI - Math.PI / 2;
+      (i / Math.max(N, 1)) * 2 * Math.PI - Math.PI / 2 +
+      (i % 2 ? 0.035 : -0.02);
+    const radialPulse = 1 + 0.06 * Math.sin(i * 2.17);
     const clusterR =
-      Math.min(170, 42 + Math.log2(1 + ids.length) * 25);
+      Math.min(230, 48 + Math.sqrt(Math.max(ids.length, 1)) * 18);
+    const petalDistance =
+      baseRadius + Math.min(90, ids.length * 1.6) + petalGap;
     const hubX =
-      cx + (R + clusterR * 0.35) * Math.cos(angle);
+      cx + petalDistance * radialPulse * Math.cos(angle);
     const hubY =
-      cy + (R + clusterR * 0.35) * Math.sin(angle);
+      cy + petalDistance * radialPulse * Math.sin(angle);
 
     let hubId = ids[0];
     let hubScore = -1;
@@ -464,8 +469,9 @@ function _computeSeedPositions(
       const node = nodes.find(x => x.id === sid);
       const importance = Number(node && node._importance) || 0.25;
       const t = (j + 1) / Math.max(satellites.length, 1);
-      const r = clusterR * (0.6 + 0.75 * Math.sqrt(t)) *
-        (1 - Math.min(0.18, importance * 0.12));
+      const ring = clusterR * (0.58 + 0.42 * t);
+      const r = ring *
+        (1 - Math.min(0.16, importance * 0.10));
       const theta = j * golden + angle;
 
       positions[sid] = {
@@ -1895,16 +1901,17 @@ function _applyGraphToCy(
       coreId
     );
 
+  // Preserve the deterministic community flower. The previous force-directed
+  // relax was mathematically valid but visually collapsed the petals into a
+  // ring on dense graphs.
   if (
-    seedRan &&
-    !membraneLayoutRunning
+    seedRan
   ) {
-    setTimeout(
-      () => {
-        _runLayoutRelax();
-      },
-      80
-    );
+    try {
+      cyMembrane.fit(undefined, 80);
+      const coreEl = cyMembrane.nodes(".core");
+      if(coreEl && coreEl.length) cyMembrane.center(coreEl);
+    } catch(_) {}
   } else if (
     !seedRan &&
     !membraneLayoutRunning
