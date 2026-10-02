@@ -2111,7 +2111,14 @@ window.addEventListener("akira:brain-select", function(ev){
         const isCore = el.hasClass("core");
         const targetZoom = isCore ? 1.55 : Math.max(cyMembrane.zoom(), 1.05);
         cyMembrane.animate({center:{eles:el}, zoom:targetZoom}, {duration:500, easing:"ease-out"});
-        setTimeout(() => { try { cyMembrane.resize(); cyMembrane.center(el); } catch(_){} }, 540);
+        setTimeout(() => {
+          try {
+            cyMembrane.resize();
+            cyMembrane.center(el);
+            _position2dContext(id);
+          } catch(_){}
+        }, 540);
+        setTimeout(() => { try { _position2dContext(id); } catch(_){} }, 720);
       }
     }
   }catch(_){ }
@@ -2134,6 +2141,7 @@ window.addEventListener("akira:brain-navigation", function(ev){
         center:{eles:node},
         duration:500
       });
+      setTimeout(() => { try { _position2dContext(id); } catch(_){} }, 540);
     }
   } catch(_) {}
 });
