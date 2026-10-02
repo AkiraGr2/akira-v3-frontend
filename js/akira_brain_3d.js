@@ -453,6 +453,7 @@
     const byNode = new Map();
     for(const l of graphData.links){
       const a = nodeId(l.source), b = nodeId(l.target);
+      if(a === b) continue;
       if(!byNode.has(a)) byNode.set(a, []);
       if(!byNode.has(b)) byNode.set(b, []);
       byNode.get(a).push({link:l, other:b});
@@ -462,33 +463,33 @@
     const routeNodes = new Set([selected]);
     const routeLinks = new Set();
     const candidates = [];
-    const chosenCandidates = [];
 
     for(const first of byNode.get(selected) || []){
-      const firstCluster = communityState.assignments.get(first.other);
-      if(!firstCluster || firstCluster === selectedCluster) continue;
-
+      const firstId = first.other;
+      const firstCluster = communityState.assignments.get(firstId);
       const firstWeight = Number(first.link.weight) || 0.5;
-      if(communityState.hubs.has(first.other)){
+
+      if(firstCluster && firstCluster !== selectedCluster && communityState.hubs.has(firstId)){
         candidates.push({
-          score:firstWeight * 1.2,
-          nodes:[selected,first.other],
+          score:firstWeight * 1.25,
+          nodes:[selected,firstId],
           links:[String(first.link.id)],
           hops:1
         });
-        continue;
       }
 
-      for(const second of byNode.get(first.other) || []){
+      for(const second of byNode.get(firstId) || []){
         const secondId = second.other;
+        if(secondId === selected) continue;
+
         const secondCluster = communityState.assignments.get(secondId);
-        if(secondId === selected || !secondCluster || secondCluster === selectedCluster) continue;
+        if(!secondCluster || secondCluster === selectedCluster) continue;
         if(!communityState.hubs.has(secondId)) continue;
 
         const secondWeight = Number(second.link.weight) || 0.5;
         candidates.push({
-          score:firstWeight + secondWeight * 0.9,
-          nodes:[selected,first.other,secondId],
+          score:firstWeight * 0.9 + secondWeight,
+          nodes:[selected,firstId,secondId],
           links:[String(first.link.id),String(second.link.id)],
           hops:2
         });
@@ -497,11 +498,13 @@
 
     candidates.sort((a,b) => b.score-a.score || a.hops-b.hops);
     const seenTargetClusters = new Set();
+    const chosenCandidates = [];
 
     for(const candidate of candidates){
       const target = candidate.nodes[candidate.nodes.length - 1];
       const targetCluster = communityState.assignments.get(target) || target;
-      if(seenTargetClusters.has(targetCluster)) continue;
+      if(targetCluster === selectedCluster || seenTargetClusters.has(targetCluster)) continue;
+
       seenTargetClusters.add(targetCluster);
       chosenCandidates.push(candidate);
 
@@ -511,33 +514,19 @@
       if(seenTargetClusters.size >= 5) break;
     }
 
-    const paths = [];
-    const seenPaths = new Set();
-    for(const candidate of chosenCandidates){
-      const key = candidate.nodes.join(">");
-      if(seenPaths.has(key)) continue;
-      seenPaths.add(key);
-      paths.push(candidate);
-      if(paths.length >= 5) break;
-    }
-
     semanticRoute = {
       nodeIds: routeNodes,
       linkIds: routeLinks,
       bridges: seenTargetClusters.size,
-      hops: paths.length ? Math.max(...paths.map(p => p.hops)) : 0,
-      paths
+      hops: chosenCandidates.length
+        ? Math.max(...chosenCandidates.map(p => p.hops))
+        : 0,
+      paths: chosenCandidates.slice(0,5)
     };
 
-    let maxHops = 0;
-    for(const candidate of chosenCandidates){
-      if(candidate.links.some(id => routeLinks.has(String(id)))){
-        maxHops = Math.max(maxHops,candidate.hops);
-      }
-    }
-    semanticRoute.hops = maxHops;
     return semanticRoute;
   }
+
 
   function isSemanticRouteLink(l){
     return semanticRoute.linkIds.has(String(l.id));
@@ -545,6 +534,46 @@
 
   function isSemanticRouteNode(n){
     return semanticRoute.nodeIds.has(String(n.id));
+  }
+
+  function focusSemanticRoute(){
+    if(!fg || !semanticRoute.nodeIds.size) return;
+
+    const routeNodes = graphData.nodes.filter(
+      n => semanticRoute.nodeIds.has(String(n.id)) &&
+           Number.isFinite(Number(n.x)) &&
+           Number.isFinite(Number(n.y)) &&
+           Number.isFinite(Number(n.z))
+    );
+
+    if(!routeNodes.length) return;
+
+    let cx=0,cy=0,cz=0;
+    for(const n of routeNodes){
+      cx += Number(n.x) || 0;
+      cy += Number(n.y) || 0;
+      cz += Number(n.z) || 0;
+    }
+    cx /= routeNodes.length;
+    cy /= routeNodes.length;
+    cz /= routeNodes.length;
+
+    let radius = 40;
+    for(const n of routeNodes){
+      const dx=(Number(n.x)||0)-cx;
+      const dy=(Number(n.y)||0)-cy;
+      const dz=(Number(n.z)||0)-cz;
+      radius = Math.max(radius, Math.sqrt(dx*dx+dy*dy+dz*dz));
+    }
+
+    const distance = Math.max(120, Math.min(620, radius * 2.8));
+    try {
+      fg.cameraPosition(
+        {x:cx+distance*0.78,y:cy+distance*0.52,z:cz+distance*0.78},
+        {x:cx,y:cy,z:cz},
+        850
+      );
+    } catch(_) {}
   }
 
   function dispatchSemanticRoute(){
@@ -773,8 +802,9 @@
         if(!selectedNodeId) return 0.82;
         const id = String(n.id);
         if(id === String(selectedNodeId)) return 1;
+        if(isSemanticRouteNode(n)) return 0.84;
         const related = graphData.links.some(l => isRelatedLink(l) && (nodeId(l.source) === id || nodeId(l.target) === id));
-        return related ? 0.95 : 0.16;
+        return related ? 0.95 : 0.13;
       })
       .nodeLabel(n => {
         const type = escapeHtml(n.node_type || "concept");
@@ -933,7 +963,8 @@
     computeSemanticRoute();
     hudText();
     apply3dRuntime();
-    if(selectedNodeId) dispatchSemanticRoute(); else dispatchSemanticRoute();
+    dispatchSemanticRoute();
+    setTimeout(focusSemanticRoute, 90);
     if(fg && selectedNodeId){
       try{
         const node = graphData.nodes.find(n => String(n.id) === selectedNodeId);
