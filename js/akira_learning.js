@@ -62,6 +62,7 @@
     const status = item.status || "candidate";
     const buttons = [];
     if(status === "candidate"){
+      buttons.push('<button class="learning-action" data-learning-action="investigate" data-learning-id="'+id+'" data-learning-version="'+v+'">🔎 INVESTIGAR</button>');
       buttons.push('<button class="learning-action" data-learning-action="verified" data-learning-id="'+id+'" data-learning-version="'+v+'">✓ VERIFICAR</button>');
       buttons.push('<button class="learning-action" data-learning-action="conflicted" data-learning-id="'+id+'" data-learning-version="'+v+'">⚠ CONFLICTO</button>');
       buttons.push('<button class="learning-action danger" data-learning-action="discarded" data-learning-id="'+id+'" data-learning-version="'+v+'">✕ DESCARTAR</button>');
@@ -125,6 +126,12 @@
 
         btn.disabled = true;
         let workingVersion = version;
+        if(status === "investigate"){
+          await investigate(id, version);
+          btn.disabled = false;
+          await api.load();
+          return;
+        }
         if(status === "verified" && !await addEvidence(id, workingVersion)){
           btn.disabled = false;
           return;
@@ -148,6 +155,32 @@
         await api.load();
       });
     });
+  }
+
+  async function investigate(id, version){
+    const current = await request("/api/v8/learning/"+encodeURIComponent(id));
+    const lesson = current.ok && current.data && current.data.learning ? current.data.learning.lesson : "";
+    const query = prompt("Tema para investigar:", lesson || "");
+    if(query === null) return;
+    const q = String(query).trim();
+    if(!q) return;
+    const r = await request("/api/v8/learning/"+encodeURIComponent(id)+"/investigate", {
+      method:"POST",
+      body:JSON.stringify({query:q, max_sources:5, expected_version:version})
+    });
+    if(!r.ok || !r.data || !r.data.ok){
+      alert("No se pudo investigar: " + ((r.data && r.data.reason) || ("HTTP "+r.status)));
+      return;
+    }
+    const sources = Array.isArray(r.data.evidence) ? r.data.evidence : [];
+    if(!sources.length){
+      alert("La investigación no encontró fuentes utilizables. El conocimiento sigue como candidato.");
+      return;
+    }
+    const report = sources.map(function(e, i){
+      return (i+1)+". "+(e.title || "Fuente")+"\\n"+(e.reference || "")+(e.note ? "\\n"+e.note : "");
+    }).join("\\n\\n");
+    alert("Fuentes encontradas:\\n\\n"+report+"\\n\\nEl aprendizaje NO fue verificado automáticamente.");
   }
 
   async function addEvidence(id, version){
