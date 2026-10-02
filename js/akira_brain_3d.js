@@ -42,7 +42,8 @@
     nodeIds: new Set(),
     linkIds: new Set(),
     bridges: 0,
-    hops: 0
+    hops: 0,
+    paths: []
   };
 
   function authHeaders(){
@@ -433,7 +434,8 @@
       nodeIds: new Set(),
       linkIds: new Set(),
       bridges: 0,
-      hops: 0
+      hops: 0,
+      paths: []
     };
 
     if(!selectedNodeId || !graphData.nodes.length || !communityState.assignments.size){
@@ -507,11 +509,22 @@
       if(seenTargetClusters.size >= 5) break;
     }
 
+    const paths = [];
+    const seenPaths = new Set();
+    for(const candidate of candidates){
+      const key = candidate.nodes.join(">");
+      if(seenPaths.has(key)) continue;
+      seenPaths.add(key);
+      paths.push(candidate);
+      if(paths.length >= 5) break;
+    }
+
     semanticRoute = {
       nodeIds: routeNodes,
       linkIds: routeLinks,
       bridges: seenTargetClusters.size,
-      hops: candidates.length ? Math.max(...[...routeLinks].map(() => 1)) : 0
+      hops: paths.length ? Math.max(...paths.map(p => p.hops)) : 0,
+      paths
     };
 
     let maxHops = 0;
@@ -617,6 +630,15 @@
       if(semanticRoute.bridges){
         rels.innerHTML += "<div class='brain-relation'><span>RUTA</span><span>" +
           semanticRoute.bridges + " comunidades · " + semanticRoute.hops + " saltos</span></div>";
+        semanticRoute.paths.forEach(path => {
+          const labels = path.nodes.map(id => {
+            const item = graphData.nodes.find(n => String(n.id) === String(id));
+            return escapeHtml(String(item?.label || id));
+          });
+          rels.innerHTML += "<div class='brain-relation'><span>" +
+            labels.join(" → ") +
+            "</span><span>" + path.hops + " saltos</span></div>";
+        });
       }
     }
   }
@@ -942,7 +964,7 @@
   window.akiraBrainClearSelection = function(){
     selectedNodeId = null;
     hoveredNodeId = null;
-    semanticRoute = {nodeIds:new Set(),linkIds:new Set(),bridges:0,hops:0};
+    semanticRoute = {nodeIds:new Set(),linkIds:new Set(),bridges:0,hops:0,paths:[]};
     hudText();
     updateContextPanel();
     apply3dRuntime();
