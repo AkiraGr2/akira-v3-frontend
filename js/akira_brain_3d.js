@@ -106,12 +106,9 @@
       const existing = document.querySelector('script[data-akira-force-graph="1"]');
       if(existing){
         if(typeof window.ForceGraph3D === "function") return resolve(window.ForceGraph3D);
-        existing.addEventListener("load", () => {
-          if(typeof window.ForceGraph3D === "function") resolve(window.ForceGraph3D);
-          else reject(new Error("ForceGraph3D no disponible tras cargar el motor"));
-        }, {once:true});
-        existing.addEventListener("error", () => reject(new Error("No se pudo cargar 3d-force-graph")), {once:true});
-        return;
+        // The first static load can finish before THREE exists. Replace it
+        // so the engine is evaluated again only after Three.js is ready.
+        try { existing.remove(); } catch(_) {}
       }
       const s = document.createElement("script");
       s.src = "https://unpkg.com/3d-force-graph@1.80.1/dist/3d-force-graph.min.js";
