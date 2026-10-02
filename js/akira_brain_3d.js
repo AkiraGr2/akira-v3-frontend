@@ -402,11 +402,15 @@
       .slice(0,12);
     if(type) type.textContent = String(node.node_type || groupForNode(node)).toUpperCase();
     if(title) title.textContent = String(node.label || node.id);
+    const clusterId = communityState.assignments.get(String(node.id)) || "—";
+    const importance = Math.round((Number(node._importance)||0) * 100);
     if(meta) meta.innerHTML =
       "<div>PESO<b>" + (Number(node.weight)||0).toFixed(2) + "</b></div>" +
       "<div>REUTILIZACIÓN<b>" + (Number(node.reuse_count)||0) + "</b></div>" +
       "<div>CONFIANZA<b>" + (Number(node.confidence)||0).toFixed(2) + "</b></div>" +
-      "<div>GRUPO<b>" + escapeHtml(groupForNode(node)) + "</b></div>";
+      "<div>IMPORTANCIA<b>" + importance + "%</b></div>" +
+      "<div>GRUPO<b>" + escapeHtml(groupForNode(node)) + "</b></div>" +
+      "<div>CLUSTER<b>" + escapeHtml(clusterId) + "</b></div>";
     if(rels){
       rels.innerHTML = relations.length
         ? relations.map(r => "<div class='brain-relation'><span>" + escapeHtml(r.label) + "</span><span>" + escapeHtml(r.type) + "</span></div>").join("")
@@ -756,6 +760,7 @@
       setModeUI("2d");
       updateOrbitUI();
       updateStats();
+      fetchGraph();
       if(window.AkiraMembrane && window.AkiraMembrane.resizeMembrane) window.AkiraMembrane.resizeMembrane();
     },650);
   });
