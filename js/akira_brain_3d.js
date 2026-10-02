@@ -1429,6 +1429,11 @@
           _weight: Number(e.weight) || 0.5
         }));
 
+      // Compute the same real communities used by the 2D Brain before
+      // seeding 3D, so the 3D sectors are based on the actual graph state.
+      const preCore = nodes.find(n => n._isCore);
+      computeCommunities(nodes, links, preCore ? preCore.id : null);
+
       // Real graph distance from Akira drives the 3D radial layers.
       const adjacency = new Map();
       links.forEach(e => {
@@ -1500,8 +1505,6 @@
       });
 
       graphData = {nodes, links};
-      const coreNode = nodes.find(n => n._isCore);
-      computeCommunities(nodes, links, coreNode ? coreNode.id : null);
       const liveIds = new Set(nodes.map(n => String(n.id)));
       glowNodeObjects.forEach((_, id) => {
         if(!liveIds.has(String(id))) glowNodeObjects.delete(id);
