@@ -39,6 +39,12 @@
     "https://unpkg.com/3d-force-graph@1.80.1/dist/3d-force-graph.min.js"
   ];
   const glowNodeObjects = new Map();
+  let neuralParticleField = null;
+  let neuralParticleMaterial = null;
+  const NEURAL_NODE_PALETTE = [
+    "#e8f7ff", "#cfeeff", "#d9d6ff", "#eee5ff",
+    "#c8f4e2", "#f1f4ff", "#bfe8f5"
+  ];
   let communityState = {
     assignments: new Map(),
     centers: new Map(),
@@ -576,6 +582,9 @@
     const body = group.userData.body;
     const glow = group.userData.glow;
     const ring = group.userData.ring;
+    const coronaA = group.userData.coronaA;
+    const coronaB = group.userData.coronaB;
+    const coronaHalo = group.userData.coronaHalo;
 
     if(body && body.material){
       body.material.color.setHex(selected ? 0xffffff : (core ? 0xff6b6b : color));
@@ -593,10 +602,22 @@
       if(ring.material){
         ring.material.color.setHex(
           selected ? 0xffffff :
-          core ? 0xff6b6b :
+          core ? 0xff8991 :
           hexColor(colorForNode(n,false))
         );
-        ring.material.opacity = dim ? 0.08 : 0.7;
+        ring.material.opacity = dim ? 0.06 : (core ? 0.72 : 0.38);
+      }
+    }
+    if(coronaA || coronaB || coronaHalo){
+      const coronaVisible = core && !dim;
+      if(coronaA) coronaA.visible = coronaVisible;
+      if(coronaB) coronaB.visible = coronaVisible;
+      if(coronaHalo) coronaHalo.visible = coronaVisible;
+      [coronaA, coronaB].forEach(c => {
+        if(c && c.material) c.material.opacity = selected ? 0.82 : 0.46;
+      });
+      if(coronaHalo && coronaHalo.material){
+        coronaHalo.material.opacity = selected ? 0.12 : 0.075;
       }
     }
     if(group.userData.renderRadius){
@@ -617,9 +638,9 @@
   }
 
   function makeGlowNode(n){
-    // The UMD graph owns its Three.js instance. Custom node objects are
-    // optional; when no global THREE exists, let the library render its native
-    // spheres instead of failing the entire 3D view.
+    // 3D uses a dedicated neural visual language rather than the categorical
+    // 2D palette. The graph semantics stay real; only their visual encoding
+    // changes in this view.
     const THREE = window.THREE;
     if(!THREE) return null;
     const key = String(n.id);
@@ -628,6 +649,7 @@
       syncGlowNodeVisual(cached,n);
       return cached;
     }
+
     const group = new THREE.Group();
     const base = groupForNode(n);
     const color = hexColor(colorForNode(n,false));
@@ -638,19 +660,22 @@
     const glowMat = new THREE.MeshBasicMaterial({
       color: selected ? 0xffffff : color,
       transparent:true,
-      opacity: selected ? 0.20 : (core ? 0.18 : 0.09),
+      opacity: selected ? 0.24 : (core ? 0.24 : 0.075),
       blending:THREE.AdditiveBlending,
       depthWrite:false
     });
-    const glow = new THREE.Mesh(new THREE.SphereGeometry(radius * (core ? 1.9 : 1.65), 16, 16), glowMat);
+    const glow = new THREE.Mesh(
+      new THREE.SphereGeometry(radius * (core ? 2.25 : 1.72), 18, 18),
+      glowMat
+    );
     group.add(glow);
 
     const mat = new THREE.MeshStandardMaterial({
-      color: selected ? 0xffffff : (core ? 0xff6b6b : color),
-      emissive:selected ? 0xffffff : (core ? 0x551111 : color),
-      emissiveIntensity:selected ? 1.6 : (core ? 1.25 : 0.75),
-      roughness:0.28,
-      metalness:0.18,
+      color: selected ? 0xffffff : (core ? 0xff6b73 : color),
+      emissive:selected ? 0xffffff : (core ? 0x6b1820 : color),
+      emissiveIntensity:selected ? 1.9 : (core ? 1.55 : 0.58),
+      roughness:0.24,
+      metalness:0.22,
       transparent:true,
       opacity:1
     });
@@ -663,23 +688,67 @@
     group.add(body);
 
     const ringMat = new THREE.MeshBasicMaterial({
-      color:selected ? 0xffffff : 0xff6b6b,
+      color:selected ? 0xffffff : (core ? 0xff8991 : color),
       transparent:true,
-      opacity:0.7,
+      opacity:core ? 0.72 : 0.38,
       blending:THREE.AdditiveBlending,
       depthWrite:false
     });
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(radius * 1.35, Math.max(0.35,radius*0.075), 10, 32),
+      new THREE.TorusGeometry(radius * 1.35, Math.max(0.28,radius*0.055), 10, 40),
       ringMat
     );
     ring.rotation.x = Math.PI / 2;
     ring.visible = core || selected;
     group.add(ring);
 
+    // Akira gets a second tilted corona: a soft "solar" identity rather than
+    // the categorical colors used by the 2D membrane.
+    let coronaA = null;
+    let coronaB = null;
+    let coronaHalo = null;
+    if(core){
+      const coronaMat = new THREE.MeshBasicMaterial({
+        color:0xff7a82,
+        transparent:true,
+        opacity:0.46,
+        blending:THREE.AdditiveBlending,
+        depthWrite:false
+      });
+      coronaA = new THREE.Mesh(
+        new THREE.TorusGeometry(radius * 1.72, Math.max(0.22,radius*0.045), 12, 48),
+        coronaMat.clone()
+      );
+      coronaB = new THREE.Mesh(
+        new THREE.TorusGeometry(radius * 1.98, Math.max(0.16,radius*0.03), 10, 44),
+        coronaMat.clone()
+      );
+      coronaA.rotation.x = Math.PI / 2;
+      coronaA.rotation.y = 0.18;
+      coronaB.rotation.x = Math.PI / 2 + 0.48;
+      coronaB.rotation.z = 0.72;
+      group.add(coronaA, coronaB);
+
+      const haloMat = new THREE.MeshBasicMaterial({
+        color:0xff5f69,
+        transparent:true,
+        opacity:0.075,
+        blending:THREE.AdditiveBlending,
+        depthWrite:false
+      });
+      coronaHalo = new THREE.Mesh(
+        new THREE.SphereGeometry(radius * 2.55, 20, 20),
+        haloMat
+      );
+      group.add(coronaHalo);
+    }
+
     group.userData.ring = ring;
     group.userData.glow = glow;
     group.userData.body = body;
+    group.userData.coronaA = coronaA;
+    group.userData.coronaB = coronaB;
+    group.userData.coronaHalo = coronaHalo;
     group.userData.baseColor = color;
     group.userData.renderRadius = radius;
     glowNodeObjects.set(key, group);
@@ -688,9 +757,11 @@
   }
 
   function colorForNode(n, bright){
-    const base = GROUP_COLORS[groupForNode(n)] || GROUP_COLORS.other;
     if(bright) return "#ffffff";
-    return base;
+    const id = String(n && n.id || n && n.label || "");
+    let hash = 0;
+    for(let i=0;i<id.length;i++) hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+    return NEURAL_NODE_PALETTE[Math.abs(hash) % NEURAL_NODE_PALETTE.length];
   }
 
   function nodeId(x){
@@ -1538,10 +1609,67 @@
     }
   }
 
+  function ensureNeuralParticleField(){
+    const THREE = window.THREE;
+    if(!THREE || !fg || neuralParticleField) return;
+    try{
+      const scene = typeof fg.scene === "function" ? fg.scene() : null;
+      if(!scene) return;
+
+      const count = 190;
+      const positions = new Float32Array(count * 3);
+      const speeds = new Float32Array(count);
+      for(let i=0;i<count;i++){
+        const a = i * 2.3999632297;
+        const r = 260 + ((i * 83) % 720);
+        const y = -320 + ((i * 137) % 640);
+        positions[i*3] = Math.cos(a) * r;
+        positions[i*3+1] = y;
+        positions[i*3+2] = Math.sin(a) * r;
+        speeds[i] = 0.025 + ((i * 17) % 9) * 0.004;
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(positions,3));
+      neuralParticleMaterial = new THREE.PointsMaterial({
+        color:0xb8c8da,
+        size:1.15,
+        sizeAttenuation:true,
+        transparent:true,
+        opacity:0.13,
+        depthWrite:false
+      });
+      neuralParticleField = new THREE.Points(geometry, neuralParticleMaterial);
+      neuralParticleField.userData.speeds = speeds;
+      neuralParticleField.renderOrder = -1;
+      scene.add(neuralParticleField);
+    }catch(err){
+      console.warn("[akira-brain-3d] particles", err);
+      neuralParticleField = null;
+      neuralParticleMaterial = null;
+    }
+  }
+
+  function animateNeuralParticleField(delta){
+    if(!neuralParticleField) return;
+    const geometry = neuralParticleField.geometry;
+    const attr = geometry && geometry.getAttribute ? geometry.getAttribute("position") : null;
+    const speeds = neuralParticleField.userData && neuralParticleField.userData.speeds;
+    if(!attr || !speeds) return;
+    const pos = attr.array;
+    for(let i=0;i<speeds.length;i++){
+      const idx=i*3+1;
+      pos[idx] -= speeds[i] * delta * 60;
+      if(pos[idx] < -360) pos[idx] = 360;
+    }
+    attr.needsUpdate = true;
+  }
+
   function apply3dRuntime(){
     if(!fg) return;
 
-    _set3dMethod("backgroundColor", "#05060a");
+    _set3dMethod("backgroundColor", "#151a29");
+    ensureNeuralParticleField();
 
     try {
       const chargeForce = fg.d3Force("charge");
@@ -1622,28 +1750,31 @@
       nodeIdPassesActiveFilters(l.target)
     );
 
+    // Connections are intentionally subordinate to nodes in 3D. They
+    // behave like translucent neural fibers and brighten only during focus.
     _set3dMethod("linkColor", l =>
-      isRelatedLink(l) ? "#c4b5fd" :
-      (isSemanticRouteLink(l) ? "#ffffff" : linkClusterType(l))
+      isRelatedLink(l) ? "#d8ecff" :
+      (isSemanticRouteLink(l) ? "#ffffff" :
+      (isCoreLink(l) ? "#ff9aa2" : "#91a4bd"))
     );
 
     _set3dMethod("linkWidth", l => {
-      if(isRelatedLink(l)) return Math.min(5, 1.5 + (Number(l.weight)||0.5));
-      if(isSemanticRouteLink(l)) return Math.min(3.8, 1.1 + (Number(l.weight)||0.5));
-      if(isCoreLink(l)) return 0.55;
-      return Math.min(1.6, 0.35 + (Number(l.weight)||0.5) * 0.4);
+      if(isRelatedLink(l)) return Math.min(2.2, 0.72 + (Number(l.weight)||0.5) * 0.55);
+      if(isSemanticRouteLink(l)) return Math.min(1.9, 0.65 + (Number(l.weight)||0.5) * 0.42);
+      if(isCoreLink(l)) return 0.34;
+      return Math.min(0.72, 0.18 + (Number(l.weight)||0.5) * 0.16);
     });
 
     _set3dMethod("linkOpacity", l => {
-      if(selectedNodeId && isRelatedLink(l)) return 0.90;
-      if(selectedNodeId && !isRelatedLink(l) && !isSemanticRouteLink(l)) return 0.08;
+      if(selectedNodeId && isRelatedLink(l)) return 0.48;
+      if(selectedNodeId && !isRelatedLink(l) && !isSemanticRouteLink(l)) return 0.035;
       const a = nodeId(l.source), b = nodeId(l.target);
       const ca = communityState.assignments.get(a);
       const cb = communityState.assignments.get(b);
-      if(isSemanticRouteLink(l)) return 0.62;
-      if(isCoreLink(l)) return 0.12;
-      if(ca && cb && ca === cb && ca !== "core") return 0.32;
-      return 0.18;
+      if(isSemanticRouteLink(l)) return 0.56;
+      if(isCoreLink(l)) return 0.10;
+      if(ca && cb && ca === cb && ca !== "core") return 0.13;
+      return 0.085;
     });
 
     _set3dMethod("linkDirectionalArrowLength", l =>
@@ -1654,19 +1785,19 @@
       (isSemanticRouteLink(l) ? "#ffffff" : "#ff8a8a")
     );
     _set3dMethod("linkDirectionalParticles", l =>
-      isRelatedLink(l) ? 4 :
-      (isSemanticRouteLink(l) ? 2 : (selectedNodeId ? 0 : 1))
+      isRelatedLink(l) ? 2 :
+      (isSemanticRouteLink(l) ? 1 : 0)
     );
     _set3dMethod("linkDirectionalParticleWidth", l =>
-      isRelatedLink(l) ? 1.7 : (isSemanticRouteLink(l) ? 1.2 : 0.8)
+      isRelatedLink(l) ? 1.05 : 0.72
     );
     _set3dMethod("linkDirectionalParticleColor", l =>
-      isRelatedLink(l) ? "#ffffff" :
-      (isSemanticRouteLink(l) ? "#ffffff" : "#7c8795")
+      isRelatedLink(l) ? "#f4fbff" :
+      (isSemanticRouteLink(l) ? "#ffffff" : "#b9c8d8")
     );
     _set3dMethod("linkDirectionalParticleSpeed", l =>
-      isRelatedLink(l) ? 0.025 :
-      (isSemanticRouteLink(l) ? 0.017 : 0.009)
+      isRelatedLink(l) ? 0.018 :
+      (isSemanticRouteLink(l) ? 0.012 : 0.007)
     );
 
     _set3dMethod("showNavInfo", false);
@@ -1731,7 +1862,7 @@
 
       try {
         fg
-          .backgroundColor("#05060a")
+          .backgroundColor("#151a29")
           .enableNodeDrag(true)
           .enablePointerInteraction(true);
       } catch(_) {}
@@ -1779,22 +1910,39 @@
       try {
         fg.onRenderFramePre(() => {
           const t = performance.now() * 0.002;
+          animateNeuralParticleField(0.34);
           glowNodeObjects.forEach((obj) => {
             const phase = String(obj.userData && obj.userData.nodeId || "").length;
             if(obj.userData && obj.userData.ring){
-              const pulse = 1 + Math.sin(t + phase) * 0.06;
+              const pulse = 1 + Math.sin(t + phase) * 0.055;
               obj.userData.ring.scale.setScalar(pulse);
-              obj.userData.ring.rotation.z += obj.userData.nodeId === String(selectedNodeId) ? 0.006 : 0.0025;
+              obj.userData.ring.rotation.z += obj.userData.nodeId === String(selectedNodeId) ? 0.005 : 0.002;
+            }
+            if(obj.userData && obj.userData.coronaA){
+              const pulse = 1 + Math.sin(t * 0.72 + phase) * 0.045;
+              obj.userData.coronaA.scale.setScalar(pulse);
+              obj.userData.coronaA.rotation.z += 0.0018;
+              obj.userData.coronaA.rotation.y += 0.0011;
+            }
+            if(obj.userData && obj.userData.coronaB){
+              const pulse = 1 + Math.sin(t * 0.58 + phase + 1.7) * 0.06;
+              obj.userData.coronaB.scale.setScalar(pulse);
+              obj.userData.coronaB.rotation.z -= 0.0012;
+              obj.userData.coronaB.rotation.x += 0.0007;
+            }
+            if(obj.userData && obj.userData.coronaHalo){
+              const pulse = 0.97 + Math.sin(t * 0.64 + phase) * 0.035;
+              obj.userData.coronaHalo.scale.setScalar(pulse);
             }
             if(obj.userData && obj.userData.glow){
               const importance = Number(obj.userData.importance) || 0.2;
-              const pulse = 0.95 + (Math.sin(t * (1.0 + importance * 0.5) + phase) + 1) * (0.055 + importance * 0.035);
+              const pulse = 0.95 + (Math.sin(t * (1.0 + importance * 0.5) + phase) + 1) * (0.05 + importance * 0.03);
               obj.userData.glow.scale.setScalar(pulse);
             }
             if(obj.userData && obj.userData.body){
               const importance = Number(obj.userData.importance) || 0.2;
-              obj.userData.body.rotation.y += 0.0008 + importance * 0.0014;
-              obj.userData.body.rotation.x += 0.0003 + importance * 0.0005;
+              obj.userData.body.rotation.y += 0.0006 + importance * 0.0011;
+              obj.userData.body.rotation.x += 0.00025 + importance * 0.0004;
             }
           });
         });
@@ -1933,8 +2081,17 @@
       document.querySelectorAll('script[data-akira-script="three"],script[data-akira-script="force-graph-3d"]')
         .forEach(el => { try { el.remove(); } catch(_) {} });
     }catch(_) {}
-    threeLoading = null;
+    threeModuleLoading = null;
     forceGraphLoading = null;
+    if(neuralParticleField){
+      try{
+        const scene = fg && typeof fg.scene === "function" ? fg.scene() : null;
+        if(scene) scene.remove(neuralParticleField);
+      }catch(_){}
+      try{ neuralParticleField.geometry.dispose(); }catch(_){}
+      neuralParticleField = null;
+      neuralParticleMaterial = null;
+    }
     if(container){
       container.innerHTML = '<div style="padding:24px;color:#9ca3af;font-family:monospace;text-align:center">Cargando motor 3D…</div>';
     }
