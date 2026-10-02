@@ -46,6 +46,12 @@
     paths: []
   };
 
+  let explorerState = {
+    depth: 0,
+    visibleNodeIds: new Set(),
+    visibleLinkIds: new Set()
+  };
+
   function authHeaders(){
     try {
       return typeof window.akiraAuthHeaders === "function"
@@ -99,6 +105,141 @@
       const a = nodeId(l.source), b = nodeId(l.target);
       return (a === String(selectedNodeId) && b === id) || (b === String(selectedNodeId) && a === id);
     });
+  }
+
+  function computeExplorerScope(depth){
+    const d = Math.max(0, Math.min(3, Number(depth) || 0));
+
+    if(!selectedNodeId || d === 0){
+      explorerState = {
+        depth: 0,
+        visibleNodeIds: new Set(graphData.nodes.map(n => String(n.id))),
+        visibleLinkIds: new Set(graphData.links.map(l => String(l.id)))
+      };
+      return explorerState;
+    }
+
+    const root = String(selectedNodeId);
+    const distance = new Map([[root, 0]]);
+    const byNode = new Map();
+
+    for(const l of graphData.links){
+      const a = nodeId(l.source);
+      const b = nodeId(l.target);
+      if(a === b) continue;
+      if(!byNode.has(a)) byNode.set(a, []);
+      if(!byNode.has(b)) byNode.set(b, []);
+      byNode.get(a).push({other:b});
+      byNode.get(b).push({other:a});
+    }
+
+    const queue = [root];
+    while(queue.length){
+      const current = queue.shift();
+      const currentDistance = distance.get(current) || 0;
+      if(currentDistance >= d) continue;
+
+      for(const item of byNode.get(current) || []){
+        if(!distance.has(item.other)){
+          distance.set(item.other, currentDistance + 1);
+          queue.push(item.other);
+        }
+      }
+    }
+
+    const visibleNodeIds = new Set(distance.keys());
+    const visibleLinkIds = new Set();
+
+    for(const l of graphData.links){
+      const a = nodeId(l.source);
+      const b = nodeId(l.target);
+      if(visibleNodeIds.has(a) && visibleNodeIds.has(b)){
+        visibleLinkIds.add(String(l.id));
+      }
+    }
+
+    explorerState = {
+      depth: d,
+      visibleNodeIds,
+      visibleLinkIds
+    };
+    return explorerState;
+  }
+
+  function isExplorerVisibleNode(n){
+    return explorerState.depth === 0 || explorerState.visibleNodeIds.has(String(n.id));
+  }
+
+  function isExplorerVisibleLink(l){
+    return explorerState.depth === 0 || explorerState.visibleLinkIds.has(String(l.id));
+  }
+
+  function dispatchExplorerState(){
+    computeExplorerScope(explorerState.depth);
+    try {
+      window.dispatchEvent(new CustomEvent("akira:brain-explore", {
+        detail:{
+          depth:explorerState.depth,
+          visibleNodeIds:[...explorerState.visibleNodeIds],
+          visibleLinkIds:[...explorerState.visibleLinkIds],
+          visibleNodes:explorerState.visibleNodeIds.size,
+          visibleLinks:explorerState.visibleLinkIds.size
+        }
+      }));
+    } catch(_) {}
+
+    const status = document.getElementById("brainExploreStatus");
+    if(status){
+      status.textContent = explorerState.depth === 0
+        ? "MEMORIA · TODO"
+        : "MEMORIA · " + explorerState.depth + " SALTO" + (explorerState.depth === 1 ? "" : "S");
+    }
+  }
+
+  function setExplorerDepth(depth){
+    if(!selectedNodeId) return;
+    computeExplorerScope(depth);
+    apply3dRuntime();
+    dispatchExplorerState();
+    if(explorerState.depth > 0) setTimeout(focusExplorerScope, 90);
+    hudText();
+  }
+
+  function focusExplorerScope(){
+    if(!fg || explorerState.depth === 0) return;
+
+    const scoped = graphData.nodes.filter(
+      n => isExplorerVisibleNode(n) &&
+           Number.isFinite(Number(n.x)) &&
+           Number.isFinite(Number(n.y)) &&
+           Number.isFinite(Number(n.z))
+    );
+    if(!scoped.length) return;
+
+    let cx=0,cy=0,cz=0;
+    for(const n of scoped){
+      cx += Number(n.x) || 0;
+      cy += Number(n.y) || 0;
+      cz += Number(n.z) || 0;
+    }
+    cx/=scoped.length; cy/=scoped.length; cz/=scoped.length;
+
+    let radius=50;
+    for(const n of scoped){
+      const dx=(Number(n.x)||0)-cx;
+      const dy=(Number(n.y)||0)-cy;
+      const dz=(Number(n.z)||0)-cz;
+      radius=Math.max(radius,Math.sqrt(dx*dx+dy*dy+dz*dz));
+    }
+
+    const distance=Math.max(110,Math.min(520,radius*2.7));
+    try{
+      fg.cameraPosition(
+        {x:cx+distance*0.78,y:cy+distance*0.5,z:cz+distance*0.78},
+        {x:cx,y:cy,z:cz},
+        700
+      );
+    }catch(_) {}
   }
 
   function nodeVisualRadius(n){
@@ -706,7 +847,9 @@
     const n = graphData.nodes.find(x => String(x.id) === String(selectedNodeId));
     const label = n ? String(n.label || n.id) : selectedNodeId;
     const degree = graphData.links.filter(l => isRelatedLink(l)).length;
-    hud.innerHTML = "<strong>" + escapeHtml(label) + "</strong> · " + degree + " conexiones · " + communitySummary();
+    hud.innerHTML = "<strong>" + escapeHtml(label) + "</strong> · " + degree +
+      " conexiones · " + communitySummary() +
+      (explorerState.depth ? " · " + explorerState.visibleNodeIds.size + " visibles" : " · red completa");
   }
 
   function escapeHtml(s){
@@ -815,9 +958,10 @@
       })
       .nodeResolution(10)
       .nodeRelSize(5.5)
-      .nodeVisibility(true)
+      .nodeVisibility(n => isExplorerVisibleNode(n))
       .nodeThreeObject(n => makeGlowNode(n) || undefined)
       .nodeThreeObjectExtend(false)
+      .linkVisibility(l => isExplorerVisibleLink(l))
       .linkColor(l => isRelatedLink(l) ? "#c4b5fd" : (isSemanticRouteLink(l) ? "#ffffff" : linkClusterType(l)))
       .linkWidth(l => isRelatedLink(l) ? Math.min(5, 1.5 + (Number(l.weight)||0.5)) : (isSemanticRouteLink(l) ? Math.min(3.8, 1.1 + (Number(l.weight)||0.5)) : Math.min(1.6, 0.35 + (Number(l.weight)||0.5) * 0.4)))
       .linkOpacity(l => {
@@ -890,6 +1034,7 @@
         .onNodeClick((node) => {
           selectedNodeId = String(node.id);
           computeSemanticRoute();
+          setExplorerDepth(1);
           hudText();
           apply3dRuntime();
           dispatchSemanticRoute();
@@ -914,7 +1059,8 @@
         })
         .onBackgroundClick(() => {
           selectedNodeId = null;
-          semanticRoute = {nodeIds:new Set(),linkIds:new Set(),bridges:0,hops:0};
+          semanticRoute = {nodeIds:new Set(),linkIds:new Set(),bridges:0,hops:0,paths:[]};
+          explorerState = {depth:0,visibleNodeIds:new Set(),visibleLinkIds:new Set()};
           hudText();
           apply3dRuntime();
           dispatchSemanticRoute();
@@ -961,6 +1107,11 @@
     const id = ev && ev.detail ? ev.detail.nodeId : null;
     selectedNodeId = id ? String(id) : null;
     computeSemanticRoute();
+    if(selectedNodeId) setExplorerDepth(1);
+    else {
+      explorerState = {depth:0,visibleNodeIds:new Set(),visibleLinkIds:new Set()};
+      dispatchExplorerState();
+    }
     hudText();
     apply3dRuntime();
     dispatchSemanticRoute();
@@ -1003,11 +1154,31 @@
     selectedNodeId = null;
     hoveredNodeId = null;
     semanticRoute = {nodeIds:new Set(),linkIds:new Set(),bridges:0,hops:0,paths:[]};
+    explorerState = {depth:0,visibleNodeIds:new Set(),visibleLinkIds:new Set()};
     hudText();
     updateContextPanel();
     apply3dRuntime();
     dispatchSemanticRoute();
     try { window.dispatchEvent(new CustomEvent("akira:brain-select",{detail:{nodeId:null}})); } catch(_) {}
+  };
+
+  window.akiraBrainExploreDepth = function(depth){
+    setExplorerDepth(depth);
+  };
+
+  window.akiraBrainExploreAll = function(){
+    if(selectedNodeId) {
+      computeExplorerScope(0);
+    } else {
+      explorerState = {
+        depth:0,
+        visibleNodeIds:new Set(graphData.nodes.map(n => String(n.id))),
+        visibleLinkIds:new Set(graphData.links.map(l => String(l.id)))
+      };
+    }
+    apply3dRuntime();
+    dispatchExplorerState();
+    hudText();
   };
 
   window.akiraBrainToggleOrbit = function(){
