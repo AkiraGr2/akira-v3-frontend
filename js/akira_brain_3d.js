@@ -34,7 +34,15 @@
   let communityState = {
     assignments: new Map(),
     centers: new Map(),
+    hubs: new Set(),
     count: 0
+  };
+
+  let semanticRoute = {
+    nodeIds: new Set(),
+    linkIds: new Set(),
+    bridges: 0,
+    hops: 0
   };
 
   function authHeaders(){
@@ -106,6 +114,7 @@
     const selected = String(n.id) === String(selectedNodeId);
     const core = !!n._isCore;
     const related = nodeIsRelated(n);
+    const route = isSemanticRouteNode(n);
     const hub = !!n._isCommunityHub;
     const dim = !!selectedNodeId && !selected && !related;
     const body = group.userData.body;
@@ -115,13 +124,13 @@
     if(body && body.material){
       body.material.color.setHex(selected ? 0xffffff : (core ? 0xff6b6b : color));
       body.material.emissive.setHex(selected ? 0xffffff : (core ? 0x551111 : color));
-      body.material.emissiveIntensity = selected ? 1.8 : (core ? 1.25 : 0.75);
+      body.material.emissiveIntensity = selected ? 1.8 : (route ? 1.05 : (core ? 1.25 : 0.75));
       body.material.opacity = dim ? 0.16 : 1;
       body.material.transparent = dim;
     }
     if(glow && glow.material){
       glow.material.color.setHex(selected ? 0xffffff : color);
-      glow.material.opacity = dim ? 0.025 : (selected ? 0.25 : (core ? 0.18 : 0.09));
+      glow.material.opacity = dim ? 0.025 : (selected ? 0.25 : (route ? 0.13 : (core ? 0.18 : 0.09)));
     }
     if(ring){
       ring.visible = core || selected || hub;
@@ -419,6 +428,124 @@
     return force;
   }
 
+  function computeSemanticRoute(){
+    const empty = {
+      nodeIds: new Set(),
+      linkIds: new Set(),
+      bridges: 0,
+      hops: 0
+    };
+
+    if(!selectedNodeId || !graphData.nodes.length || !communityState.assignments.size){
+      semanticRoute = empty;
+      return semanticRoute;
+    }
+
+    const selected = String(selectedNodeId);
+    const selectedCluster = communityState.assignments.get(selected);
+    if(!selectedCluster){
+      semanticRoute = empty;
+      return semanticRoute;
+    }
+
+    const byNode = new Map();
+    for(const l of graphData.links){
+      const a = nodeId(l.source), b = nodeId(l.target);
+      if(!byNode.has(a)) byNode.set(a, []);
+      if(!byNode.has(b)) byNode.set(b, []);
+      byNode.get(a).push({link:l, other:b});
+      byNode.get(b).push({link:l, other:a});
+    }
+
+    const routeNodes = new Set([selected]);
+    const routeLinks = new Set();
+    const candidates = [];
+
+    for(const first of byNode.get(selected) || []){
+      const firstCluster = communityState.assignments.get(first.other);
+      if(!firstCluster || firstCluster === selectedCluster) continue;
+
+      const firstWeight = Number(first.link.weight) || 0.5;
+      if(communityState.hubs.has(first.other)){
+        candidates.push({
+          score:firstWeight * 1.2,
+          nodes:[selected,first.other],
+          links:[String(first.link.id)],
+          hops:1
+        });
+        continue;
+      }
+
+      for(const second of byNode.get(first.other) || []){
+        const secondId = second.other;
+        const secondCluster = communityState.assignments.get(secondId);
+        if(secondId === selected || !secondCluster || secondCluster === selectedCluster) continue;
+        if(!communityState.hubs.has(secondId)) continue;
+
+        const secondWeight = Number(second.link.weight) || 0.5;
+        candidates.push({
+          score:firstWeight + secondWeight * 0.9,
+          nodes:[selected,first.other,secondId],
+          links:[String(first.link.id),String(second.link.id)],
+          hops:2
+        });
+      }
+    }
+
+    candidates.sort((a,b) => b.score-a.score || a.hops-b.hops);
+    const seenTargetClusters = new Set();
+
+    for(const candidate of candidates){
+      const target = candidate.nodes[candidate.nodes.length - 1];
+      const targetCluster = communityState.assignments.get(target) || target;
+      if(seenTargetClusters.has(targetCluster)) continue;
+      seenTargetClusters.add(targetCluster);
+
+      candidate.nodes.forEach(id => routeNodes.add(String(id)));
+      candidate.links.forEach(id => routeLinks.add(String(id)));
+
+      if(seenTargetClusters.size >= 5) break;
+    }
+
+    semanticRoute = {
+      nodeIds: routeNodes,
+      linkIds: routeLinks,
+      bridges: seenTargetClusters.size,
+      hops: candidates.length ? Math.max(...[...routeLinks].map(() => 1)) : 0
+    };
+
+    let maxHops = 0;
+    for(const candidate of candidates){
+      if(candidate.links.some(id => routeLinks.has(String(id)))){
+        maxHops = Math.max(maxHops,candidate.hops);
+      }
+    }
+    semanticRoute.hops = maxHops;
+    return semanticRoute;
+  }
+
+  function isSemanticRouteLink(l){
+    return semanticRoute.linkIds.has(String(l.id));
+  }
+
+  function isSemanticRouteNode(n){
+    return semanticRoute.nodeIds.has(String(n.id));
+  }
+
+  function dispatchSemanticRoute(){
+    computeSemanticRoute();
+    try {
+      window.dispatchEvent(new CustomEvent("akira:brain-route", {
+        detail:{
+          nodeIds:[...semanticRoute.nodeIds],
+          linkIds:[...semanticRoute.linkIds],
+          bridges:semanticRoute.bridges,
+          hops:semanticRoute.hops
+        }
+      }));
+    } catch(_) {}
+  }
+
   function communitySummary(){
     if(!communityState.count) return "";
     return communityState.count + " CLUSTERS";
@@ -487,6 +614,10 @@
       rels.innerHTML = relations.length
         ? relations.map(r => "<div class='brain-relation'><span>" + escapeHtml(r.label) + "</span><span>" + escapeHtml(r.type) + "</span></div>").join("")
         : "<div style='color:#8a8a93;font-size:10px'>Sin relaciones visibles.</div>";
+      if(semanticRoute.bridges){
+        rels.innerHTML += "<div class='brain-relation'><span>RUTA</span><span>" +
+          semanticRoute.bridges + " comunidades · " + semanticRoute.hops + " saltos</span></div>";
+      }
     }
   }
 
@@ -628,25 +759,26 @@
       .nodeVisibility(true)
       .nodeThreeObject(n => makeGlowNode(n) || undefined)
       .nodeThreeObjectExtend(false)
-      .linkColor(l => isRelatedLink(l) ? "#c4b5fd" : linkClusterType(l))
-      .linkWidth(l => isRelatedLink(l) ? Math.min(5, 1.5 + (Number(l.weight)||0.5)) : Math.min(1.6, 0.35 + (Number(l.weight)||0.5) * 0.4))
+      .linkColor(l => isRelatedLink(l) ? "#c4b5fd" : (isSemanticRouteLink(l) ? "#ffffff" : linkClusterType(l)))
+      .linkWidth(l => isRelatedLink(l) ? Math.min(5, 1.5 + (Number(l.weight)||0.5)) : (isSemanticRouteLink(l) ? Math.min(3.8, 1.1 + (Number(l.weight)||0.5)) : Math.min(1.6, 0.35 + (Number(l.weight)||0.5) * 0.4)))
       .linkOpacity(l => {
-        if(selectedNodeId && !isRelatedLink(l)) return 0.10;
+        if(selectedNodeId && !isRelatedLink(l) && !isSemanticRouteLink(l)) return 0.08;
         const a = nodeId(l.source), b = nodeId(l.target);
         const ca = communityState.assignments.get(a);
         const cb = communityState.assignments.get(b);
+        if(isSemanticRouteLink(l)) return 0.62;
         if(ca && cb && ca === cb && ca !== "core") return 0.32;
         const na = graphData.nodes.find(x => String(x.id) === a);
         const nb = graphData.nodes.find(x => String(x.id) === b);
         if(na?._isCore || nb?._isCore) return 0.42;
         return 0.18;
       })
-      .linkDirectionalArrowLength(l => isRelatedLink(l) ? 4 : 0)
-      .linkDirectionalArrowColor(l => isRelatedLink(l) ? "#ddd6fe" : "#5b6470")
-      .linkDirectionalParticles(l => isRelatedLink(l) ? 4 : (selectedNodeId ? 0 : 1))
-      .linkDirectionalParticleWidth(l => isRelatedLink(l) ? 1.7 : 0.8)
-      .linkDirectionalParticleColor(l => isRelatedLink(l) ? "#ffffff" : "#7c8795")
-      .linkDirectionalParticleSpeed(l => isRelatedLink(l) ? 0.025 : 0.009)
+      .linkDirectionalArrowLength(l => isRelatedLink(l) || isSemanticRouteLink(l) ? 4 : 0)
+      .linkDirectionalArrowColor(l => isRelatedLink(l) ? "#ddd6fe" : (isSemanticRouteLink(l) ? "#ffffff" : "#5b6470"))
+      .linkDirectionalParticles(l => isRelatedLink(l) ? 4 : (isSemanticRouteLink(l) ? 2 : (selectedNodeId ? 0 : 1)))
+      .linkDirectionalParticleWidth(l => isRelatedLink(l) ? 1.7 : (isSemanticRouteLink(l) ? 1.2 : 0.8))
+      .linkDirectionalParticleColor(l => isRelatedLink(l) ? "#ffffff" : (isSemanticRouteLink(l) ? "#ffffff" : "#7c8795"))
+      .linkDirectionalParticleSpeed(l => isRelatedLink(l) ? 0.025 : (isSemanticRouteLink(l) ? 0.017 : 0.009))
       .showNavInfo(false)
       .controlType("orbit")
       .enablePointerInteraction(true)
@@ -698,8 +830,10 @@
         .nodeLabel(n => escapeHtml(n.label || n.id))
         .onNodeClick((node) => {
           selectedNodeId = String(node.id);
+          computeSemanticRoute();
           hudText();
           apply3dRuntime();
+          dispatchSemanticRoute();
           try {
             window.dispatchEvent(new CustomEvent("akira:brain-select",{detail:{nodeId:selectedNodeId}}));
           } catch(_) {}
@@ -721,8 +855,10 @@
         })
         .onBackgroundClick(() => {
           selectedNodeId = null;
+          semanticRoute = {nodeIds:new Set(),linkIds:new Set(),bridges:0,hops:0};
           hudText();
           apply3dRuntime();
+          dispatchSemanticRoute();
           try {
             window.dispatchEvent(new CustomEvent("akira:brain-select",{detail:{nodeId:null}}));
           } catch(_) {}
@@ -765,8 +901,10 @@
   window.addEventListener("akira:brain-select", function(ev){
     const id = ev && ev.detail ? ev.detail.nodeId : null;
     selectedNodeId = id ? String(id) : null;
+    computeSemanticRoute();
     hudText();
     apply3dRuntime();
+    if(selectedNodeId) dispatchSemanticRoute(); else dispatchSemanticRoute();
     if(fg && selectedNodeId){
       try{
         const node = graphData.nodes.find(n => String(n.id) === selectedNodeId);
@@ -804,9 +942,11 @@
   window.akiraBrainClearSelection = function(){
     selectedNodeId = null;
     hoveredNodeId = null;
+    semanticRoute = {nodeIds:new Set(),linkIds:new Set(),bridges:0,hops:0};
     hudText();
     updateContextPanel();
     apply3dRuntime();
+    dispatchSemanticRoute();
     try { window.dispatchEvent(new CustomEvent("akira:brain-select",{detail:{nodeId:null}})); } catch(_) {}
   };
 
