@@ -675,12 +675,22 @@ function _forceFlowerPositions(nodes, edges, coreId) {
 
   try { coreEl.position({x:cx,y:cy}); } catch(_) {}
 }
+setTimeout(() => { try { _bindBrainContextDragging(); } catch(_) {} }, 0);
+
 
 function _position2dContext(nodeId){
   _bindBrainContextDragging();
   if(!cyMembrane) return;
   const panel=document.getElementById("brainContext");
   if(!panel) return;
+
+  const currentNodeId = String(nodeId);
+  if(panel.dataset.brainManualPosition === "1" &&
+     panel.dataset.brainNodeId === currentNodeId){
+    return;
+  }
+  panel.dataset.brainNodeId = currentNodeId;
+  panel.dataset.brainManualPosition = "0";
   const el=cyMembrane.getElementById(String(nodeId));
   if(!el || el.empty()) return;
 
