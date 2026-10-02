@@ -1789,28 +1789,28 @@
     // Connections are intentionally subordinate to nodes in 3D. They
     // behave like translucent neural fibers and brighten only during focus.
     _set3dMethod("linkColor", l =>
-      isRelatedLink(l) ? "#d8ecff" :
+      isRelatedLink(l) ? "#e9f7ff" :
       (isSemanticRouteLink(l) ? "#ffffff" :
-      (isCoreLink(l) ? "#ff9aa2" : "#91a4bd"))
+      (isCoreLink(l) ? "#b88790" : "#8e9caf"))
     );
 
     _set3dMethod("linkWidth", l => {
-      if(isRelatedLink(l)) return Math.min(2.2, 0.72 + (Number(l.weight)||0.5) * 0.55);
-      if(isSemanticRouteLink(l)) return Math.min(1.9, 0.65 + (Number(l.weight)||0.5) * 0.42);
-      if(isCoreLink(l)) return 0.34;
-      return Math.min(0.72, 0.18 + (Number(l.weight)||0.5) * 0.16);
+      if(isRelatedLink(l)) return Math.min(1.25, 0.46 + (Number(l.weight)||0.5) * 0.24);
+      if(isSemanticRouteLink(l)) return Math.min(0.90, 0.38 + (Number(l.weight)||0.5) * 0.20);
+      if(isCoreLink(l)) return 0.13;
+      return Math.min(0.26, 0.05 + (Number(l.weight)||0.5) * 0.055);
     });
 
     _set3dMethod("linkOpacity", l => {
-      if(selectedNodeId && isRelatedLink(l)) return 0.48;
-      if(selectedNodeId && !isRelatedLink(l) && !isSemanticRouteLink(l)) return 0.035;
+      if(selectedNodeId && isRelatedLink(l)) return 0.64;
+      if(selectedNodeId && !isRelatedLink(l) && !isSemanticRouteLink(l)) return 0.010;
       const a = nodeId(l.source), b = nodeId(l.target);
       const ca = communityState.assignments.get(a);
       const cb = communityState.assignments.get(b);
-      if(isSemanticRouteLink(l)) return 0.56;
-      if(isCoreLink(l)) return 0.10;
-      if(ca && cb && ca === cb && ca !== "core") return 0.13;
-      return 0.085;
+      if(isSemanticRouteLink(l)) return 0.34;
+      if(isCoreLink(l)) return 0.022;
+      if(ca && cb && ca === cb && ca !== "core") return 0.038;
+      return 0.014;
     });
 
     _set3dMethod("linkDirectionalArrowLength", l =>
