@@ -242,6 +242,24 @@
     return r.data.learning || null;
   }
 
+  async function runSelfTest(){
+    const root = reviewRoot();
+    if(root) root.innerHTML = '<div class="learning-empty">Ejecutando SELFTEST E2E sintético…</div>';
+    const r = await request("/api/v8/learning/selftest");
+    if(!r.ok || !r.data || !r.data.ok){
+      if(root) root.innerHTML = '<div class="learning-empty learning-selftest-fail">SELFTEST no ejecutado: '+esc((r.data && r.data.reason) || r.error || ("HTTP "+r.status))+'</div>';
+      return;
+    }
+    const tests = Array.isArray(r.data.tests) ? r.data.tests : [];
+    if(root){
+      root.innerHTML = '<div class="learning-selftest-title">🧬 SELFTEST E2E · '+esc(tests.filter(function(t){return t.status === "PASS";}).length)+'/'+esc(tests.length)+' PASS</div>'
+        + tests.map(function(t){
+          const ok = t.status === "PASS";
+          return '<div class="learning-selftest-row '+(ok ? "pass" : "fail")+'"><span>'+(ok ? "✓" : "✕")+'</span><strong>'+esc(t.name)+'</strong><span>'+esc(t.detail && (t.detail.error_type || t.detail.reason || "") || "")+'</span></div>';
+        }).join("");
+    }
+  }
+
   const api = {
     async load(){
       const root = reviewRoot();
@@ -292,10 +310,16 @@
       + '.learning-action.danger{border-color:#6d3030;color:#ff9a9a;}'
       + '.learning-action:disabled{opacity:.45;cursor:default;}'
       + '.learning-empty{padding:12px;color:var(--muted);font-size:10px;text-align:center;}'
+      + '.learning-selftest-title{padding:8px;color:#fff;font:9px "Press Start 2P",monospace;}'
+      + '.learning-selftest-row{display:grid;grid-template-columns:18px 1fr auto;gap:7px;padding:5px 7px;border-top:1px solid #24242d;font-size:9px;}'
+      + '.learning-selftest-row.pass span:first-child{color:#7ee787;}'
+      + '.learning-selftest-row.fail span:first-child{color:#ff7b72;}'
+      + '.learning-selftest-fail{border:1px solid #6d3030;color:#ff9a9a;}'
       + '@media(max-width:650px){#learningReviewList{max-height:220px;}}';
     document.head.appendChild(style);
   }
 
+  window.akiraLearningRunSelfTest = runSelfTest;
   window.akiraLearningReview = api;
 
   document.addEventListener("DOMContentLoaded", function(){
