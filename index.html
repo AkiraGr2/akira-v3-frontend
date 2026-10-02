@@ -122,7 +122,38 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 .brain-type-filter span{opacity:.65}
 .brain-type-filter:hover{color:#fff;border-color:#555d68}
 .brain-type-filter.active{color:#fff;border-color:var(--accent);box-shadow:0 0 0 1px rgba(255,255,255,.04) inset}.brain-trail-node{max-width:92px;overflow:hidden;text-overflow:ellipsis;background:transparent;border:0;color:var(--muted);font:10px 'Pixelify Sans',sans-serif;padding:3px 5px;cursor:pointer}.brain-trail-node:hover{color:#fff;background:#20202a}.brain-trail-node.active{color:#fff;border-bottom:2px solid var(--accent)}.brain-trail-arrow{color:#555d68;font-size:12px}@media(max-width:850px){.brain-nav-trail{display:none}}
-@media(max-width:650px){.brain-context{top:auto;bottom:10px;width:calc(100% - 20px);max-height:42%}.brain-context-meta{grid-template-columns:1fr 1fr}.brain-context-title{font-size:14px}}
+@media(max-width:768px){
+  .brain-shell{
+    flex:1 1 auto;
+    min-height:0;
+    height:100%;
+    overflow:auto;
+    padding:8px;
+  }
+  .brain-toolbar{
+    flex:0 0 auto;
+  }
+  .brain-stage{
+    flex:0 0 auto;
+    width:100%;
+    height:clamp(430px,62dvh,680px);
+    min-height:430px;
+  }
+  #membraneCy,#membrane3d,.brain-view{
+    width:100%;
+    height:100%;
+  }
+}
+@media(max-width:650px){
+  .brain-context{
+    top:auto;
+    bottom:10px;
+    width:calc(100% - 20px);
+    max-height:42%;
+  }
+  .brain-context-meta{grid-template-columns:1fr 1fr}
+  .brain-context-title{font-size:14px}
+}
 
 
 /* Fase 10.8 — Panel de Misiones */
