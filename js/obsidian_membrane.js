@@ -568,10 +568,9 @@ function _forceFlowerPositions(nodes, edges, coreId, forceSeed=false) {
 
   coreEl.position({x:cx,y:cy});
 
-  if(!forceSeed &&
-     window.__akiraRadialTargets &&
-     window.__akiraRadialTargets.signature === _lastGraphSignature &&
-     _positionCache.size > 0){
+  // Preserve existing positions on ordinary graph growth. A full radial
+  // reseed is reserved for explicit forceSeed calls (initial/resize rebuilds).
+  if(!forceSeed && _positionCache.size > 0){
     return false;
   }
 
@@ -781,7 +780,13 @@ function _runFlowerPhysics(nodes, edges, coreId){
       vx:0,
       vy:0,
       radius:Math.max(4,Math.min(24,(Number(el.width())||12)/2)),
-      preferred:preferredRadius.get(id) || 100
+      preferred:preferredRadius.get(id) || Math.max(
+        110,
+        Math.min(900, Math.sqrt(
+          (Number(p.x)-center.x)*(Number(p.x)-center.x) +
+          (Number(p.y)-center.y)*(Number(p.y)-center.y)
+        ))
+      )
     };
   }).filter(Boolean);
 
@@ -1084,57 +1089,73 @@ function _position2dContext(nodeId){
     panel.style.bottom="auto";
   }catch(_){}
 }
+function _hashId(value){
+  const s=String(value||"");
+  let h=2166136261;
+  for(let i=0;i<s.length;i++){
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h,16777619);
+  }
+  return h >>> 0;
+}
+
+function _findFreeSeedPosition(nodeId, anchor, centerPos, occupied){
+  const baseX=Number(anchor.x)||centerPos.x;
+  const baseY=Number(anchor.y)||centerPos.y;
+  const seed=_hashId(nodeId);
+  const baseAngle=(seed % 360) * Math.PI / 180;
+  const minNodeGap=48;
+  const minCoreGap=88;
+
+  // Spiral search: near the chosen community first, then progressively farther
+  // out. A candidate is accepted only when it respects every existing node.
+  for(let ring=0;ring<18;ring++){
+    const radius=70 + ring*34;
+    const samples=12 + ring*4;
+    const offset=(seed % samples) / samples * Math.PI*2;
+
+    for(let j=0;j<samples;j++){
+      const angle=baseAngle + offset + (j/samples)*Math.PI*2;
+      const x=baseX + radius*Math.cos(angle);
+      const y=baseY + radius*Math.sin(angle);
+
+      const coreDx=x-centerPos.x;
+      const coreDy=y-centerPos.y;
+      if(Math.sqrt(coreDx*coreDx+coreDy*coreDy) < minCoreGap) continue;
+
+      let free=true;
+      for(const p of occupied){
+        const dx=x-p.x, dy=y-p.y;
+        if(Math.sqrt(dx*dx+dy*dy) < minNodeGap){
+          free=false;
+          break;
+        }
+      }
+      if(free) return {x,y};
+    }
+  }
+
+  // Last-resort expansion: never stack the new node on an existing one.
+  const farAngle=baseAngle;
+  return {
+    x:baseX + 650*Math.cos(farAngle),
+    y:baseY + 650*Math.sin(farAngle)
+  };
+}
+
 function _placeNearHub(
   nodeId,
   hubId,
-  centerPos
+  centerPos,
+  occupied=[]
 ) {
-  if (
-    !hubId ||
-    !_positionCache.has(hubId)
-  ) {
-    const angle =
-      Math.random() *
-      Math.PI *
-      2;
-
-    const r =
-      70 +
-      Math.random() * 40;
-
-    return {
-      x:
-        centerPos.x +
-        r * Math.cos(angle),
-
-      y:
-        centerPos.y +
-        r * Math.sin(angle)
-    };
+  let anchor=centerPos;
+  if(hubId && _positionCache.has(hubId)){
+    anchor=_positionCache.get(hubId);
   }
-
-  const hub =
-    _positionCache.get(hubId);
-
-  const angle =
-    Math.random() *
-    Math.PI *
-    2;
-
-  const r =
-    50 +
-    Math.random() * 30;
-
-  return {
-    x:
-      hub.x +
-      r * Math.cos(angle),
-
-    y:
-      hub.y +
-      r * Math.sin(angle)
-  };
+  return _findFreeSeedPosition(nodeId,anchor,centerPos,occupied);
 }
+
 
 // V18.2: solo aplica a nodos nuevos.
 function _applySeedPositions(
@@ -1165,12 +1186,10 @@ function _applySeedPositions(
     "||" +
     edgeSig;
 
-  if (
-    sig !== _lastGraphSignature
-  ) {
-    _lastGraphSignature = sig;
-    _positionCache.clear();
-  }
+  // Graph changes must be incremental. A new node or edge must never
+  // erase the stable positions of nodes that already exist.
+  const graphChanged = sig !== _lastGraphSignature;
+  _lastGraphSignature = sig;
 
   const missing =
     nodes.filter(
@@ -1262,57 +1281,37 @@ function _applySeedPositions(
       }
     );
 
+    const occupied = [..._positionCache.values()]
+      .map(p=>({x:Number(p.x)||0,y:Number(p.y)||0}));
+
     for (const n of missing) {
       if (n.id === coreId) {
-        _positionCache.set(
-          n.id,
-          centerPos
-        );
+        _positionCache.set(n.id,centerPos);
 
-        const el =
-          cyMembrane.getElementById(
-            n.id
-          );
+        const el=cyMembrane.getElementById(n.id);
+        if(el && !el.empty()) el.position(centerPos);
 
-        if (
-          el &&
-          !el.empty()
-        ) {
-          el.position(centerPos);
-        }
-
+        occupied.push(centerPos);
         continue;
       }
 
-      const g =
-        _detectGroup(n);
-
-      const pos =
-        _placeNearHub(
-          n.id,
-          hubByGroup[g],
-          centerPos
-        );
-
-      _positionCache.set(
+      const g=_detectGroup(n);
+      const pos=_placeNearHub(
         n.id,
-        pos
+        hubByGroup[g],
+        centerPos,
+        occupied
       );
 
-      const el =
-        cyMembrane.getElementById(
-          n.id
-        );
+      _positionCache.set(n.id,pos);
 
-      if (
-        el &&
-        !el.empty()
-      ) {
-        el.position(pos);
-      }
+      const el=cyMembrane.getElementById(n.id);
+      if(el && !el.empty()) el.position(pos);
+
+      occupied.push(pos);
     }
 
-    return false;
+    return true;
   }
 }
 
