@@ -307,6 +307,22 @@
     );
   }
 
+  function renderMissionPlan(mission) {
+    const steps = Array.isArray(mission?.plan?.steps) ? mission.plan.steps : [];
+    if (!steps.length) {
+      return '<div class="mission-plan"><div class="mission-section-title">Plan generado</div><div class="mission-empty">El plan no está disponible todavía.</div></div>';
+    }
+    const ordered = [...steps].sort((a, b) => Number(a?.order || 0) - Number(b?.order || 0));
+    const cards = ordered.map((step) => {
+      const order = Number(step?.order || 0);
+      const receives = step?.receives_from;
+      const dependency = receives !== null && receives !== undefined
+        ? ' · recibe del paso ' + escapeHtml(receives)
+        : '';
+      return '<div class="mission-plan-step"><div class="mission-plan-step-head"><strong>Paso ' + escapeHtml(order) + '</strong><span>' + escapeHtml(step?.agent || '—') + ' · ' + escapeHtml(step?.tool || '—') + '</span></div><div class="mission-plan-task">' + escapeHtml(step?.task || 'Sin tarea') + '</div>' + (dependency ? '<div class="mission-plan-dependency">' + dependency + '</div>' : '') + '</div>';
+    }).join('');
+    return '<div class="mission-plan"><div class="mission-section-title">Plan generado</div><div class="mission-plan-steps">' + cards + '</div></div>';
+  }
   /* ============================================================
      DOM
      ============================================================ */
@@ -641,6 +657,8 @@
         </div>
 
       </div>
+
+      ${renderMissionPlan(mission)}
 
       <div class="mission-progress-box">
 
