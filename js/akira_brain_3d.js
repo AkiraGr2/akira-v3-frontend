@@ -29,6 +29,8 @@
   let refreshTimer = null;
   let autoOrbit = false;
   let lastFetchAt = 0;
+  let threeLoading = null;
+  const glowNodeObjects = new Map();
 
   function authHeaders(){
     try {
@@ -50,13 +52,90 @@
     return GROUP_COLORS[t] ? t : "other";
   }
 
+  function loadThree(){
+    if(window.THREE) return Promise.resolve(window.THREE);
+    if(threeLoading) return threeLoading;
+    threeLoading = new Promise((resolve,reject) => {
+      const existing = document.querySelector('script[data-akira-three="1"]');
+      if(existing){
+        existing.addEventListener("load", () => resolve(window.THREE), {once:true});
+        existing.addEventListener("error", reject, {once:true});
+        return;
+      }
+      const s = document.createElement("script");
+      s.src = "https://unpkg.com/three@0.180.0/build/three.min.js";
+      s.async = true;
+      s.dataset.akiraThree = "1";
+      s.onload = () => window.THREE ? resolve(window.THREE) : reject(new Error("THREE no disponible"));
+      s.onerror = () => reject(new Error("No se pudo cargar Three.js"));
+      document.head.appendChild(s);
+    }).finally(() => { threeLoading = null; });
+    return threeLoading;
+  }
+
   function hexColor(hex){
     try { return Number.parseInt(String(hex).replace("#",""),16); } catch(_) { return 0xffffff; }
+  }
+
+  function nodeIsRelated(n){
+    if(!selectedNodeId) return true;
+    const id = String(n.id);
+    if(id === String(selectedNodeId)) return true;
+    return graphData.links.some(l => {
+      const a = nodeId(l.source), b = nodeId(l.target);
+      return (a === String(selectedNodeId) && b === id) || (b === String(selectedNodeId) && a === id);
+    });
+  }
+
+  function syncGlowNodeVisual(group, n){
+    if(!group || !n || !group.userData) return;
+    const color = hexColor(colorForNode(n,false));
+    const selected = String(n.id) === String(selectedNodeId);
+    const core = !!n._isCore;
+    const related = nodeIsRelated(n);
+    const dim = !!selectedNodeId && !selected && !related;
+    const body = group.userData.body;
+    const glow = group.userData.glow;
+    const ring = group.userData.ring;
+
+    if(body && body.material){
+      body.material.color.setHex(selected ? 0xffffff : (core ? 0xff6b6b : color));
+      body.material.emissive.setHex(selected ? 0xffffff : (core ? 0x551111 : color));
+      body.material.emissiveIntensity = selected ? 1.8 : (core ? 1.25 : 0.75);
+      body.material.opacity = dim ? 0.16 : 1;
+      body.material.transparent = dim;
+    }
+    if(glow && glow.material){
+      glow.material.color.setHex(selected ? 0xffffff : color);
+      glow.material.opacity = dim ? 0.025 : (selected ? 0.25 : (core ? 0.18 : 0.09));
+    }
+    if(ring){
+      ring.visible = core || selected;
+      if(ring.material){
+        ring.material.color.setHex(selected ? 0xffffff : 0xff6b6b);
+        ring.material.opacity = dim ? 0.08 : 0.7;
+      }
+    }
+    group.userData.nodeId = String(n.id);
+    group.userData.dimmed = dim;
+  }
+
+  function syncAllGlowNodes(){
+    glowNodeObjects.forEach((group, id) => {
+      const n = graphData.nodes.find(x => String(x.id) === String(id));
+      if(n) syncGlowNodeVisual(group, n);
+    });
   }
 
   function makeGlowNode(n){
     const THREE = window.THREE;
     if(!THREE) return null;
+    const key = String(n.id);
+    const cached = glowNodeObjects.get(key);
+    if(cached){
+      syncGlowNodeVisual(cached,n);
+      return cached;
+    }
     const group = new THREE.Group();
     const base = groupForNode(n);
     const color = hexColor(colorForNode(n,false));
@@ -110,7 +189,10 @@
       group.userData.ring = ring;
     }
     group.userData.glow = glow;
+    group.userData.body = body;
     group.userData.baseColor = color;
+    glowNodeObjects.set(key, group);
+    syncGlowNodeVisual(group,n);
     return group;
   }
 
@@ -207,6 +289,10 @@
         }));
 
       graphData = {nodes, links};
+      const liveIds = new Set(nodes.map(n => String(n.id)));
+      glowNodeObjects.forEach((_, id) => {
+        if(!liveIds.has(String(id))) glowNodeObjects.delete(id);
+      });
       lastFetchAt = Date.now();
       hudText();
       updateStats();
@@ -284,6 +370,7 @@
         controls.autoRotate = autoOrbit;
       }
     } catch(_) {}
+    syncAllGlowNodes();
   }
 
   async function ensure3d(){
@@ -295,6 +382,13 @@
 
     const container = document.getElementById("membrane3d");
     if(!container) return;
+    try {
+      await loadThree();
+    } catch(e) {
+      container.innerHTML = '<div style="padding:24px;color:#ff7b72;font-family:monospace;text-align:center">No se pudo cargar Three.js.</div>';
+      console.warn("[akira-brain-3d] three", e);
+      return;
+    }
     if(typeof window.ForceGraph3D !== "function"){
       container.innerHTML = '<div style="padding:24px;color:#ff7b72;font-family:monospace;text-align:center">No se pudo cargar el motor 3D.</div>';
       return;
@@ -345,14 +439,15 @@
       try {
         fg.onRenderFramePre(() => {
           const t = performance.now() * 0.002;
-          fg.scene().traverse(obj => {
-            if(obj && obj.userData && obj.userData.ring){
-              const pulse = 1 + Math.sin(t + (obj.id || 0)) * 0.06;
+          glowNodeObjects.forEach((obj) => {
+            const phase = String(obj.userData && obj.userData.nodeId || "").length;
+            if(obj.userData && obj.userData.ring){
+              const pulse = 1 + Math.sin(t + phase) * 0.06;
               obj.userData.ring.scale.setScalar(pulse);
               obj.userData.ring.rotation.z += 0.003;
             }
-            if(obj && obj.userData && obj.userData.glow){
-              const pulse = 0.96 + (Math.sin(t * 1.15 + (obj.id || 0)) + 1) * 0.07;
+            if(obj.userData && obj.userData.glow){
+              const pulse = 0.96 + (Math.sin(t * 1.15 + phase) + 1) * 0.07;
               obj.userData.glow.scale.setScalar(pulse);
             }
           });
