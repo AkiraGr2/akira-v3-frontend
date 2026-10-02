@@ -132,6 +132,32 @@
         ? "RECORRIDO · " + String(item?.label || node)
         : "RECORRIDO · —";
     }
+
+    const trail = document.getElementById("brainNavTrail");
+    if(trail){
+      const start = Math.max(0, navigationHistory.length - 6);
+      trail.innerHTML = navigationHistory.slice(start).map((id, offset) => {
+        const absolute = start + offset;
+        const item = graphData.nodes.find(n => String(n.id) === String(id));
+        const label = escapeHtml(String(item?.label || id));
+        const active = absolute === navigationIndex;
+        return "<button type='button' class='brain-trail-node" + (active ? " active" : "") + "' data-brain-history='" + absolute + "' title='" + label + "'>" + label + "</button>";
+      }).join("<span class='brain-trail-arrow'>›</span>");
+    }
+  }
+
+  function bindNavigationTrail(){
+    const trail = document.getElementById("brainNavTrail");
+    if(!trail || trail.dataset.bound === "1") return;
+    trail.dataset.bound = "1";
+    trail.addEventListener("click", function(ev){
+      const btn = ev.target.closest("[data-brain-history]");
+      if(!btn) return;
+      const target = Number(btn.getAttribute("data-brain-history"));
+      if(!Number.isInteger(target) || target < 0 || target >= navigationHistory.length) return;
+      navigationIndex = target;
+      navigateToNode(navigationHistory[target], false);
+    });
   }
 
   function navigateToNode(id, pushHistory){
