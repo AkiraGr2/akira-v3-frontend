@@ -31,6 +31,11 @@
   let lastFetchAt = 0;
   let threeLoading = null;
   const glowNodeObjects = new Map();
+  let communityState = {
+    assignments: new Map(),
+    centers: new Map(),
+    count: 0
+  };
 
   function authHeaders(){
     try {
@@ -87,6 +92,14 @@
     });
   }
 
+  function nodeVisualRadius(n){
+    if(n && n._isCore) return 8.5;
+    const reuse = Number(n && n.reuse_count) || 0;
+    const weight = Number(n && n.weight) || 0;
+    const importance = Number(n && n._importance) || 0;
+    return Math.max(2.2, Math.min(8.5, 2.2 + reuse * 0.24 + weight * 0.55 + importance * 2.2));
+  }
+
   function syncGlowNodeVisual(group, n){
     if(!group || !n || !group.userData) return;
     const color = hexColor(colorForNode(n,false));
@@ -116,6 +129,11 @@
         ring.material.opacity = dim ? 0.08 : 0.7;
       }
     }
+    if(group.userData.renderRadius){
+      const targetRadius = nodeVisualRadius(n);
+      const scale = targetRadius / group.userData.renderRadius;
+      group.scale.setScalar(Math.max(0.55, Math.min(1.65, scale)));
+    }
     group.userData.nodeId = String(n.id);
     group.userData.dimmed = dim;
   }
@@ -139,11 +157,9 @@
     const group = new THREE.Group();
     const base = groupForNode(n);
     const color = hexColor(colorForNode(n,false));
-    const reuse = Number(n.reuse_count) || 0;
-    const weight = Number(n.weight) || 0;
     const core = !!n._isCore;
     const selected = String(n.id) === String(selectedNodeId);
-    const radius = core ? 8.5 : Math.max(2.2, Math.min(7.5, 2.3 + reuse * 0.35 + weight * 0.9));
+    const radius = nodeVisualRadius(n);
 
     const glowMat = new THREE.MeshBasicMaterial({
       color: selected ? 0xffffff : color,
@@ -172,25 +188,26 @@
     const body = new THREE.Mesh(geometry, mat);
     group.add(body);
 
-    if(core || selected){
-      const ringMat = new THREE.MeshBasicMaterial({
-        color:selected ? 0xffffff : 0xff6b6b,
-        transparent:true,
-        opacity:0.7,
-        blending:THREE.AdditiveBlending,
-        depthWrite:false
-      });
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(radius * 1.35, Math.max(0.35,radius*0.075), 10, 32),
-        ringMat
-      );
-      ring.rotation.x = Math.PI / 2;
-      group.add(ring);
-      group.userData.ring = ring;
-    }
+    const ringMat = new THREE.MeshBasicMaterial({
+      color:selected ? 0xffffff : 0xff6b6b,
+      transparent:true,
+      opacity:0.7,
+      blending:THREE.AdditiveBlending,
+      depthWrite:false
+    });
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(radius * 1.35, Math.max(0.35,radius*0.075), 10, 32),
+      ringMat
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.visible = core || selected;
+    group.add(ring);
+
+    group.userData.ring = ring;
     group.userData.glow = glow;
     group.userData.body = body;
     group.userData.baseColor = color;
+    group.userData.renderRadius = radius;
     glowNodeObjects.set(key, group);
     syncGlowNodeVisual(group,n);
     return group;
@@ -209,6 +226,154 @@
   function isRelatedLink(l){
     if(!selectedNodeId) return false;
     return nodeId(l.source) === selectedNodeId || nodeId(l.target) === selectedNodeId;
+  }
+
+  function computeCommunities(nodes, links, coreId){
+    const ids = nodes.map(n => String(n.id)).sort();
+    const labels = new Map(ids.map(id => [id, id]));
+    const adjacency = new Map(ids.map(id => [id, []]));
+
+    for(const l of links){
+      const a = nodeId(l.source);
+      const b = nodeId(l.target);
+      if(a === b || !adjacency.has(a) || !adjacency.has(b)) continue;
+      let w = Number(l.weight) || 0.5;
+      if(a === String(coreId) || b === String(coreId)) w *= 0.08;
+      adjacency.get(a).push([b, w]);
+      adjacency.get(b).push([a, w]);
+    }
+
+    for(let iter=0; iter<7; iter++){
+      let changed = 0;
+      for(const id of ids){
+        if(id === String(coreId)) continue;
+        const scores = new Map();
+        for(const [other, w] of adjacency.get(id) || []){
+          const lab = labels.get(other);
+          scores.set(lab, (scores.get(lab) || 0) + w);
+        }
+        if(!scores.size) continue;
+
+        const current = labels.get(id);
+        const currentScore = scores.get(current) || 0;
+        let best = current;
+        let bestScore = currentScore;
+
+        for(const [lab, score] of scores){
+          if(score > bestScore + 0.0001 || (Math.abs(score-bestScore) <= 0.0001 && String(lab) < String(best))){
+            best = lab;
+            bestScore = score;
+          }
+        }
+
+        if(best !== current && bestScore > Math.max(0.12, currentScore * 1.08)){
+          labels.set(id, best);
+          changed++;
+        }
+      }
+      if(!changed) break;
+    }
+
+    const groups = new Map();
+    for(const [id, label] of labels){
+      if(!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(id);
+    }
+
+    const ordered = [...groups.entries()].sort((a,b) => b[1].length - a[1].length || String(a[0]).localeCompare(String(b[0])));
+    const assignments = new Map();
+    ordered.forEach(([label, members], index) => {
+      const clusterId = "c" + String(index + 1);
+      members.forEach(id => assignments.set(id, clusterId));
+    });
+
+    if(coreId && assignments.has(String(coreId))){
+      assignments.set(String(coreId), "core");
+    }
+
+    const degree = new Map();
+    const maxes = {weight:0,reuse:0,degree:0};
+    for(const n of nodes){
+      degree.set(String(n.id), 0);
+      maxes.weight = Math.max(maxes.weight, Number(n.weight)||0);
+      maxes.reuse = Math.max(maxes.reuse, Number(n.reuse_count)||0);
+    }
+    for(const l of links){
+      const a=nodeId(l.source), b=nodeId(l.target);
+      if(degree.has(a)) degree.set(a, degree.get(a)+1);
+      if(degree.has(b)) degree.set(b, degree.get(b)+1);
+    }
+    maxes.degree = Math.max(1, ...degree.values());
+
+    const importance = new Map();
+    for(const n of nodes){
+      const id=String(n.id);
+      const weight = maxes.weight ? (Number(n.weight)||0)/maxes.weight : 0;
+      const reuse = maxes.reuse ? (Number(n.reuse_count)||0)/maxes.reuse : 0;
+      const confidence = Math.max(0, Math.min(1, Number(n.confidence)||0));
+      const deg = (degree.get(id)||0)/maxes.degree;
+      const score = Math.max(0, Math.min(1, 0.28*weight + 0.27*reuse + 0.18*confidence + 0.27*deg));
+      n._importance = id === String(coreId) ? 1 : score;
+      n._degree = degree.get(id)||0;
+    }
+
+    const clusters = new Map();
+    assignments.forEach((clusterId,id) => {
+      if(clusterId === "core") return;
+      if(!clusters.has(clusterId)) clusters.set(clusterId, []);
+      clusters.get(clusterId).push(id);
+    });
+
+    const centers = new Map();
+    const clusterList = [...clusters.entries()].sort((a,b) => b[1].length-a[1].length || a[0].localeCompare(b[0]));
+    const ring = Math.max(95, Math.min(260, 90 + Math.sqrt(Math.max(nodes.length,1))*8));
+    const golden = Math.PI * (3 - Math.sqrt(5));
+
+    clusterList.forEach(([clusterId,members],index)=>{
+      const a = (index / Math.max(clusterList.length,1)) * Math.PI * 2;
+      const z = ((index % 3) - 1) * Math.min(90, ring*0.24);
+      const r = ring + Math.min(130, members.length * 2.2);
+      centers.set(clusterId,{x:Math.cos(a)*r,y:Math.sin(a)*r,z,angle:a});
+      members.forEach((id,j)=>{
+        const n=nodes.find(x=>String(x.id)===id);
+        if(!n) return;
+        n._clusterAngle = a + (j * golden);
+      });
+    });
+
+    communityState = {assignments, centers, count: clusterList.length};
+    return communityState;
+  }
+
+  function makeCommunityForce(){
+    const currentState = communityState;
+    let nodes = [];
+    const force = function(alpha){
+      for(const n of nodes){
+        const id=String(n.id);
+        if(n._isCore){
+          n.vx += (0-n.x) * 0.16 * alpha;
+          n.vy += (0-n.y) * 0.16 * alpha;
+          n.vz += (0-n.z) * 0.16 * alpha;
+          continue;
+        }
+        const clusterId = currentState.assignments.get(id);
+        const center = currentState.centers.get(clusterId);
+        if(!center) continue;
+        const strength = 0.055 + (Number(n._importance)||0) * 0.055;
+        n.vx += (center.x-n.x) * strength * alpha;
+        n.vy += (center.y-n.y) * strength * alpha;
+        const targetZ = center.z + ((Number(n._importance)||0)-0.45) * 150;
+        n.vz += (targetZ-n.z) * strength * alpha;
+      }
+    };
+    force.initialize = _nodes => { nodes = _nodes || []; };
+    return force;
+  }
+
+  function communitySummary(){
+    if(!communityState.count) return "";
+    return communityState.count + " CLUSTERS";
   }
 
   function updateContextPanel(){
@@ -254,7 +419,8 @@
     if(!el) return;
     const selected = selectedNodeId ? graphData.links.filter(isRelatedLink).length : 0;
     el.innerHTML = "<strong>" + graphData.nodes.length + "</strong> NODOS · <strong>" +
-      graphData.links.length + "</strong> RELACIONES" +
+      graphData.links.length + "</strong> RELACIONES · <strong>" +
+      (communityState.count || 0) + "</strong> CLUSTERS" +
       (selected ? " · <strong>" + selected + "</strong> EN FOCO" : "");
   }
 
@@ -265,6 +431,8 @@
 
   function hudText(){
     const hud = document.getElementById("brainHud");
+    updateStats();
+    updateContextPanel();
     if(!hud) return;
     if(!selectedNodeId){
       hud.textContent = "Selecciona un nodo para explorar sus conexiones.";
@@ -273,8 +441,7 @@
     const n = graphData.nodes.find(x => String(x.id) === String(selectedNodeId));
     const label = n ? String(n.label || n.id) : selectedNodeId;
     const degree = graphData.links.filter(l => isRelatedLink(l)).length;
-    hud.innerHTML = "<strong>" + escapeHtml(label) + "</strong> · " + degree + " conexiones";
-    updateStats();
+    hud.innerHTML = "<strong>" + escapeHtml(label) + "</strong> · " + degree + " conexiones · " + communitySummary();
   }
 
   function escapeHtml(s){
@@ -327,6 +494,8 @@
         }));
 
       graphData = {nodes, links};
+      const coreNode = nodes.find(n => n._isCore);
+      computeCommunities(nodes, links, coreNode ? coreNode.id : null);
       const liveIds = new Set(nodes.map(n => String(n.id)));
       glowNodeObjects.forEach((_, id) => {
         if(!liveIds.has(String(id))) glowNodeObjects.delete(id);
@@ -353,6 +522,7 @@
     fg
       .backgroundColor("#05060a")
       .d3Force("charge").strength(-78)
+      .d3Force("community", makeCommunityForce())
       .nodeColor(n => {
         const id = String(n.id);
         if(id === String(selectedNodeId)) return "#ffffff";
@@ -361,9 +531,7 @@
       })
       .nodeVal(n => {
         if(String(n.label || "").trim().toLowerCase() === "akira") return 12;
-        const reuse = Number(n.reuse_count) || 0;
-        const weight = Number(n.weight) || 0;
-        return Math.max(2.5, 3 + Math.min(10, reuse * 0.8 + weight * 1.2));
+        return Math.max(2.5, 2.7 + (Number(n._importance)||0.25) * 10.5);
       })
       .nodeOpacity(n => {
         if(!selectedNodeId) return 0.82;
@@ -376,7 +544,8 @@
         const type = escapeHtml(n.node_type || "concept");
         const label = escapeHtml(n.label || n.id);
         const reuse = Number(n.reuse_count) || 0;
-        return "<div style='padding:6px 8px;background:rgba(10,10,13,.94);border:1px solid #3b3b4a;font-family:monospace;font-size:11px;color:#fff'><b>" + label + "</b><br><span style='color:#9ca3af'>" + type + " · reuse " + reuse + "</span></div>";
+        const importance = Math.round((Number(n._importance)||0) * 100);
+        return "<div style='padding:6px 8px;background:rgba(10,10,13,.94);border:1px solid #3b3b4a;font-family:monospace;font-size:11px;color:#fff'><b>" + label + "</b><br><span style='color:#9ca3af'>" + type + " · reuse " + reuse + " · importancia " + importance + "%</span></div>";
       })
       .nodeResolution(10)
       .nodeRelSize(5.5)
