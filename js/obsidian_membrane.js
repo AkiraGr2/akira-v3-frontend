@@ -1921,6 +1921,20 @@ function _applyGraphToCy(
       by_relation: {}
     };
 
+  cyMembrane.nodes().forEach(n => {
+    const visible = _brainFilterNodeVisible(n) &&
+      (membraneExploreDepth === 0 || membraneExploreVisibleNodeIds.has(String(n.id())));
+    n.style("display", visible ? "element" : "none");
+  });
+  cyMembrane.edges().forEach(e => {
+    const source = cyMembrane.getElementById(String(e.data("source")));
+    const targetNode = cyMembrane.getElementById(String(e.data("target")));
+    const visible = source.length && targetNode.length &&
+      _brainFilterNodeVisible(source) && _brainFilterNodeVisible(targetNode) &&
+      (membraneExploreDepth === 0 || membraneExploreVisibleLinkIds.has(String(e.id())));
+    e.style("display", visible ? "element" : "none");
+  });
+
   _updateMembraneStats();
 }
 
