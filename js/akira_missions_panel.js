@@ -307,6 +307,14 @@
     );
   }
 
+  function setMobileMissionView(showDetail) {
+    const grid = document.getElementById("missionPanelGrid");
+    if (!grid || window.innerWidth > 768) {
+      return;
+    }
+    grid.classList.toggle("mobile-detail-open", !!showDetail);
+  }
+
   function renderMissionPlan(mission) {
     const steps = Array.isArray(mission?.plan?.steps) ? mission.plan.steps : [];
     if (!steps.length) {
@@ -597,6 +605,8 @@
       );
 
     elements.detail.innerHTML = `
+      <button type="button" class="pixel-btn mission-mobile-back" onclick="window.missionPanelShowList()">← Volver a misiones</button>
+
       <div class="mission-detail-header">
 
         <div>
@@ -1451,6 +1461,8 @@
      */
     selectedMissionId =
       String(id);
+
+    setMobileMissionView(true);
 
     const mission =
       missionsCache.find(
@@ -2630,6 +2642,11 @@
   /* ============================================================
      GLOBAL API
      ============================================================ */
+
+  window.missionPanelShowList =
+    function () {
+      setMobileMissionView(false);
+    };
 
   window.missionPanelLoad =
     loadMissions;
