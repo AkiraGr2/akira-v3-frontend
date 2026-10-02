@@ -266,12 +266,18 @@
       const root = reviewRoot();
       if(!root) return;
       root.innerHTML = '<div class="learning-empty">Cargando conocimiento…</div>';
-      const r = await request("/api/v8/learning?limit=80");
-      if(!r.ok || !r.data || !r.data.ok){
-        root.innerHTML = '<div class="learning-empty">No se pudo cargar la revisión: '+esc((r.data && r.data.reason) || r.error || ("HTTP "+r.status))+'</div>';
+      const results = await Promise.all([
+        request("/api/v8/learning?source="+encodeURIComponent("explicit_user_teaching")+"&limit=40"),
+        request("/api/v8/learning?source="+encodeURIComponent("experience_feedback")+"&limit=40")
+      ]);
+      const failed = results.find(function(r){ return !r.ok || !r.data || !r.data.ok; });
+      if(failed){
+        root.innerHTML = '<div class="learning-empty">No se pudo cargar la revisión: '+esc((failed.data && failed.data.reason) || failed.error || ("HTTP "+failed.status))+'</div>';
         return;
       }
-      render(r.data.learning || []);
+      const rows = results.reduce(function(all, r){ return all.concat(Array.isArray(r.data.learning) ? r.data.learning : []); }, []);
+      rows.sort(function(a,b){ return String(b.created_at || "").localeCompare(String(a.created_at || "")); });
+      render(rows.slice(0, 80));
     }
   };
 
