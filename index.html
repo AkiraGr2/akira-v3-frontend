@@ -280,7 +280,10 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           <span class="learning-review-title">🧠 CONOCIMIENTO EN REVISIÓN</span>
           <span id="learningReviewCount" class="learning-review-count">0 candidatos</span>
         </div>
-        <button type="button" class="learning-review-refresh" onclick="window.akiraLearningReview && akiraLearningReview.load()">↻ ACTUALIZAR</button>
+        <div class="learning-review-head-actions">
+          <button type="button" class="learning-review-refresh" onclick="window.akiraLearningReview && akiraLearningReview.load()">↻ ACTUALIZAR</button>
+          <button type="button" class="learning-review-refresh" onclick="window.akiraLearningRunSelfTest && akiraLearningRunSelfTest()">🧬 SELFTEST E2E</button>
+        </div>
       </div>
       <div class="learning-review-note">Las enseñanzas explícitas llegan como candidatas. Verificar las convierte en conocimiento confiable; consolidar permite que Akira las use como conocimiento normal.</div>
       <div id="learningReviewList"></div>
