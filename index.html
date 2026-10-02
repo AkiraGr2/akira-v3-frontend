@@ -96,6 +96,22 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 #membrane3d canvas{display:block;width:100%!important;height:100%!important}
 .brain-hud{position:absolute;left:10px;bottom:10px;z-index:5;max-width:min(520px,calc(100% - 20px));padding:7px 9px;background:rgba(10,10,13,.82);border:2px solid var(--border);font-family:'Press Start 2P',monospace;font-size:7px;color:var(--muted);pointer-events:none}
 .brain-hud strong{color:#fff}
+.brain-context{position:absolute;top:10px;right:10px;width:min(330px,calc(100% - 20px));max-height:calc(100% - 20px);z-index:8;background:rgba(10,10,14,.94);border:3px solid var(--border);box-shadow:0 8px 30px rgba(0,0,0,.38);padding:12px;overflow:auto;backdrop-filter:blur(8px)}
+.brain-context.is-hidden{display:none}
+.brain-context-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;border-bottom:2px solid var(--border);padding-bottom:10px}
+.brain-context-type{font-family:'Press Start 2P',monospace;font-size:7px;color:var(--accent);margin-bottom:6px}
+.brain-context-title{font-size:16px;font-weight:700;color:#fff;line-height:1.25;word-break:break-word}
+.brain-context-close{width:30px;height:30px;border:2px solid var(--border);background:#17171e;color:#fff;font-size:20px;cursor:pointer}
+.brain-context-meta{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:11px 0;font-size:10px;color:var(--muted)}
+.brain-context-meta div{border:2px solid var(--border);padding:7px;background:#0e0e12}
+.brain-context-meta b{display:block;color:#fff;font-size:11px;margin-top:3px}
+.brain-context-section{border-top:2px solid var(--border);padding-top:10px}
+.brain-context-label{font-family:'Press Start 2P',monospace;font-size:7px;color:var(--muted);margin-bottom:7px}
+.brain-context-relations{display:flex;flex-direction:column;gap:5px}
+.brain-relation{display:flex;justify-content:space-between;gap:8px;padding:6px 7px;background:#14141b;border-left:3px solid var(--accent);font-size:10px}
+.brain-relation span:last-child{color:var(--muted);white-space:nowrap}
+@media(max-width:650px){.brain-context{top:auto;bottom:10px;width:calc(100% - 20px);max-height:42%}.brain-context-meta{grid-template-columns:1fr 1fr}.brain-context-title{font-size:14px}}
+
 
 /* Fase 10.8 — Panel de Misiones */
 .mission-shell{flex:1;min-height:0;overflow:auto;padding:14px;background:radial-gradient(700px 320px at 50% 0%,rgba(99,102,241,.10),transparent)}
@@ -217,6 +233,20 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           <div id="membrane3d"></div>
         </div>
         <div id="brainHud" class="brain-hud">Selecciona un nodo para explorar sus conexiones.</div>
+        <aside id="brainContext" class="brain-context is-hidden" aria-live="polite">
+          <div class="brain-context-head">
+            <div>
+              <div id="brainContextType" class="brain-context-type">NODO</div>
+              <div id="brainContextTitle" class="brain-context-title">—</div>
+            </div>
+            <button type="button" class="brain-context-close" onclick="window.akiraBrainClearSelection && akiraBrainClearSelection()">×</button>
+          </div>
+          <div id="brainContextMeta" class="brain-context-meta"></div>
+          <div class="brain-context-section">
+            <div class="brain-context-label">CONEXIONES</div>
+            <div id="brainContextRelations" class="brain-context-relations"></div>
+          </div>
+        </aside>
         <div id="brainStats" class="brain-stats">0 NODOS · 0 RELACIONES</div>
       </div>
       <div id="membraneStats" style="padding:8px 0 0;font-size:11px;color:var(--muted);font-family:'Press Start 2P', monospace;text-align:center"></div>
