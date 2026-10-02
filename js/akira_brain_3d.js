@@ -55,6 +55,7 @@
   const navigationHistory = [];
   let navigationIndex = -1;
   const MAX_NAV_HISTORY = 40;
+  let brainTypeFilter = "all";
 
   function authHeaders(){
     try {
@@ -100,6 +101,62 @@
   function hexColor(hex){
     try { return Number.parseInt(String(hex).replace("#",""),16); } catch(_) { return 0xffffff; }
   }
+
+  const FILTER_LABELS = {
+    all:"TODO", memory:"MEMORIA", learning:"APRENDIZAJE", agent:"AGENTES",
+    tool:"TOOLS", concept:"CONCEPTOS", project:"PROYECTOS", document:"DOCUMENTOS",
+    skill:"SKILLS", error:"ERRORES", solution:"SOLUCIONES", mission:"MISIONES", other:"OTROS"
+  };
+
+  function nodeMatchesTypeFilter(n){
+    if(brainTypeFilter === "all") return true;
+    const id = String(n && n.id || "");
+    return !!(n && (n._isCore || id === String(selectedNodeId) || groupForNode(n) === brainTypeFilter));
+  }
+
+  function updateTypeFilterUI(){
+    const el = document.getElementById("brainTypeFilters");
+    if(!el) return;
+    const counts = new Map();
+    graphData.nodes.forEach(n => {
+      const g = groupForNode(n);
+      counts.set(g, (counts.get(g) || 0) + 1);
+    });
+    const groups = ["all", ...Object.keys(FILTER_LABELS).filter(g => g !== "all" && counts.has(g))];
+    el.innerHTML = groups.map(g => {
+      const count = g === "all" ? graphData.nodes.length : (counts.get(g) || 0);
+      const active = g === brainTypeFilter;
+      return "<button type='button' class='brain-type-filter" + (active ? " active" : "") + "' data-brain-filter='" + g + "'>" +
+        FILTER_LABELS[g] + " <span>" + count + "</span></button>";
+    }).join("");
+    if(el.dataset.bound !== "1"){
+      el.dataset.bound = "1";
+      el.addEventListener("click", function(ev){
+        const btn = ev.target.closest("[data-brain-filter]");
+        if(!btn) return;
+        setBrainTypeFilter(btn.getAttribute("data-brain-filter") || "all");
+      });
+    }
+  }
+
+  function setBrainTypeFilter(group){
+    const valid = group === "all" || Object.prototype.hasOwnProperty.call(FILTER_LABELS, group);
+    brainTypeFilter = valid ? group : "all";
+    updateTypeFilterUI();
+    apply3dRuntime();
+    try{
+      window.dispatchEvent(new CustomEvent("akira:brain-filter",{detail:{group:brainTypeFilter}}));
+    }catch(_){}
+    const visible = graphData.nodes.filter(nodeMatchesTypeFilter);
+    if(fg && visible.length){
+      setTimeout(() => {
+        try { fg.zoomToFit(700, 70, n => nodeMatchesTypeFilter(n)); } catch(_) {}
+      }, 40);
+    }
+    hudText();
+  }
+
+  window.akiraBrainSetTypeFilter = setBrainTypeFilter;
 
   function nodeIsRelated(n){
     if(!selectedNodeId) return true;
@@ -1023,6 +1080,7 @@
         if(!liveIds.has(String(id))) glowNodeObjects.delete(id);
       });
       lastFetchAt = Date.now();
+      updateTypeFilterUI();
       hudText();
       updateStats();
 
@@ -1072,10 +1130,10 @@
       })
       .nodeResolution(10)
       .nodeRelSize(5.5)
-      .nodeVisibility(n => isExplorerVisibleNode(n))
+      .nodeVisibility(n => isExplorerVisibleNode(n) && nodeMatchesTypeFilter(n))
       .nodeThreeObject(n => makeGlowNode(n) || undefined)
       .nodeThreeObjectExtend(false)
-      .linkVisibility(l => isExplorerVisibleLink(l))
+      .linkVisibility(l => isExplorerVisibleLink(l) && nodeMatchesTypeFilter({id:nodeId(l.source)}) && nodeMatchesTypeFilter({id:nodeId(l.target)}))
       .linkColor(l => isRelatedLink(l) ? "#c4b5fd" : (isSemanticRouteLink(l) ? "#ffffff" : linkClusterType(l)))
       .linkWidth(l => isRelatedLink(l) ? Math.min(5, 1.5 + (Number(l.weight)||0.5)) : (isSemanticRouteLink(l) ? Math.min(3.8, 1.1 + (Number(l.weight)||0.5)) : Math.min(1.6, 0.35 + (Number(l.weight)||0.5) * 0.4)))
       .linkOpacity(l => {
