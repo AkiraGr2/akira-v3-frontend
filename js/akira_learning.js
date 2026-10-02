@@ -102,7 +102,7 @@
       const status = item.status || "candidate";
       const lesson = String(item.lesson || "").trim();
       const source = String(item.source || "unknown");
-      const sourceLabel = source === "explicit_user_teaching" ? "ENSEÑANZA" : source === "experience_feedback" ? "EXPERIENCIA" : source;
+      const sourceLabel = source === "explicit_user_teaching" ? "ENSEÑANZA" : source === "experience_feedback" ? "EXPERIENCIA" : source === "autonomous_experience" ? "AUTÓNOMO" : source;
       const conf = Math.round(Number(item.confidence || 0) * 100);
       const nodes = Array.isArray(item.knowledge_nodes) ? item.knowledge_nodes.length : 0;
       const evidence = Array.isArray(item.evidence) ? item.evidence : [];
@@ -267,8 +267,9 @@
       if(!root) return;
       root.innerHTML = '<div class="learning-empty">Cargando conocimiento…</div>';
       const results = await Promise.all([
-        request("/api/v8/learning?source="+encodeURIComponent("explicit_user_teaching")+"&limit=40"),
-        request("/api/v8/learning?source="+encodeURIComponent("experience_feedback")+"&limit=40")
+        request("/api/v8/learning?source="+encodeURIComponent("explicit_user_teaching")+"&limit=30"),
+        request("/api/v8/learning?source="+encodeURIComponent("experience_feedback")+"&limit=30"),
+        request("/api/v8/learning?source="+encodeURIComponent("autonomous_experience")+"&limit=30")
       ]);
       const failed = results.find(function(r){ return !r.ok || !r.data || !r.data.ok; });
       if(failed){
