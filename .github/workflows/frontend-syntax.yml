@@ -24,3 +24,4 @@ jobs:
           node --check js/obsidian_membrane.js
           node --check js/akira_learning.js
           node --check js/akira_brain.js
+          node --check js/akira_missions_panel.js
