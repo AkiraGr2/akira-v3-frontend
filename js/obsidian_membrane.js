@@ -1451,45 +1451,55 @@ function _applyGraphToCy(
       .push(n);
   }
 
-  const hubIds =
-    new Set();
+  let hubIds = new Set();
 
-  groupsMap.forEach(
-    groupNodes => {
-      const ids =
-        groupNodes.map(
-          n => n.id
-        );
-
-      const subs =
-        _subdivideGroup(ids);
-
-      subs.forEach(
-        subIds => {
-          let best = null;
-          let bestDeg = -1;
-
-          subIds.forEach(
-            id => {
-              const d =
-                degree[id] || 0;
-
-              if (
-                d > bestDeg
-              ) {
-                bestDeg = d;
-                best = id;
-              }
-            }
+  if (
+    _communityState &&
+    _communityState.hubs instanceof Set
+  ) {
+    hubIds = new Set(
+      [..._communityState.hubs].map(
+        id => String(id)
+      )
+    );
+  } else {
+    groupsMap.forEach(
+      groupNodes => {
+        const ids =
+          groupNodes.map(
+            n => n.id
           );
 
-          if (best) {
-            hubIds.add(best);
+        const subs =
+          _subdivideGroup(ids);
+
+        subs.forEach(
+          subIds => {
+            let best = null;
+            let bestDeg = -1;
+
+            subIds.forEach(
+              id => {
+                const d =
+                  degree[id] || 0;
+
+                if (
+                  d > bestDeg
+                ) {
+                  bestDeg = d;
+                  best = id;
+                }
+              }
+            );
+
+            if (best) {
+              hubIds.add(best);
+            }
           }
-        }
-      );
-    }
-  );
+        );
+      }
+    );
+  }
 
   const nodeIds =
     new Set();
