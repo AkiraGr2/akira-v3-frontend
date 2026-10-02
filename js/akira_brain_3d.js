@@ -97,7 +97,7 @@
         setTimeout(() => { try { if(fg) fg.width(document.getElementById("membrane3d")?.clientWidth || undefined).height(document.getElementById("membrane3d")?.clientHeight || undefined); } catch(_){} }, 60);
       });
     } else {
-      try { if(window.cyMembrane && window.cyMembrane.resize) window.cyMembrane.resize(); } catch(_) {}
+      try { if(window.AkiraMembrane && window.AkiraMembrane.resizeMembrane) window.AkiraMembrane.resizeMembrane(); } catch(_) {}
     }
   }
 
@@ -290,7 +290,7 @@
     setModeUI(mode);
     if(mode === "3d" && !initialized) ensure3d();
     if(mode === "2d"){
-      try { if(window.cyMembrane && window.cyMembrane.resize) window.cyMembrane.resize(); } catch(_) {}
+      try { if(window.AkiraMembrane && window.AkiraMembrane.resizeMembrane) window.AkiraMembrane.resizeMembrane(); } catch(_) {}
     }
   };
 
@@ -311,7 +311,7 @@
   document.addEventListener("DOMContentLoaded", function(){
     setTimeout(() => {
       setModeUI("2d");
-      if(window.cyMembrane && window.cyMembrane.resize) window.cyMembrane.resize();
+      if(window.AkiraMembrane && window.AkiraMembrane.resizeMembrane) window.AkiraMembrane.resizeMembrane();
     },650);
   });
 })();
