@@ -1,7 +1,7 @@
 /* ============================================================
    AKIRA — MISSIONS PANEL
    FASE 10.8 — Panel Unificado de Misiones
-   Version: V1.4
+   Version: V1.5
    ============================================================ */
 
 (function () {
@@ -23,6 +23,8 @@
   let selectedMissionId = null;
   let pollTimer = null;
   let missionsCache = [];
+  let missionActionBusyId = null;
+  let missionActionBusyType = "";
 
   /* ============================================================
      HELPERS
@@ -93,17 +95,30 @@
       options.headers || {}
     );
 
-    const response = await fetch(
-      url,
-      Object.assign(
-        {},
-        options,
-        {
-          headers,
-          cache: "no-store"
-        }
-      )
-    );
+    let response;
+
+    try {
+      response = await fetch(
+        url,
+        Object.assign(
+          {},
+          options,
+          {
+            headers,
+            cache: "no-store"
+          }
+        )
+      );
+    } catch (error) {
+      const networkError = new Error(
+        "No se pudo conectar con el backend. Revisa la conexión o si el servidor está despierto."
+      );
+
+      networkError.code = "NETWORK_ERROR";
+      networkError.cause = error;
+
+      throw networkError;
+    }
 
     let data = null;
 
@@ -121,7 +136,14 @@
         data?.error ||
         `HTTP ${response.status}`;
 
-      throw new Error(message);
+      const httpError = new Error(
+        message
+      );
+
+      httpError.status = response.status;
+      httpError.payload = data;
+
+      throw httpError;
     }
 
     return data;
@@ -373,14 +395,6 @@
         if (selected) {
           renderMissionSummary(
             selected
-          );
-
-          /*
-           * Carga completa sin bloquear
-           * la lista.
-           */
-          loadMissionDetail(
-            selectedMissionId
           );
         }
       }
@@ -1151,6 +1165,77 @@
     `;
   }
 
+  function setMissionActionBusy(
+    id,
+    type
+  ) {
+    missionActionBusyId =
+      String(id || "");
+
+    missionActionBusyType =
+      type || "";
+
+    renderMissionList();
+
+    const mission =
+      missionsCache.find(
+        (item) =>
+          String(
+            missionId(item)
+          ) ===
+          String(id)
+      );
+
+    if (
+      mission &&
+      String(
+        selectedMissionId
+      ) === String(id)
+    ) {
+      renderMissionSummary(
+        mission
+      );
+    }
+  }
+
+  function clearMissionActionBusy() {
+    missionActionBusyId = null;
+    missionActionBusyType = "";
+  }
+
+  function actionBusyFor(
+    id,
+    type
+  ) {
+    return (
+      missionActionBusyId !== null &&
+      String(missionActionBusyId) ===
+        String(id) &&
+      missionActionBusyType === type
+    );
+  }
+
+  function renderActionButton(
+    id,
+    type,
+    label,
+    className = "mission-action"
+  ) {
+    const busy =
+      actionBusyFor(id, type);
+
+    return `
+      <button
+        type="button"
+        class="${className}"
+        ${busy ? "disabled" : ""}
+        onclick="window.missionPanel${type.charAt(0).toUpperCase() + type.slice(1)}('${escapeHtml(id)}')"
+      >
+        ${busy ? "⏳ Procesando..." : label}
+      </button>
+    `;
+  }
+
   /* ============================================================
      ACTIONS
      ============================================================ */
@@ -1162,8 +1247,7 @@
       missionId(mission);
 
     const status =
-      mission?.status ||
-      "";
+      mission?.status || "";
 
     let html = "";
 
@@ -1171,25 +1255,35 @@
       status ===
       "waiting_approval"
     ) {
+      const approveBusy =
+        actionBusyFor(
+          id,
+          "approve"
+        );
+
+      const rejectBusy =
+        actionBusyFor(
+          id,
+          "reject"
+        );
+
       html += `
         <button
           type="button"
           class="mission-action mission-action-primary"
-          onclick="window.missionPanelApprove('${escapeHtml(
-            id
-          )}')"
+          ${approveBusy || rejectBusy ? "disabled" : ""}
+          onclick="window.missionPanelApprove('${escapeHtml(id)}')"
         >
-          ✓ Aprobar
+          ${approveBusy ? "⏳ Aprobando..." : "✓ Aprobar"}
         </button>
 
         <button
           type="button"
           class="mission-action"
-          onclick="window.missionPanelReject('${escapeHtml(
-            id
-          )}')"
+          ${approveBusy || rejectBusy ? "disabled" : ""}
+          onclick="window.missionPanelReject('${escapeHtml(id)}')"
         >
-          ✕ Rechazar
+          ${rejectBusy ? "⏳ Rechazando..." : "✕ Rechazar"}
         </button>
       `;
     }
@@ -1201,9 +1295,7 @@
         <button
           type="button"
           class="mission-action mission-action-primary"
-          onclick="window.missionPanelExecute('${escapeHtml(
-            id
-          )}')"
+          onclick="window.missionPanelExecute('${escapeHtml(id)}')"
         >
           ▶ Ejecutar
         </button>
@@ -1211,9 +1303,7 @@
         <button
           type="button"
           class="mission-action"
-          onclick="window.missionPanelDiagnose('${escapeHtml(
-            id
-          )}')"
+          onclick="window.missionPanelDiagnose('${escapeHtml(id)}')"
         >
           🔎 Diagnosticar
         </button>
@@ -1221,9 +1311,7 @@
         <button
           type="button"
           class="mission-action mission-action-danger"
-          onclick="window.missionPanelCancel('${escapeHtml(
-            id
-          )}')"
+          onclick="window.missionPanelCancel('${escapeHtml(id)}')"
         >
           ■ Cancelar
         </button>
@@ -1237,9 +1325,7 @@
         <button
           type="button"
           class="mission-action mission-action-primary"
-          onclick="window.missionPanelExecute('${escapeHtml(
-            id
-          )}')"
+          onclick="window.missionPanelExecute('${escapeHtml(id)}')"
         >
           ▶ Ejecutar
         </button>
@@ -1257,9 +1343,7 @@
         <button
           type="button"
           class="mission-action"
-          onclick="window.missionPanelDiagnose('${escapeHtml(
-            id
-          )}')"
+          onclick="window.missionPanelDiagnose('${escapeHtml(id)}')"
         >
           🔎 Diagnosticar
         </button>
@@ -1445,6 +1529,15 @@
       return;
     }
 
+    if (missionActionBusyId !== null) {
+      return;
+    }
+
+    setMissionActionBusy(
+      id,
+      "approve"
+    );
+
     try {
       const response =
         await apiFetch(
@@ -1459,51 +1552,100 @@
       const mission =
         response?.mission;
 
-      if (mission) {
-        const index =
-          missionsCache.findIndex(
-            (item) =>
-              String(
-                missionId(item)
-              ) ===
-              String(id)
-          );
+      if (!mission) {
+        throw new Error(
+          "El backend respondió sin devolver la misión actualizada."
+        );
+      }
 
-        if (index >= 0) {
-          missionsCache[index] =
-            mission;
-        }
+      const index =
+        missionsCache.findIndex(
+          (item) =>
+            String(
+              missionId(item)
+            ) ===
+            String(id)
+        );
 
-        renderMissionList();
-        renderMissionSummary(
+      if (index >= 0) {
+        missionsCache[index] =
+          mission;
+      } else {
+        missionsCache.unshift(
           mission
         );
       }
 
-      notify(
-        "Misión aprobada. Ahora está en ejecución.",
-        "success"
+      clearMissionActionBusy();
+      renderMissionList();
+      renderMissionSummary(
+        mission
       );
 
-      /*
-       * Sincronizar sin obligar
-       * al usuario a pulsar Actualizar.
-       */
-      setTimeout(
-        () => {
-          loadMissions();
-        },
-        300
+      notify(
+        `Misión aprobada. Estado: ${statusLabel(
+          mission.status
+        )}.`,
+        "success"
       );
 
       await loadMissionDetail(
         id
       );
     } catch (error) {
+      clearMissionActionBusy();
+
       console.error(
         "Akira approve error:",
         error
       );
+
+      renderMissionList();
+
+      const current =
+        missionsCache.find(
+          (item) =>
+            String(
+              missionId(item)
+            ) === String(id)
+        );
+
+      if (
+        current &&
+        String(
+          selectedMissionId
+        ) === String(id)
+      ) {
+        renderMissionSummary(
+          current
+        );
+
+        const detail =
+          getPanelElements().detail;
+
+        if (detail) {
+          const errorBox =
+            document.createElement(
+              "div"
+            );
+
+          errorBox.className =
+            "mission-error";
+
+          errorBox.innerHTML =
+            `No se pudo aprobar la misión.<br>
+             HTTP ${escapeHtml(
+               error.status || "red"
+             )}<br>
+             ${escapeHtml(
+               error.message
+             )}`;
+
+          detail.prepend(
+            errorBox
+          );
+        }
+      }
 
       notify(
         `No se pudo aprobar: ${error.message}`,
@@ -1531,6 +1673,15 @@
       return;
     }
 
+    if (missionActionBusyId !== null) {
+      return;
+    }
+
+    setMissionActionBusy(
+      id,
+      "reject"
+    );
+
     try {
       const response =
         await apiFetch(
@@ -1545,43 +1696,100 @@
       const mission =
         response?.mission;
 
-      if (mission) {
-        const index =
-          missionsCache.findIndex(
-            (item) =>
-              String(
-                missionId(item)
-              ) ===
-              String(id)
-          );
+      if (!mission) {
+        throw new Error(
+          "El backend respondió sin devolver la misión actualizada."
+        );
+      }
 
-        if (index >= 0) {
-          missionsCache[index] =
-            mission;
-        }
+      const index =
+        missionsCache.findIndex(
+          (item) =>
+            String(
+              missionId(item)
+            ) ===
+            String(id)
+        );
 
-        renderMissionList();
-        renderMissionSummary(
+      if (index >= 0) {
+        missionsCache[index] =
+          mission;
+      } else {
+        missionsCache.unshift(
           mission
         );
       }
 
+      clearMissionActionBusy();
+      renderMissionList();
+      renderMissionSummary(
+        mission
+      );
+
       notify(
-        "Misión rechazada.",
+        `Misión rechazada. Estado: ${statusLabel(
+          mission.status
+        )}.`,
         "success"
       );
 
-      setTimeout(
-        () => {
-          loadMissions();
-        },
-        300
+      await loadMissionDetail(
+        id
       );
     } catch (error) {
+      clearMissionActionBusy();
+
       console.error(
         "Akira reject error:",
         error
       );
+
+      renderMissionList();
+
+      const current =
+        missionsCache.find(
+          (item) =>
+            String(
+              missionId(item)
+            ) === String(id)
+        );
+
+      if (
+        current &&
+        String(
+          selectedMissionId
+        ) === String(id)
+      ) {
+        renderMissionSummary(
+          current
+        );
+
+        const detail =
+          getPanelElements().detail;
+
+        if (detail) {
+          const errorBox =
+            document.createElement(
+              "div"
+            );
+
+          errorBox.className =
+            "mission-error";
+
+          errorBox.innerHTML =
+            `No se pudo rechazar la misión.<br>
+             HTTP ${escapeHtml(
+               error.status || "red"
+             )}<br>
+             ${escapeHtml(
+               error.message
+             )}`;
+
+          detail.prepend(
+            errorBox
+          );
+        }
+      }
 
       notify(
         `No se pudo rechazar: ${error.message}`,
@@ -1760,9 +1968,6 @@
     ) {
       return;
     }
-
-    const previous =
-      elements.detail.innerHTML;
 
     elements.detail.innerHTML = `
       <div class="mission-empty">
