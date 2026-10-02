@@ -585,6 +585,7 @@
     const coronaA = group.userData.coronaA;
     const coronaB = group.userData.coronaB;
     const coronaHalo = group.userData.coronaHalo;
+    const solarFlare = group.userData.solarFlare;
 
     if(body && body.material){
       body.material.color.setHex(selected ? 0xffffff : (core ? 0xff6b6b : color));
@@ -617,7 +618,11 @@
         if(c && c.material) c.material.opacity = selected ? 0.82 : 0.46;
       });
       if(coronaHalo && coronaHalo.material){
-        coronaHalo.material.opacity = selected ? 0.12 : 0.075;
+        coronaHalo.material.opacity = selected ? 0.13 : 0.082;
+      }
+      if(solarFlare){
+        solarFlare.visible = coronaVisible;
+        if(solarFlare.material) solarFlare.material.opacity = selected ? 0.86 : 0.70;
       }
     }
     if(group.userData.renderRadius){
@@ -741,6 +746,36 @@
         haloMat
       );
       group.add(coronaHalo);
+
+      // Soft photographic-style flare so Akira reads as a luminous core,
+      // not merely a red sphere. The texture is generated locally: no asset
+      // or network request is needed.
+      const flareCanvas = document.createElement("canvas");
+      flareCanvas.width = flareCanvas.height = 128;
+      const ctx = flareCanvas.getContext("2d");
+      const g = ctx && ctx.createRadialGradient(64,64,5,64,64,64);
+      if(ctx && g){
+        g.addColorStop(0,"rgba(255,255,255,0.95)");
+        g.addColorStop(0.18,"rgba(255,160,170,0.75)");
+        g.addColorStop(0.42,"rgba(255,95,105,0.24)");
+        g.addColorStop(1,"rgba(255,95,105,0)");
+        ctx.fillStyle=g;
+        ctx.fillRect(0,0,128,128);
+      }
+      const flareTex = new THREE.CanvasTexture(flareCanvas);
+      const flareMat = new THREE.SpriteMaterial({
+        map:flareTex,
+        color:0xff7c85,
+        transparent:true,
+        opacity:0.70,
+        blending:THREE.AdditiveBlending,
+        depthWrite:false
+      });
+      const solarFlare = new THREE.Sprite(flareMat);
+      solarFlare.scale.set(radius*6.2,radius*6.2,1);
+      solarFlare.renderOrder = 3;
+      group.add(solarFlare);
+      group.userData.solarFlare = solarFlare;
     }
 
     group.userData.ring = ring;
@@ -749,6 +784,7 @@
     group.userData.coronaA = coronaA;
     group.userData.coronaB = coronaB;
     group.userData.coronaHalo = coronaHalo;
+    group.userData.solarFlare = group.userData.solarFlare || null;
     group.userData.baseColor = color;
     group.userData.renderRadius = radius;
     glowNodeObjects.set(key, group);
@@ -1616,13 +1652,13 @@
       const scene = typeof fg.scene === "function" ? fg.scene() : null;
       if(!scene) return;
 
-      const count = 260;
+      const count = 420;
       const positions = new Float32Array(count * 3);
       const speeds = new Float32Array(count);
       for(let i=0;i<count;i++){
         const a = i * 2.3999632297;
-        const r = 300 + ((i * 83) % 820);
-        const y = -420 + ((i * 137) % 840);
+        const r = 220 + ((i * 83) % 980);
+        const y = -520 + ((i * 137) % 1040);
         positions[i*3] = Math.cos(a) * r;
         positions[i*3+1] = y;
         positions[i*3+2] = Math.sin(a) * r;
@@ -1633,10 +1669,10 @@
       geometry.setAttribute("position", new THREE.BufferAttribute(positions,3));
       neuralParticleMaterial = new THREE.PointsMaterial({
         color:0xb8c8da,
-        size:1.15,
+        size:2.0,
         sizeAttenuation:true,
         transparent:true,
-        opacity:0.18,
+        opacity:0.30,
         depthWrite:false
       });
       neuralParticleField = new THREE.Points(geometry, neuralParticleMaterial);
@@ -1668,7 +1704,7 @@
   function apply3dRuntime(){
     if(!fg) return;
 
-    _set3dMethod("backgroundColor", "#1b2232");
+    _set3dMethod("backgroundColor", "#1c2435");
     ensureNeuralParticleField();
 
     try {
@@ -1862,7 +1898,7 @@
 
       try {
         fg
-          .backgroundColor("#1b2232")
+          .backgroundColor("#1c2435")
           .enableNodeDrag(true)
           .enablePointerInteraction(true);
       } catch(_) {}
@@ -1919,7 +1955,7 @@
               obj.userData.ring.rotation.z += obj.userData.nodeId === String(selectedNodeId) ? 0.005 : 0.002;
             }
             if(obj.userData && obj.userData.coronaA){
-              const pulse = 1 + Math.sin(t * 0.72 + phase) * 0.045;
+                      const pulse = 1 + Math.sin(t * 0.72 + phase) * 0.045;
               obj.userData.coronaA.scale.setScalar(pulse);
               obj.userData.coronaA.rotation.z += 0.0018;
               obj.userData.coronaA.rotation.y += 0.0011;
@@ -1933,6 +1969,14 @@
             if(obj.userData && obj.userData.coronaHalo){
               const pulse = 0.97 + Math.sin(t * 0.64 + phase) * 0.035;
               obj.userData.coronaHalo.scale.setScalar(pulse);
+            }
+            if(obj.userData && obj.userData.solarFlare){
+              const pulse = 0.96 + Math.sin(t * 0.52 + phase) * 0.055;
+              obj.userData.solarFlare.scale.setScalar(pulse);
+              if(obj.userData.solarFlare.material){
+                obj.userData.solarFlare.material.opacity =
+                  0.66 + (Math.sin(t * 0.52 + phase) + 1) * 0.045;
+              }
             }
             if(obj.userData && obj.userData.glow){
               const importance = Number(obj.userData.importance) || 0.2;
