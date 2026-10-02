@@ -2431,11 +2431,51 @@ window.addEventListener("akira:brain-select", function(ev){
       node.select();
       _highlightNeighbors(node);
 
+      // The selected node itself must never be dimmed/hidden, even when it has
+      // no visible relations. This is especially important for the core.
+      node.style("display","element");
+      node.style("opacity",1);
+      node.style("background-opacity",1);
+      node.removeClass("dimmed");
+
       try {
         window.dispatchEvent(new CustomEvent("akira:brain-navigation", {
           detail:{nodeId:String(nodeId)}
         }));
       } catch(_) {}
+
+      // Re-center after the shared navigation event. The second pass corrects
+      // mobile pan/zoom rounding and guarantees that Akira remains on screen.
+      setTimeout(() => {
+        try {
+          const targetZoom = node.hasClass("core")
+            ? Math.min(1.65, cyMembrane.maxZoom())
+            : Math.max(1.05, cyMembrane.zoom());
+
+          cyMembrane.animate(
+            {center:{eles:node}, zoom:targetZoom},
+            {duration:420, easing:"ease-out", complete:() => {
+              try {
+                const rp = node.renderedPosition();
+                const w = cyMembrane.width() || 800;
+                const h = cyMembrane.height() || 600;
+                const dx = (w/2) - rp.x;
+                const dy = (h/2) - rp.y;
+                if(Math.abs(dx) > 3 || Math.abs(dy) > 3){
+                  cyMembrane.pan({
+                    x: cyMembrane.pan().x + dx,
+                    y: cyMembrane.pan().y + dy
+                  });
+                }
+                _position2dContext(String(nodeId));
+              } catch(_) {}
+            }}
+          );
+        } catch(_) {
+          try { cyMembrane.center(node); } catch(_) {}
+          try { _position2dContext(String(nodeId)); } catch(_) {}
+        }
+      }, 40);
     }
   } catch(_) {}
 });
