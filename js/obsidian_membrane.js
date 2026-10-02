@@ -184,6 +184,7 @@ let _communityState = null;
 let membraneBrainFilterGroup = "all";
 let membraneBrainRelationFilter = "all";
 let membraneSelectedBrainNodeId = null;
+let membraneResizeTimer = null;
 
 const MEMBRANE_REFRESH_MS = 7000;
 const MIN_EDGE_WEIGHT_VISIBLE = 0.4;
@@ -1240,6 +1241,59 @@ function _cytoscapeStyle() {
   ];
 }
 
+function _restoreFlowerAfterViewportResize() {
+  if (!cyMembrane) return;
+  if (membraneSelectedBrainNodeId) return;
+  if (membraneExploreDepth !== 0) return;
+  if (membraneBrainFilterGroup !== "all") return;
+  if (membraneBrainRelationFilter !== "all") return;
+
+  try {
+    const coreEl = cyMembrane.nodes(".core").first();
+    if (!coreEl || coreEl.empty()) return;
+
+    const nodes = cyMembrane.nodes().map(n => ({
+      id: n.id(),
+      label: n.data("label"),
+      node_type: n.data("node_type"),
+      weight: Number(n.data("weight")) || 0,
+      reuse_count: Number(n.data("reuse_count")) || 0,
+      confidence: Number(n.data("confidence")) || 0,
+      _importance: Number(n.data("_importance")) || 0
+    }));
+
+    const edges = cyMembrane.edges().map(e => ({
+      id: e.id(),
+      from_node: String(e.data("source")),
+      to_node: String(e.data("target")),
+      weight: Number(e.data("weight")) || 0.5
+    }));
+
+    _forceFlowerPositions(nodes, edges, coreEl.id());
+
+    const W = cyMembrane.width() || 800;
+    const H = cyMembrane.height() || 600;
+    coreEl.position({x: W / 2, y: H / 2});
+    cyMembrane.center(coreEl);
+  } catch(e) {
+    console.warn("[membrane] flower resize recovery failed:", e);
+  }
+}
+
+function _scheduleFlowerViewportRestore() {
+  if (membraneResizeTimer) {
+    clearTimeout(membraneResizeTimer);
+  }
+
+  membraneResizeTimer = setTimeout(() => {
+    membraneResizeTimer = null;
+    try {
+      if (cyMembrane) cyMembrane.resize();
+    } catch(_) {}
+    _restoreFlowerAfterViewportResize();
+  }, 120);
+}
+
 function initMembraneGraph() {
   const container =
     document.getElementById(
@@ -1459,13 +1513,22 @@ function initMembraneGraph() {
       const ro =
         new ResizeObserver(
           () => {
-            if (cyMembrane) {
-              cyMembrane.resize();
-            }
+            _scheduleFlowerViewportRestore();
           }
         );
 
       ro.observe(container);
+    }
+
+    if (
+      window.visualViewport &&
+      typeof window.visualViewport.addEventListener === "function"
+    ) {
+      window.visualViewport.addEventListener(
+        "resize",
+        _scheduleFlowerViewportRestore,
+        {passive:true}
+      );
     }
 
     refreshMembrane(true);
@@ -4093,7 +4156,10 @@ window.AkiraMembrane = {
   resizeMembrane:
     function(){
       try {
-        if (cyMembrane) cyMembrane.resize();
+        if (cyMembrane) {
+          cyMembrane.resize();
+          _scheduleFlowerViewportRestore();
+        }
       } catch(_) {}
     },
   reorganize:
