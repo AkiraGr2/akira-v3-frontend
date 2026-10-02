@@ -101,9 +101,9 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 .mission-progress-track{height:18px;background:#0e0e12;border:3px solid var(--border);margin-top:8px;position:relative;overflow:hidden}
 .mission-progress-fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--sky));transition:width .25s ease}
 .mission-pre{background:#09090c;border:3px solid var(--border);padding:10px;font-size:10px;color:#aaa;white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto}
-.mission-note{font-size:10px;color:var(--muted);line-height:1.5;margin-top:6px}
+.mission-note{font-size:10px;color:var(--muted);line-height:1.5;margin-top:6px}.mission-mobile-back{display:none}.mission-plan{border:3px solid var(--border);background:#0d0d12;padding:10px;margin:12px 0}.mission-plan-steps{display:flex;flex-direction:column;gap:8px}.mission-plan-step{border:3px solid var(--border);background:#15151c;padding:9px}.mission-plan-step-head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:10px}.mission-plan-step-head span{color:var(--muted)}.mission-plan-task{font-size:12px;line-height:1.5;margin-top:6px}.mission-plan-dependency{font-size:10px;color:var(--sky);margin-top:6px;font-family:"Press Start 2P",monospace}
 @media(max-width:900px){.mission-grid{grid-template-columns:1fr}.mission-kv{grid-template-columns:110px 1fr}}
-@media(max-width:768px){.sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);width:280px;z-index:30}.sidebar.open{transform:translateX(0)}.hamburger{display:flex}.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:15}.overlay.open{display:block}.section-tools{max-height:50%}.mission-shell{padding:10px}.mission-input,.mission-select{width:100%;min-width:0}.mission-toolbar,.mission-create{align-items:stretch}.mission-toolbar .pixel-btn,.mission-create .pixel-btn{width:100%}.mission-grid{min-height:0}}
+@media(max-width:768px){.sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);width:280px;z-index:30}.sidebar.open{transform:translateX(0)}.hamburger{display:flex}.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:15}.overlay.open{display:block}.section-tools{max-height:50%}.mission-shell{padding:10px;overflow:hidden}.mission-input,.mission-select{width:100%;min-width:0}.mission-toolbar,.mission-create{align-items:stretch}.mission-toolbar .pixel-btn,.mission-create .pixel-btn{width:100%}.mission-grid{min-height:0;grid-template-columns:1fr;grid-template-rows:minmax(220px,38dvh) minmax(0,1fr);height:100%;overflow:hidden}.mission-grid .mission-pane{min-height:0}.mission-list{min-height:0;height:100%;overflow-y:auto}.mission-detail{min-height:0;height:100%;overflow-y:auto}.mission-grid:not(.mobile-detail-open) .mission-pane:nth-child(2){display:none}.mission-grid.mobile-detail-open{grid-template-rows:minmax(0,1fr)}.mission-grid.mobile-detail-open .mission-pane:first-child{display:none}.mission-mobile-back{display:block;width:100%;margin-bottom:10px}.mission-plan-step-head{flex-direction:column;align-items:flex-start}}
 </style>
 </head>
 <body>
@@ -250,7 +250,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
         <button class="pixel-btn" onclick="missionPanelLoad()">🔄 Actualizar</button>
         <button class="pixel-btn" onclick="missionPanelSelftest()">🧪 Selftest</button>
       </div>
-      <div class="mission-grid">
+      <div class="mission-grid" id="missionPanelGrid">
         <div class="mission-pane">
           <div class="mission-pane-head">LISTA DE MISIONES</div>
           <div id="missionPanelList" class="mission-list">
@@ -498,7 +498,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
 <script src="./js/akira_conversations.js?v=akira-conv-v5"></script>
 <script src="./js/akira_admin.js?v=akira-admin-v1-6"></script>
-<script src="./js/akira_missions_panel.js?v=akira-missions-v4"></script>
+<script src="./js/akira_missions_panel.js?v=akira-missions-v5"></script>
 <script>
 async function renderLevels(){
   const listEl=document.getElementById("levelsList");
