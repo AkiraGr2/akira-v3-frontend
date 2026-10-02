@@ -2708,8 +2708,16 @@ function _applyGraphToCy(
     const coreEl = cyMembrane.nodes(".core");
     if(coreEl && coreEl.length){
       cyMembrane.center(coreEl);
+      // Let the deterministic flower provide the target positions, then let
+      // the local physics settle collisions and breathing room between nodes.
+      _runFlowerPhysics(nodesForSeed, edges, coreId);
       if(seedRan) setTimeout(() => {
-        try { cyMembrane.resize(); _forceFlowerPositions(nodesForSeed, edges, coreId); cyMembrane.center(coreEl); } catch(_) {}
+        try {
+          cyMembrane.resize();
+          _forceFlowerPositions(nodesForSeed, edges, coreId);
+          _runFlowerPhysics(nodesForSeed, edges, coreId);
+          cyMembrane.center(coreEl);
+        } catch(_) {}
       }, 180);
     }
   } catch(_) {}
