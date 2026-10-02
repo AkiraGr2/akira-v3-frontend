@@ -1197,6 +1197,10 @@ function _applySeedPositions(
         !_positionCache.has(n.id)
     );
 
+  // Expose structural growth/update to the final layout stage without
+  // invalidating stable coordinates.
+  window.__akiraGraphChanged = graphChanged || missing.length > 0;
+
   if (missing.length === 0) {
     return false;
   }
@@ -2771,17 +2775,18 @@ function _applyGraphToCy(
       nodesForSeed,
       edges,
       coreId,
-      !!seedRan
+      !window.__akiraRadialTargets
     );
     const coreEl = cyMembrane.nodes(".core");
     if(coreEl && coreEl.length){
       cyMembrane.center(coreEl);
-      if(seededRadial){
-        // Radial target first; then force simulation resolves personal space,
-        // Akira gravity, community cohesion and real-link attraction.
+      if(seededRadial || window.__akiraGraphChanged){
+        // New/changed graph data uses the existing coordinates as the rest
+        // state. Only the necessary physical neighborhood is rebalanced.
         _runFlowerPhysics(nodesForSeed, edges, coreId);
       }
     }
+    window.__akiraGraphChanged = false;
   } catch(_) {}
 
   membraneCounts =
