@@ -1,7 +1,7 @@
 /* ============================================================
    AKIRA — MISSIONS PANEL
    FASE 10.8 — Panel Unificado de Misiones
-   Version: V1.6
+   Version: V1.7
    ============================================================ */
 
 (function () {
@@ -687,6 +687,8 @@
 
       </div>
     `;
+
+    bindRenderedMissionActions();
   }
 
   /* ============================================================
@@ -2401,104 +2403,114 @@
      MISSION ACTION EVENTS
      ============================================================ */
 
-  function bindMissionActions() {
+  function runMissionAction(
+    action,
+    id
+  ) {
+    if (
+      !action ||
+      !id
+    ) {
+      return;
+    }
+
+    console.log(
+      "Akira mission action:",
+      action,
+      id
+    );
+
+    switch (action) {
+      case "approve":
+        void approveMission(
+          id
+        );
+        break;
+
+      case "reject":
+        void rejectMission(
+          id
+        );
+        break;
+
+      case "execute":
+        void executeMission(
+          id
+        );
+        break;
+
+      case "cancel":
+        void cancelMission(
+          id
+        );
+        break;
+
+      case "diagnose":
+        void diagnoseMission(
+          id
+        );
+        break;
+    }
+  }
+
+  function bindRenderedMissionActions() {
     const elements =
       getPanelElements();
 
     const detail =
       elements.detail;
 
-    if (
-      !detail ||
-      detail.dataset.missionActionsBound ===
-        "1"
-    ) {
+    if (!detail) {
       return;
     }
 
-    detail.dataset.missionActionsBound =
-      "1";
+    detail
+      .querySelectorAll(
+        "[data-mission-action]"
+      )
+      .forEach(
+        (button) => {
+          if (
+            button.dataset
+              .missionActionBound ===
+            "1"
+          ) {
+            return;
+          }
 
-    detail.addEventListener(
-      "click",
-      (event) => {
-        const button =
-          event.target.closest(
-            "[data-mission-action]"
+          button.dataset
+            .missionActionBound =
+            "1";
+
+          button.addEventListener(
+            "click",
+            (event) => {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+
+              if (
+                button.disabled
+              ) {
+                return;
+              }
+
+              runMissionAction(
+                button.dataset
+                  .missionAction ||
+                  "",
+                button.dataset
+                  .missionId ||
+                  ""
+              );
+            }
           );
-
-        if (
-          !button ||
-          !detail.contains(button)
-        ) {
-          return;
         }
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (
-          button.disabled
-        ) {
-          return;
-        }
-
-        const action =
-          button.dataset.missionAction ||
-          "";
-
-        const id =
-          button.dataset.missionId ||
-          "";
-
-        if (
-          !id ||
-          !action
-        ) {
-          return;
-        }
-
-        console.log(
-          "Akira mission action:",
-          action,
-          id
-        );
-
-        switch (action) {
-          case "approve":
-            void approveMission(
-              id
-            );
-            break;
-
-          case "reject":
-            void rejectMission(
-              id
-            );
-            break;
-
-          case "execute":
-            void executeMission(
-              id
-            );
-            break;
-
-          case "cancel":
-            void cancelMission(
-              id
-            );
-            break;
-
-          case "diagnose":
-            void diagnoseMission(
-              id
-            );
-            break;
-        }
-      }
-    );
+      );
   }
 
+  /* ============================================================
+     FILTERS
+     ============================================================ */
   /* ============================================================
      FILTERS
      ============================================================ */
@@ -2520,8 +2532,6 @@
         loadMissions
       );
     }
-
-    bindMissionActions();
   }
 
   /* ============================================================
