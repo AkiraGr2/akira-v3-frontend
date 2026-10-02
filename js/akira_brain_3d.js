@@ -553,7 +553,12 @@
           nodeIds:[...semanticRoute.nodeIds],
           linkIds:[...semanticRoute.linkIds],
           bridges:semanticRoute.bridges,
-          hops:semanticRoute.hops
+          hops:semanticRoute.hops,
+          paths:semanticRoute.paths.map(p => ({
+            nodes:p.nodes,
+            links:p.links,
+            hops:p.hops
+          }))
         }
       }));
     } catch(_) {}
