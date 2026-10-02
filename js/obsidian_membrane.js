@@ -745,225 +745,178 @@ let _flowerPhysicsTimer = null;
 function _runFlowerPhysics(nodes, edges, coreId){
   if(!cyMembrane) return;
   const runId = ++_flowerPhysicsRun;
+
   if(_flowerPhysicsTimer){
     try { cancelAnimationFrame(_flowerPhysicsTimer); } catch(_) {}
     _flowerPhysicsTimer = null;
   }
 
   const normalizedCoreId = coreId == null ? null : String(coreId);
+  const W = cyMembrane.width() || 800;
+  const H = cyMembrane.height() || 600;
+  const cx = W / 2;
+  const cy = H / 2;
+
+  const assignments = _communityState && _communityState.assignments instanceof Map
+    ? _communityState.assignments
+    : new Map();
+
   const active = nodes
-    .map(n => {
-      const id = String(n.id);
-      const el = cyMembrane.getElementById(id);
-      if(!el || el.empty() || id === normalizedCoreId) return null;
-
-      const p = el.position();
-      const w = Number(el.width()) || 12;
-      const diameter = Math.max(6, Math.min(54, w));
-      const group = String(
-        (_communityState && _communityState.assignments instanceof Map
-          ? (_communityState.assignments.get(id) || _detectGroup(n))
-          : _detectGroup(n)) || "other"
-      );
-
+    .map(n=>{
+      const id=String(n.id);
+      const el=cyMembrane.getElementById(id);
+      if(!el || el.empty() || id===normalizedCoreId) return null;
+      const p=el.position();
+      const group=String(assignments.get(id) || _detectGroup(n) || "other");
       return {
-        id,
-        el,
-        group,
+        id, el, group,
+        home:{x:Number(p.x)||0,y:Number(p.y)||0},
         x:Number(p.x)||0,
         y:Number(p.y)||0,
-        tx:Number(p.x)||0,
-        ty:Number(p.y)||0,
         vx:0,
         vy:0,
-        radius:diameter/2
+        radius:Math.max(4,Math.min(26,(Number(el.width())||12)/2))
       };
     })
     .filter(Boolean);
 
-  if(active.length < 2) return;
+  if(active.length<2) return;
+
+  const byGroup=new Map();
+  active.forEach(n=>{
+    if(!byGroup.has(n.group)) byGroup.set(n.group,[]);
+    byGroup.get(n.group).push(n);
+  });
 
   /*
-   * Obsidian's public Graph settings explicitly describe center, repel,
-   * link force and link distance as the forces governing the layout.
-   * We reproduce the useful behavior locally while keeping our own floral
-   * community targets: cluster gravity + node repulsion + damped settling.
+   * Constrained force relaxation:
+   *  - repulsion only among nodes of the same community;
+   *  - strong attraction to each node's floral home position;
+   *  - maximum displacement from home prevents a community from collapsing
+   *    into a line or escaping its own petal;
+   *  - real edges provide a very soft spring, but never dominate geometry.
    */
-  const byId = new Map(active.map(a => [a.id,a]));
-  const edgePairs = [];
-
+  const edgePairs=[];
+  const idToNode=new Map(active.map(n=>[n.id,n]));
   for(const e of edges || []){
-    const a = byId.get(String(e.from_node));
-    const b = byId.get(String(e.to_node));
-    if(!a || !b) continue;
-    // Same-petal links get a very soft spring; cross-petal links do not
-    // collapse the flower just because two communities are related.
-    if(a.group === b.group){
+    const a=idToNode.get(String(e.from_node));
+    const b=idToNode.get(String(e.to_node));
+    if(a && b && a.group===b.group){
       edgePairs.push({a,b});
     }
   }
 
-  const groupCenters = new Map();
-  const groupCounts = new Map();
-  active.forEach(n=>{
-    groupCenters.set(n.group,{
-      x:(groupCenters.get(n.group)?.x||0)+n.tx,
-      y:(groupCenters.get(n.group)?.y||0)+n.ty
-    });
-    groupCounts.set(n.group,(groupCounts.get(n.group)||0)+1);
-  });
-  groupCenters.forEach((p,g)=>{
-    const count = groupCounts.get(g)||1;
-    p.x /= count;
-    p.y /= count;
-  });
+  const STEPS=18;
+  let step=0;
 
-  const steps = 26;
-  let step = 0;
-
-  const tick = () => {
-    if(runId !== _flowerPhysicsRun || !cyMembrane) return;
+  const tick=()=>{
+    if(runId!==_flowerPhysicsRun || !cyMembrane) return;
     step++;
 
-    const progress = step / steps;
-    const damping = 0.74 - progress * 0.10;
-    const targetStrength = 0.045 - progress * 0.020;
+    byGroup.forEach(members=>{
+      const forces=new Map();
+      members.forEach(n=>forces.set(n.id,{x:0,y:0}));
 
-    const fx = new Map();
-    active.forEach(n => fx.set(n.id,{x:0,y:0}));
+      // Node-node collision/repulsion inside this petal only.
+      for(let i=0;i<members.length;i++){
+        const a=members[i];
+        for(let j=i+1;j<members.length;j++){
+          const b=members[j];
+          let dx=b.x-a.x;
+          let dy=b.y-a.y;
+          let d=Math.sqrt(dx*dx+dy*dy);
 
-    // Pairwise repulsion / collision. The closer two nodes are, the harder
-    // they push apart. This is what gives every node its own breathing room.
-    for(let i=0;i<active.length;i++){
-      const a = active[i];
-      for(let j=i+1;j<active.length;j++){
-        const b = active[j];
-        let dx = b.x-a.x;
-        let dy = b.y-a.y;
-        let d2 = dx*dx + dy*dy;
-        if(d2 < 0.0001){
-          const seed = ((i+1)*92821 + (j+1)*68917) % 6283;
-          const ang = seed / 1000;
-          dx = Math.cos(ang);
-          dy = Math.sin(ang);
-          d2 = 1;
-        }
+          if(d<0.001){
+            const seed=((i+1)*73856093+(j+1)*19349663)%6283;
+            const ang=seed/1000;
+            dx=Math.cos(ang);
+            dy=Math.sin(ang);
+            d=1;
+          }
 
-        const d = Math.sqrt(d2);
-        const sameGroup = a.group === b.group;
-        const gap = sameGroup ? 9 : 13;
-        const desired = a.radius + b.radius + gap;
-
-        if(d < desired){
-          const overlap = desired - d;
-          const strength = sameGroup ? 0.52 : 0.34;
-          const ux = dx/d;
-          const uy = dy/d;
-          const push = overlap * strength;
-
-          fx.get(a.id).x -= ux*push;
-          fx.get(a.id).y -= uy*push;
-          fx.get(b.id).x += ux*push;
-          fx.get(b.id).y += uy*push;
-        } else if(d < desired*1.22){
-          const soft = (desired*1.22-d) * 0.035;
-          const ux = dx/d;
-          const uy = dy/d;
-          fx.get(a.id).x -= ux*soft;
-          fx.get(a.id).y -= uy*soft;
-          fx.get(b.id).x += ux*soft;
-          fx.get(b.id).y += uy*soft;
+          const desired=a.radius+b.radius+10;
+          if(d < desired){
+            const overlap=desired-d;
+            const strength=Math.min(0.72,0.34+overlap/24);
+            const ux=dx/d, uy=dy/d;
+            const f=forces.get(a.id);
+            const g=forces.get(b.id);
+            f.x-=ux*overlap*strength;
+            f.y-=uy*overlap*strength;
+            g.x+=ux*overlap*strength;
+            g.y+=uy*overlap*strength;
+          }
         }
       }
-    }
 
-    // Soft spring back toward the assigned floral target ("gravity" of the
-    // petal). Large communities may expand, but are gently kept in their lobe.
-    active.forEach(n=>{
-      const f = fx.get(n.id);
-      f.x += (n.tx-n.x) * targetStrength;
-      f.y += (n.ty-n.y) * targetStrength;
+      members.forEach(n=>{
+        const f=forces.get(n.id);
 
-      const gc = groupCenters.get(n.group);
-      if(gc){
-        f.x += (gc.x-n.x) * 0.0018;
-        f.y += (gc.y-n.y) * 0.0018;
-      }
+        // Strong local gravity back to the flower coordinate.
+        f.x+=(n.home.x-n.x)*0.115;
+        f.y+=(n.home.y-n.y)*0.115;
+
+        // Keep motion damped, so the cluster settles instead of drifting.
+        n.vx=(n.vx+f.x)*0.58;
+        n.vy=(n.vy+f.y)*0.58;
+        n.x+=n.vx;
+        n.y+=n.vy;
+
+        // Maximum local displacement from the node's own floral home.
+        const maxDrift=34;
+        let dx=n.x-n.home.x;
+        let dy=n.y-n.home.y;
+        const drift=Math.sqrt(dx*dx+dy*dy);
+
+        if(drift>maxDrift){
+          const scale=maxDrift/drift;
+          n.x=n.home.x+dx*scale;
+          n.y=n.home.y+dy*scale;
+          n.vx*=0.25;
+          n.vy*=0.25;
+        }
+      });
     });
 
-    // Very weak rubber-band behavior for real links inside the same petal.
-    edgePairs.forEach(pair=>{
-      const a=pair.a, b=pair.b;
+    // Real same-community links gently pull their endpoints toward a readable
+    // local separation, without collapsing the flower or crossing communities.
+    edgePairs.forEach(({a,b})=>{
       let dx=b.x-a.x, dy=b.y-a.y;
       const d=Math.sqrt(dx*dx+dy*dy)||1;
-      const ideal=Math.max(34, a.radius+b.radius+22);
-      const spring=(d-ideal)*0.006;
+      const ideal=a.radius+b.radius+24;
+      if(d>ideal*1.45) return;
+      const spring=(d-ideal)*0.008;
       const ux=dx/d, uy=dy/d;
-      fx.get(a.id).x += ux*spring;
-      fx.get(a.id).y += uy*spring;
-      fx.get(b.id).x -= ux*spring;
-      fx.get(b.id).y -= uy*spring;
+      a.vx+=ux*spring;
+      a.vy+=uy*spring;
+      b.vx-=ux*spring;
+      b.vy-=uy*spring;
     });
 
-    const W=cyMembrane.width()||800;
-    const H=cyMembrane.height()||600;
-    const margin=18;
-
     active.forEach(n=>{
-      n.vx = (n.vx + fx.get(n.id).x) * damping;
-      n.vy = (n.vy + fx.get(n.id).y) * damping;
-      n.x += n.vx;
-      n.y += n.vy;
-
-      const minX=margin;
-      const maxX=Math.max(minX,W-margin);
-      const minY=margin;
-      const maxY=Math.max(minY,H-margin);
-
-      if(n.x<minX){ n.x=minX; n.vx*=0.25; }
-      if(n.x>maxX){ n.x=maxX; n.vx*=0.25; }
-      if(n.y<minY){ n.y=minY; n.vy*=0.25; }
-      if(n.y>maxY){ n.y=maxY; n.vy*=0.25; }
-
       n.el.position({x:n.x,y:n.y});
     });
 
-    if(step < steps){
-      _flowerPhysicsTimer = requestAnimationFrame(tick);
+    if(step<STEPS){
+      _flowerPhysicsTimer=requestAnimationFrame(tick);
       return;
     }
 
     _flowerPhysicsTimer=null;
     _positionCache.clear();
-
-    active.forEach(n=>{
-      _positionCache.set(n.id,{x:n.x,y:n.y});
-    });
+    active.forEach(n=>_positionCache.set(n.id,{x:n.x,y:n.y}));
 
     const coreEl=normalizedCoreId
       ? cyMembrane.getElementById(normalizedCoreId)
       : cyMembrane.nodes(".core").first();
 
     if(coreEl && !coreEl.empty()){
-      coreEl.position({
-        x:W/2,
-        y:H/2
-      });
+      coreEl.position({x:W/2,y:H/2});
       _positionCache.set(coreEl.id(),coreEl.position());
     }
-
-    try{
-      const visible=cyMembrane.nodes().filter(
-        n => n.style("display") !== "none"
-      );
-      if(visible.length){
-        cyMembrane.fit(visible,80);
-        if(coreEl && !coreEl.empty()) cyMembrane.center(coreEl);
-      }
-    }catch(_){}
   };
 
-  _flowerPhysicsTimer = requestAnimationFrame(tick);
+  _flowerPhysicsTimer=requestAnimationFrame(tick);
 }
 
 function _position2dContext(nodeId){
