@@ -162,7 +162,7 @@
 
   window.graphReinforce = async function(){
     _out("f6Output", "Reforzando pares frecuentes…", false);
-    const r = await _fetch("/api/v8/graph/reinforce", { method: "POST" }, 40000);
+    const r = await _fetch("/api/v8/graph/reinforce", { method: "POST" }, 90000);
     if (!r.ok || !r.data || !r.data.ok) return _out("f6Output", _errText(r), true);
     _out("f6Output", { ok: true, resultado: r.data.result }, false);
   };
