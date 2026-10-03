@@ -1545,6 +1545,23 @@
   function updateStats(){
     const el = document.getElementById("brainStats");
     if(!el) return;
+
+    // In 2D, use the live membrane snapshot instead of the legacy 3D
+    // snapshot, so the HUD reflects the graph actually rendered on screen.
+    if(currentMode === "2d" && window.__akiraMembraneGraphData){
+      const membrane = window.__akiraMembraneGraphData;
+      const counts = membrane.nodes && membrane.edges
+        ? {nodes: membrane.nodes.length, edges: membrane.edges.length}
+        : null;
+      const community = membrane.community;
+      if(counts){
+        el.innerHTML = "<strong>" + counts.nodes + "</strong> NODOS · <strong>" +
+          counts.edges + "</strong> RELACIONES · <strong>" +
+          ((community && Number(community.count)) || 0) + "</strong> CLUSTERS";
+        return;
+      }
+    }
+
     const selected = selectedNodeId ? graphData.links.filter(isRelatedLink).length : 0;
     el.innerHTML = "<strong>" + graphData.nodes.length + "</strong> NODOS · <strong>" +
       graphData.links.length + "</strong> RELACIONES · <strong>" +
