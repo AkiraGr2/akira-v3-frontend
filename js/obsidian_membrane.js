@@ -3852,26 +3852,45 @@ function _applyGraphToCy(
 
     const coreEl = cyMembrane.nodes(".core");
 
-    // Rebuild the radial target geometry only when the graph changes. The
-    // lightweight physics then relaxes that geometry instead of replacing it
-    // with a fully free force layout that can collapse nodes toward Akira.
-    if(coreEl && coreEl.length && (graphChanged || !window.__akiraRadialTargets)){
-      _forceFlowerPositions(nodesForSeed, edges, coreId, true);
+    // Initial build: create the proven radial composition from scratch.
+    // Later graph changes: preserve every existing node and seed ONLY newcomers
+    // beside their real neighbors, so growth becomes part of the same Brain
+    // instead of generating a second independent structure.
+    const hasExistingLayout =
+      !!window.__akiraRadialTargets &&
+      _positionCache.size > 1;
 
-      // Establish the camera immediately from the proven composition. Physics
-      // then relaxes the nodes without making the initial frame look displaced.
-      try{
-        const nucleus=coreEl.first();
-        if(nucleus && !nucleus.empty()){
-          const targetZoom=Math.max(
-            0.50,
-            Math.min(0.54, cyMembrane.maxZoom())
-          );
-          cyMembrane.zoom(targetZoom);
-          cyMembrane.center(nucleus);
-          window.__akiraRadialInitialViewportDone=true;
-        }
-      }catch(_){}
+    if(coreEl && coreEl.length && (graphChanged || !hasExistingLayout)){
+      if(!hasExistingLayout){
+        _forceFlowerPositions(nodesForSeed, edges, coreId, true);
+      }else{
+        _seedObsidianGraph(
+          nodesForSeed,
+          coreId,
+          {
+            x:(cyMembrane.width()||800)/2,
+            y:(cyMembrane.height()||600)/2
+          },
+          edges
+        );
+      }
+
+      // Establish the camera immediately only on the initial build. Subsequent
+      // growth must not recenter or zoom the existing Brain.
+      if(!window.__akiraRadialInitialViewportDone){
+        try{
+          const nucleus=coreEl.first();
+          if(nucleus && !nucleus.empty()){
+            const targetZoom=Math.max(
+              0.50,
+              Math.min(0.54, cyMembrane.maxZoom())
+            );
+            cyMembrane.zoom(targetZoom);
+            cyMembrane.center(nucleus);
+            window.__akiraRadialInitialViewportDone=true;
+          }
+        }catch(_){}
+      }
 
       _runFlowerPhysics(nodesForSeed, edges, coreId);
     }
