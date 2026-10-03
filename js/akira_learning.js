@@ -310,9 +310,9 @@
     let r = await request("/api/v8/learning/selftest", {timeoutMs: 60000});
     // Render puede devolver 200 de la peticion larga sin exponer su body al
     // navegador. En ese caso recuperamos el resultado por un endpoint corto.
-    if(r.status === 200 && !r.data){
+    if(r.status === 200 && (!r.data || typeof r.data.ok !== "boolean")){
       const recovered = await request("/api/v8/learning/selftest/result", {timeoutMs: 10000});
-      if(recovered.ok && recovered.data && recovered.data.ok){
+      if(recovered.ok && recovered.data && typeof recovered.data.ok === "boolean"){
         r = recovered;
       }
     }
