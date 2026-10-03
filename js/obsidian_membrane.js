@@ -4185,14 +4185,9 @@ window.addEventListener("akira:brain-route", function(ev){
       }
     });
 
-    if(nodeIds.size){
-      const routeNodes = cyMembrane.nodes().filter(
-        n => nodeIds.has(String(n.id()))
-      );
-      if(routeNodes.length){
-        cyMembrane.fit(routeNodes, 70);
-      }
-    }
+    // A semantic route is a highlight signal, not an implicit camera command.
+    // Selection/navigation must never zoom or pan the 2D Brain unexpectedly.
+    // Explicit focus remains available through the dedicated FOCO control.
   } catch(_) {}
 });
 
