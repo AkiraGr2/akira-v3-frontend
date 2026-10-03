@@ -95,6 +95,14 @@
       buttons.push('<button class="learning-action" data-learning-action="conflicted" data-learning-id="'+id+'" data-learning-version="'+v+'">⚠ CONFLICTO</button>');
       buttons.push('<button class="learning-action danger" data-learning-action="discarded" data-learning-id="'+id+'" data-learning-version="'+v+'">✕ DESCARTAR</button>');
     }else if(status === "verified"){
+      const analysis = item && typeof item.verification_analysis === "object" && item.verification_analysis
+        ? item.verification_analysis
+        : {};
+      const verdict = String(analysis.verdict || "").toLowerCase();
+      const confidence = Number(analysis.confidence || 0);
+      if(verdict !== "supported" || confidence < 0.70){
+        buttons.push('<button class="learning-action" data-learning-action="evaluate" data-learning-id="'+id+'" data-learning-version="'+v+'">🧪 EVALUAR</button>');
+      }
       buttons.push('<button class="learning-action primary" data-learning-action="consolidated" data-learning-id="'+id+'" data-learning-version="'+v+'">★ CONSOLIDAR</button>');
       buttons.push('<button class="learning-action" data-learning-action="conflicted" data-learning-id="'+id+'" data-learning-version="'+v+'">⚠ CONFLICTO</button>');
       buttons.push('<button class="learning-action" data-learning-action="obsolete" data-learning-id="'+id+'" data-learning-version="'+v+'">OBSOLETO</button>');

@@ -25,3 +25,21 @@ jobs:
           node --check js/akira_learning.js
           node --check js/akira_brain.js
           node --check js/akira_missions_panel.js
+
+      - name: Guard verified learning evaluation action
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const text = fs.readFileSync("js/akira_learning.js", "utf8");
+          const start = text.indexOf('}else if(status === "verified"){');
+          const end = text.indexOf('}else if(status === "consolidated"){', start);
+          if (start < 0 || end < 0) throw new Error("verified/consolidated blocks not found");
+          const block = text.slice(start, end);
+          if (!block.includes('data-learning-action="evaluate"')) {
+            throw new Error("verified learning must expose EVALUAR when not sufficiently evaluated");
+          }
+          if (!block.includes('confidence < 0.70')) {
+            throw new Error("verified learning evaluate gate threshold missing");
+          }
+          console.log("verified learning evaluation action guard OK");
+          NODE
