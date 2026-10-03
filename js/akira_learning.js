@@ -277,7 +277,22 @@
     const root = selftestRoot();
     if(root) root.innerHTML = '<div class="learning-empty">Ejecutando SELFTEST SEMÁNTICO…</div>';
     const r = await request("/api/v8/memory/semantic-selftest", {timeoutMs: 60000});
+    const tests = Array.isArray(r.data && r.data.tests) ? r.data.tests : [];
     if(!r.ok || !r.data || !r.data.ok){
+      // Un HTTP 200 con JSON y ok=false significa que el E2E SI se ejecutó,
+      // pero uno o más checks fallaron. No debemos etiquetarlo como "no ejecutado".
+      if(r.ok && r.data && tests.length){
+        const passed = tests.filter(function(t){return t.status === "PASS";}).length;
+        if(root){
+          root.innerHTML = '<div class="learning-selftest-title">🧬 SELFTEST E2E · '+esc(passed)+'/'+esc(tests.length)+' PASS · HAY FALLAS</div>'
+            + tests.map(function(t){
+              const ok = t.status === "PASS";
+              const detail = t.detail && (t.detail.error_type || t.detail.reason || t.detail.message || "");
+              return '<div class="learning-selftest-row '+(ok ? "pass" : "fail")+'"><span>'+(ok ? "✓" : "✕")+'</span><strong>'+esc(t.name)+'</strong><span>'+esc(detail)+'</span></div>';
+            }).join("");
+        }
+        return;
+      }
       let detail = (r.data && r.data.reason) || r.error || ("HTTP "+r.status);
       if(r.status === 404){
         const contract = await request("/api/v8/runtime/contract");
