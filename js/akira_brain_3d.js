@@ -2305,6 +2305,30 @@
     return {...DEVICE_3D_PROFILE};
   };
 
+  // ForceGraph3D may keep the canvas at its pre-fullscreen dimensions.
+  // Expose a small explicit resize hook for the mobile Membrane Explorer.
+  window.akiraBrainResize3d = function(width,height){
+    if(!fg) return;
+    try{
+      const w=Math.max(1,Number(width)||0);
+      const h=Math.max(1,Number(height)||0);
+      if(typeof fg.width === "function" && w) fg.width(w);
+      if(typeof fg.height === "function" && h) fg.height(h);
+      const renderer=typeof fg.renderer==="function" ? fg.renderer() : null;
+      if(renderer && typeof renderer.setSize==="function" && w && h){
+        renderer.setSize(w,h,false);
+      }
+      const camera=typeof fg.camera==="function" ? fg.camera() : null;
+      if(camera){
+        const ratio=w && h ? w/h : 1;
+        if("aspect" in camera) camera.aspect=ratio;
+        if(typeof camera.updateProjectionMatrix==="function") camera.updateProjectionMatrix();
+      }
+    }catch(err){
+      console.warn("[akira-brain-3d] explicit resize",err);
+    }
+  };
+
   window.akiraBrainRetry3d = function(){
     const container = document.getElementById("membrane3d");
     try{
