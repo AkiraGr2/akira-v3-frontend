@@ -608,10 +608,48 @@ function _obsidianInitialPosition(id,index,center,total){
   };
 }
 
-function _seedObsidianGraph(nodes, coreId, center){
+function _seedObsidianGraph(nodes, coreId, center, edges){
   if(!cyMembrane) return;
   const list=nodes||[];
   const core=coreId==null ? null : String(coreId);
+  const relations=edges||[];
+  const edgeByNode=new Map();
+
+  relations.forEach(e=>{
+    const a=String(e.from_node);
+    const b=String(e.to_node);
+    if(a===b) return;
+
+    if(!edgeByNode.has(a)) edgeByNode.set(a,[]);
+    if(!edgeByNode.has(b)) edgeByNode.set(b,[]);
+
+    const w=Math.max(0.02,Number(e.weight)||0.5);
+    edgeByNode.get(a).push({id:b,weight:w});
+    edgeByNode.get(b).push({id:a,weight:w});
+  });
+
+  const positionForId=id=>{
+    const sim=_obsidianForceNodeById.get(String(id));
+    if(sim && Number.isFinite(sim.x) && Number.isFinite(sim.y)){
+      return {x:sim.x,y:sim.y};
+    }
+
+    const cached=_positionCache.get(String(id));
+    if(cached && Number.isFinite(cached.x) && Number.isFinite(cached.y)){
+      return {x:cached.x,y:cached.y};
+    }
+
+    const el=cyMembrane.getElementById(String(id));
+    if(el && !el.empty()){
+      const p=el.position();
+      if(p && Number.isFinite(p.x) && Number.isFinite(p.y) &&
+         Math.abs(p.x-center.x)+Math.abs(p.y-center.y)>3){
+        return {x:p.x,y:p.y};
+      }
+    }
+
+    return null;
+  };
 
   try{
     list.forEach((raw,index)=>{
@@ -624,11 +662,10 @@ function _seedObsidianGraph(nodes, coreId, center){
         return;
       }
 
-      // Existing physical/cached coordinates always win. Only unplaced nodes
-      // receive the deterministic spread seed.
       const prior=_obsidianForceNodeById.get(id);
       const cached=_positionCache.get(id);
 
+      // Stable nodes never get reseeded.
       if(prior && Number.isFinite(prior.x) && Number.isFinite(prior.y)){
         el.position({x:prior.x,y:prior.y});
         return;
@@ -638,7 +675,39 @@ function _seedObsidianGraph(nodes, coreId, center){
         return;
       }
 
-      const p=_obsidianInitialPosition(id,index,center,list.length);
+      const neighbors=edgeByNode.get(id)||[];
+      const validNeighbors=neighbors
+        .map(rel=>({rel,pos:positionForId(rel.id)}))
+        .filter(item=>item.pos);
+
+      let p=null;
+
+      if(validNeighbors.length){
+        let sx=0, sy=0, sw=0;
+        validNeighbors.forEach(item=>{
+          const w=item.rel.weight;
+          sx+=item.pos.x*w;
+          sy+=item.pos.y*w;
+          sw+=w;
+        });
+
+        const baseX=sx/(sw||1);
+        const baseY=sy/(sw||1);
+        const h=_obsidianHash(id);
+        const golden=Math.PI*(3-Math.sqrt(5));
+        const angle=(h%100000)/100000*Math.PI*2 + index*golden*0.07;
+        const distance=core && validNeighbors.some(item=>String(item.rel.id)===core)
+          ? 175 + (h%60)
+          : 125 + (h%90);
+
+        p={
+          x:baseX+Math.cos(angle)*distance,
+          y:baseY+Math.sin(angle)*distance
+        };
+      }else{
+        p=_obsidianInitialPosition(id,index,center,list.length);
+      }
+
       el.position(p);
       _positionCache.set(id,p);
     });
@@ -1114,7 +1183,7 @@ function _runObsidianPhysics(nodes, edges, coreId, restart=true){
   // This removes the "all nodes at 0,0" failure mode entirely.
   const W0=cyMembrane.width()||800;
   const H0=cyMembrane.height()||600;
-  _seedObsidianGraph(nodes, coreId, {x:W0/2,y:H0/2});
+  _seedObsidianGraph(nodes, coreId, {x:W0/2,y:H0/2}, edges);
 
   // D3 is preferred, but it is not a single point of failure.
   if(!hasD3){
@@ -1916,10 +1985,6 @@ function _applySeedPositions(
       n =>
         !_positionCache.has(n.id)
     );
-
-  // Expose structural growth/update to the final layout stage without
-  // invalidating stable coordinates.
-  window.__akiraGraphChanged = graphChanged || missing.length > 0;
 
   if (missing.length === 0) {
     return false;
@@ -3516,16 +3581,36 @@ function _applyGraphToCy(
         })
       );
 
-  // Final authoritative 2D placement: Akira is the geometric origin and
-  // every community petal is placed around that origin.
+  // Final authoritative 2D placement: Obsidian-style global force graph.
+  // Akira is the central anchor; the viewport is only a camera.
   try {
     cyMembrane.resize();
+
+    const graphSignature =
+      nodesForSeed.map(n=>String(n.id)).sort().join(",") +
+      "||" +
+      edges.map(e=>
+        String(e.id)+":"+
+        String(e.from_node)+">"+
+        String(e.to_node)+":"+
+        String(Number(e.weight)||0)
+      ).sort().join(",");
+
+    const graphChanged =
+      graphSignature !== _lastGraphSignature;
+
+    _lastGraphSignature = graphSignature;
+
     const coreEl = cyMembrane.nodes(".core");
-    if(coreEl && coreEl.length){
-      _runObsidianPhysics(nodesForSeed, edges, coreId, !!window.__akiraGraphChanged || !_obsidianForceSimulation);
+
+    // Do not rebuild the force engine on every polling refresh. This is the
+    // main mobile-performance guard. New nodes/edges reheat the graph once.
+    if(coreEl && coreEl.length && (graphChanged || !_obsidianForceSimulation)){
+      _runObsidianPhysics(nodesForSeed, edges, coreId, true);
     }
-    window.__akiraGraphChanged = false;
-  } catch(_) {}
+  } catch(e) {
+    console.warn("[membrane] graph application/physics failure:",e);
+  }
 
   membraneCounts =
     data.counts || {
