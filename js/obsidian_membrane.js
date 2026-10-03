@@ -1137,7 +1137,9 @@ function _runObsidianFallbackPhysics(nodes, edges, coreId, restart=true){
           setTimeout(()=>{
             try{
               if(cyMembrane){
-                cyMembrane.fit(undefined,70);
+                // Same camera rule as D3: never fit the graph and then
+                // re-center Akira, because that makes the cloud appear on
+                // one side of the viewport.
                 if(core){
                   const el=cyMembrane.getElementById(core);
                   if(el && !el.empty()) cyMembrane.center(el);
