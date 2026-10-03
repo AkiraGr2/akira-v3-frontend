@@ -296,7 +296,7 @@
     }
     const tests = Array.isArray(r.data.tests) ? r.data.tests : [];
     if(root){
-      root.innerHTML = '<div class="learning-selftest-title">🧠 SEMÁNTICO · '+esc(tests.filter(function(t){return t.status === "PASS";}).length)+'/'+esc(tests.length)+' PASS</title>'
+      root.innerHTML = '<div class="learning-selftest-title">🧠 SEMÁNTICO · '+esc(tests.filter(function(t){return t.status === "PASS";}).length)+'/'+esc(tests.length)+' PASS</div>'
         + tests.map(function(t){
           const ok = t.status === "PASS";
           return '<div class="learning-selftest-row '+(ok ? "pass" : "fail")+'"><span>'+(ok ? "✓" : "✕")+'</span><strong>'+esc(t.name)+'</strong><span>'+esc(t.detail && (t.detail.error_type || t.detail.reason || "") || "")+'</span></div>';
