@@ -1690,6 +1690,21 @@
       });
 
       graphData = {nodes, links};
+
+      // A selection can arrive from the 2D Membrane before the 3D graph
+      // finishes loading. Recompute the current explorer scope against the
+      // freshly loaded graph so 3D never collapses to the selected nucleus
+      // simply because its one-hop state was calculated on stale/empty data.
+      if(selectedNodeId){
+        computeExplorerScope(explorerState.depth || 1);
+      } else {
+        explorerState = {
+          depth: 0,
+          visibleNodeIds: new Set(nodes.map(n => String(n.id))),
+          visibleLinkIds: new Set(links.map(l => String(l.id)))
+        };
+      }
+
       const liveIds = new Set(nodes.map(n => String(n.id)));
       glowNodeObjects.forEach((_, id) => {
         if(!liveIds.has(String(id))) glowNodeObjects.delete(id);
