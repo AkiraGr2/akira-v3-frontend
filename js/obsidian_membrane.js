@@ -3179,21 +3179,30 @@ function _updateElasticDrag(node){
   if(!state || !cyMembrane || !node) return;
 
   const p = node.position();
-  const dx = (Number(p.x)||0) - state.rootStart.x;
-  const dy = (Number(p.y)||0) - state.rootStart.y;
+  state.pendingDx = (Number(p.x)||0) - state.rootStart.x;
+  state.pendingDy = (Number(p.y)||0) - state.rootStart.y;
 
-  // Soft elastic displacement: direct neighbors move noticeably, second-hop
-  // neighbors react only slightly. There is no boundary or clamping.
+  // Pointer events can arrive faster than the phone can paint. Coalesce them
+  // into one visual update per frame so dragging stays responsive.
+  if(state.framePending) return;
+  state.framePending=true;
 
-  cyMembrane.batch(()=>{
-    state.affected.forEach(item=>{
-      const damping = item.distance === 1 ? 0.30 : 0.10;
-      const magnitude = Math.sqrt(dx*dx + dy*dy);
-      const scale = magnitude > maxShift ? maxShift / magnitude : 1;
+  requestAnimationFrame(()=>{
+    state.framePending=false;
+    if(membraneElasticDragState!==state || !cyMembrane) return;
 
-      item.element.position({
-        x:item.home.x + dx * damping * scale,
-        y:item.home.y + dy * damping * scale
+    const dx=state.pendingDx||0;
+    const dy=state.pendingDy||0;
+    const magnitude=Math.sqrt(dx*dx+dy*dy);
+    const scale=magnitude > 260 ? 260/magnitude : 1;
+
+    cyMembrane.batch(()=>{
+      state.affected.forEach(item=>{
+        const damping = item.distance === 1 ? 0.34 : 0.12;
+        item.element.position({
+          x:item.home.x + dx*damping*scale,
+          y:item.home.y + dy*damping*scale
+        });
       });
     });
   });
@@ -3203,17 +3212,24 @@ function _finishElasticDrag(){
   const state = membraneElasticDragState;
   if(!state || !cyMembrane) return;
 
+  membraneElasticDragState = null;
+
+  if(state.framePending){
+    state.framePending=false;
+  }
+
   const affected = state.affected.slice();
   const root = cyMembrane.getElementById(state.rootId);
   const homeRoot = state.rootStart;
-  membraneElasticDragState = null;
+
+  const duration=300;
 
   try{
     if(root && !root.empty()){
-      root.stop();
+      root.stop(true,false);
       root.animate(
         {position:homeRoot},
-        {duration:260,easing:"ease-out"}
+        {duration,easing:"ease-out"}
       );
     }
   }catch(_){
@@ -3222,13 +3238,10 @@ function _finishElasticDrag(){
 
   affected.forEach(item=>{
     try{
-      item.element.stop();
+      item.element.stop(true,false);
       item.element.animate(
         {position:item.home},
-        {
-          duration:280,
-          easing:"ease-out"
-        }
+        {duration,easing:"ease-out"}
       );
     }catch(_){
       try { item.element.position(item.home); } catch(__){}
@@ -3239,6 +3252,22 @@ function _finishElasticDrag(){
     cyMembrane.nodes().removeClass("drag-root").removeClass("drag-neighbor");
     cyMembrane.edges().removeClass("drag-active");
   }catch(_){}
+
+  // Keep the stable world coordinates authoritative after the return animation.
+  // Do not restart the expensive radial physics just because a user dragged.
+  setTimeout(()=>{
+    if(!cyMembrane) return;
+    try{
+      if(root && !root.empty()){
+        root.position(homeRoot);
+        _positionCache.set(state.rootId,homeRoot);
+      }
+      affected.forEach(item=>{
+        item.element.position(item.home);
+        _positionCache.set(item.id,item.home);
+      });
+    }catch(_){}
+  },duration+20);
 }
 
 function _bindElasticNodeInteraction(){
@@ -3248,6 +3277,15 @@ function _bindElasticNodeInteraction(){
   cyMembrane.on("grab","node",evt=>{
     try{
       _finishElasticDrag();
+
+      // While a node is being dragged, the user owns its position. Cancel any
+      // in-flight radial physics so the simulation cannot fight the pointer.
+      _radialPhysicsRun++;
+      if(_radialPhysicsTimer){
+        try { cancelAnimationFrame(_radialPhysicsTimer); } catch(_){}
+        _radialPhysicsTimer=null;
+      }
+
       const node = evt.target;
       membraneElasticDragState = _buildElasticDragState(node);
       if(!membraneElasticDragState) return;
