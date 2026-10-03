@@ -96,6 +96,51 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 .brain-view{position:absolute;inset:0;transition:opacity .2s ease}
 .brain-view.is-hidden{opacity:0;pointer-events:none}
 #membraneCy,#membrane3d{position:absolute;inset:0}
+#brainView2d{
+  background:
+    radial-gradient(55% 42% at 50% 50%,rgba(123,97,255,.11),transparent 68%),
+    radial-gradient(34% 28% at 24% 36%,rgba(146,206,255,.06),transparent 72%),
+    radial-gradient(30% 28% at 78% 68%,rgba(126,231,135,.045),transparent 74%),
+    #151a28;
+  overflow:hidden;
+}
+#brainView2d::before{
+  content:"";
+  position:absolute;
+  inset:-18%;
+  z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 8% 12%,rgba(255,255,255,.34) 0 1px,transparent 1.8px),
+    radial-gradient(circle at 17% 61%,rgba(205,229,255,.28) 0 1px,transparent 1.9px),
+    radial-gradient(circle at 27% 24%,rgba(255,255,255,.22) 0 1px,transparent 1.8px),
+    radial-gradient(circle at 36% 78%,rgba(210,229,255,.26) 0 1px,transparent 1.9px),
+    radial-gradient(circle at 46% 16%,rgba(255,255,255,.30) 0 1px,transparent 1.8px),
+    radial-gradient(circle at 54% 86%,rgba(214,228,255,.20) 0 1px,transparent 1.9px),
+    radial-gradient(circle at 64% 28%,rgba(255,255,255,.28) 0 1px,transparent 1.8px),
+    radial-gradient(circle at 73% 72%,rgba(210,229,255,.25) 0 1px,transparent 1.9px),
+    radial-gradient(circle at 84% 16%,rgba(255,255,255,.24) 0 1px,transparent 1.8px),
+    radial-gradient(circle at 92% 55%,rgba(213,230,255,.30) 0 1px,transparent 1.9px);
+  opacity:.72;
+  transform:scale(1.06);
+  animation:akira2dDustDrift 46s linear infinite;
+}
+#brainView2d::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(ellipse at 50% 48%,transparent 42%,rgba(0,0,0,.18) 100%),
+    linear-gradient(180deg,rgba(255,255,255,.015),transparent 24%,transparent 78%,rgba(0,0,0,.13));
+}
+#brainView2d #membraneCy{z-index:1}
+@keyframes akira2dDustDrift{
+  0%{transform:translate3d(-1%,-.5%,0) scale(1.06)}
+  50%{transform:translate3d(1%,.8%,0) scale(1.08)}
+  100%{transform:translate3d(-1%,-.5%,0) scale(1.06)}
+}
 #membrane3d canvas{display:block;width:100%!important;height:100%!important}
 .brain-hud{position:absolute;left:10px;bottom:10px;z-index:5;max-width:min(520px,calc(100% - 20px));padding:7px 9px;background:rgba(10,10,13,.82);border:2px solid var(--border);font-family:'Press Start 2P',monospace;font-size:7px;color:var(--muted);pointer-events:none}
 .brain-hud strong{color:#fff}
@@ -743,7 +788,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
 <script src="./js/akira_brain_3d.js?v=akira-brain-3d-v19-mobile-perf"></script>
-<script src="./js/obsidian_membrane.js?v=akira-membrane-v35"></script>
+<script src="./js/obsidian_membrane.js?v=akira-membrane-v36-neural-ui"></script>
 <script src="./js/akira_brain.js?v=akira-final-v6"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
 <script src="./js/akira_conversations.js?v=akira-conv-v5"></script>
