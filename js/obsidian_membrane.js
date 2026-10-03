@@ -3380,7 +3380,7 @@ async function refreshMembrane(
   try {
     const data =
       await _fetchJson(
-        "/api/v8/graph/overview"
+        "/api/v8/graph/overview?limit_nodes=500&limit_edges=1200&_=" + Date.now()
       );
 
     if (
