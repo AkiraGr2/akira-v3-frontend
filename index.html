@@ -143,6 +143,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
     height:100%;
   }
 }
+.brain-mobile-view-btn{display:none}
+.brain-mobile-close{display:none}
 @media(max-width:650px){
   .brain-context{
     top:auto;
@@ -152,6 +154,44 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
   }
   .brain-context-meta{grid-template-columns:1fr 1fr}
   .brain-context-title{font-size:14px}
+
+  .brain-mobile-view-btn{display:inline-flex;align-items:center;justify-content:center}
+  .brain-stage.brain-mobile-fullscreen{
+    position:fixed;
+    inset:0;
+    width:100vw;
+    height:100dvh;
+    min-height:100dvh;
+    z-index:100;
+    border:0;
+    background:#09090c;
+  }
+  .brain-stage.brain-mobile-fullscreen .brain-mobile-close{
+    display:flex;
+    position:absolute;
+    top:10px;
+    right:10px;
+    z-index:25;
+    width:42px;
+    height:42px;
+    align-items:center;
+    justify-content:center;
+    background:#17171e;
+    border:3px solid var(--border);
+    color:#fff;
+    font:16px 'Press Start 2P',monospace;
+    cursor:pointer;
+    box-shadow:3px 3px 0 rgba(0,0,0,.35);
+  }
+  .brain-stage.brain-mobile-fullscreen .brain-hud{
+    bottom:10px;
+    left:10px;
+    max-width:calc(100% - 20px);
+  }
+  .brain-stage.brain-mobile-fullscreen .brain-stats{
+    bottom:10px;
+    right:10px;
+  }
 }
 
 
@@ -260,6 +300,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
         <div class="brain-mode-group" role="tablist" aria-label="Vista del cerebro">
           <button id="brainMode2d" class="brain-mode active" type="button" onclick="window.akiraBrainSetMode && akiraBrainSetMode('2d')">2D</button>
           <button id="brainMode3d" class="brain-mode" type="button" onclick="window.akiraBrainSetMode && akiraBrainSetMode('3d')">3D</button>
+          <button id="brainMobileViewBtn" class="brain-mode brain-mobile-view-btn" type="button" onclick="toggleBrainMobileView()" title="Ver la membrana a pantalla completa">⛶ MEMBRANA</button>
         </div>
         <div class="brain-toolbar-actions">
           <button id="brainFocusBtn" class="brain-mode" type="button" onclick="window.akiraBrainFocus && akiraBrainFocus()" title="Centrar Akira">⌾ FOCO</button>
@@ -278,7 +319,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           <div id="brainExploreStatus" class="brain-live">MEMORIA · TODO</div>
         </div>
       </div>
-      <div class="brain-stage">
+      <div id="brainStage" class="brain-stage">
+        <button type="button" class="brain-mobile-close" onclick="toggleBrainMobileView(false)" aria-label="Cerrar vista de membrana">×</button>
         <div id="brainView2d" class="brain-view">
           <div id="membraneCy"></div>
         </div>
@@ -563,6 +605,20 @@ function showSection(name){
 }
 function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}
 function closeSidebar(){document.getElementById("sidebar").classList.remove("open");document.getElementById("overlay").classList.remove("open");}
+function toggleBrainMobileView(force){
+  const stage=document.getElementById("brainStage");
+  if(!stage) return;
+  const open = typeof force === "boolean" ? force : !stage.classList.contains("brain-mobile-fullscreen");
+  stage.classList.toggle("brain-mobile-fullscreen",open);
+  if(open){
+    document.body.dataset.brainOverflow = document.body.style.overflow || "";
+    document.body.style.overflow = "hidden";
+    try{ window.scrollTo(0,0); }catch(_){}
+  }else{
+    document.body.style.overflow = document.body.dataset.brainOverflow || "";
+    delete document.body.dataset.brainOverflow;
+  }
+}
 function newChat(){if(confirm("¿Nuevo chat?")){document.getElementById('msgsInner').innerHTML=`<div class="msg-row akira"><div class="avatar"></div><div class="bubble">Nuevo chat Akira.</div></div>`;}}
 
 async function handleCredentialResponse(r){
