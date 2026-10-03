@@ -1523,8 +1523,8 @@ function _forceFlowerPositions(nodes, edges, coreId, forceSeed=false) {
   const minDim=Math.max(360,Math.min(W,H));
   // Virtual graph space: the Brain is allowed to grow well beyond the
   // viewport. The viewport is a camera, not a physical wall.
-  const spacing=Math.max(58,Math.min(70,minDim*0.072));
-  const coreSafe=110;
+  const spacing=Math.max(52,Math.min(60,minDim*0.0625));
+  const coreSafe=88;
   const golden=Math.PI*(3-Math.sqrt(5));
 
   let ring=0;
@@ -2123,7 +2123,7 @@ function _findFreeSeedPosition(nodeId, anchor, centerPos, occupied){
   const seed=_hashId(nodeId);
   const baseAngle=(seed % 360) * Math.PI / 180;
   const minNodeGap=48;
-  const minCoreGap=120;
+  const minCoreGap=102;
 
   // Spiral search: near the chosen community first, then progressively farther
   // out. A candidate is accepted only when it respects every existing node.
@@ -2930,6 +2930,9 @@ function initMembraneGraph() {
           evt.target
         );
         try {
+          _updateMembraneContextPanel(evt.target.id());
+        } catch(_) {}
+        try {
           window.dispatchEvent(new CustomEvent("akira:brain-select", {
             detail: { nodeId: evt.target.id() }
           }));
@@ -3019,6 +3022,9 @@ function initMembraneGraph() {
             .removeClass(
               "highlighted"
             );
+
+          const panel=document.getElementById("brainContext");
+          if(panel) panel.classList.add("is-hidden");
 
           cyMembrane
             .nodes()
@@ -3851,6 +3857,22 @@ function _applyGraphToCy(
     // with a fully free force layout that can collapse nodes toward Akira.
     if(coreEl && coreEl.length && (graphChanged || !window.__akiraRadialTargets)){
       _forceFlowerPositions(nodesForSeed, edges, coreId, true);
+
+      // Establish the camera immediately from the proven composition. Physics
+      // then relaxes the nodes without making the initial frame look displaced.
+      try{
+        const nucleus=coreEl.first();
+        if(nucleus && !nucleus.empty()){
+          const targetZoom=Math.max(
+            0.50,
+            Math.min(0.54, cyMembrane.maxZoom())
+          );
+          cyMembrane.zoom(targetZoom);
+          cyMembrane.center(nucleus);
+          window.__akiraRadialInitialViewportDone=true;
+        }
+      }catch(_){}
+
       _runFlowerPhysics(nodesForSeed, edges, coreId);
     }
   } catch(e) {
