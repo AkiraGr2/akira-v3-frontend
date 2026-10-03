@@ -3670,8 +3670,9 @@ function _applyGraphToCy(
         })
       );
 
-  // Final authoritative 2D placement: Obsidian-style global force graph.
-  // Akira is the central anchor; the viewport is only a camera.
+  // Final authoritative 2D placement: radial brain structure + soft physics.
+  // This preserves the proven Akira-centered composition: a clear breathing
+  // zone around the nucleus, a mixed global cloud, and no viewport wall.
   try {
     cyMembrane.resize();
 
@@ -3692,14 +3693,17 @@ function _applyGraphToCy(
 
     const coreEl = cyMembrane.nodes(".core");
 
-    // Do not rebuild the force engine on every polling refresh. This is the
-    // main mobile-performance guard. New nodes/edges reheat the graph once.
-    if(coreEl && coreEl.length && (graphChanged || !_obsidianForceSimulation)){
-      _runObsidianPhysics(nodesForSeed, edges, coreId, true);
+    // Rebuild the radial target geometry only when the graph changes. The
+    // lightweight physics then relaxes that geometry instead of replacing it
+    // with a fully free force layout that can collapse nodes toward Akira.
+    if(coreEl && coreEl.length && (graphChanged || !window.__akiraRadialTargets)){
+      _forceFlowerPositions(nodesForSeed, edges, coreId, true);
+      _runFlowerPhysics(nodesForSeed, edges, coreId);
     }
   } catch(e) {
-    console.warn("[membrane] graph application/physics failure:",e);
+    console.warn("[membrane] graph application/physics failure:", e);
   }
+
 
   membraneCounts =
     data.counts || {
