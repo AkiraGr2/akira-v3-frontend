@@ -251,7 +251,20 @@
     if(root) root.innerHTML = '<div class="learning-empty">Ejecutando SELFTEST E2E sintético…</div>';
     const r = await request("/api/v8/learning/selftest");
     if(!r.ok || !r.data || !r.data.ok){
-      if(root) root.innerHTML = '<div class="learning-empty learning-selftest-fail">SELFTEST no ejecutado: '+esc((r.data && r.data.reason) || r.error || ("HTTP "+r.status))+'</div>';
+      let detail = (r.data && r.data.reason) || r.error || ("HTTP "+r.status);
+      if(r.status === 404){
+        const health = await request("/health");
+        if(health.ok && health.data){
+          const contract = health.data.backend_contract || "unknown";
+          detail += " · backend_contract="+contract;
+          if(health.data.learning_selftest_route === false){
+            detail += " · route=disabled";
+          }
+        }
+      } else if(r.status === 401){
+        detail += " · sesión requerida";
+      }
+      if(root) root.innerHTML = '<div class="learning-empty learning-selftest-fail">SELFTEST no ejecutado: '+esc(detail)+'</div>';
       return;
     }
     const tests = Array.isArray(r.data.tests) ? r.data.tests : [];
