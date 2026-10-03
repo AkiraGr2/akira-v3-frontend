@@ -39,6 +39,7 @@
     "https://unpkg.com/3d-force-graph@1.80.1/dist/3d-force-graph.min.js"
   ];
   const glowNodeObjects = new Map();
+  let relatedNodeIds = new Set();
   let neuralParticleField = null;
   let neuralParticleMaterial = null;
   let neuralStarField = null;
@@ -1736,7 +1737,7 @@
         size:1.35,
         sizeAttenuation:false,
         transparent:true,
-        opacity:0.42,
+        opacity:0.32,
         depthTest:false,
         depthWrite:false
       });
@@ -1779,6 +1780,19 @@
 
   function apply3dRuntime(){
     if(!fg) return;
+
+    // Cache related-node membership before applying visual callbacks. This
+    // avoids an O(nodes × links) scan on every click/hover refresh.
+    relatedNodeIds = new Set();
+    if(selectedNodeId){
+      const sid = String(selectedNodeId);
+      for(const l of graphData.links){
+        if(!isRelatedLink(l)) continue;
+        const a = nodeId(l.source), b = nodeId(l.target);
+        if(a === sid) relatedNodeIds.add(b);
+        if(b === sid) relatedNodeIds.add(a);
+      }
+    }
 
     _set3dMethod("backgroundColor", "#1c2435");
     ensureNeuralParticleField();
@@ -1825,10 +1839,7 @@
       const id = String(n.id);
       if(id === String(selectedNodeId)) return 1;
       if(isSemanticRouteNode(n)) return 0.84;
-      const related = graphData.links.some(l =>
-        isRelatedLink(l) &&
-        (nodeId(l.source) === id || nodeId(l.target) === id)
-      );
+      const related = relatedNodeIds.has(id);
       return related ? 0.95 : 0.13;
     });
 
@@ -1915,9 +1926,9 @@
     _set3dMethod("showNavInfo", false);
     _set3dMethod("controlType", "orbit");
     _set3dMethod("enablePointerInteraction", true);
-    _set3dMethod("cooldownTime", graphData.nodes.length > 280 ? 21000 : 14000);
-    _set3dMethod("warmupTicks", graphData.nodes.length > 280 ? 260 : 150);
-    _set3dMethod("cooldownTicks", 520);
+    _set3dMethod("cooldownTime", graphData.nodes.length > 280 ? 14000 : 10000);
+    _set3dMethod("warmupTicks", graphData.nodes.length > 280 ? 150 : 100);
+    _set3dMethod("cooldownTicks", 360);
 
     try {
       const controls = typeof fg.controls === "function" ? fg.controls() : null;
@@ -1969,7 +1980,12 @@
     try{
       fg = new window.ForceGraph3D(container, {
         controlType:"orbit",
-        rendererConfig:{antialias:true,alpha:true}
+        rendererConfig:{
+          antialias:false,
+          alpha:true,
+          powerPreference:"high-performance",
+          preserveDrawingBuffer:false
+        }
       });
 
       try {
@@ -1977,6 +1993,14 @@
           .backgroundColor("#1c2435")
           .enableNodeDrag(true)
           .enablePointerInteraction(true);
+      } catch(_) {}
+
+      try {
+        const renderer = typeof fg.renderer === "function" ? fg.renderer() : null;
+        if(renderer && typeof renderer.setPixelRatio === "function"){
+          const dpr = Math.min(window.devicePixelRatio || 1, 1.15);
+          renderer.setPixelRatio(dpr);
+        }
       } catch(_) {}
 
       fg
@@ -2020,7 +2044,10 @@
 
       initialized = true;
       try {
+        let animationFrame = 0;
         fg.onRenderFramePre(() => {
+          animationFrame++;
+          if(animationFrame % 2) return;
           const t = performance.now() * 0.002;
           animateNeuralParticleField(0.34);
           glowNodeObjects.forEach((obj) => {
