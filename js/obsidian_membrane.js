@@ -703,16 +703,407 @@ function _bindObsidianPhysicsInteractions(){
   cyMembrane.on("zoom",()=>_updateObsidianLabelFade());
 }
 
+
+function _runObsidianFallbackPhysics(nodes, edges, coreId, restart=true){
+  if(!cyMembrane) return false;
+
+  try{ cyMembrane.resize(); }catch(_){}
+
+  const W=cyMembrane.width()||800;
+  const H=cyMembrane.height()||600;
+  const center={x:W/2,y:H/2};
+  const core=coreId ? String(coreId) : null;
+
+  if(_obsidianForceSimulation){
+    try{ _obsidianForceSimulation.stop(); }catch(_){}
+  }
+  if(_obsidianSyncRaf){
+    try{ cancelAnimationFrame(_obsidianSyncRaf); }catch(_){}
+    _obsidianSyncRaf=null;
+  }
+
+  const priorNodes=new Map(_obsidianForceNodeById);
+
+  const simNodes=(nodes||[]).map((raw,index)=>{
+    const id=String(raw.id);
+    const el=cyMembrane.getElementById(id);
+    const prior=priorNodes.get(id);
+    const cached=_positionCache.get(id);
+    const existing=el && !el.empty() ? el.position() : null;
+
+    let p=null;
+
+    if(prior && Number.isFinite(prior.x) && Number.isFinite(prior.y)){
+      p={x:prior.x,y:prior.y};
+    }else if(cached && Number.isFinite(cached.x) && Number.isFinite(cached.y)){
+      p={x:cached.x,y:cached.y};
+    }else if(existing && Number.isFinite(existing.x) && Number.isFinite(existing.y) &&
+             Math.abs(existing.x-center.x)+Math.abs(existing.y-center.y)>2){
+      p=existing;
+    }else{
+      p=_obsidianInitialPosition(id,index,center);
+    }
+
+    const degree=el && !el.empty() ? el.connectedEdges().length : 0;
+    const radius=Math.max(8,Math.min(34,
+      Number(el && el.data("radius")) || (10 + Math.min(degree*0.9,9))
+    ));
+
+    const sim={
+      id,
+      x:p.x,
+      y:p.y,
+      r:radius,
+      degree,
+      isCore:id===core,
+      vx:0,
+      vy:0,
+      fx:null,
+      fy:null,
+      __raw:raw
+    };
+
+    if(sim.isCore){
+      sim.fx=center.x;
+      sim.fy=center.y;
+      sim.x=center.x;
+      sim.y=center.y;
+    }
+
+    return sim;
+  });
+
+  const simById=new Map(simNodes.map(n=>[n.id,n]));
+  const simLinks=[];
+
+  (edges||[]).forEach(e=>{
+    const a=String(e.from_node);
+    const b=String(e.to_node);
+
+    if(a===b || !simById.has(a) || !simById.has(b)) return;
+
+    simLinks.push({
+      source:a,
+      target:b,
+      id:String(e.id),
+      weight:Math.max(0.02,Number(e.weight)||0.5)
+    });
+  });
+
+  const neighbors=new Map();
+  simNodes.forEach(n=>neighbors.set(n.id,[]));
+
+  simLinks.forEach(l=>{
+    const a=simById.get(l.source);
+    const b=simById.get(l.target);
+    if(!a || !b) return;
+
+    neighbors.get(a.id).push({node:b,weight:l.weight});
+    neighbors.get(b.id).push({node:a,weight:l.weight});
+  });
+
+  const generation=++_obsidianForceGeneration;
+
+  let alpha=restart ? 1 : 0.001;
+  let alphaTarget=0;
+  let stopped=!restart;
+  let frameId=null;
+  let coolingFrames=0;
+
+  const controller={
+    __backend:"akira-fallback-force",
+    alphaTarget(value){
+      if(arguments.length===0) return alphaTarget;
+      alphaTarget=Math.max(0,Math.min(1,Number(value)||0));
+      return controller;
+    },
+    restart(){
+      if(generation!==_obsidianForceGeneration) return controller;
+      stopped=false;
+      alpha=Math.max(alpha,0.24);
+      coolingFrames=0;
+      schedule();
+      return controller;
+    },
+    stop(){
+      stopped=true;
+      if(frameId){
+        try{ cancelAnimationFrame(frameId); }catch(_){}
+        frameId=null;
+      }
+      return controller;
+    }
+  };
+
+  const gridCell=108;
+  const gridRange=3;
+
+  function step(){
+    if(stopped || generation!==_obsidianForceGeneration) return false;
+
+    const forces=new Map(
+      simNodes.map(n=>[n.id,{x:0,y:0}])
+    );
+
+    const grid=new Map();
+
+    simNodes.forEach(n=>{
+      const gx=Math.floor(n.x/gridCell);
+      const gy=Math.floor(n.y/gridCell);
+      const key=gx+","+gy;
+
+      if(!grid.has(key)) grid.set(key,[]);
+      grid.get(key).push(n);
+    });
+
+    // Local repulsion + collision. The viewport is deliberately not a wall:
+    // the physical graph is free to expand beyond the visible camera.
+    simNodes.forEach(a=>{
+      const gx=Math.floor(a.x/gridCell);
+      const gy=Math.floor(a.y/gridCell);
+
+      for(let ox=-gridRange;ox<=gridRange;ox++){
+        for(let oy=-gridRange;oy<=gridRange;oy++){
+          const bucket=grid.get((gx+ox)+","+(gy+oy));
+          if(!bucket) continue;
+
+          for(const b of bucket){
+            if(a.id>=b.id) continue;
+
+            let dx=b.x-a.x;
+            let dy=b.y-a.y;
+            let d2=dx*dx+dy*dy;
+
+            if(d2<0.0001){
+              const h=_obsidianHash(a.id+"::"+b.id);
+              const ang=(h%62831)/10000;
+              dx=Math.cos(ang);
+              dy=Math.sin(ang);
+              d2=1;
+            }
+
+            const d=Math.sqrt(d2);
+            if(d>420) continue;
+
+            const ux=dx/d;
+            const uy=dy/d;
+
+            const desired=a.r+b.r+34;
+
+            if(d<desired){
+              const overlap=desired-d;
+              const push=(0.92 + overlap*0.012) * alpha;
+
+              forces.get(a.id).x-=ux*push;
+              forces.get(a.id).y-=uy*push;
+              forces.get(b.id).x+=ux*push;
+              forces.get(b.id).y+=uy*push;
+
+            }else if(d<220){
+              const soft=((220-d)/220)*0.020*alpha;
+              forces.get(a.id).x-=ux*soft;
+              forces.get(a.id).y-=uy*soft;
+              forces.get(b.id).x+=ux*soft;
+              forces.get(b.id).y+=uy*soft;
+            }
+          }
+        }
+      }
+    });
+
+    // Real links act like springs. Stronger links stay a little tighter.
+    simLinks.forEach(link=>{
+      const a=simById.get(link.source);
+      const b=simById.get(link.target);
+      if(!a || !b) return;
+
+      let dx=b.x-a.x;
+      let dy=b.y-a.y;
+      const d=Math.sqrt(dx*dx+dy*dy)||1;
+
+      const ideal=Math.max(
+        72,
+        OBSIDIAN_FORCE_DEFAULTS.linkDistance - Math.min(24,link.weight*18)
+      );
+
+      const stretch=d-ideal;
+      const strength=0.0048*(0.75+Math.min(1.25,link.weight));
+
+      const force=Math.max(-1.9,Math.min(1.9,stretch*strength))*alpha;
+      const ux=dx/d;
+      const uy=dy/d;
+
+      forces.get(a.id).x+=ux*force;
+      forces.get(a.id).y+=uy*force;
+      forces.get(b.id).x-=ux*force;
+      forces.get(b.id).y-=uy*force;
+    });
+
+    // Soft central gravity / centering. No rectangular boundary.
+    simNodes.forEach(n=>{
+      if(n.isCore) return;
+
+      const dx=center.x-n.x;
+      const dy=center.y-n.y;
+      const d=Math.sqrt(dx*dx+dy*dy)||1;
+
+      // The closer the graph is to the center, the softer the correction.
+      const centerForce=Math.min(1.4,Math.max(0.03,(d-130)*0.0009))*alpha;
+
+      forces.get(n.id).x+=dx/d*centerForce;
+      forces.get(n.id).y+=dy/d*centerForce;
+
+      // Slight degree-aware repulsion prevents hubs from swallowing leaves.
+      const degree=Math.min(18,n.degree||0);
+      const radialExtra=(0.010 + degree*0.0018)*alpha;
+      forces.get(n.id).x-=dx/d*radialExtra;
+      forces.get(n.id).y-=dy/d*radialExtra;
+    });
+
+    simNodes.forEach(n=>{
+      if(n.isCore){
+        n.x=center.x;
+        n.y=center.y;
+        n.vx=0;
+        n.vy=0;
+        return;
+      }
+
+      if(n.fx!=null){
+        n.x=n.fx;
+      }
+      if(n.fy!=null){
+        n.y=n.fy;
+      }
+
+      if(n.fx==null && n.fy==null){
+        const f=forces.get(n.id);
+        n.vx=(n.vx + f.x) * 0.72;
+        n.vy=(n.vy + f.y) * 0.72;
+
+        const speed=Math.sqrt(n.vx*n.vx+n.vy*n.vy);
+        if(speed>12){
+          const k=12/speed;
+          n.vx*=k;
+          n.vy*=k;
+        }
+
+        n.x+=n.vx;
+        n.y+=n.vy;
+      }else{
+        n.vx*=0.45;
+        n.vy*=0.45;
+      }
+    });
+
+    alpha += (alphaTarget-alpha)*0.14;
+    alpha*=0.955;
+
+    _syncObsidianNodesToCy();
+
+    if(alpha<0.004 && alphaTarget===0){
+      stopped=true;
+      return false;
+    }
+
+    return true;
+  }
+
+  function schedule(){
+    if(frameId || stopped || generation!==_obsidianForceGeneration) return;
+
+    frameId=requestAnimationFrame(()=>{
+      frameId=null;
+      if(stopped || generation!==_obsidianForceGeneration) return;
+
+      // A few physics micro-steps per paint keeps convergence quick without
+      // forcing a heavy full-frame loop on mobile.
+      const iterations=simNodes.length>300 ? 2 : 3;
+      let alive=true;
+
+      for(let i=0;i<iterations && alive;i++){
+        alive=step();
+      }
+
+      if(alive){
+        coolingFrames++;
+        if(alpha<0.025 && alphaTarget===0 && coolingFrames>120){
+          stopped=true;
+        }else{
+          schedule();
+        }
+      }
+    });
+  }
+
+  _obsidianForceNodeById=simById;
+  _obsidianForceSimulation=controller;
+
+  if(restart){
+    schedule();
+  }
+
+  // Match the D3 path's initial graph completion behavior.
+  if(restart){
+    setTimeout(()=>{
+      if(generation!==_obsidianForceGeneration) return;
+
+      const finish=()=>{
+        if(generation!==_obsidianForceGeneration) return;
+
+        try{
+          simNodes.forEach(n=>_positionCache.set(n.id,{x:n.x,y:n.y}));
+        }catch(_){}
+
+        if(!_obsidianInitialFitDone){
+          _obsidianInitialFitDone=true;
+          setTimeout(()=>{
+            try{
+              if(cyMembrane){
+                cyMembrane.fit(undefined,70);
+                if(core){
+                  const el=cyMembrane.getElementById(core);
+                  if(el && !el.empty()) cyMembrane.center(el);
+                }
+                _updateObsidianLabelFade();
+              }
+            }catch(_){}
+          },80);
+        }
+      };
+
+      // Give the controller enough time to cool. If the user interacts before
+      // then, position cache is refreshed by subsequent ticks.
+      const check=()=>{
+        if(generation!==_obsidianForceGeneration) return;
+        if(!stopped){
+          setTimeout(check,120);
+          return;
+        }
+        finish();
+      };
+      check();
+    },40);
+  }
+
+  return true;
+}
+
 function _runObsidianPhysics(nodes, edges, coreId, restart=true){
   if(!cyMembrane) return false;
-  if(!window.d3 ||
-     typeof window.d3.forceSimulation!=="function" ||
-     typeof window.d3.forceManyBody!=="function" ||
-     typeof window.d3.forceLink!=="function" ||
-     typeof window.d3.forceCenter!=="function" ||
-     typeof window.d3.forceCollide!=="function"){
-    console.warn("[membrane] d3-force unavailable; keeping renderer without new physics");
-    return false;
+
+  const hasD3=!!window.d3 &&
+    typeof window.d3.forceSimulation==="function" &&
+    typeof window.d3.forceManyBody==="function" &&
+    typeof window.d3.forceLink==="function" &&
+    typeof window.d3.forceCenter==="function" &&
+    typeof window.d3.forceCollide==="function";
+
+  // Never leave the graph stacked because a CDN asset failed. The local
+  // fallback is a complete force engine and keeps the Brain functional offline.
+  if(!hasD3){
+    console.warn("[membrane] d3-force unavailable; using local Akira force engine");
+    return _runObsidianFallbackPhysics(nodes, edges, coreId, restart);
   }
 
   try{ _bindObsidianPhysicsInteractions(); }catch(_){}
