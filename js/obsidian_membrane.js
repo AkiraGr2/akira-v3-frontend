@@ -283,11 +283,11 @@ let _obsidianForceGeneration = 0;
 let _obsidianSyncRaf = null;
 let _obsidianInitialFitDone = false;
 const OBSIDIAN_FORCE_DEFAULTS = {
-  center: 0.022,
-  repel: -175,
-  linkForce: 0.18,
-  linkDistance: 130,
-  collisionGap: 24
+  center: 0.010,
+  repel: -220,
+  linkForce: 0.09,
+  linkDistance: 160,
+  collisionGap: 30
 };
 
 let _labelCounter = null;
@@ -601,7 +601,7 @@ function _obsidianInitialPosition(id,index,center,total){
   const scale=Math.max(1,Math.sqrt(Number(total)||1));
   // Virtual space grows with graph size. There is intentionally no viewport
   // clamp: Cytoscape is the camera, not the physical boundary of the Brain.
-  const radius=110 + 62*Math.sqrt(index+1) + 18*scale;
+  const radius=150 + 78*Math.sqrt(index+1) + 24*scale;
   return {
     x:center.x + Math.cos(angle)*radius,
     y:center.y + Math.sin(angle)*radius
@@ -647,6 +647,40 @@ function _seedObsidianGraph(nodes, coreId, center){
   }
 }
 
+function _buildObsidianPhysicalLinks(edges, simById, maxPerNode=3){
+  const ranked=new Map();
+
+  (edges||[]).forEach(e=>{
+    const a=String(e.from_node);
+    const b=String(e.to_node);
+    if(a===b || !simById.has(a) || !simById.has(b)) return;
+
+    const item={
+      source:a,
+      target:b,
+      id:String(e.id),
+      weight:Math.max(0.02,Number(e.weight)||0.5)
+    };
+
+    if(!ranked.has(a)) ranked.set(a,[]);
+    if(!ranked.has(b)) ranked.set(b,[]);
+
+    ranked.get(a).push(item);
+    ranked.get(b).push(item);
+  });
+
+  ranked.forEach(list=>list.sort((a,b)=>b.weight-a.weight));
+
+  const keep=new Map();
+  ranked.forEach(list=>{
+    list.slice(0,Math.max(1,maxPerNode)).forEach(item=>{
+      keep.set(item.id,item);
+    });
+  });
+
+  return [...keep.values()];
+}
+
 function _syncObsidianNodesToCy(){
   if(!cyMembrane) return;
   if(_obsidianSyncRaf) return;
@@ -686,64 +720,8 @@ function _bindObsidianPhysicsInteractions(){
   if(_obsidianPhysicsBound || !cyMembrane) return;
   _obsidianPhysicsBound=true;
 
-  cyMembrane.on("grab","node",evt=>{
-    const id=String(evt.target.id());
-    const simNode=_obsidianForceNodeById.get(id);
-    if(!simNode || !_obsidianForceSimulation) return;
-    const p=evt.target.position();
-    simNode.fx=p.x;
-    simNode.fy=p.y;
-    simNode.__dragging=true;
-    _obsidianForceSimulation.alphaTarget(0.30).restart();
-    evt.target.addClass("drag-root");
-  });
-
-  cyMembrane.on("drag","node",evt=>{
-    const id=String(evt.target.id());
-    const simNode=_obsidianForceNodeById.get(id);
-    if(!simNode) return;
-    const p=evt.target.position();
-    simNode.fx=p.x;
-    simNode.fy=p.y;
-
-    // Wake direct neighbors, exactly like a rubber-band force response.
-    const related=new Set();
-    evt.target.connectedEdges().forEach(e=>{
-      related.add(String(e.data("source")));
-      related.add(String(e.data("target")));
-      e.addClass("drag-active");
-    });
-    related.delete(id);
-    related.forEach(nid=>{
-      const el=cyMembrane.getElementById(nid);
-      if(el && !el.empty()) el.addClass("drag-neighbor");
-    });
-    _syncObsidianNodesToCy();
-  });
-
-  cyMembrane.on("free","node",evt=>{
-    const id=String(evt.target.id());
-    const simNode=_obsidianForceNodeById.get(id);
-    if(simNode){
-      simNode.__dragging=false;
-      if(!simNode.isCore){
-        simNode.fx=null;
-        simNode.fy=null;
-      }
-      if(_obsidianForceSimulation){
-        _obsidianForceSimulation.alphaTarget(0.12).restart();
-        setTimeout(()=>{
-          try{
-            if(_obsidianForceSimulation) _obsidianForceSimulation.alphaTarget(0);
-          }catch(_){}
-        },420);
-      }
-    }
-    evt.target.removeClass("drag-root");
-    evt.target.connectedEdges().removeClass("drag-active");
-    cyMembrane.nodes(".drag-neighbor").removeClass("drag-neighbor");
-  });
-
+  // Pointer drag is intentionally owned by the lightweight elastic controller
+  // below. This prevents D3 and Cytoscape from fighting over the same node.
   cyMembrane.on("zoom",()=>_updateObsidianLabelFade());
 }
 
@@ -818,21 +796,7 @@ function _runObsidianFallbackPhysics(nodes, edges, coreId, restart=true){
   });
 
   const simById=new Map(simNodes.map(n=>[n.id,n]));
-  const simLinks=[];
-
-  (edges||[]).forEach(e=>{
-    const a=String(e.from_node);
-    const b=String(e.to_node);
-
-    if(a===b || !simById.has(a) || !simById.has(b)) return;
-
-    simLinks.push({
-      source:a,
-      target:b,
-      id:String(e.id),
-      weight:Math.max(0.02,Number(e.weight)||0.5)
-    });
-  });
+  const simLinks=_buildObsidianPhysicalLinks(edges,simById,3);
 
   const neighbors=new Map();
   simNodes.forEach(n=>neighbors.set(n.id,[]));
@@ -992,7 +956,7 @@ function _runObsidianFallbackPhysics(nodes, edges, coreId, restart=true){
       const d=Math.sqrt(dx*dx+dy*dy)||1;
 
       // The closer the graph is to the center, the softer the correction.
-      const centerForce=Math.min(1.4,Math.max(0.03,(d-130)*0.0009))*alpha;
+      const centerForce=Math.min(0.75,Math.max(0.01,(d-180)*0.0005))*alpha;
 
       forces.get(n.id).x+=dx/d*centerForce;
       forces.get(n.id).y+=dy/d*centerForce;
@@ -1022,8 +986,8 @@ function _runObsidianFallbackPhysics(nodes, edges, coreId, restart=true){
 
       if(n.fx==null && n.fy==null){
         const f=forces.get(n.id);
-        n.vx=(n.vx + f.x) * 0.72;
-        n.vy=(n.vy + f.y) * 0.72;
+        n.vx=(n.vx + f.x) * 0.80;
+        n.vy=(n.vy + f.y) * 0.80;
 
         const speed=Math.sqrt(n.vx*n.vx+n.vy*n.vy);
         if(speed>12){
@@ -1041,7 +1005,7 @@ function _runObsidianFallbackPhysics(nodes, edges, coreId, restart=true){
     });
 
     alpha += (alphaTarget-alpha)*0.14;
-    alpha*=0.955;
+    alpha*=0.94;
 
     _syncObsidianNodesToCy();
 
@@ -1212,18 +1176,7 @@ function _runObsidianPhysics(nodes, edges, coreId, restart=true){
   });
 
   const simById=new Map(simNodes.map(n=>[n.id,n]));
-  const simLinks=[];
-  (edges||[]).forEach(e=>{
-    const a=String(e.from_node), b=String(e.to_node);
-    if(a===b || !simById.has(a) || !simById.has(b)) return;
-    const w=Math.max(0.02,Number(e.weight)||0.5);
-    simLinks.push({
-      source:a,
-      target:b,
-      id:String(e.id),
-      weight:w
-    });
-  });
+  const simLinks=_buildObsidianPhysicalLinks(edges,simById,3);
 
   const generation=++_obsidianForceGeneration;
 
@@ -1264,10 +1217,10 @@ function _runObsidianPhysics(nodes, edges, coreId, restart=true){
           .strength(0.95)
           .iterations(2)
       )
-      .velocityDecay(0.60)
+      .velocityDecay(0.72)
       .alpha(1)
-      .alphaDecay(nodes.length>500 ? 0.045 : 0.030)
-      .alphaMin(0.001);
+      .alphaDecay(nodes.length>300 ? 0.065 : 0.050)
+      .alphaMin(0.010);
   }catch(e){
     console.warn("[membrane] d3-force runtime failure; using local Akira force engine:",e);
     return _runObsidianFallbackPhysics(nodes, edges, coreId, restart);
@@ -2962,9 +2915,7 @@ function _updateElasticDrag(node){
   const dy = (Number(p.y)||0) - state.rootStart.y;
 
   // Soft elastic displacement: direct neighbors move noticeably, second-hop
-  // neighbors only slightly. The maximum displacement prevents a dragged
-  // community from leaving its petal.
-  const maxShift = 95;
+  // neighbors react only slightly. There is no boundary or clamping.
 
   cyMembrane.batch(()=>{
     state.affected.forEach(item=>{
@@ -2985,7 +2936,21 @@ function _finishElasticDrag(){
   if(!state || !cyMembrane) return;
 
   const affected = state.affected.slice();
+  const root = cyMembrane.getElementById(state.rootId);
+  const homeRoot = state.rootStart;
   membraneElasticDragState = null;
+
+  try{
+    if(root && !root.empty()){
+      root.stop();
+      root.animate(
+        {position:homeRoot},
+        {duration:260,easing:"ease-out"}
+      );
+    }
+  }catch(_){
+    try{ if(root && !root.empty()) root.position(homeRoot); }catch(__){}
+  }
 
   affected.forEach(item=>{
     try{
@@ -3653,22 +3618,11 @@ function _updateMembraneStats() {
 window.addEventListener("akira:brain-select", function(ev){
   try{
     if(!cyMembrane) return;
-    const id = ev && ev.detail ? ev.detail.nodeId : null;
-    if(id){
-      const el = cyMembrane.getElementById(String(id));
-      if(el && !el.empty()){
-        const isCore = el.hasClass("core");
-        const targetZoom = isCore ? 1.55 : Math.max(cyMembrane.zoom(), 1.05);
-        cyMembrane.animate({center:{eles:el}, zoom:targetZoom}, {duration:500, easing:"ease-out"});
-        setTimeout(() => {
-          try {
-            cyMembrane.resize();
-            cyMembrane.center(el);
-            _position2dContext(id);
-          } catch(_){}
-        }, 540);
-        setTimeout(() => { try { _position2dContext(id); } catch(_){} }, 720);
-      }
+    const id = ev && ev.detail ? String(ev.detail.nodeId || "") : "";
+    if(!id) return;
+    const el = cyMembrane.getElementById(id);
+    if(el && !el.empty()){
+      _position2dContext(id);
     }
   }catch(_){ }
 });
@@ -3686,11 +3640,7 @@ window.addEventListener("akira:brain-navigation", function(ev){
     if(node && node.length){
       cyMembrane.nodes().unselect();
       node.select();
-      cyMembrane.animate({
-        center:{eles:node},
-        duration:500
-      });
-      setTimeout(() => { try { _position2dContext(id); } catch(_){} }, 540);
+      _position2dContext(id);
     }
   } catch(_) {}
 });
