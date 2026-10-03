@@ -171,6 +171,9 @@
           alert("No se pudo actualizar el aprendizaje: " + ((r.data && r.data.reason) || ("HTTP "+r.status)));
           return;
         }
+        if((status === "verified" || status === "consolidated") && r.data.graph && r.data.graph.promoted === false){
+          alert("Aprendizaje actualizado, pero el grafo no se pudo materializar: " + (r.data.graph.reason || "motivo desconocido"));
+        }
         await api.load();
       });
     });
