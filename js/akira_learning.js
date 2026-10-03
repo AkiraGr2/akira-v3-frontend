@@ -277,22 +277,7 @@
     const root = selftestRoot();
     if(root) root.innerHTML = '<div class="learning-empty">Ejecutando SELFTEST SEMÁNTICO…</div>';
     const r = await request("/api/v8/memory/semantic-selftest", {timeoutMs: 60000});
-    const tests = Array.isArray(r.data && r.data.tests) ? r.data.tests : [];
     if(!r.ok || !r.data || !r.data.ok){
-      // HTTP 200 + JSON + tests means the E2E did execute; expose failed checks
-      // instead of masking them as a transport/non-execution error.
-      if(r.ok && r.data && tests.length){
-        const passed = tests.filter(function(t){return t.status === "PASS";}).length;
-        if(root){
-          root.innerHTML = '<div class="learning-selftest-title">🧬 SELFTEST E2E · '+esc(passed)+'/'+esc(tests.length)+' PASS · HAY FALLAS</div>'
-            + tests.map(function(t){
-              const ok = t.status === "PASS";
-              const detail = t.detail && (t.detail.error_type || t.detail.reason || t.detail.message || "");
-              return '<div class="learning-selftest-row '+(ok ? "pass" : "fail")+'"><span>'+(ok ? "✓" : "✕")+'</span><strong>'+esc(t.name)+'</strong><span>'+esc(detail)+'</span></div>';
-            }).join("");
-        }
-        return;
-      }
       let detail = (r.data && r.data.reason) || r.error || ("HTTP "+r.status);
       if(r.status === 404){
         const contract = await request("/api/v8/runtime/contract");
@@ -311,7 +296,7 @@
     }
     const tests = Array.isArray(r.data.tests) ? r.data.tests : [];
     if(root){
-      root.innerHTML = '<div class="learning-selftest-title">🧠 SEMÁNTICO · '+esc(tests.filter(function(t){return t.status === "PASS";}).length)+'/'+esc(tests.length)+' PASS</div>'
+      root.innerHTML = '<div class="learning-selftest-title">🧠 SEMÁNTICO · '+esc(tests.filter(function(t){return t.status === "PASS";}).length)+'/'+esc(tests.length)+' PASS</title>'
         + tests.map(function(t){
           const ok = t.status === "PASS";
           return '<div class="learning-selftest-row '+(ok ? "pass" : "fail")+'"><span>'+(ok ? "✓" : "✕")+'</span><strong>'+esc(t.name)+'</strong><span>'+esc(t.detail && (t.detail.error_type || t.detail.reason || "") || "")+'</span></div>';
@@ -323,15 +308,26 @@
     const root = selftestRoot();
     if(root) root.innerHTML = '<div class="learning-empty">Ejecutando SELFTEST E2E sintético…</div>';
     let r = await request("/api/v8/learning/selftest", {timeoutMs: 60000});
-    // Render puede devolver 200 de la peticion larga sin exponer su body al
-    // navegador. En ese caso recuperamos el resultado por un endpoint corto.
     if(r.status === 200 && (!r.data || typeof r.data.ok !== "boolean")){
       const recovered = await request("/api/v8/learning/selftest/result", {timeoutMs: 10000});
       if(recovered.ok && recovered.data && typeof recovered.data.ok === "boolean"){
         r = recovered;
       }
     }
+    const tests = Array.isArray(r.data && r.data.tests) ? r.data.tests : [];
     if(!r.ok || !r.data || !r.data.ok){
+      if(r.ok && r.data && tests.length){
+        const passed = tests.filter(function(t){return t.status === "PASS";}).length;
+        if(root){
+          root.innerHTML = '<div class="learning-selftest-title">🧬 SELFTEST E2E · '+esc(passed)+'/'+esc(tests.length)+' PASS · HAY FALLAS</div>'
+            + tests.map(function(t){
+              const ok = t.status === "PASS";
+              const detail = t.detail && (t.detail.error_type || t.detail.reason || t.detail.message || "");
+              return '<div class="learning-selftest-row '+(ok ? "pass" : "fail")+'"><span>'+(ok ? "✓" : "✕")+'</span><strong>'+esc(t.name)+'</strong><span>'+esc(detail)+'</span></div>';
+            }).join("");
+        }
+        return;
+      }
       let detail = (r.data && r.data.reason) || r.error || ("HTTP "+r.status);
       if(r.status === 404){
         const contract = await request("/api/v8/runtime/contract");
@@ -356,13 +352,13 @@
       if(root) root.innerHTML = '<div class="learning-empty learning-selftest-fail">SELFTEST no ejecutado: '+esc(detail)+'</div>';
       return;
     }
-    const tests = Array.isArray(r.data.tests) ? r.data.tests : [];
+    const testsOk = Array.isArray(r.data.tests) ? r.data.tests : [];
     if(root){
-      const passed = tests.filter(function(t){return t.status === "PASS";}).length;
+      const passed = testsOk.filter(function(t){return t.status === "PASS";}).length;
       const duration = Number(r.data.duration_ms || 0);
-      root.innerHTML = '<div class="learning-selftest-title">🧬 SELFTEST E2E · '+esc(passed)+'/'+esc(tests.length)+' PASS'
+      root.innerHTML = '<div class="learning-selftest-title">🧬 SELFTEST E2E · '+esc(passed)+'/'+esc(testsOk.length)+' PASS'
         +(duration ? ' · '+esc((duration/1000).toFixed(1))+' s' : '')+'</div>'
-        + tests.map(function(t){
+        + testsOk.map(function(t){
           const ok = t.status === "PASS";
           return '<div class="learning-selftest-row '+(ok ? "pass" : "fail")+'"><span>'+(ok ? "✓" : "✕")+'</span><strong>'+esc(t.name)+'</strong><span>'+esc(t.detail && (t.detail.error_type || t.detail.reason || "") || "")+'</span></div>';
         }).join("");
