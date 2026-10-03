@@ -436,7 +436,13 @@
     }
 
     computeSemanticRoute();
-    setExplorerDepth(1);
+    // Selecting a node must highlight/focus it without collapsing the global
+    // network. Scoped exploration is opt-in via the explicit 1/2/3-hop controls.
+    explorerState = {
+      depth: 0,
+      visibleNodeIds: new Set(graphData.nodes.map(n => String(n.id))),
+      visibleLinkIds: new Set(graphData.links.map(l => String(l.id)))
+    };
     hudText();
     apply3dRuntime();
     dispatchSemanticRoute();
@@ -2248,9 +2254,17 @@
           navigationIndex = navigationHistory.length - 1;
         }
       }
-      setExplorerDepth(1);
+      // Cross-view selection is a selection, not an exploration command.
+      // Keep the complete graph visible until the user explicitly chooses a
+      // hop depth.
+      explorerState = {
+        depth: 0,
+        visibleNodeIds: new Set(graphData.nodes.map(n => String(n.id))),
+        visibleLinkIds: new Set(graphData.links.map(l => String(l.id)))
+      };
+      dispatchExplorerState();
     } else {
-      explorerState = {depth:0,visibleNodeIds:new Set(),visibleLinkIds:new Set()};
+      explorerState = {depth:0,visibleNodeIds:new Set(graphData.nodes.map(n => String(n.id))),visibleLinkIds:new Set(graphData.links.map(l => String(l.id)))};
       dispatchExplorerState();
     }
     hudText();
