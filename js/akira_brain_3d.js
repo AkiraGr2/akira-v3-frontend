@@ -1472,6 +1472,10 @@
   };
 
   function updateContextPanel(){
+    // The 2D membrane owns its own context panel/data. Do not let the 3D
+    // renderer hide or overwrite it while the active view is 2D.
+    if(currentMode === "2d" && window.__akiraMembraneGraphData) return;
+
     const panel = document.getElementById("brainContext");
     if(!panel) return;
     const node = selectedNodeId
