@@ -1275,6 +1275,14 @@ function _runObsidianPhysics(nodes, edges, coreId, restart=true){
       .force("center",
         window.d3.forceCenter(center.x,center.y)
       )
+      // Very soft anchor: keeps the global cloud around Akira while the
+      // stronger repel/collision forces preserve personal space.
+      .force("anchor-x",
+        window.d3.forceX(center.x).strength(0.0035)
+      )
+      .force("anchor-y",
+        window.d3.forceY(center.y).strength(0.0035)
+      )
       .force("collide",
         window.d3.forceCollide(d=>d.r + OBSIDIAN_FORCE_DEFAULTS.collisionGap)
           .strength(0.95)
@@ -1308,9 +1316,9 @@ function _runObsidianPhysics(nodes, edges, coreId, restart=true){
           const coreEl=core ? cyMembrane.getElementById(core) : cyMembrane.nodes(".core").first();
           if(coreEl && !coreEl.empty()){
             if(!_obsidianInitialFitDone){
-              // Camera-only fit. It is NOT a graph boundary: node coordinates
-              // remain free and can extend indefinitely beyond the viewport.
-              cyMembrane.fit(undefined,70);
+              // Do NOT fit and then re-center: that combination changes the
+              // camera origin after the force layout and makes the graph look
+              // "volted". Akira is the stable visual anchor; zoom is manual.
               _obsidianInitialFitDone=true;
             }
             cyMembrane.center(coreEl);
