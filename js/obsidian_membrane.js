@@ -1966,7 +1966,7 @@ function _renderBrainNodePortrait(node){
   const dot2y=50+Math.sin(phase+1.9)*ring2*0.52;
   const short=_brainContextEscape(label.length>24 ? label.slice(0,22)+"…" : label);
   const title=_brainContextEscape(label);
-  return \`
+  return `
     <div style="margin:0 0 10px;padding:8px;border:2px solid var(--border);background:radial-gradient(circle at 50% 48%,rgba(123,97,255,.18),rgba(8,10,18,.96) 72%);border-radius:10px;overflow:hidden" title="Retrato visual de ${title}">
       <svg viewBox="0 0 150 100" width="100%" height="100" role="img" aria-label="Retrato visual de ${title}" style="display:block">
         <defs>
@@ -1986,7 +1986,7 @@ function _renderBrainNodePortrait(node){
         <text x="75" y="94" text-anchor="middle" fill="#8a8f9d" font-size="5.8" font-family="monospace">${group.toUpperCase()} · ${degree} CONEXIONES · ${weight.toFixed(2)} PESO</text>
       </svg>
     </div>
-  \`;
+  `;
 }
 function _updateMembraneContextPanel(nodeId){
   const panel=document.getElementById("brainContext");
