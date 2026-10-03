@@ -1523,8 +1523,8 @@ function _forceFlowerPositions(nodes, edges, coreId, forceSeed=false) {
   const minDim=Math.max(360,Math.min(W,H));
   // Virtual graph space: the Brain is allowed to grow well beyond the
   // viewport. The viewport is a camera, not a physical wall.
-  const spacing=Math.max(42,Math.min(58,minDim*0.060));
-  const coreSafe=72;
+  const spacing=Math.max(58,Math.min(70,minDim*0.072));
+  const coreSafe=110;
   const golden=Math.PI*(3-Math.sqrt(5));
 
   let ring=0;
@@ -1912,6 +1912,146 @@ function _runFlowerPhysics(nodes, edges, coreId){
   _radialPhysicsTimer=requestAnimationFrame(tick);
 }
 
+function _brainContextEscape(value){
+  return String(value ?? "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#39;");
+}
+
+function _updateMembraneContextPanel(nodeId){
+  const panel=document.getElementById("brainContext");
+  if(!panel) return;
+
+  const graph=window.__akiraMembraneGraphData;
+  const id=nodeId == null ? null : String(nodeId);
+
+  if(!id || !graph || !Array.isArray(graph.nodes)){
+    panel.classList.add("is-hidden");
+    panel.dataset.brainNodeId="";
+    return;
+  }
+
+  const node=graph.nodes.find(n=>String(n.id)===id);
+  if(!node){
+    panel.classList.add("is-hidden");
+    return;
+  }
+
+  const type=document.getElementById("brainContextType");
+  const title=document.getElementById("brainContextTitle");
+  const meta=document.getElementById("brainContextMeta");
+  const rels=document.getElementById("brainContextRelations");
+
+  panel.classList.remove("is-hidden");
+  if(type) type.textContent=String(node.node_type || _detectGroup(node) || "nodo").toUpperCase();
+  if(title) title.textContent=String(node.label || node.id);
+
+  const importance=Math.round((Number(node._importance)||0)*100);
+  const clusterId=graph.community && graph.community.assignments instanceof Map
+    ? (graph.community.assignments.get(id) || "—")
+    : "—";
+
+  if(meta){
+    meta.innerHTML=
+      "<div>PESO<b>"+(Number(node.weight)||0).toFixed(2)+"</b></div>"+
+      "<div>REUTILIZACIÓN<b>"+(Number(node.reuse_count)||0)+"</b></div>"+
+      "<div>CONFIANZA<b>"+(Number(node.confidence)||0).toFixed(2)+"</b></div>"+
+      "<div>IMPORTANCIA<b>"+importance+"%</b></div>"+
+      "<div>GRUPO<b>"+_brainContextEscape(_detectGroup(node))+"</b></div>"+
+      "<div>CLUSTER<b>"+_brainContextEscape(clusterId)+"</b></div>";
+  }
+
+  const relations=(graph.edges||[])
+    .filter(e=>String(e.from_node)===id || String(e.to_node)===id)
+    .map(e=>{
+      const otherId=String(e.from_node)===id ? String(e.to_node) : String(e.from_node);
+      const other=graph.nodes.find(n=>String(n.id)===otherId);
+      return {
+        nodeId:otherId,
+        label:String(other?.label || otherId),
+        type:String(e.relation_type || "related_to"),
+        weight:Number(e.weight)||0
+      };
+    })
+    .sort((a,b)=>b.weight-a.weight)
+    .slice(0,12);
+
+  if(rels){
+    rels.innerHTML=relations.length
+      ? relations.map(r=>
+          "<button type='button' class='brain-relation brain-relation-btn' data-brain-nav='"+
+          _brainContextEscape(r.nodeId)+"'><span>"+
+          _brainContextEscape(r.label)+"</span><span>"+
+          _brainContextEscape(r.type)+"</span></button>"
+        ).join("")
+      : "<div style='color:#8a8a93;font-size:10px'>Sin relaciones visibles.</div>";
+
+    if(rels.dataset.brainNavBound!=="1"){
+      rels.dataset.brainNavBound="1";
+      rels.addEventListener("click",ev=>{
+        const btn=ev.target.closest("[data-brain-nav]");
+        if(!btn) return;
+        const targetId=btn.getAttribute("data-brain-nav");
+        if(!targetId) return;
+        try{
+          window.dispatchEvent(new CustomEvent("akira:brain-navigation",{
+            detail:{nodeId:String(targetId)}
+          }));
+        }catch(_){}
+      });
+    }
+  }
+
+  _bindBrainContextDragging();
+  _position2dContext(id);
+}
+
+function _clearMembraneSelection(){
+  membraneSelectedBrainNodeId=null;
+  if(!cyMembrane) return;
+
+  cyMembrane.elements()
+    .unselect()
+    .removeClass("highlighted")
+    .removeClass("dimmed")
+    .removeClass("route");
+
+  cyMembrane.nodes().forEach(n=>{
+    const visible=_brainFilterNodeVisible(n) &&
+      (membraneExploreDepth===0 || membraneExploreVisibleNodeIds.has(String(n.id())));
+    n.style("display",visible ? "element" : "none");
+    n.style("text-opacity",(n.hasClass("core") || n.hasClass("hub"))
+      ? (n.hasClass("core") ? 1 : 0.95) : 0);
+  });
+
+  cyMembrane.edges().forEach(e=>{
+    const source=cyMembrane.getElementById(String(e.data("source")));
+    const target=cyMembrane.getElementById(String(e.data("target")));
+    const visible=source.length && target.length &&
+      _brainFilterNodeVisible(source) && _brainFilterNodeVisible(target) &&
+      (membraneExploreDepth===0 || membraneExploreVisibleLinkIds.has(String(e.id())));
+    e.style("display",visible ? "element" : "none");
+  });
+
+  const panel=document.getElementById("brainContext");
+  if(panel){
+    panel.classList.add("is-hidden");
+    panel.dataset.brainNodeId="";
+  }
+}
+
+window.akiraBrainClearSelection=function(){
+  _clearMembraneSelection();
+  try{
+    window.dispatchEvent(new CustomEvent("akira:brain-select",{
+      detail:{nodeId:null,source:"2d"}
+    }));
+  }catch(_){}
+}
+
 function _position2dContext(nodeId){
   _bindBrainContextDragging();
   if(!cyMembrane) return;
@@ -1983,7 +2123,7 @@ function _findFreeSeedPosition(nodeId, anchor, centerPos, occupied){
   const seed=_hashId(nodeId);
   const baseAngle=(seed % 360) * Math.PI / 180;
   const minNodeGap=48;
-  const minCoreGap=88;
+  const minCoreGap=120;
 
   // Spiral search: near the chosen community first, then progressively farther
   // out. A candidate is accepted only when it respects every existing node.
@@ -3231,6 +3371,14 @@ function _applyGraphToCy(
   const edges =
     data.edges || [];
 
+  // Keep a local graph snapshot so the 2D view can own selection/context
+  // without depending on the hidden 3D renderer being initialized.
+  window.__akiraMembraneGraphData = {
+    nodes,
+    edges,
+    coreId: null
+  };
+
   let coreId = null;
 
   for (const n of nodes) {
@@ -3262,6 +3410,11 @@ function _applyGraphToCy(
       : null;
 
   _communityState = community || null;
+
+  if(window.__akiraMembraneGraphData){
+    window.__akiraMembraneGraphData.coreId = coreId;
+    window.__akiraMembraneGraphData.community = community || null;
+  }
 
   const degree = {};
 
@@ -3930,6 +4083,7 @@ window.addEventListener("akira:brain-select", function(ev){
   try {
     membraneSelectedBrainNodeId = nodeId ? String(nodeId) : null;
     if (!nodeId) {
+      _updateMembraneContextPanel(null);
       cyMembrane.elements()
         .unselect()
         .removeClass("highlighted")
@@ -3971,7 +4125,7 @@ window.addEventListener("akira:brain-select", function(ev){
         }));
       } catch(_) {}
 
-      _position2dContext(String(nodeId));
+      _updateMembraneContextPanel(String(nodeId));
     }
   } catch(_) {}
 });
