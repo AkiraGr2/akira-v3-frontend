@@ -1,0 +1,40 @@
+/* Akira Brain 2D — deep-space ambience layer. Visual only; pointer-events disabled. */
+#brainView2d{
+  background:
+    radial-gradient(46% 34% at 22% 25%,rgba(110,86,255,.12),transparent 72%),
+    radial-gradient(42% 34% at 78% 70%,rgba(44,198,190,.085),transparent 72%),
+    radial-gradient(34% 28% at 62% 24%,rgba(191,87,255,.065),transparent 74%),
+    radial-gradient(52% 42% at 50% 52%,rgba(61,92,172,.075),transparent 78%),
+    linear-gradient(180deg,#070b15 0%,#090d1c 48%,#050811 100%);
+}
+#brainView2d::before{
+  background:
+    radial-gradient(circle at 8% 12%,rgba(255,255,255,.42) 0 1px,transparent 1.8px),
+    radial-gradient(circle at 17% 61%,rgba(184,220,255,.28) 0 1px,transparent 2px),
+    radial-gradient(circle at 27% 24%,rgba(255,255,255,.20) 0 1px,transparent 1.8px),
+    radial-gradient(circle at 36% 78%,rgba(171,221,255,.30) 0 1px,transparent 2px),
+    radial-gradient(circle at 46% 16%,rgba(255,255,255,.34) 0 1.2px,transparent 2px),
+    radial-gradient(circle at 54% 86%,rgba(197,216,255,.20) 0 1px,transparent 1.9px),
+    radial-gradient(circle at 64% 28%,rgba(255,255,255,.30) 0 1px,transparent 1.9px),
+    radial-gradient(circle at 73% 72%,rgba(185,238,229,.24) 0 1px,transparent 2px),
+    radial-gradient(circle at 84% 16%,rgba(255,255,255,.25) 0 1px,transparent 1.9px),
+    radial-gradient(circle at 92% 55%,rgba(196,221,255,.34) 0 1.2px,transparent 2px),
+    radial-gradient(circle at 13% 88%,rgba(255,255,255,.18) 0 1px,transparent 1.8px),
+    radial-gradient(circle at 31% 49%,rgba(208,224,255,.16) 0 .8px,transparent 1.6px),
+    radial-gradient(circle at 58% 58%,rgba(255,255,255,.18) 0 .8px,transparent 1.6px),
+    radial-gradient(circle at 77% 41%,rgba(215,229,255,.17) 0 .9px,transparent 1.7px);
+  opacity:.86;
+}
+#brainView2d::after{
+  background:
+    radial-gradient(ellipse at 18% 22%,rgba(105,82,255,.12),transparent 32%),
+    radial-gradient(ellipse at 80% 28%,rgba(211,91,255,.09),transparent 28%),
+    radial-gradient(ellipse at 56% 82%,rgba(54,207,190,.08),transparent 30%),
+    radial-gradient(ellipse at 50% 48%,transparent 34%,rgba(0,0,0,.34) 100%),
+    linear-gradient(180deg,rgba(255,255,255,.018),transparent 24%,transparent 76%,rgba(0,0,0,.16));
+  animation:akira2dNebulaPulse 12s ease-in-out infinite;
+}
+@keyframes akira2dNebulaPulse{
+  0%,100%{opacity:.86;transform:scale(1)}
+  50%{opacity:1;transform:scale(1.025)}
+}
