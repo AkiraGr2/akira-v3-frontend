@@ -128,6 +128,21 @@ const GROUP_COLORS = {
   other:    "#8b949e",
 };
 
+// 2D shares the 3D neural language: cool luminous nodes, with Akira as the
+// violet plasma nucleus. Semantic groups remain in the data; this palette is
+// only the visual encoding for the 2D presentation.
+const NEURAL_2D_PALETTE = [
+  "#e8f7ff", "#cfeeff", "#d9d6ff", "#eee5ff",
+  "#c8f4e2", "#f1f4ff", "#bfe8f5"
+];
+function _neural2DColor(n, isCore){
+  if(isCore) return "#7b61ff";
+  const id = String(n && (n.id || n.label) || "");
+  let hash = 0;
+  for(let i=0;i<id.length;i++) hash=((hash<<5)-hash+id.charCodeAt(i))|0;
+  return NEURAL_2D_PALETTE[Math.abs(hash)%NEURAL_2D_PALETTE.length];
+}
+
 function _brainFilterNodeVisible(cyNode) {
   if (!cyNode) return false;
   if (membraneBrainFilterGroup === "all") return true;
@@ -249,6 +264,7 @@ let membraneBrainFilterGroup = "all";
 let membraneBrainRelationFilter = "all";
 let membraneSelectedBrainNodeId = null;
 let membraneResizeTimer = null;
+let membraneCorePulseTimer = null;
 
 const MEMBRANE_REFRESH_MS = 7000;
 const MIN_EDGE_WEIGHT_VISIBLE = 0.4;
@@ -1403,7 +1419,7 @@ function _cytoscapeStyle() {
       selector: "node",
       style: {
         "background-color":
-          "data(color)",
+          "data(neural_color)",
 
         "width":
           "data(radius)",
@@ -1451,10 +1467,10 @@ function _cytoscapeStyle() {
           14,
 
         "shadow-color":
-          "data(color)",
+          "data(neural_color)",
 
         "shadow-opacity":
-          0.55,
+          0.48,
 
         "shadow-offset-x":
           0,
@@ -1486,10 +1502,16 @@ function _cytoscapeStyle() {
           "bold",
 
         "shadow-blur":
-          22,
+          24,
 
         "shadow-opacity":
-          0.75,
+          0.72,
+
+        "border-width":
+          1.5,
+
+        "border-color":
+          "rgba(255,255,255,.28)",
       }
     },
 
@@ -1497,7 +1519,7 @@ function _cytoscapeStyle() {
       selector: "node.core",
       style: {
         "background-color":
-          "#ff6b6b",
+          "#7b61ff",
 
         "background-opacity":
           1.0,
@@ -1530,13 +1552,16 @@ function _cytoscapeStyle() {
           "#ffffff",
 
         "shadow-blur":
-          50,
+          58,
 
         "shadow-color":
-          "#ff6b6b",
+          "#7b61ff",
 
         "shadow-opacity":
           1.0,
+
+        "overlay-opacity":
+          0
       }
     },
 
@@ -1618,13 +1643,13 @@ function _cytoscapeStyle() {
           "data(width)",
 
         "line-color":
-          "#484f58",
+          "#a9b8d0",
 
         "curve-style":
           "straight",
 
         "opacity":
-          0.35,
+          0.14,
 
         "transition-property":
           "opacity, line-color",
@@ -1640,10 +1665,10 @@ function _cytoscapeStyle() {
 
       style: {
         "line-color":
-          "#ff8a8a",
+          "#b39cff",
 
         "opacity":
-          0.12,
+          0.18,
 
         "width":
           0.7
@@ -1694,10 +1719,10 @@ function _cytoscapeStyle() {
 
       style: {
         "opacity":
-          0.85,
+          0.72,
 
         "line-color":
-          "#b8b8d0"
+          "#dfe7ff"
       }
     },
 
@@ -1707,7 +1732,7 @@ function _cytoscapeStyle() {
 
       style: {
         "opacity":
-          0.04
+          0.025
       }
     },
 
@@ -1751,11 +1776,11 @@ function _cytoscapeStyle() {
 
       style: {
         "opacity":
-          0.92,
+          0.88,
         "line-color":
           "#ffffff",
         "width":
-          2.1
+          1.8
       }
     }
   ];
@@ -1885,6 +1910,23 @@ function initMembraneGraph() {
       });
 
     _bindElasticNodeInteraction();
+
+    // Very light 2D core "breathing" effect. It is intentionally timer based,
+    // not a full per-frame animation, so it does not compete with graph physics.
+    try{
+      clearInterval(membraneCorePulseTimer);
+      membraneCorePulseTimer = setInterval(() => {
+        if(!cyMembrane) return;
+        const core = cyMembrane.nodes(".core").first();
+        if(!core || core.empty()) return;
+        const phase = (Date.now() % 2400) / 2400;
+        const pulse = (Math.sin(phase * Math.PI * 2) + 1) / 2;
+        core.style({
+          "shadow-blur": 52 + pulse * 12,
+          "shadow-opacity": 0.88 + pulse * 0.12
+        });
+      }, 180);
+    }catch(_){}
 
     cyMembrane.on(
       "tap",
@@ -2542,6 +2584,7 @@ function _applyGraphToCy(
           n.node_type,
 
         color: color,
+        neural_color: _neural2DColor(n, isCore),
 
         weight:
           n.weight || 0,
