@@ -29,7 +29,8 @@
   async function request(path, options){
     options = options || {};
     const ctrl = new AbortController();
-    const timer = setTimeout(function(){ctrl.abort();}, 15000);
+    const timeoutMs = Number(options.timeoutMs || 15000);
+    const timer = setTimeout(function(){ctrl.abort();}, Math.max(1000, timeoutMs));
     try{
       const r = await fetch(BACKEND()+path, {
         method: options.method || "GET",
@@ -249,7 +250,7 @@
   async function runSemanticSelfTest(){
     const root = reviewRoot();
     if(root) root.innerHTML = '<div class="learning-empty">Ejecutando SELFTEST SEMÁNTICO…</div>';
-    const r = await request("/api/v8/memory/semantic-selftest");
+    const r = await request("/api/v8/memory/semantic-selftest", {timeoutMs: 60000});
     if(!r.ok || !r.data || !r.data.ok){
       let detail = (r.data && r.data.reason) || r.error || ("HTTP "+r.status);
       if(r.status === 404){
@@ -275,7 +276,7 @@
   async function runSelfTest(){
     const root = reviewRoot();
     if(root) root.innerHTML = '<div class="learning-empty">Ejecutando SELFTEST E2E sintético…</div>';
-    const r = await request("/api/v8/learning/selftest");
+    const r = await request("/api/v8/learning/selftest", {timeoutMs: 60000});
     if(!r.ok || !r.data || !r.data.ok){
       let detail = (r.data && r.data.reason) || r.error || ("HTTP "+r.status);
       if(r.status === 404){
