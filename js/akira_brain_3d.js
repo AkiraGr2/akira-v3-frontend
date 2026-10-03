@@ -48,12 +48,37 @@
     "#e8f7ff", "#cfeeff", "#d9d6ff", "#eee5ff",
     "#c8f4e2", "#f1f4ff", "#bfe8f5"
   ];
-  const IS_MOBILE_3D = !!(
-    (window.matchMedia && (
-      window.matchMedia("(pointer: coarse)").matches ||
-      window.matchMedia("(max-width: 900px)").matches
-    ))
-  );
+  function get3DDeviceProfile(){
+    const ua = String(navigator.userAgent || "");
+    const touch = Number(navigator.maxTouchPoints || 0) > 0;
+    const coarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    const hoverNone = !!(window.matchMedia && window.matchMedia("(hover: none)").matches);
+    const narrow = Math.min(window.innerWidth || 9999, window.innerHeight || 9999) <= 900;
+    const mobileUA = /Android|iPhone|iPad|iPod|Mobile|IEMobile|Windows Phone/i.test(ua);
+    const mobile = mobileUA || (touch && coarse && (hoverNone || narrow));
+
+    return mobile ? {
+      mobile:true, antialias:false,
+      pixelRatio:Math.min(window.devicePixelRatio || 1, 1.10),
+      nodeSegments:9, glowSegments:9,
+      dustCount:900, starCount:420,
+      dustSize:1.45, dustOpacity:0.34,
+      starSize:0.90, starOpacity:0.26,
+      warmupTicks:90, cooldownTicks:180, cooldownTime:7000,
+      chargeStrength:-115, linkDistance:70, linkStrength:0.045
+    } : {
+      mobile:false, antialias:true,
+      pixelRatio:Math.min(window.devicePixelRatio || 1, 1.70),
+      nodeSegments:18, glowSegments:18,
+      dustCount:2200, starCount:700,
+      dustSize:1.30, dustOpacity:0.30,
+      starSize:0.95, starOpacity:0.24,
+      warmupTicks:150, cooldownTicks:360, cooldownTime:14000,
+      chargeStrength:-155, linkDistance:78, linkStrength:0.055
+    };
+  }
+
+  let DEVICE_3D_PROFILE = get3DDeviceProfile();
   let communityState = {
     assignments: new Map(),
     centers: new Map(),
@@ -678,7 +703,7 @@
       blending:THREE.AdditiveBlending,
       depthWrite:false
     });
-    const glowSegments = IS_MOBILE_3D ? 9 : 18;
+    const glowSegments = DEVICE_3D_PROFILE.glowSegments;
     const glow = new THREE.Mesh(
       new THREE.SphereGeometry(radius * (core ? 2.25 : 1.72), glowSegments, glowSegments),
       glowMat
@@ -698,7 +723,7 @@
       ? new THREE.IcosahedronGeometry(radius, 2)
       : (base === "agent" || base === "tool"
           ? new THREE.OctahedronGeometry(radius * 0.82, 1)
-          : new THREE.SphereGeometry(radius * 0.82, IS_MOBILE_3D ? 9 : 18, IS_MOBILE_3D ? 9 : 18));
+          : new THREE.SphereGeometry(radius * 0.82, DEVICE_3D_PROFILE.nodeSegments, DEVICE_3D_PROFILE.nodeSegments));
     const body = new THREE.Mesh(geometry, mat);
     group.add(body);
 
@@ -713,8 +738,8 @@
       new THREE.TorusGeometry(
         radius * 1.35,
         Math.max(0.28,radius*0.055),
-        IS_MOBILE_3D ? 8 : 10,
-        IS_MOBILE_3D ? 24 : 40
+        DEVICE_3D_PROFILE.mobile ? 8 : 10,
+        DEVICE_3D_PROFILE.mobile ? 24 : 40
       ),
       ringMat
     );
@@ -1698,7 +1723,7 @@
 
       // Endless-feeling ambient environment: the particle field follows the
       // camera, so zooming/orbiting never exposes an edge.
-      const count = 2200;
+      const count = DEVICE_3D_PROFILE.dustCount;
       const positions = new Float32Array(count * 3);
       const speeds = new Float32Array(count);
 
@@ -1716,10 +1741,10 @@
       geometry.setAttribute("position", new THREE.BufferAttribute(positions,3));
       neuralParticleMaterial = new THREE.PointsMaterial({
         color:0xd9e7f7,
-        size:1.15,
+        size:DEVICE_3D_PROFILE.dustSize,
         sizeAttenuation:false,
         transparent:true,
-        opacity:0.36,
+        opacity:DEVICE_3D_PROFILE.dustOpacity,
         depthTest:false,
         depthWrite:false
       });
@@ -1730,7 +1755,7 @@
       scene.add(neuralParticleField);
 
       // Fine far-field points for a true "infinite" background.
-      const starCount = 700;
+      const starCount = DEVICE_3D_PROFILE.starCount;
       const starPositions = new Float32Array(starCount * 3);
       for(let i=0;i<starCount;i++){
         const u=((i*0.61803398875)%1)*2-1;
@@ -1812,13 +1837,13 @@
     try {
       const chargeForce = fg.d3Force("charge");
       if(chargeForce && typeof chargeForce.strength === "function"){
-        chargeForce.strength(-155);
+        chargeForce.strength(DEVICE_3D_PROFILE.chargeStrength);
       }
 
       const linkForce = fg.d3Force("link");
       if(linkForce){
-        if(typeof linkForce.distance === "function") linkForce.distance(78);
-        if(typeof linkForce.strength === "function") linkForce.strength(0.055);
+        if(typeof linkForce.distance === "function") linkForce.distance(DEVICE_3D_PROFILE.linkDistance);
+        if(typeof linkForce.strength === "function") linkForce.strength(DEVICE_3D_PROFILE.linkStrength);
       }
     } catch(err) {
       console.warn("[akira-brain-3d] charge", err);
@@ -1938,9 +1963,13 @@
     _set3dMethod("showNavInfo", false);
     _set3dMethod("controlType", "orbit");
     _set3dMethod("enablePointerInteraction", true);
-    _set3dMethod("cooldownTime", graphData.nodes.length > 280 ? 14000 : 10000);
-    _set3dMethod("warmupTicks", graphData.nodes.length > 280 ? 150 : 100);
-    _set3dMethod("cooldownTicks", 360);
+    _set3dMethod("cooldownTime", graphData.nodes.length > 280
+      ? DEVICE_3D_PROFILE.cooldownTime
+      : Math.min(DEVICE_3D_PROFILE.cooldownTime, DEVICE_3D_PROFILE.mobile ? 5200 : 9000));
+    _set3dMethod("warmupTicks", graphData.nodes.length > 280
+      ? DEVICE_3D_PROFILE.warmupTicks
+      : Math.min(DEVICE_3D_PROFILE.warmupTicks, 100));
+    _set3dMethod("cooldownTicks", DEVICE_3D_PROFILE.cooldownTicks);
 
     try {
       const controls = typeof fg.controls === "function" ? fg.controls() : null;
@@ -1960,6 +1989,7 @@
   }
 
   async function ensure3d(){
+    DEVICE_3D_PROFILE = get3DDeviceProfile();
     if(initialized && fg) {
       apply3dRuntime();
       fetchGraph();
@@ -1993,7 +2023,7 @@
       fg = new window.ForceGraph3D(container, {
         controlType:"orbit",
         rendererConfig:{
-          antialias:false,
+          antialias:DEVICE_3D_PROFILE.antialias,
           alpha:true,
           powerPreference:"high-performance",
           preserveDrawingBuffer:false
@@ -2010,7 +2040,7 @@
       try{
         const renderer = typeof fg.renderer === "function" ? fg.renderer() : null;
         if(renderer && typeof renderer.setPixelRatio === "function"){
-          const dpr = Math.min(window.devicePixelRatio || 1, IS_MOBILE_3D ? 1.15 : 1.75);
+          const dpr = DEVICE_3D_PROFILE.pixelRatio;
           renderer.setPixelRatio(dpr);
         }
       }catch(err){
@@ -2020,7 +2050,7 @@
       try {
         const renderer = typeof fg.renderer === "function" ? fg.renderer() : null;
         if(renderer && typeof renderer.setPixelRatio === "function"){
-          const dpr = Math.min(window.devicePixelRatio || 1, 1.15);
+          const dpr = DEVICE_3D_PROFILE.pixelRatio;
           renderer.setPixelRatio(dpr);
         }
       } catch(_) {}
@@ -2269,6 +2299,10 @@
         if(controls) controls.autoRotate = autoOrbit;
       } catch(_) {}
     }
+  };
+
+  window.akiraBrain3DDeviceProfile = function(){
+    return {...DEVICE_3D_PROFILE};
   };
 
   window.akiraBrainRetry3d = function(){
