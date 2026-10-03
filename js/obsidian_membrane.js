@@ -267,12 +267,28 @@ let membraneResizeTimer = null;
 let membraneCorePulseTimer = null;
 
 const MEMBRANE_REFRESH_MS = 7000;
-const MIN_EDGE_WEIGHT_VISIBLE = 0.4;
-const MAX_EDGES_PER_NODE = 4;
+const MIN_EDGE_WEIGHT_VISIBLE = 0;
+const MAX_EDGES_PER_NODE = 9999;
 const MAX_NODES_PER_CLUSTER = 10;
 
 const _positionCache = new Map();
 let _lastGraphSignature = "";
+
+// Obsidian-style force graph state. Cytoscape remains the renderer and
+// interaction surface; d3-force supplies the global physics simulation.
+let _obsidianForceSimulation = null;
+let _obsidianForceNodeById = new Map();
+let _obsidianPhysicsBound = false;
+let _obsidianForceGeneration = 0;
+let _obsidianSyncRaf = null;
+let _obsidianInitialFitDone = false;
+const OBSIDIAN_FORCE_DEFAULTS = {
+  center: 0.04,
+  repel: -125,
+  linkForce: 0.22,
+  linkDistance: 115,
+  collisionGap: 18
+};
 
 let _labelCounter = null;
 let _labelMax = 0;
@@ -565,6 +581,290 @@ function _computeSeedPositions(
   });
 
   return positions;
+}
+
+function _obsidianHash(id){
+  let h=2166136261;
+  const s=String(id||"");
+  for(let i=0;i<s.length;i++){
+    h^=s.charCodeAt(i);
+    h=Math.imul(h,16777619);
+  }
+  return h>>>0;
+}
+
+function _obsidianInitialPosition(id,index,center){
+  const h=_obsidianHash(id);
+  const angle=((h%100000)/100000)*Math.PI*2;
+  const radius=120 + ((h>>>8)%430) + (index%7)*8;
+  return {
+    x:center.x + Math.cos(angle)*radius,
+    y:center.y + Math.sin(angle)*radius
+  };
+}
+
+function _syncObsidianNodesToCy(){
+  if(!cyMembrane) return;
+  if(_obsidianSyncRaf) return;
+  _obsidianSyncRaf=requestAnimationFrame(()=>{
+    _obsidianSyncRaf=null;
+    try{
+      cyMembrane.batch(()=>{
+        _obsidianForceNodeById.forEach((n,id)=>{
+          const el=cyMembrane.getElementById(String(id));
+          if(el && !el.empty() && Number.isFinite(n.x) && Number.isFinite(n.y)){
+            el.position({x:n.x,y:n.y});
+          }
+        });
+      });
+    }catch(_){}
+  });
+}
+
+function _updateObsidianLabelFade(){
+  if(!cyMembrane) return;
+  const zoom=Number(cyMembrane.zoom()) || 1;
+  const base=Math.max(0,Math.min(1,(zoom-0.62)/0.58));
+  cyMembrane.nodes().forEach(n=>{
+    if(n.hasClass("core")) {
+      n.style("text-opacity",1);
+    } else if(n.selected() || n.hasClass("highlighted") || n.hasClass("route")) {
+      n.style("text-opacity",1);
+    } else if(n.hasClass("hub")) {
+      n.style("text-opacity",Math.max(0.22,Math.min(0.95,base+0.20)));
+    } else {
+      n.style("text-opacity",Math.max(0,Math.min(0.78,base)));
+    }
+  });
+}
+
+function _bindObsidianPhysicsInteractions(){
+  if(_obsidianPhysicsBound || !cyMembrane) return;
+  _obsidianPhysicsBound=true;
+
+  cyMembrane.on("grab","node",evt=>{
+    const id=String(evt.target.id());
+    const simNode=_obsidianForceNodeById.get(id);
+    if(!simNode || !_obsidianForceSimulation) return;
+    const p=evt.target.position();
+    simNode.fx=p.x;
+    simNode.fy=p.y;
+    simNode.__dragging=true;
+    _obsidianForceSimulation.alphaTarget(0.30).restart();
+    evt.target.addClass("drag-root");
+  });
+
+  cyMembrane.on("drag","node",evt=>{
+    const id=String(evt.target.id());
+    const simNode=_obsidianForceNodeById.get(id);
+    if(!simNode) return;
+    const p=evt.target.position();
+    simNode.fx=p.x;
+    simNode.fy=p.y;
+
+    // Wake direct neighbors, exactly like a rubber-band force response.
+    const related=new Set();
+    evt.target.connectedEdges().forEach(e=>{
+      related.add(String(e.data("source")));
+      related.add(String(e.data("target")));
+      e.addClass("drag-active");
+    });
+    related.delete(id);
+    related.forEach(nid=>{
+      const el=cyMembrane.getElementById(nid);
+      if(el && !el.empty()) el.addClass("drag-neighbor");
+    });
+    _syncObsidianNodesToCy();
+  });
+
+  cyMembrane.on("free","node",evt=>{
+    const id=String(evt.target.id());
+    const simNode=_obsidianForceNodeById.get(id);
+    if(simNode){
+      simNode.__dragging=false;
+      if(!simNode.isCore){
+        simNode.fx=null;
+        simNode.fy=null;
+      }
+      if(_obsidianForceSimulation){
+        _obsidianForceSimulation.alphaTarget(0.12).restart();
+        setTimeout(()=>{
+          try{
+            if(_obsidianForceSimulation) _obsidianForceSimulation.alphaTarget(0);
+          }catch(_){}
+        },420);
+      }
+    }
+    evt.target.removeClass("drag-root");
+    evt.target.connectedEdges().removeClass("drag-active");
+    cyMembrane.nodes(".drag-neighbor").removeClass("drag-neighbor");
+  });
+
+  cyMembrane.on("zoom",()=>_updateObsidianLabelFade());
+}
+
+function _runObsidianPhysics(nodes, edges, coreId, restart=true){
+  if(!cyMembrane) return false;
+  if(!window.d3 ||
+     typeof window.d3.forceSimulation!=="function" ||
+     typeof window.d3.forceManyBody!=="function" ||
+     typeof window.d3.forceLink!=="function" ||
+     typeof window.d3.forceCenter!=="function" ||
+     typeof window.d3.forceCollide!=="function"){
+    console.warn("[membrane] d3-force unavailable; keeping renderer without new physics");
+    return false;
+  }
+
+  try{ _bindObsidianPhysicsInteractions(); }catch(_){}
+
+  try{ cyMembrane.resize(); }catch(_){}
+  const W=cyMembrane.width()||800;
+  const H=cyMembrane.height()||600;
+  const center={x:W/2,y:H/2};
+  const core=coreId ? String(coreId) : null;
+
+  if(_obsidianForceSimulation){
+    try{ _obsidianForceSimulation.stop(); }catch(_){}
+  }
+  if(_obsidianSyncRaf){
+    try{ cancelAnimationFrame(_obsidianSyncRaf); }catch(_){}
+    _obsidianSyncRaf=null;
+  }
+
+  const priorNodes=new Map(_obsidianForceNodeById);
+  const simNodes=(nodes||[]).map((raw,index)=>{
+    const id=String(raw.id);
+    const el=cyMembrane.getElementById(id);
+    const prior=priorNodes.get(id);
+    const cached=_positionCache.get(id);
+    const existing=el && !el.empty() ? el.position() : null;
+    let p=null;
+    if(prior && Number.isFinite(prior.x) && Number.isFinite(prior.y)){
+      p={x:prior.x,y:prior.y};
+    }else if(cached && Number.isFinite(cached.x) && Number.isFinite(cached.y)){
+      p={x:cached.x,y:cached.y};
+    }else if(existing && Number.isFinite(existing.x) && Number.isFinite(existing.y) &&
+             Math.abs(existing.x-center.x)+Math.abs(existing.y-center.y)>2){
+      p=existing;
+    }else{
+      p=_obsidianInitialPosition(id,index,center);
+    }
+
+    const degree=el && !el.empty() ? el.connectedEdges().length : 0;
+    const radius=Math.max(8,Math.min(34,
+      Number(el && el.data("radius")) || (10 + Math.min(degree*0.9,9))
+    ));
+    const sim={
+      id,
+      x:p.x,
+      y:p.y,
+      r:radius,
+      degree,
+      isCore:id===core,
+      __raw:raw
+    };
+    if(sim.isCore){
+      sim.fx=center.x;
+      sim.fy=center.y;
+      sim.x=center.x;
+      sim.y=center.y;
+    }
+    return sim;
+  });
+
+  const simById=new Map(simNodes.map(n=>[n.id,n]));
+  const simLinks=[];
+  (edges||[]).forEach(e=>{
+    const a=String(e.from_node), b=String(e.to_node);
+    if(a===b || !simById.has(a) || !simById.has(b)) return;
+    const w=Math.max(0.02,Number(e.weight)||0.5);
+    simLinks.push({
+      source:a,
+      target:b,
+      id:String(e.id),
+      weight:w
+    });
+  });
+
+  const generation=++_obsidianForceGeneration;
+
+  const simulation=window.d3.forceSimulation(simNodes)
+    .force("link",
+      window.d3.forceLink(simLinks)
+        .id(d=>d.id)
+        .distance(()=>{
+          return OBSIDIAN_FORCE_DEFAULTS.linkDistance;
+        })
+        .strength(d=>{
+          const a=d.source, b=d.target;
+          const minDegree=Math.max(1,Math.min(a.degree||1,b.degree||1));
+          return OBSIDIAN_FORCE_DEFAULTS.linkForce / minDegree;
+        })
+    )
+    .force("charge",
+      window.d3.forceManyBody()
+        .strength(d=>{
+          const degree=Math.min(18,d.degree||0);
+          return OBSIDIAN_FORCE_DEFAULTS.repel * (1 + degree*0.018);
+        })
+        .distanceMin(18)
+        .distanceMax(1700)
+    )
+    .force("center",
+      window.d3.forceCenter(center.x,center.y)
+    )
+    .force("x",
+      window.d3.forceX(center.x).strength(OBSIDIAN_FORCE_DEFAULTS.center)
+    )
+    .force("y",
+      window.d3.forceY(center.y).strength(OBSIDIAN_FORCE_DEFAULTS.center)
+    )
+    .force("collide",
+      window.d3.forceCollide(d=>d.r + OBSIDIAN_FORCE_DEFAULTS.collisionGap)
+        .strength(0.95)
+        .iterations(2)
+    )
+    .velocityDecay(0.60)
+    .alpha(1)
+    .alphaDecay(nodes.length>500 ? 0.045 : 0.030)
+    .alphaMin(0.001);
+
+  _obsidianForceNodeById=simById;
+  _obsidianForceSimulation=simulation;
+
+  simulation.on("tick",()=>{
+    if(generation!==_obsidianForceGeneration) return;
+    _syncObsidianNodesToCy();
+  });
+
+  simulation.on("end",()=>{
+    if(generation!==_obsidianForceGeneration) return;
+    _syncObsidianNodesToCy();
+    try{
+      simNodes.forEach(n=>_positionCache.set(n.id,{x:n.x,y:n.y}));
+      if(!_obsidianInitialFitDone){
+        _obsidianInitialFitDone=true;
+        setTimeout(()=>{
+          try{
+            if(cyMembrane){
+              cyMembrane.fit(undefined,70);
+              if(core){
+                const el=cyMembrane.getElementById(core);
+                if(el && !el.empty()) cyMembrane.center(el);
+              }
+              _updateObsidianLabelFade();
+            }
+          }catch(_){}
+        },80);
+      }
+    }catch(_){}
+  });
+
+  if(!restart){
+    try{ simulation.stop(); }catch(_){}
+  }
+
+  return true;
 }
 
 function _forceFlowerPositions(nodes, edges, coreId, forceSeed=false) {
@@ -1814,8 +2114,7 @@ function _restoreFlowerAfterViewportResize() {
       weight: Number(e.data("weight")) || 0.5
     }));
 
-    _forceFlowerPositions(nodes, edges, coreEl.id(), true);
-    _runFlowerPhysics(nodes, edges, coreEl.id());
+    _runObsidianPhysics(nodes, edges, coreEl.id(), true);
 
     const W = cyMembrane.width() || 800;
     const H = cyMembrane.height() || 600;
@@ -1910,6 +2209,8 @@ function initMembraneGraph() {
       });
 
     _bindElasticNodeInteraction();
+    _bindObsidianPhysicsInteractions();
+    _updateObsidianLabelFade();
 
     // Very light 2D core "breathing" effect. It is intentionally timer based,
     // not a full per-frame animation, so it does not compete with graph physics.
@@ -2814,20 +3115,9 @@ function _applyGraphToCy(
   // every community petal is placed around that origin.
   try {
     cyMembrane.resize();
-    const seededRadial = _forceFlowerPositions(
-      nodesForSeed,
-      edges,
-      coreId,
-      !window.__akiraRadialTargets
-    );
     const coreEl = cyMembrane.nodes(".core");
     if(coreEl && coreEl.length){
-      cyMembrane.center(coreEl);
-      if(seededRadial || window.__akiraGraphChanged){
-        // New/changed graph data uses the existing coordinates as the rest
-        // state. Only the necessary physical neighborhood is rebalanced.
-        _runFlowerPhysics(nodesForSeed, edges, coreId);
-      }
+      _runObsidianPhysics(nodesForSeed, edges, coreId, !!window.__akiraGraphChanged || !_obsidianForceSimulation);
     }
     window.__akiraGraphChanged = false;
   } catch(_) {}
