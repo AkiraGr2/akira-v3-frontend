@@ -246,6 +246,25 @@
     return r.data.learning || null;
   }
 
+  async function runSemanticSelfTest(){
+    const root = reviewRoot();
+    if(root) root.innerHTML = '<div class="learning-empty">Ejecutando SELFTEST SEMÁNTICO…</div>';
+    const r = await request("/api/v8/memory/semantic-selftest");
+    if(!r.ok || !r.data || !r.data.ok){
+      const detail = (r.data && r.data.reason) || r.error || ("HTTP "+r.status);
+      if(root) root.innerHTML = '<div class="learning-empty learning-selftest-fail">SEMÁNTICO no ejecutado: '+esc(detail)+'</div>';
+      return;
+    }
+    const tests = Array.isArray(r.data.tests) ? r.data.tests : [];
+    if(root){
+      root.innerHTML = '<div class="learning-selftest-title">🧠 SEMÁNTICO · '+esc(tests.filter(function(t){return t.status === "PASS";}).length)+'/'+esc(tests.length)+' PASS</div>'
+        + tests.map(function(t){
+          const ok = t.status === "PASS";
+          return '<div class="learning-selftest-row '+(ok ? "pass" : "fail")+'"><span>'+(ok ? "✓" : "✕")+'</span><strong>'+esc(t.name)+'</strong><span>'+esc(t.detail && (t.detail.error_type || t.detail.reason || "") || "")+'</span></div>';
+        }).join("");
+    }
+  }
+
   async function runSelfTest(){
     const root = reviewRoot();
     if(root) root.innerHTML = '<div class="learning-empty">Ejecutando SELFTEST E2E sintético…</div>';
@@ -344,6 +363,7 @@
   }
 
   window.akiraLearningRunSelfTest = runSelfTest;
+  window.akiraLearningRunSemanticSelfTest = runSemanticSelfTest;
   window.akiraLearningReview = api;
 
   document.addEventListener("DOMContentLoaded", function(){
