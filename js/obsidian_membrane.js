@@ -284,9 +284,9 @@ let _obsidianSyncRaf = null;
 let _obsidianInitialFitDone = false;
 const OBSIDIAN_FORCE_DEFAULTS = {
   center: 0.010,
-  repel: -220,
-  linkForce: 0.09,
-  linkDistance: 160,
+  repel: -240,
+  linkForce: 0.075,
+  linkDistance: 155,
   collisionGap: 30
 };
 
@@ -763,7 +763,7 @@ function _runObsidianFallbackPhysics(nodes, edges, coreId, restart=true){
              Math.abs(existing.x-center.x)+Math.abs(existing.y-center.y)>2){
       p=existing;
     }else{
-      p=_obsidianInitialPosition(id,index,center);
+      p=_obsidianInitialPosition(id,index,center,nodes.length);
     }
 
     const degree=el && !el.empty() ? el.connectedEdges().length : 0;
@@ -1206,21 +1206,15 @@ function _runObsidianPhysics(nodes, edges, coreId, restart=true){
       .force("center",
         window.d3.forceCenter(center.x,center.y)
       )
-      .force("x",
-        window.d3.forceX(center.x).strength(OBSIDIAN_FORCE_DEFAULTS.center)
-      )
-      .force("y",
-        window.d3.forceY(center.y).strength(OBSIDIAN_FORCE_DEFAULTS.center)
-      )
       .force("collide",
         window.d3.forceCollide(d=>d.r + OBSIDIAN_FORCE_DEFAULTS.collisionGap)
           .strength(0.95)
           .iterations(2)
       )
-      .velocityDecay(0.72)
+      .velocityDecay(0.78)
       .alpha(1)
-      .alphaDecay(nodes.length>300 ? 0.065 : 0.050)
-      .alphaMin(0.010);
+      .alphaDecay(nodes.length>300 ? 0.085 : 0.060)
+      .alphaMin(0.015);
   }catch(e){
     console.warn("[membrane] d3-force runtime failure; using local Akira force engine:",e);
     return _runObsidianFallbackPhysics(nodes, edges, coreId, restart);
@@ -2503,57 +2497,30 @@ function _restoreObsidianAfterViewportResize() {
   if (membraneBrainRelationFilter !== "all") return;
 
   try{
-    const coreEl=cyMembrane.nodes(".core").first();
-    if(!coreEl || coreEl.empty()) return;
-
     cyMembrane.resize();
 
-    // Update physical coordinates to the new viewport center. This is camera
-    // recentering, not a spatial clamp.
-    const W=cyMembrane.width()||800;
-    const H=cyMembrane.height()||600;
-    const center={x:W/2,y:H/2};
+    const core=cyMembrane.nodes(".core").first();
+    if(!core || core.empty()) return;
 
-    const nodes=cyMembrane.nodes().map(n=>({
-      id:n.id(),
-      label:n.data("label"),
-      node_type:n.data("node_type"),
-      weight:Number(n.data("weight"))||0,
-      reuse_count:Number(n.data("reuse_count"))||0,
-      confidence:Number(n.data("confidence"))||0,
-      _importance:Number(n.data("_importance"))||0
-    }));
+    // Resize is a camera event, not a reason to recompute the entire Brain.
+    // World coordinates remain untouched, so the graph cannot collapse or
+    // "jump" merely because the mobile chrome/visual viewport changed.
+    cyMembrane.center(core);
 
-    const edges=cyMembrane.edges().map(e=>({
-      id:e.id(),
-      from_node:String(e.data("source")),
-      to_node:String(e.data("target")),
-      weight:Number(e.data("weight"))||0.5
-    }));
+    const rp=core.renderedPosition();
+    const w=cyMembrane.width()||800;
+    const h=cyMembrane.height()||600;
+    const dx=(w/2)-rp.x;
+    const dy=(h/2)-rp.y;
 
-    _runObsidianPhysics(nodes,edges,coreEl.id(),true);
+    if(Math.abs(dx)>2 || Math.abs(dy)>2){
+      const pan=cyMembrane.pan();
+      cyMembrane.pan({x:pan.x+dx,y:pan.y+dy});
+    }
 
-    // The resize path must not leave the core off-screen.
-    setTimeout(()=>{
-      try{
-        if(!cyMembrane) return;
-        const core=cyMembrane.nodes(".core").first();
-        if(core && !core.empty()){
-          core.position(center);
-          cyMembrane.center(core);
-
-          const rp=core.renderedPosition();
-          const dx=(W/2)-rp.x;
-          const dy=(H/2)-rp.y;
-          if(Math.abs(dx)>2 || Math.abs(dy)>2){
-            const pan=cyMembrane.pan();
-            cyMembrane.pan({x:pan.x+dx,y:pan.y+dy});
-          }
-        }
-      }catch(_){}
-    },120);
+    _updateObsidianLabelFade();
   }catch(e){
-    console.warn("[membrane] Obsidian resize recovery failed:",e);
+    console.warn("[membrane] Obsidian camera resize recovery failed:",e);
   }
 }
 
