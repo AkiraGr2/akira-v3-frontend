@@ -160,11 +160,13 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
     position:fixed;
     inset:0;
     width:100vw;
-    height:100dvh;
-    min-height:100dvh;
+    height:auto;
+    min-height:0;
     z-index:100;
     border:0;
     background:#09090c;
+    overflow:hidden;
+    overscroll-behavior:none;
   }
   .brain-stage.brain-mobile-fullscreen .brain-mobile-close{
     display:flex;
