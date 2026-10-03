@@ -1130,6 +1130,7 @@ function _runObsidianFallbackPhysics(nodes, edges, coreId, restart=true){
 
         try{
           simNodes.forEach(n=>_positionCache.set(n.id,{x:n.x,y:n.y}));
+          _normalizeObsidianCloudAroundCore(core);
         }catch(_){}
 
         if(!_obsidianInitialFitDone){
@@ -1164,6 +1165,79 @@ function _runObsidianFallbackPhysics(nodes, edges, coreId, restart=true){
       check();
     },40);
   }
+
+  return true;
+}
+
+
+// Keep the non-core cloud visually centered on Akira after force convergence.
+// D3 forceCenter centers the mean of all simulation nodes; with a pinned core
+// and uneven topology, the visible non-core cloud can still be biased to one
+// side. This translates the settled cloud as a whole without reseeding it.
+function _normalizeObsidianCloudAroundCore(coreId){
+  if(!cyMembrane || !_obsidianForceNodeById || !_obsidianForceNodeById.size){
+    return false;
+  }
+
+  const coreIdString = coreId == null ? null : String(coreId);
+  const core = coreIdString
+    ? _obsidianForceNodeById.get(coreIdString)
+    : [..._obsidianForceNodeById.values()].find(n=>n.isCore);
+
+  if(!core || !Number.isFinite(core.x) || !Number.isFinite(core.y)){
+    return false;
+  }
+
+  const movable = [..._obsidianForceNodeById.values()]
+    .filter(n =>
+      !n.isCore &&
+      Number.isFinite(n.x) &&
+      Number.isFinite(n.y)
+    );
+
+  if(movable.length < 2) return false;
+
+  let sx = 0;
+  let sy = 0;
+  movable.forEach(n=>{
+    sx += n.x;
+    sy += n.y;
+  });
+
+  const centroid = {
+    x: sx / movable.length,
+    y: sy / movable.length
+  };
+
+  let dx = core.x - centroid.x;
+  let dy = core.y - centroid.y;
+  const magnitude = Math.sqrt(dx*dx + dy*dy);
+
+  if(!Number.isFinite(magnitude) || magnitude < 2){
+    return false;
+  }
+
+  // Avoid a huge visible teleport if a pathological graph arrives.
+  const maxShift = 420;
+  const scale = magnitude > maxShift ? maxShift / magnitude : 1;
+  dx *= scale;
+  dy *= scale;
+
+  cyMembrane.batch(()=>{
+    movable.forEach(n=>{
+      n.x += dx;
+      n.y += dy;
+      n.vx = (Number(n.vx)||0) * 0.25;
+      n.vy = (Number(n.vy)||0) * 0.25;
+
+      _positionCache.set(n.id,{x:n.x,y:n.y});
+
+      const el = cyMembrane.getElementById(String(n.id));
+      if(el && !el.empty()){
+        el.position({x:n.x,y:n.y});
+      }
+    });
+  });
 
   return true;
 }
@@ -1312,6 +1386,11 @@ function _runObsidianPhysics(nodes, edges, coreId, restart=true){
     _syncObsidianNodesToCy();
     try{
       simNodes.forEach(n=>_positionCache.set(n.id,{x:n.x,y:n.y}));
+
+      // Final geometry correction: Akira remains the visual nucleus while
+      // preserving all relative force-generated relationships.
+      _normalizeObsidianCloudAroundCore(core);
+
       const finishCamera=()=>{
         try{
           if(!cyMembrane) return;
