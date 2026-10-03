@@ -1943,6 +1943,51 @@ function _brainContextEscape(value){
     .replace(/'/g,"&#39;");
 }
 
+function _renderBrainNodePortrait(node){
+  if(!node) return "";
+  const id=String(node.id || "");
+  const label=String(node.label || node.id || "nodo");
+  const group=String(_detectGroup(node) || "other");
+  const isCore=label.trim().toLowerCase()==="akira";
+  const accent=isCore ? "#7b61ff" : (GROUP_COLORS[group] || _neural2DColor(node,false));
+  const importance=Math.max(0,Math.min(1,Number(node._importance)||0));
+  const weight=Math.max(0,Number(node.weight)||0);
+  const reuse=Math.max(0,Number(node.reuse_count)||0);
+  const graph=window.__akiraMembraneGraphData;
+  const degree=graph && Array.isArray(graph.edges) ? graph.edges.filter(e=>String(e.from_node)===id || String(e.to_node)===id).length : 0;
+  const coreSize=isCore ? 28 : 18 + Math.min(10,importance*10);
+  const ring1=34 + Math.min(14,degree*1.8);
+  const ring2=48 + Math.min(18,reuse*2);
+  const hash=_hashId(id);
+  const phase=(hash%6283)/1000;
+  const dot1x=75+Math.cos(phase)*ring1;
+  const dot1y=50+Math.sin(phase)*ring1*0.52;
+  const dot2x=75+Math.cos(phase+1.9)*ring2;
+  const dot2y=50+Math.sin(phase+1.9)*ring2*0.52;
+  const short=_brainContextEscape(label.length>24 ? label.slice(0,22)+"…" : label);
+  const title=_brainContextEscape(label);
+  return \`
+    <div style="margin:0 0 10px;padding:8px;border:2px solid var(--border);background:radial-gradient(circle at 50% 48%,rgba(123,97,255,.18),rgba(8,10,18,.96) 72%);border-radius:10px;overflow:hidden" title="Retrato visual de \\${title}">
+      <svg viewBox="0 0 150 100" width="100%" height="100" role="img" aria-label="Retrato visual de \\${title}" style="display:block">
+        <defs>
+          <radialGradient id="bg-\\${hash}" cx="50%" cy="50%" r="70%"><stop offset="0%" stop-color="\\${accent}" stop-opacity=".20"/><stop offset="70%" stop-color="#111522" stop-opacity=".50"/><stop offset="100%" stop-color="#090b12" stop-opacity="1"/></radialGradient>
+          <filter id="glow-\\${hash}" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="4.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <rect x="0" y="0" width="150" height="100" rx="8" fill="url(#bg-\\${hash})"/>
+        <circle cx="75" cy="50" r="\\${ring2.toFixed(1)}" fill="none" stroke="\\${accent}" stroke-opacity=".14" stroke-width="1"/>
+        <circle cx="75" cy="50" r="\\${ring1.toFixed(1)}" fill="none" stroke="\\${accent}" stroke-opacity=".24" stroke-width="1"/>
+        <path d="M75 50 L\\${dot1x.toFixed(1)} \\${dot1y.toFixed(1)} M75 50 L\\${dot2x.toFixed(1)} \\${dot2y.toFixed(1)}" stroke="\\${accent}" stroke-opacity=".34" stroke-width="1"/>
+        <circle cx="\\${dot1x.toFixed(1)}" cy="\\${dot1y.toFixed(1)}" r="4" fill="\\${accent}" fill-opacity=".68"/>
+        <circle cx="\\${dot2x.toFixed(1)}" cy="\\${dot2y.toFixed(1)}" r="3" fill="#dfe7ff" fill-opacity=".72"/>
+        <circle cx="75" cy="50" r="\\${coreSize.toFixed(1)}" fill="\\${accent}" fill-opacity="\\${isCore ? ".30" : ".18"}" filter="url(#glow-\\${hash})"/>
+        <circle cx="75" cy="50" r="\\${Math.max(9,coreSize-5).toFixed(1)}" fill="#0b0d15" stroke="\\${accent}" stroke-width="2.2"/>
+        <circle cx="75" cy="50" r="\\${Math.max(4,coreSize-11).toFixed(1)}" fill="\\${accent}" fill-opacity=".92"/>
+        <text x="75" y="84" text-anchor="middle" fill="#f1f4ff" font-size="7.5" font-family="monospace" letter-spacing=".4">\\${short}</text>
+        <text x="75" y="94" text-anchor="middle" fill="#8a8f9d" font-size="5.8" font-family="monospace">\\${group.toUpperCase()} · \\${degree} CONEXIONES · \\${weight.toFixed(2)} PESO</text>
+      </svg>
+    </div>
+  \`;
+}
 function _updateMembraneContextPanel(nodeId){
   const panel=document.getElementById("brainContext");
   if(!panel) return;
@@ -1964,10 +2009,12 @@ function _updateMembraneContextPanel(nodeId){
 
   const type=document.getElementById("brainContextType");
   const title=document.getElementById("brainContextTitle");
+  const visual=document.getElementById("brainContextVisual");
   const meta=document.getElementById("brainContextMeta");
   const rels=document.getElementById("brainContextRelations");
 
   panel.classList.remove("is-hidden");
+  if(visual) visual.innerHTML=_renderBrainNodePortrait(node);
   if(type) type.textContent=String(node.node_type || _detectGroup(node) || "nodo").toUpperCase();
   if(title) title.textContent=String(node.label || node.id);
 
