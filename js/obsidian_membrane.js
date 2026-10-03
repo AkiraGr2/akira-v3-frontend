@@ -3104,13 +3104,6 @@ function _applyGraphToCy(
         })
       );
 
-  const seedRan =
-    _applySeedPositions(
-      nodesForSeed,
-      edges,
-      coreId
-    );
-
   // Final authoritative 2D placement: Akira is the geometric origin and
   // every community petal is placed around that origin.
   try {
