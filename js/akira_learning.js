@@ -279,8 +279,8 @@
     const r = await request("/api/v8/memory/semantic-selftest", {timeoutMs: 60000});
     const tests = Array.isArray(r.data && r.data.tests) ? r.data.tests : [];
     if(!r.ok || !r.data || !r.data.ok){
-      // Un HTTP 200 con JSON y ok=false significa que el E2E SI se ejecutó,
-      // pero uno o más checks fallaron. No debemos etiquetarlo como "no ejecutado".
+      // HTTP 200 + JSON + tests means the E2E did execute; expose failed checks
+      // instead of masking them as a transport/non-execution error.
       if(r.ok && r.data && tests.length){
         const passed = tests.filter(function(t){return t.status === "PASS";}).length;
         if(root){
