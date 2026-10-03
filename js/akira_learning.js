@@ -47,7 +47,7 @@
         // JSON body is still accepted when an upstream proxy/runtime sends a
         // non-standard content-type or an otherwise harmless UTF-8 marker.
         rawText = await r.text();
-        const normalized = String(rawText || "").replace(/^\\uFEFF/, "").trim();
+        const normalized = String(rawText || "").replace(/^\uFEFF/, "").trim();
         if(normalized) data = JSON.parse(normalized);
       }catch(e){
         parseError = String((e && e.message) || e);
@@ -272,6 +272,11 @@
           detail += " · route="+(contract.data.semantic_selftest_route ? "registered" : "missing");
         }
       }
+      if(!detail || detail === ("HTTP "+r.status)){
+        if(r.parseError) detail += " · parse_error="+r.parseError;
+        if(r.contentType) detail += " · content_type="+r.contentType;
+        if(r.rawText && !r.data) detail += " · body="+String(r.rawText).slice(0,180);
+      }
       if(root) root.innerHTML = '<div class="learning-empty learning-selftest-fail">SEMÁNTICO no ejecutado: '+esc(detail)+'</div>';
       return;
     }
@@ -305,6 +310,11 @@
         }
       } else if(r.status === 401){
         detail += " · sesión requerida";
+      }
+      if(!detail || detail === ("HTTP "+r.status)){
+        if(r.parseError) detail += " · parse_error="+r.parseError;
+        if(r.contentType) detail += " · content_type="+r.contentType;
+        if(r.rawText && !r.data) detail += " · body="+String(r.rawText).slice(0,180);
       }
       if(root) root.innerHTML = '<div class="learning-empty learning-selftest-fail">SELFTEST no ejecutado: '+esc(detail)+'</div>';
       return;
