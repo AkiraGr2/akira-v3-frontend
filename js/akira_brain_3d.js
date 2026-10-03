@@ -1689,13 +1689,20 @@
         n.z=radius*z/len;
       });
 
+      const firstGraphLoad = !lastFetchAt;
       graphData = {nodes, links};
 
-      // A selection can arrive from the 2D Membrane before the 3D graph
-      // finishes loading. Recompute the current explorer scope against the
-      // freshly loaded graph so 3D never collapses to the selected nucleus
-      // simply because its one-hop state was calculated on stale/empty data.
-      if(selectedNodeId && explorerState.depth > 0){
+      // Never let a pre-existing cross-view selection collapse the initial
+      // 3D canvas. On first load, the user must see the complete network.
+      // After the graph is live, periodic refreshes preserve an explicitly
+      // requested exploration depth and only recompute it against fresh data.
+      if(firstGraphLoad){
+        explorerState = {
+          depth: 0,
+          visibleNodeIds: new Set(nodes.map(n => String(n.id))),
+          visibleLinkIds: new Set(links.map(l => String(l.id)))
+        };
+      } else if(explorerState.depth > 0 && selectedNodeId){
         computeExplorerScope(explorerState.depth);
       } else {
         explorerState = {
