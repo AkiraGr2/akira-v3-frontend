@@ -408,19 +408,6 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
       <div class="learning-review-note">Las enseñanzas explícitas llegan como candidatas. Verificar las convierte en conocimiento confiable; consolidar permite que Akira las use como conocimiento normal.</div>
       <div id="learningReviewList"></div>
     </div>
-    <div class="section-tools">
-      <h4>🌐 Fase 6 — Grafo + Aprendizaje</h4>
-      <p>Crea nodos, aristas y aprendizajes reales. Auto-conexión por tags activa.</p>
-      <div class="btn-row">
-        <button class="pixel-btn" onclick="f6TestFull()">🧪 Test completo</button>
-        <button class="pixel-btn" onclick="f6ReadAll()">📖 Leer todo</button>
-        <button class="pixel-btn" onclick="graphReinforce()">🔗 Reforzar</button>
-        <button class="pixel-btn" onclick="graphCleanupTests()">🧹 Limpiar test_*</button>
-        <button class="pixel-btn" onclick="reorganizeMembrane()">🔄 Reorganizar</button>
-        <button class="pixel-btn" onclick="f6Reset()">🗑️ Salida</button>
-      </div>
-      <pre id="f6Output">Sin datos.</pre>
-    </div>
   </div>
 
   <div id="officeSection" class="section">
@@ -602,6 +589,20 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
             <button class="pixel-btn" onclick="f8Reset()">🧹 Limpiar</button>
           </div>
           <pre id="f8Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
+        </div>
+
+        <div style="margin-top:16px;background:#0e0e12;border:3px solid var(--border);padding:14px">
+          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🌐 Grafo + Aprendizaje</h4>
+          <p style="font-size:11px;color:var(--muted);margin-top:6px">Herramientas técnicas del grafo. Úsalas para pruebas, lectura, refuerzo, limpieza y reorganización. El Cerebro 2D queda libre de controles técnicos.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="pixel-btn" onclick="f6TestFull()">🧪 Test completo</button>
+            <button class="pixel-btn" onclick="f6ReadAll()">📖 Leer todo</button>
+            <button class="pixel-btn" onclick="graphReinforce()">🔗 Reforzar</button>
+            <button class="pixel-btn" onclick="graphCleanupTests()">🧹 Limpiar test_*</button>
+            <button class="pixel-btn" onclick="reorganizeMembrane()">🔄 Reorganizar</button>
+            <button class="pixel-btn" onclick="f6Reset()">🗑️ Salida</button>
+          </div>
+          <pre id="f6Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:260px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
         </div>
 
         <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
