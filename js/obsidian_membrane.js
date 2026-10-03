@@ -1524,7 +1524,7 @@ function _forceFlowerPositions(nodes, edges, coreId, forceSeed=false) {
   // Virtual graph space: the Brain is allowed to grow well beyond the
   // viewport. The viewport is a camera, not a physical wall.
   const spacing=Math.max(52,Math.min(60,minDim*0.0625));
-  const coreSafe=88;
+  const coreSafe=155;
   const golden=Math.PI*(3-Math.sqrt(5));
 
   let ring=0;
@@ -1829,7 +1829,7 @@ function _runFlowerPhysics(nodes, edges, coreId){
       }
 
       // Akira's exclusion radius is absolute.
-      const minR=46+n.radius;
+      const minR=155+n.radius;
       if(r<minR){
         const push=(minR-r)*0.80;
         f.x+=(dx/r)*push;
@@ -2123,7 +2123,7 @@ function _findFreeSeedPosition(nodeId, anchor, centerPos, occupied){
   const seed=_hashId(nodeId);
   const baseAngle=(seed % 360) * Math.PI / 180;
   const minNodeGap=48;
-  const minCoreGap=102;
+  const minCoreGap=180;
 
   // Spiral search: near the chosen community first, then progressively farther
   // out. A candidate is accepted only when it respects every existing node.
