@@ -40,8 +40,20 @@
         signal: ctrl.signal
       });
       let data = null;
-      try{data = await r.json();}catch(_){}
-      return {ok:r.ok, status:r.status, data:data};
+      let rawText = "";
+      let parseError = null;
+      try{
+        // Parse from text rather than relying on Response.json(), so a valid
+        // JSON body is still accepted when an upstream proxy/runtime sends a
+        // non-standard content-type or an otherwise harmless UTF-8 marker.
+        rawText = await r.text();
+        const normalized = String(rawText || "").replace(/^\\uFEFF/, "").trim();
+        if(normalized) data = JSON.parse(normalized);
+      }catch(e){
+        parseError = String((e && e.message) || e);
+      }
+      return {ok:r.ok, status:r.status, data:data, rawText:rawText, parseError:parseError,
+        contentType:(r.headers && r.headers.get) ? (r.headers.get("content-type") || "") : ""};
     }catch(e){
       return {ok:false, status:0, error:String((e && e.message) || e)};
     }finally{
