@@ -307,7 +307,15 @@
   async function runSelfTest(){
     const root = selftestRoot();
     if(root) root.innerHTML = '<div class="learning-empty">Ejecutando SELFTEST E2E sintético…</div>';
-    const r = await request("/api/v8/learning/selftest", {timeoutMs: 60000});
+    let r = await request("/api/v8/learning/selftest", {timeoutMs: 60000});
+    // Render puede devolver 200 de la peticion larga sin exponer su body al
+    // navegador. En ese caso recuperamos el resultado por un endpoint corto.
+    if(r.status === 200 && !r.data){
+      const recovered = await request("/api/v8/learning/selftest/result", {timeoutMs: 10000});
+      if(recovered.ok && recovered.data && recovered.data.ok){
+        r = recovered;
+      }
+    }
     if(!r.ok || !r.data || !r.data.ok){
       let detail = (r.data && r.data.reason) || r.error || ("HTTP "+r.status);
       if(r.status === 404){
@@ -335,7 +343,10 @@
     }
     const tests = Array.isArray(r.data.tests) ? r.data.tests : [];
     if(root){
-      root.innerHTML = '<div class="learning-selftest-title">🧬 SELFTEST E2E · '+esc(tests.filter(function(t){return t.status === "PASS";}).length)+'/'+esc(tests.length)+' PASS</div>'
+      const passed = tests.filter(function(t){return t.status === "PASS";}).length;
+      const duration = Number(r.data.duration_ms || 0);
+      root.innerHTML = '<div class="learning-selftest-title">🧬 SELFTEST E2E · '+esc(passed)+'/'+esc(tests.length)+' PASS'
+        +(duration ? ' · '+esc((duration/1000).toFixed(1))+' s' : '')+'</div>'
         + tests.map(function(t){
           const ok = t.status === "PASS";
           return '<div class="learning-selftest-row '+(ok ? "pass" : "fail")+'"><span>'+(ok ? "✓" : "✕")+'</span><strong>'+esc(t.name)+'</strong><span>'+esc(t.detail && (t.detail.error_type || t.detail.reason || "") || "")+'</span></div>';
