@@ -610,17 +610,32 @@ function closeSidebar(){document.getElementById("sidebar").classList.remove("ope
 function setBrainMobileFullscreenGeometry(){
   const stage=document.getElementById("brainStage");
   if(!stage || !stage.classList.contains("brain-mobile-fullscreen")) return;
-  const vv=window.visualViewport;
-  const h=Math.round((vv && vv.height) || window.innerHeight || document.documentElement.clientHeight || 0);
-  const w=Math.round((vv && vv.width) || window.innerWidth || document.documentElement.clientWidth || 0);
-  if(h>0) stage.style.height=h+"px";
-  if(w>0) stage.style.width=w+"px";
-  stage.style.minHeight=h+"px";
-  const views=stage.querySelectorAll(".brain-view,#membraneCy,#membrane3d");
-  views.forEach(el=>{
-    el.style.height=h+"px";
-    el.style.minHeight=h+"px";
-    el.style.width=w+"px";
+
+  // Let the fixed CSS box establish the real viewport size first. Using the
+  // VisualViewport height directly was causing the 3D renderer to keep the
+  // old, smaller canvas while the fullscreen shell grew underneath it.
+  stage.style.height="";
+  stage.style.width="";
+  stage.style.minHeight="";
+
+  requestAnimationFrame(()=>{
+    if(!stage.classList.contains("brain-mobile-fullscreen")) return;
+    const rect=stage.getBoundingClientRect();
+    const w=Math.max(1,Math.round(rect.width));
+    const h=Math.max(1,Math.round(rect.height));
+
+    const views=stage.querySelectorAll(".brain-view,#membraneCy,#membrane3d");
+    views.forEach(el=>{
+      el.style.height="100%";
+      el.style.minHeight="0";
+      el.style.width="100%";
+    });
+
+    // 3d-force-graph needs an explicit resize after the container changes
+    // because the canvas may otherwise retain the pre-fullscreen dimensions.
+    try{
+      if(window.akiraBrainResize3d) window.akiraBrainResize3d(w,h);
+    }catch(_){}
   });
 }
 function clearBrainMobileFullscreenGeometry(){
@@ -643,12 +658,13 @@ function toggleBrainMobileView(force){
   if(open){
     document.body.dataset.brainOverflow = document.body.style.overflow || "";
     document.body.style.overflow = "hidden";
-    setBrainMobileFullscreenGeometry();
     try{ window.scrollTo(0,0); }catch(_){}
+    setBrainMobileFullscreenGeometry();
   }else{
     clearBrainMobileFullscreenGeometry();
     document.body.style.overflow = document.body.dataset.brainOverflow || "";
     delete document.body.dataset.brainOverflow;
+    try{ window.akiraBrainResize3d && akiraBrainResize3d(); }catch(_){}
   }
 }
 (function(){
@@ -726,7 +742,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 });
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
-<script src="./js/akira_brain_3d.js?v=akira-brain-3d-v16-mobile-viewport"></script>
+<script src="./js/akira_brain_3d.js?v=akira-brain-3d-v17-fullscreen-resize"></script>
 <script src="./js/obsidian_membrane.js?v=akira-membrane-v35"></script>
 <script src="./js/akira_brain.js?v=akira-final-v6"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
