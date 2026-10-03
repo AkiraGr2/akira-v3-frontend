@@ -747,6 +747,34 @@
       );
       group.add(coronaHalo);
 
+      // Two nested translucent shells give Akira a breathing/plasma effect.
+      const plasmaMatA = new THREE.MeshBasicMaterial({
+        color:0xff9aa2,
+        transparent:true,
+        opacity:0.13,
+        blending:THREE.AdditiveBlending,
+        depthWrite:false
+      });
+      const plasmaMatB = new THREE.MeshBasicMaterial({
+        color:0xffd7dc,
+        transparent:true,
+        opacity:0.065,
+        blending:THREE.AdditiveBlending,
+        depthWrite:false
+      });
+      const plasmaA = new THREE.Mesh(
+        new THREE.SphereGeometry(radius * 1.28, 20, 20),
+        plasmaMatA
+      );
+      const plasmaB = new THREE.Mesh(
+        new THREE.SphereGeometry(radius * 1.58, 20, 20),
+        plasmaMatB
+      );
+      group.add(plasmaA, plasmaB);
+
+      group.userData.plasmaA = plasmaA;
+      group.userData.plasmaB = plasmaB;
+
       // Soft photographic-style flare so Akira reads as a luminous core,
       // not merely a red sphere. The texture is generated locally: no asset
       // or network request is needed.
@@ -785,6 +813,7 @@
     group.userData.coronaB = coronaB;
     group.userData.coronaHalo = coronaHalo;
     group.userData.solarFlare = group.userData.solarFlare || null;
+    group.userData.isCore = core;
     group.userData.baseColor = color;
     group.userData.renderRadius = radius;
     glowNodeObjects.set(key, group);
@@ -1652,13 +1681,13 @@
       const scene = typeof fg.scene === "function" ? fg.scene() : null;
       if(!scene) return;
 
-      const count = 420;
+      const count = 900;
       const positions = new Float32Array(count * 3);
       const speeds = new Float32Array(count);
       for(let i=0;i<count;i++){
         const a = i * 2.3999632297;
-        const r = 220 + ((i * 83) % 980);
-        const y = -520 + ((i * 137) % 1040);
+        const r = 180 + ((i * 83) % 1120);
+        const y = -620 + ((i * 137) % 1240);
         positions[i*3] = Math.cos(a) * r;
         positions[i*3+1] = y;
         positions[i*3+2] = Math.sin(a) * r;
@@ -1668,11 +1697,11 @@
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", new THREE.BufferAttribute(positions,3));
       neuralParticleMaterial = new THREE.PointsMaterial({
-        color:0xb8c8da,
-        size:2.0,
+        color:0xd4e3f2,
+        size:2.6,
         sizeAttenuation:true,
         transparent:true,
-        opacity:0.30,
+        opacity:0.42,
         depthWrite:false
       });
       neuralParticleField = new THREE.Points(geometry, neuralParticleMaterial);
@@ -1696,7 +1725,7 @@
     for(let i=0;i<speeds.length;i++){
       const idx=i*3+1;
       pos[idx] -= speeds[i] * delta * 60;
-      if(pos[idx] < -360) pos[idx] = 360;
+      if(pos[idx] < -620) pos[idx] = 620;
     }
     attr.needsUpdate = true;
   }
@@ -1810,7 +1839,7 @@
       if(isSemanticRouteLink(l)) return 0.34;
       if(isCoreLink(l)) return 0.022;
       if(ca && cb && ca === cb && ca !== "core") return 0.038;
-      return 0.014;
+      return 0.010;
     });
 
     _set3dMethod("linkDirectionalArrowLength", l =>
@@ -1976,6 +2005,33 @@
               if(obj.userData.solarFlare.material){
                 obj.userData.solarFlare.material.opacity =
                   0.66 + (Math.sin(t * 0.52 + phase) + 1) * 0.045;
+              }
+            }
+            if(obj.userData && obj.userData.plasmaA){
+              const pulseA = 0.97 + Math.sin(t * 0.90 + phase) * 0.075;
+              obj.userData.plasmaA.scale.setScalar(pulseA);
+              obj.userData.plasmaA.rotation.y += 0.0016;
+              obj.userData.plasmaA.rotation.x += 0.0008;
+              if(obj.userData.plasmaA.material){
+                obj.userData.plasmaA.material.opacity =
+                  0.10 + (Math.sin(t * 0.90 + phase) + 1) * 0.018;
+              }
+            }
+            if(obj.userData && obj.userData.plasmaB){
+              const pulseB = 1.0 + Math.sin(t * 0.56 + phase + 1.4) * 0.095;
+              obj.userData.plasmaB.scale.setScalar(pulseB);
+              obj.userData.plasmaB.rotation.z -= 0.0011;
+              if(obj.userData.plasmaB.material){
+                obj.userData.plasmaB.material.opacity =
+                  0.05 + (Math.sin(t * 0.56 + phase + 1.4) + 1) * 0.010;
+              }
+            }
+            if(obj.userData && obj.userData.body && obj.userData.isCore){
+              const breathe = 1 + Math.sin(t * 0.76 + phase) * 0.035;
+              obj.userData.body.scale.setScalar(breathe);
+              if(obj.userData.body.material){
+                obj.userData.body.material.emissiveIntensity =
+                  1.45 + (Math.sin(t * 0.76 + phase) + 1) * 0.16;
               }
             }
             if(obj.userData && obj.userData.glow){
