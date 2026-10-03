@@ -1695,8 +1695,8 @@
       // finishes loading. Recompute the current explorer scope against the
       // freshly loaded graph so 3D never collapses to the selected nucleus
       // simply because its one-hop state was calculated on stale/empty data.
-      if(selectedNodeId){
-        computeExplorerScope(explorerState.depth || 1);
+      if(selectedNodeId && explorerState.depth > 0){
+        computeExplorerScope(explorerState.depth);
       } else {
         explorerState = {
           depth: 0,
