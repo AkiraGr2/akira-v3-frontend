@@ -4004,13 +4004,31 @@ function _updateMembraneStats() {
       ? Number(_communityState.count)
       : 0;
 
+  const nodesCount = c.nodes || 0;
+  const edgesCount = c.edges || 0;
+
   el.textContent =
-    (c.nodes || 0) +
+    nodesCount +
     " nodos · " +
-    (c.edges || 0) +
+    edgesCount +
     " aristas · " +
     clusterCount +
     " clusters";
+
+  // Keep the shared Brain HUD synchronized with the live 2D membrane.
+  // This also covers the initialization-order case where brain_3d.js
+  // rendered its legacy snapshot before the 2D graph arrived.
+  try{
+    if(window.__akiraBrainCurrentMode === "2d" || !window.__akiraBrainCurrentMode){
+      const hud = document.getElementById("brainStats");
+      if(hud){
+        hud.innerHTML =
+          "<strong>" + nodesCount + "</strong> NODOS · <strong>" +
+          edgesCount + "</strong> RELACIONES · <strong>" +
+          clusterCount + "</strong> CLUSTERS";
+      }
+    }
+  }catch(_){}
 }
 
 // Core focus follows the documented graph-view interaction model: center
