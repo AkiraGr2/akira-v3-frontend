@@ -696,29 +696,38 @@
     const selected = String(n.id) === String(selectedNodeId);
     const radius = core ? nodeVisualRadius(n) * 1.22 : nodeVisualRadius(n);
 
-    const glowMat = new THREE.MeshBasicMaterial({
-      color: selected ? 0xffffff : color,
-      transparent:true,
-      opacity: selected ? 0.24 : (core ? 0.24 : 0.075),
-      blending:THREE.AdditiveBlending,
-      depthWrite:false
-    });
-    const glowSegments = DEVICE_3D_PROFILE.glowSegments;
-    const glow = new THREE.Mesh(
-      new THREE.SphereGeometry(radius * (core ? 2.25 : 1.72), glowSegments, glowSegments),
-      glowMat
-    );
-    group.add(glow);
+    let glow = null;
+    if(!DEVICE_3D_PROFILE.mobile || core || selected){
+      const glowMat = new THREE.MeshBasicMaterial({
+        color: selected ? 0xffffff : color,
+        transparent:true,
+        opacity: selected ? 0.24 : (core ? 0.24 : 0.075),
+        blending:THREE.AdditiveBlending,
+        depthWrite:false
+      });
+      const glowSegments = DEVICE_3D_PROFILE.glowSegments;
+      glow = new THREE.Mesh(
+        new THREE.SphereGeometry(radius * (core ? 2.25 : 1.72), glowSegments, glowSegments),
+        glowMat
+      );
+      group.add(glow);
+    }
 
-    const mat = new THREE.MeshStandardMaterial({
-      color: selected ? 0xffffff : (core ? 0xff6b73 : color),
-      emissive:selected ? 0xffffff : (core ? 0x6b1820 : color),
-      emissiveIntensity:selected ? 2.15 : (core ? 1.85 : 0.58),
-      roughness:0.24,
-      metalness:0.22,
-      transparent:true,
-      opacity:1
-    });
+    const mat = DEVICE_3D_PROFILE.mobile && !core && !selected
+      ? new THREE.MeshBasicMaterial({
+          color: color,
+          transparent:true,
+          opacity:0.96
+        })
+      : new THREE.MeshStandardMaterial({
+          color: selected ? 0xffffff : (core ? 0xff6b73 : color),
+          emissive:selected ? 0xffffff : (core ? 0x6b1820 : color),
+          emissiveIntensity:selected ? 2.15 : (core ? 1.85 : 0.58),
+          roughness:0.24,
+          metalness:0.22,
+          transparent:true,
+          opacity:1
+        });
     const geometry = core
       ? new THREE.IcosahedronGeometry(radius, 2)
       : (base === "agent" || base === "tool"
@@ -744,8 +753,8 @@
       ringMat
     );
     ring.rotation.x = Math.PI / 2;
-    ring.visible = core || selected;
-    group.add(ring);
+    ring.visible = core || selected || !DEVICE_3D_PROFILE.mobile;
+    if(ring.visible) group.add(ring);
 
     // Akira gets a second tilted corona: a soft "solar" identity rather than
     // the categorical colors used by the 2D membrane.
@@ -761,11 +770,11 @@
         depthWrite:false
       });
       coronaA = new THREE.Mesh(
-        new THREE.TorusGeometry(radius * 1.72, Math.max(0.22,radius*0.045), 12, 48),
+        new THREE.TorusGeometry(radius * 1.72, Math.max(0.22,radius*0.045), DEVICE_3D_PROFILE.mobile ? 8 : 12, DEVICE_3D_PROFILE.mobile ? 32 : 48),
         coronaMat.clone()
       );
       coronaB = new THREE.Mesh(
-        new THREE.TorusGeometry(radius * 1.98, Math.max(0.16,radius*0.03), 10, 44),
+        new THREE.TorusGeometry(radius * 1.98, Math.max(0.16,radius*0.03), DEVICE_3D_PROFILE.mobile ? 8 : 10, DEVICE_3D_PROFILE.mobile ? 30 : 44),
         coronaMat.clone()
       );
       coronaA.rotation.x = Math.PI / 2;
@@ -782,7 +791,7 @@
         depthWrite:false
       });
       coronaHalo = new THREE.Mesh(
-        new THREE.SphereGeometry(radius * 2.55, 20, 20),
+        new THREE.SphereGeometry(radius * 2.55, DEVICE_3D_PROFILE.mobile ? 12 : 20, DEVICE_3D_PROFILE.mobile ? 12 : 20),
         haloMat
       );
       group.add(coronaHalo);
@@ -803,11 +812,11 @@
         depthWrite:false
       });
       const plasmaA = new THREE.Mesh(
-        new THREE.SphereGeometry(radius * 1.28, 20, 20),
+        new THREE.SphereGeometry(radius * 1.28, DEVICE_3D_PROFILE.mobile ? 12 : 20, DEVICE_3D_PROFILE.mobile ? 12 : 20),
         plasmaMatA
       );
       const plasmaB = new THREE.Mesh(
-        new THREE.SphereGeometry(radius * 1.58, 20, 20),
+        new THREE.SphereGeometry(radius * 1.58, DEVICE_3D_PROFILE.mobile ? 12 : 20, DEVICE_3D_PROFILE.mobile ? 12 : 20),
         plasmaMatB
       );
       group.add(plasmaA, plasmaB);
@@ -2099,10 +2108,21 @@
         let animationFrame = 0;
         fg.onRenderFramePre(() => {
           animationFrame++;
-          if(animationFrame % 2) return;
+          const mobileStride = DEVICE_3D_PROFILE.mobile ? 3 : 2;
+          if(animationFrame % mobileStride) return;
           const t = performance.now() * 0.002;
-          animateNeuralParticleField(0.34);
+          animateNeuralParticleField(DEVICE_3D_PROFILE.mobile ? 0.22 : 0.34);
           glowNodeObjects.forEach((obj) => {
+            const isImportantObject = !!(
+              obj.userData && (
+                obj.userData.isCore ||
+                String(obj.userData.nodeId || "") === String(selectedNodeId) ||
+                String(obj.userData.nodeId || "") === String(hoveredNodeId)
+              )
+            );
+            // On mobile, static ordinary nodes are intentionally left alone.
+            // Only core/selected/hovered objects receive continuous animation.
+            if(DEVICE_3D_PROFILE.mobile && !isImportantObject) return;
             const phase = String(obj.userData && obj.userData.nodeId || "").length;
             if(obj.userData && obj.userData.ring){
               const pulse = 1 + Math.sin(t + phase) * 0.055;
