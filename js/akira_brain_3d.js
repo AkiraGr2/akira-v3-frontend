@@ -48,6 +48,12 @@
     "#e8f7ff", "#cfeeff", "#d9d6ff", "#eee5ff",
     "#c8f4e2", "#f1f4ff", "#bfe8f5"
   ];
+  const IS_MOBILE_3D = !!(
+    (window.matchMedia && (
+      window.matchMedia("(pointer: coarse)").matches ||
+      window.matchMedia("(max-width: 900px)").matches
+    ))
+  );
   let communityState = {
     assignments: new Map(),
     centers: new Map(),
@@ -672,8 +678,9 @@
       blending:THREE.AdditiveBlending,
       depthWrite:false
     });
+    const glowSegments = IS_MOBILE_3D ? 9 : 18;
     const glow = new THREE.Mesh(
-      new THREE.SphereGeometry(radius * (core ? 2.25 : 1.72), 18, 18),
+      new THREE.SphereGeometry(radius * (core ? 2.25 : 1.72), glowSegments, glowSegments),
       glowMat
     );
     group.add(glow);
@@ -691,7 +698,7 @@
       ? new THREE.IcosahedronGeometry(radius, 2)
       : (base === "agent" || base === "tool"
           ? new THREE.OctahedronGeometry(radius * 0.82, 1)
-          : new THREE.SphereGeometry(radius * 0.82, 18, 18));
+          : new THREE.SphereGeometry(radius * 0.82, IS_MOBILE_3D ? 9 : 18, IS_MOBILE_3D ? 9 : 18));
     const body = new THREE.Mesh(geometry, mat);
     group.add(body);
 
@@ -703,7 +710,12 @@
       depthWrite:false
     });
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(radius * 1.35, Math.max(0.28,radius*0.055), 10, 40),
+      new THREE.TorusGeometry(
+        radius * 1.35,
+        Math.max(0.28,radius*0.055),
+        IS_MOBILE_3D ? 8 : 10,
+        IS_MOBILE_3D ? 24 : 40
+      ),
       ringMat
     );
     ring.rotation.x = Math.PI / 2;
@@ -1686,7 +1698,7 @@
 
       // Endless-feeling ambient environment: the particle field follows the
       // camera, so zooming/orbiting never exposes an edge.
-      const count = 1400;
+      const count = 2200;
       const positions = new Float32Array(count * 3);
       const speeds = new Float32Array(count);
 
@@ -1704,10 +1716,10 @@
       geometry.setAttribute("position", new THREE.BufferAttribute(positions,3));
       neuralParticleMaterial = new THREE.PointsMaterial({
         color:0xd9e7f7,
-        size:2.45,
+        size:1.15,
         sizeAttenuation:false,
         transparent:true,
-        opacity:0.50,
+        opacity:0.36,
         depthTest:false,
         depthWrite:false
       });
@@ -1718,7 +1730,7 @@
       scene.add(neuralParticleField);
 
       // Fine far-field points for a true "infinite" background.
-      const starCount = 900;
+      const starCount = 700;
       const starPositions = new Float32Array(starCount * 3);
       for(let i=0;i<starCount;i++){
         const u=((i*0.61803398875)%1)*2-1;
@@ -1734,7 +1746,7 @@
       starGeometry.setAttribute("position",new THREE.BufferAttribute(starPositions,3));
       neuralStarMaterial = new THREE.PointsMaterial({
         color:0xf4f8ff,
-        size:1.35,
+        size:0.95,
         sizeAttenuation:false,
         transparent:true,
         opacity:0.32,
@@ -1994,6 +2006,16 @@
           .enableNodeDrag(true)
           .enablePointerInteraction(true);
       } catch(_) {}
+
+      try{
+        const renderer = typeof fg.renderer === "function" ? fg.renderer() : null;
+        if(renderer && typeof renderer.setPixelRatio === "function"){
+          const dpr = Math.min(window.devicePixelRatio || 1, IS_MOBILE_3D ? 1.15 : 1.75);
+          renderer.setPixelRatio(dpr);
+        }
+      }catch(err){
+        console.warn("[akira-brain-3d] renderer tuning", err);
+      }
 
       try {
         const renderer = typeof fg.renderer === "function" ? fg.renderer() : null;
