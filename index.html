@@ -16,7 +16,7 @@
 <meta name="apple-mobile-web-app-title" content="Akira">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
-<script src="https://unpkg.com/cytoscape-cose-bilkent@4.1.0/cytoscape-cose-bilkent.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-force@3.0.0/dist/d3-force.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -346,7 +346,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
       <div class="brain-toolbar">
         <div class="brain-mode-group" role="tablist" aria-label="Vista del cerebro">
           <button id="brainMode2d" class="brain-mode active" type="button" onclick="window.akiraBrainSetMode && akiraBrainSetMode('2d')">2D</button>
-          <button id="brainMode3d" class="brain-mode" type="button" onclick="window.akiraBrainSetMode && akiraBrainSetMode('3d')">3D</button>
+          <button id="brainMode3d" class="brain-mode" type="button" style="display:none" aria-hidden="true" tabindex="-1">3D</button>
           <button id="brainMobileViewBtn" class="brain-mode brain-mobile-view-btn" type="button" onclick="toggleBrainMobileView()" title="Ver la membrana a pantalla completa">⛶ MEMBRANA</button>
         </div>
         <div class="brain-toolbar-actions">
@@ -788,7 +788,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
 <script src="./js/akira_brain_3d.js?v=akira-brain-3d-v22-initial-full"></script>
-<script src="./js/obsidian_membrane.js?v=akira-membrane-v36-neural-ui"></script>
+<script src="./js/obsidian_membrane.js?v=akira-membrane-v37-obsidian-force"></script>
 <script src="./js/akira_brain.js?v=akira-final-v6"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
 <script src="./js/akira_conversations.js?v=akira-conv-v5"></script>
