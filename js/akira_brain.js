@@ -457,6 +457,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     purpleBtn.onclick = ()=>{ if(typeof sendMsg==='function') sendMsg(); };
   }
   document.querySelectorAll("button").forEach(b=>{
+    if(b === purpleBtn) return;
     if(b.textContent.includes("↑") || b.innerHTML.includes("↑")){
       b.addEventListener("click", (e)=>{
         e.preventDefault();
