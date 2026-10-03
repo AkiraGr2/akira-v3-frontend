@@ -588,8 +588,8 @@
     const solarFlare = group.userData.solarFlare;
 
     if(body && body.material){
-      body.material.color.setHex(selected ? 0xffffff : (core ? 0xff6b6b : color));
-      body.material.emissive.setHex(selected ? 0xffffff : (core ? 0x551111 : color));
+      body.material.color.setHex(selected ? 0xffffff : (core ? 0x7b61ff : color));
+      body.material.emissive.setHex(selected ? 0xffffff : (core ? 0x32145f : color));
       body.material.emissiveIntensity = selected ? 1.8 : (route ? 1.05 : (core ? 1.25 : 0.75));
       body.material.opacity = dim ? 0.16 : 1;
       body.material.transparent = dim;
@@ -660,7 +660,7 @@
     const color = hexColor(colorForNode(n,false));
     const core = !!n._isCore;
     const selected = String(n.id) === String(selectedNodeId);
-    const radius = nodeVisualRadius(n);
+    const radius = core ? nodeVisualRadius(n) * 1.22 : nodeVisualRadius(n);
 
     const glowMat = new THREE.MeshBasicMaterial({
       color: selected ? 0xffffff : color,
@@ -678,7 +678,7 @@
     const mat = new THREE.MeshStandardMaterial({
       color: selected ? 0xffffff : (core ? 0xff6b73 : color),
       emissive:selected ? 0xffffff : (core ? 0x6b1820 : color),
-      emissiveIntensity:selected ? 1.9 : (core ? 1.55 : 0.58),
+      emissiveIntensity:selected ? 2.15 : (core ? 1.85 : 0.58),
       roughness:0.24,
       metalness:0.22,
       transparent:true,
@@ -693,9 +693,9 @@
     group.add(body);
 
     const ringMat = new THREE.MeshBasicMaterial({
-      color:selected ? 0xffffff : (core ? 0xff8991 : color),
+      color:selected ? 0xffffff : (core ? 0xb39cff : color),
       transparent:true,
-      opacity:core ? 0.72 : 0.38,
+      opacity:core ? 0.78 : 0.38,
       blending:THREE.AdditiveBlending,
       depthWrite:false
     });
@@ -714,7 +714,7 @@
     let coronaHalo = null;
     if(core){
       const coronaMat = new THREE.MeshBasicMaterial({
-        color:0xff7a82,
+        color:0xa46bff,
         transparent:true,
         opacity:0.46,
         blending:THREE.AdditiveBlending,
@@ -735,7 +735,7 @@
       group.add(coronaA, coronaB);
 
       const haloMat = new THREE.MeshBasicMaterial({
-        color:0xff5f69,
+        color:0x7c5cff,
         transparent:true,
         opacity:0.075,
         blending:THREE.AdditiveBlending,
@@ -749,14 +749,14 @@
 
       // Two nested translucent shells give Akira a breathing/plasma effect.
       const plasmaMatA = new THREE.MeshBasicMaterial({
-        color:0xff9aa2,
+        color:0xd26bff,
         transparent:true,
         opacity:0.13,
         blending:THREE.AdditiveBlending,
         depthWrite:false
       });
       const plasmaMatB = new THREE.MeshBasicMaterial({
-        color:0xffd7dc,
+        color:0xe8e5ff,
         transparent:true,
         opacity:0.065,
         blending:THREE.AdditiveBlending,
@@ -784,16 +784,16 @@
       const g = ctx && ctx.createRadialGradient(64,64,5,64,64,64);
       if(ctx && g){
         g.addColorStop(0,"rgba(255,255,255,0.95)");
-        g.addColorStop(0.18,"rgba(255,160,170,0.75)");
-        g.addColorStop(0.42,"rgba(255,95,105,0.24)");
-        g.addColorStop(1,"rgba(255,95,105,0)");
+        g.addColorStop(0.18,"rgba(217,161,255,0.78)");
+        g.addColorStop(0.42,"rgba(144,103,255,0.28)");
+        g.addColorStop(1,"rgba(80,220,255,0)");
         ctx.fillStyle=g;
         ctx.fillRect(0,0,128,128);
       }
       const flareTex = new THREE.CanvasTexture(flareCanvas);
       const flareMat = new THREE.SpriteMaterial({
         map:flareTex,
-        color:0xff7c85,
+        color:0x8b6cff,
         transparent:true,
         opacity:0.70,
         blending:THREE.AdditiveBlending,
@@ -2004,7 +2004,7 @@
               obj.userData.solarFlare.scale.setScalar(pulse);
               if(obj.userData.solarFlare.material){
                 obj.userData.solarFlare.material.opacity =
-                  0.66 + (Math.sin(t * 0.52 + phase) + 1) * 0.045;
+                  0.70 + (Math.sin(t * 0.52 + phase) + 1) * 0.055;
               }
             }
             if(obj.userData && obj.userData.plasmaA){
@@ -2014,7 +2014,7 @@
               obj.userData.plasmaA.rotation.x += 0.0008;
               if(obj.userData.plasmaA.material){
                 obj.userData.plasmaA.material.opacity =
-                  0.10 + (Math.sin(t * 0.90 + phase) + 1) * 0.018;
+                  0.13 + (Math.sin(t * 0.90 + phase) + 1) * 0.022;
               }
             }
             if(obj.userData && obj.userData.plasmaB){
@@ -2023,7 +2023,7 @@
               obj.userData.plasmaB.rotation.z -= 0.0011;
               if(obj.userData.plasmaB.material){
                 obj.userData.plasmaB.material.opacity =
-                  0.05 + (Math.sin(t * 0.56 + phase + 1.4) + 1) * 0.010;
+                  0.06 + (Math.sin(t * 0.56 + phase + 1.4) + 1) * 0.014;
               }
             }
             if(obj.userData && obj.userData.body && obj.userData.isCore){
