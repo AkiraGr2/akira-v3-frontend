@@ -283,11 +283,11 @@ let _obsidianForceGeneration = 0;
 let _obsidianSyncRaf = null;
 let _obsidianInitialFitDone = false;
 const OBSIDIAN_FORCE_DEFAULTS = {
-  center: 0.04,
-  repel: -125,
-  linkForce: 0.22,
-  linkDistance: 115,
-  collisionGap: 18
+  center: 0.022,
+  repel: -175,
+  linkForce: 0.18,
+  linkDistance: 130,
+  collisionGap: 24
 };
 
 let _labelCounter = null;
@@ -593,14 +593,58 @@ function _obsidianHash(id){
   return h>>>0;
 }
 
-function _obsidianInitialPosition(id,index,center){
+function _obsidianInitialPosition(id,index,center,total){
   const h=_obsidianHash(id);
-  const angle=((h%100000)/100000)*Math.PI*2;
-  const radius=120 + ((h>>>8)%430) + (index%7)*8;
+  const golden=Math.PI*(3-Math.sqrt(5));
+  const jitter=((h%1000)/1000-0.5)*0.12;
+  const angle=index*golden + jitter;
+  const scale=Math.max(1,Math.sqrt(Number(total)||1));
+  // Virtual space grows with graph size. There is intentionally no viewport
+  // clamp: Cytoscape is the camera, not the physical boundary of the Brain.
+  const radius=110 + 62*Math.sqrt(index+1) + 18*scale;
   return {
     x:center.x + Math.cos(angle)*radius,
     y:center.y + Math.sin(angle)*radius
   };
+}
+
+function _seedObsidianGraph(nodes, coreId, center){
+  if(!cyMembrane) return;
+  const list=nodes||[];
+  const core=coreId==null ? null : String(coreId);
+
+  try{
+    list.forEach((raw,index)=>{
+      const id=String(raw.id);
+      const el=cyMembrane.getElementById(id);
+      if(!el || el.empty()) return;
+
+      if(id===core){
+        el.position({x:center.x,y:center.y});
+        return;
+      }
+
+      // Existing physical/cached coordinates always win. Only unplaced nodes
+      // receive the deterministic spread seed.
+      const prior=_obsidianForceNodeById.get(id);
+      const cached=_positionCache.get(id);
+
+      if(prior && Number.isFinite(prior.x) && Number.isFinite(prior.y)){
+        el.position({x:prior.x,y:prior.y});
+        return;
+      }
+      if(cached && Number.isFinite(cached.x) && Number.isFinite(cached.y)){
+        el.position({x:cached.x,y:cached.y});
+        return;
+      }
+
+      const p=_obsidianInitialPosition(id,index,center,list.length);
+      el.position(p);
+      _positionCache.set(id,p);
+    });
+  }catch(e){
+    console.warn("[membrane] Obsidian seed failed:",e);
+  }
 }
 
 function _syncObsidianNodesToCy(){
@@ -1099,16 +1143,20 @@ function _runObsidianPhysics(nodes, edges, coreId, restart=true){
     typeof window.d3.forceCenter==="function" &&
     typeof window.d3.forceCollide==="function";
 
-  // Never leave the graph stacked because a CDN asset failed. The local
-  // fallback is a complete force engine and keeps the Brain functional offline.
+  try{ _bindObsidianPhysicsInteractions(); }catch(_){}
+  try{ cyMembrane.resize(); }catch(_){}
+
+  // Build a guaranteed visual seed before any optional physics backend.
+  // This removes the "all nodes at 0,0" failure mode entirely.
+  const W0=cyMembrane.width()||800;
+  const H0=cyMembrane.height()||600;
+  _seedObsidianGraph(nodes, coreId, {x:W0/2,y:H0/2});
+
+  // D3 is preferred, but it is not a single point of failure.
   if(!hasD3){
     console.warn("[membrane] d3-force unavailable; using local Akira force engine");
     return _runObsidianFallbackPhysics(nodes, edges, coreId, restart);
   }
-
-  try{ _bindObsidianPhysicsInteractions(); }catch(_){}
-
-  try{ cyMembrane.resize(); }catch(_){}
   const W=cyMembrane.width()||800;
   const H=cyMembrane.height()||600;
   const center={x:W/2,y:H/2};
@@ -1179,46 +1227,51 @@ function _runObsidianPhysics(nodes, edges, coreId, restart=true){
 
   const generation=++_obsidianForceGeneration;
 
-  const simulation=window.d3.forceSimulation(simNodes)
-    .force("link",
-      window.d3.forceLink(simLinks)
-        .id(d=>d.id)
-        .distance(()=>{
-          return OBSIDIAN_FORCE_DEFAULTS.linkDistance;
-        })
-        .strength(d=>{
-          const a=d.source, b=d.target;
-          const minDegree=Math.max(1,Math.min(a.degree||1,b.degree||1));
-          return OBSIDIAN_FORCE_DEFAULTS.linkForce / minDegree;
-        })
-    )
-    .force("charge",
-      window.d3.forceManyBody()
-        .strength(d=>{
-          const degree=Math.min(18,d.degree||0);
-          return OBSIDIAN_FORCE_DEFAULTS.repel * (1 + degree*0.018);
-        })
-        .distanceMin(18)
-        .distanceMax(1700)
-    )
-    .force("center",
-      window.d3.forceCenter(center.x,center.y)
-    )
-    .force("x",
-      window.d3.forceX(center.x).strength(OBSIDIAN_FORCE_DEFAULTS.center)
-    )
-    .force("y",
-      window.d3.forceY(center.y).strength(OBSIDIAN_FORCE_DEFAULTS.center)
-    )
-    .force("collide",
-      window.d3.forceCollide(d=>d.r + OBSIDIAN_FORCE_DEFAULTS.collisionGap)
-        .strength(0.95)
-        .iterations(2)
-    )
-    .velocityDecay(0.60)
-    .alpha(1)
-    .alphaDecay(nodes.length>500 ? 0.045 : 0.030)
-    .alphaMin(0.001);
+  let simulation=null;
+  try{
+    simulation=window.d3.forceSimulation(simNodes)
+      .force("link",
+        window.d3.forceLink(simLinks)
+          .id(d=>d.id)
+          .distance(()=>{
+            return OBSIDIAN_FORCE_DEFAULTS.linkDistance;
+          })
+          .strength(d=>{
+            const a=d.source, b=d.target;
+            const minDegree=Math.max(1,Math.min(a.degree||1,b.degree||1));
+            return OBSIDIAN_FORCE_DEFAULTS.linkForce / minDegree;
+          })
+      )
+      .force("charge",
+        window.d3.forceManyBody()
+          .strength(d=>{
+            const degree=Math.min(18,d.degree||0);
+            return OBSIDIAN_FORCE_DEFAULTS.repel * (1 + degree*0.018);
+          })
+          .distanceMin(18)
+      )
+      .force("center",
+        window.d3.forceCenter(center.x,center.y)
+      )
+      .force("x",
+        window.d3.forceX(center.x).strength(OBSIDIAN_FORCE_DEFAULTS.center)
+      )
+      .force("y",
+        window.d3.forceY(center.y).strength(OBSIDIAN_FORCE_DEFAULTS.center)
+      )
+      .force("collide",
+        window.d3.forceCollide(d=>d.r + OBSIDIAN_FORCE_DEFAULTS.collisionGap)
+          .strength(0.95)
+          .iterations(2)
+      )
+      .velocityDecay(0.60)
+      .alpha(1)
+      .alphaDecay(nodes.length>500 ? 0.045 : 0.030)
+      .alphaMin(0.001);
+  }catch(e){
+    console.warn("[membrane] d3-force runtime failure; using local Akira force engine:",e);
+    return _runObsidianFallbackPhysics(nodes, edges, coreId, restart);
+  }
 
   _obsidianForceNodeById=simById;
   _obsidianForceSimulation=simulation;
@@ -1233,21 +1286,34 @@ function _runObsidianPhysics(nodes, edges, coreId, restart=true){
     _syncObsidianNodesToCy();
     try{
       simNodes.forEach(n=>_positionCache.set(n.id,{x:n.x,y:n.y}));
-      if(!_obsidianInitialFitDone){
-        _obsidianInitialFitDone=true;
-        setTimeout(()=>{
-          try{
-            if(cyMembrane){
+      const finishCamera=()=>{
+        try{
+          if(!cyMembrane) return;
+          const coreEl=core ? cyMembrane.getElementById(core) : cyMembrane.nodes(".core").first();
+          if(coreEl && !coreEl.empty()){
+            if(!_obsidianInitialFitDone){
+              // Camera-only fit. It is NOT a graph boundary: node coordinates
+              // remain free and can extend indefinitely beyond the viewport.
               cyMembrane.fit(undefined,70);
-              if(core){
-                const el=cyMembrane.getElementById(core);
-                if(el && !el.empty()) cyMembrane.center(el);
-              }
-              _updateObsidianLabelFade();
+              _obsidianInitialFitDone=true;
             }
-          }catch(_){}
-        },80);
-      }
+            cyMembrane.center(coreEl);
+
+            // Correct any residual pan introduced by a mobile/fullscreen resize.
+            const rp=coreEl.renderedPosition();
+            const w=cyMembrane.width()||800;
+            const h=cyMembrane.height()||600;
+            const dx=(w/2)-rp.x;
+            const dy=(h/2)-rp.y;
+            if(Math.abs(dx)>2 || Math.abs(dy)>2){
+              const pan=cyMembrane.pan();
+              cyMembrane.pan({x:pan.x+dx,y:pan.y+dy});
+            }
+          }
+          _updateObsidianLabelFade();
+        }catch(_){}
+      };
+      setTimeout(finishCamera,80);
     }catch(_){}
   });
 
@@ -2477,42 +2543,64 @@ function _cytoscapeStyle() {
   ];
 }
 
-function _restoreFlowerAfterViewportResize() {
+function _restoreObsidianAfterViewportResize() {
   if (!cyMembrane) return;
-  if (membraneSelectedBrainNodeId) return;
   if (membraneExploreDepth !== 0) return;
   if (membraneBrainFilterGroup !== "all") return;
   if (membraneBrainRelationFilter !== "all") return;
 
-  try {
-    const coreEl = cyMembrane.nodes(".core").first();
-    if (!coreEl || coreEl.empty()) return;
+  try{
+    const coreEl=cyMembrane.nodes(".core").first();
+    if(!coreEl || coreEl.empty()) return;
 
-    const nodes = cyMembrane.nodes().map(n => ({
-      id: n.id(),
-      label: n.data("label"),
-      node_type: n.data("node_type"),
-      weight: Number(n.data("weight")) || 0,
-      reuse_count: Number(n.data("reuse_count")) || 0,
-      confidence: Number(n.data("confidence")) || 0,
-      _importance: Number(n.data("_importance")) || 0
+    cyMembrane.resize();
+
+    // Update physical coordinates to the new viewport center. This is camera
+    // recentering, not a spatial clamp.
+    const W=cyMembrane.width()||800;
+    const H=cyMembrane.height()||600;
+    const center={x:W/2,y:H/2};
+
+    const nodes=cyMembrane.nodes().map(n=>({
+      id:n.id(),
+      label:n.data("label"),
+      node_type:n.data("node_type"),
+      weight:Number(n.data("weight"))||0,
+      reuse_count:Number(n.data("reuse_count"))||0,
+      confidence:Number(n.data("confidence"))||0,
+      _importance:Number(n.data("_importance"))||0
     }));
 
-    const edges = cyMembrane.edges().map(e => ({
-      id: e.id(),
-      from_node: String(e.data("source")),
-      to_node: String(e.data("target")),
-      weight: Number(e.data("weight")) || 0.5
+    const edges=cyMembrane.edges().map(e=>({
+      id:e.id(),
+      from_node:String(e.data("source")),
+      to_node:String(e.data("target")),
+      weight:Number(e.data("weight"))||0.5
     }));
 
-    _runObsidianPhysics(nodes, edges, coreEl.id(), true);
+    _runObsidianPhysics(nodes,edges,coreEl.id(),true);
 
-    const W = cyMembrane.width() || 800;
-    const H = cyMembrane.height() || 600;
-    coreEl.position({x: W / 2, y: H / 2});
-    cyMembrane.center(coreEl);
-  } catch(e) {
-    console.warn("[membrane] flower resize recovery failed:", e);
+    // The resize path must not leave the core off-screen.
+    setTimeout(()=>{
+      try{
+        if(!cyMembrane) return;
+        const core=cyMembrane.nodes(".core").first();
+        if(core && !core.empty()){
+          core.position(center);
+          cyMembrane.center(core);
+
+          const rp=core.renderedPosition();
+          const dx=(W/2)-rp.x;
+          const dy=(H/2)-rp.y;
+          if(Math.abs(dx)>2 || Math.abs(dy)>2){
+            const pan=cyMembrane.pan();
+            cyMembrane.pan({x:pan.x+dx,y:pan.y+dy});
+          }
+        }
+      }catch(_){}
+    },120);
+  }catch(e){
+    console.warn("[membrane] Obsidian resize recovery failed:",e);
   }
 }
 
@@ -2526,7 +2614,7 @@ function _scheduleFlowerViewportRestore() {
     try {
       if (cyMembrane) cyMembrane.resize();
     } catch(_) {}
-    _restoreFlowerAfterViewportResize();
+    _restoreObsidianAfterViewportResize();
   }, 120);
 }
 
