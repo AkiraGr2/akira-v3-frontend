@@ -41,6 +41,8 @@
   const glowNodeObjects = new Map();
   let neuralParticleField = null;
   let neuralParticleMaterial = null;
+  let neuralStarField = null;
+  let neuralStarMaterial = null;
   const NEURAL_NODE_PALETTE = [
     "#e8f7ff", "#cfeeff", "#d9d6ff", "#eee5ff",
     "#c8f4e2", "#f1f4ff", "#bfe8f5"
@@ -1681,37 +1683,73 @@
       const scene = typeof fg.scene === "function" ? fg.scene() : null;
       if(!scene) return;
 
-      const count = 900;
+      // Endless-feeling ambient environment: the particle field follows the
+      // camera, so zooming/orbiting never exposes an edge.
+      const count = 1400;
       const positions = new Float32Array(count * 3);
       const speeds = new Float32Array(count);
+
       for(let i=0;i<count;i++){
         const a = i * 2.3999632297;
-        const r = 180 + ((i * 83) % 1120);
-        const y = -620 + ((i * 137) % 1240);
+        const r = 500 + ((i * 83) % 1700);
+        const y = -1000 + ((i * 137) % 2000);
         positions[i*3] = Math.cos(a) * r;
         positions[i*3+1] = y;
         positions[i*3+2] = Math.sin(a) * r;
-        speeds[i] = 0.025 + ((i * 17) % 9) * 0.004;
+        speeds[i] = 0.012 + ((i * 17) % 17) * 0.0018;
       }
 
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", new THREE.BufferAttribute(positions,3));
       neuralParticleMaterial = new THREE.PointsMaterial({
-        color:0xd4e3f2,
-        size:2.6,
-        sizeAttenuation:true,
+        color:0xd9e7f7,
+        size:2.45,
+        sizeAttenuation:false,
         transparent:true,
-        opacity:0.42,
+        opacity:0.50,
+        depthTest:false,
         depthWrite:false
       });
+
       neuralParticleField = new THREE.Points(geometry, neuralParticleMaterial);
       neuralParticleField.userData.speeds = speeds;
-      neuralParticleField.renderOrder = -1;
+      neuralParticleField.renderOrder = -1000;
       scene.add(neuralParticleField);
+
+      // Fine far-field points for a true "infinite" background.
+      const starCount = 900;
+      const starPositions = new Float32Array(starCount * 3);
+      for(let i=0;i<starCount;i++){
+        const u=((i*0.61803398875)%1)*2-1;
+        const theta=i*2.3999632297;
+        const k=Math.sqrt(Math.max(0,1-u*u));
+        const rr=1700 + ((i*41)%1000);
+        starPositions[i*3]=Math.cos(theta)*k*rr;
+        starPositions[i*3+1]=u*rr;
+        starPositions[i*3+2]=Math.sin(theta)*k*rr;
+      }
+
+      const starGeometry = new THREE.BufferGeometry();
+      starGeometry.setAttribute("position",new THREE.BufferAttribute(starPositions,3));
+      neuralStarMaterial = new THREE.PointsMaterial({
+        color:0xf4f8ff,
+        size:1.35,
+        sizeAttenuation:false,
+        transparent:true,
+        opacity:0.42,
+        depthTest:false,
+        depthWrite:false
+      });
+      neuralStarField = new THREE.Points(starGeometry,neuralStarMaterial);
+      neuralStarField.renderOrder = -999;
+      scene.add(neuralStarField);
+
     }catch(err){
       console.warn("[akira-brain-3d] particles", err);
       neuralParticleField = null;
       neuralParticleMaterial = null;
+      neuralStarField = null;
+      neuralStarMaterial = null;
     }
   }
 
@@ -1721,13 +1759,22 @@
     const attr = geometry && geometry.getAttribute ? geometry.getAttribute("position") : null;
     const speeds = neuralParticleField.userData && neuralParticleField.userData.speeds;
     if(!attr || !speeds) return;
+
     const pos = attr.array;
     for(let i=0;i<speeds.length;i++){
       const idx=i*3+1;
       pos[idx] -= speeds[i] * delta * 60;
-      if(pos[idx] < -620) pos[idx] = 620;
+      if(pos[idx] < -1000) pos[idx] = 1000;
     }
     attr.needsUpdate = true;
+
+    try{
+      const camera = fg && typeof fg.camera === "function" ? fg.camera() : null;
+      if(camera){
+        neuralParticleField.position.copy(camera.position);
+        if(neuralStarField) neuralStarField.position.copy(camera.position);
+      }
+    }catch(_){}
   }
 
   function apply3dRuntime(){
@@ -1764,7 +1811,7 @@
     _set3dMethod("nodeColor", n => {
       const id = String(n.id);
       if(id === String(selectedNodeId)) return "#ffffff";
-      if(String(n.label || "").trim().toLowerCase() === "akira") return "#ff6b6b";
+      if(String(n.label || "").trim().toLowerCase() === "akira") return "#7b61ff";
       return colorForNode(n, hoveredNodeId && id === String(hoveredNodeId));
     });
 
@@ -2191,6 +2238,15 @@
       try{ neuralParticleField.geometry.dispose(); }catch(_){}
       neuralParticleField = null;
       neuralParticleMaterial = null;
+      if(neuralStarField){
+        try{
+          const scene = fg && typeof fg.scene === "function" ? fg.scene() : null;
+          if(scene) scene.remove(neuralStarField);
+        }catch(_){}
+        try{ neuralStarField.geometry.dispose(); }catch(_){}
+        neuralStarField = null;
+        neuralStarMaterial = null;
+      }
     }
     if(container){
       container.innerHTML = '<div style="padding:24px;color:#9ca3af;font-family:monospace;text-align:center">Cargando motor 3D…</div>';
