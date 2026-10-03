@@ -65,6 +65,20 @@
     return document.getElementById("learningReviewList");
   }
 
+  function selftestRoot(){
+    const panel = document.getElementById("learningReviewPanel");
+    const review = reviewRoot();
+    if(!panel || !review) return review;
+    let root = document.getElementById("learningSelftestResult");
+    if(!root){
+      root = document.createElement("div");
+      root.id = "learningSelftestResult";
+      root.className = "learning-selftest-output";
+      panel.insertBefore(root, review);
+    }
+    return root;
+  }
+
   function statusClass(status){
     return " learning-status-" + esc(status || "unknown");
   }
@@ -260,7 +274,7 @@
   }
 
   async function runSemanticSelfTest(){
-    const root = reviewRoot();
+    const root = selftestRoot();
     if(root) root.innerHTML = '<div class="learning-empty">Ejecutando SELFTEST SEMÁNTICO…</div>';
     const r = await request("/api/v8/memory/semantic-selftest", {timeoutMs: 60000});
     if(!r.ok || !r.data || !r.data.ok){
@@ -291,7 +305,7 @@
   }
 
   async function runSelfTest(){
-    const root = reviewRoot();
+    const root = selftestRoot();
     if(root) root.innerHTML = '<div class="learning-empty">Ejecutando SELFTEST E2E sintético…</div>';
     const r = await request("/api/v8/learning/selftest", {timeoutMs: 60000});
     if(!r.ok || !r.data || !r.data.ok){
