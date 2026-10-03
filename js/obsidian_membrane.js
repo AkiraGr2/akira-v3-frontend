@@ -135,6 +135,26 @@ const NEURAL_2D_PALETTE = [
   "#e8f7ff", "#cfeeff", "#d9d6ff", "#eee5ff",
   "#c8f4e2", "#f1f4ff", "#bfe8f5"
 ];
+
+/*
+ * Adaptive performance governor for the 2D Brain.
+ * It never removes real data. It only reduces simulation work as the
+ * number of rendered nodes grows. The current <=750-node profile preserves
+ * the D.28 baseline exactly; larger graphs progressively use lighter physics.
+ */
+function _obsidianPerfProfile(nodeCount){
+  const n=Math.max(0,Number(nodeCount)||0);
+  if(n<=750){
+    return {iterations: n>300 ? 2 : 3, gridRange:3, maxDistance:420, softDistance:220, radialSteps:52};
+  }
+  if(n<=1200){
+    return {iterations:1, gridRange:3, maxDistance:380, softDistance:205, radialSteps:46};
+  }
+  if(n<=1800){
+    return {iterations:1, gridRange:2, maxDistance:340, softDistance:190, radialSteps:40};
+  }
+  return {iterations:1, gridRange:2, maxDistance:300, softDistance:175, radialSteps:34};
+}
 function _neural2DColor(n, isCore){
   if(isCore) return "#7b61ff";
   const id = String(n && (n.id || n.label) || "");
@@ -921,6 +941,8 @@ function _runObsidianFallbackPhysics(nodes, edges, coreId, restart=true){
     const forces=new Map(
       simNodes.map(n=>[n.id,{x:0,y:0}])
     );
+    const perf=_obsidianPerfProfile(simNodes.length);
+    const gridRange=perf.gridRange;
 
     const grid=new Map();
 
@@ -960,7 +982,7 @@ function _runObsidianFallbackPhysics(nodes, edges, coreId, restart=true){
             }
 
             const d=Math.sqrt(d2);
-            if(d>420) continue;
+            if(d>perf.maxDistance) continue;
 
             const ux=dx/d;
             const uy=dy/d;
@@ -976,8 +998,8 @@ function _runObsidianFallbackPhysics(nodes, edges, coreId, restart=true){
               forces.get(b.id).x+=ux*push;
               forces.get(b.id).y+=uy*push;
 
-            }else if(d<220){
-              const soft=((220-d)/220)*0.020*alpha;
+            }else if(d<perf.softDistance){
+              const soft=((perf.softDistance-d)/perf.softDistance)*0.020*alpha;
               forces.get(a.id).x-=ux*soft;
               forces.get(a.id).y-=uy*soft;
               forces.get(b.id).x+=ux*soft;
@@ -1095,7 +1117,7 @@ function _runObsidianFallbackPhysics(nodes, edges, coreId, restart=true){
 
       // A few physics micro-steps per paint keeps convergence quick without
       // forcing a heavy full-frame loop on mobile.
-      const iterations=simNodes.length>300 ? 2 : 3;
+      const iterations=_obsidianPerfProfile(simNodes.length).iterations;
       let alive=true;
 
       for(let i=0;i<iterations && alive;i++){
@@ -1722,7 +1744,7 @@ function _runFlowerPhysics(nodes, edges, coreId){
     if(!old || w>old) coreLinks.set(other,w);
   });
 
-  const STEPS=52;
+  const STEPS=_obsidianPerfProfile(active.length).radialSteps;
   let step=0;
 
   const tick=()=>{
