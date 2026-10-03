@@ -607,6 +607,34 @@ function showSection(name){
 }
 function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}
 function closeSidebar(){document.getElementById("sidebar").classList.remove("open");document.getElementById("overlay").classList.remove("open");}
+function setBrainMobileFullscreenGeometry(){
+  const stage=document.getElementById("brainStage");
+  if(!stage || !stage.classList.contains("brain-mobile-fullscreen")) return;
+  const vv=window.visualViewport;
+  const h=Math.round((vv && vv.height) || window.innerHeight || document.documentElement.clientHeight || 0);
+  const w=Math.round((vv && vv.width) || window.innerWidth || document.documentElement.clientWidth || 0);
+  if(h>0) stage.style.height=h+"px";
+  if(w>0) stage.style.width=w+"px";
+  stage.style.minHeight=h+"px";
+  const views=stage.querySelectorAll(".brain-view,#membraneCy,#membrane3d");
+  views.forEach(el=>{
+    el.style.height=h+"px";
+    el.style.minHeight=h+"px";
+    el.style.width=w+"px";
+  });
+}
+function clearBrainMobileFullscreenGeometry(){
+  const stage=document.getElementById("brainStage");
+  if(!stage) return;
+  stage.style.height="";
+  stage.style.width="";
+  stage.style.minHeight="";
+  stage.querySelectorAll(".brain-view,#membraneCy,#membrane3d").forEach(el=>{
+    el.style.height="";
+    el.style.minHeight="";
+    el.style.width="";
+  });
+}
 function toggleBrainMobileView(force){
   const stage=document.getElementById("brainStage");
   if(!stage) return;
@@ -615,12 +643,19 @@ function toggleBrainMobileView(force){
   if(open){
     document.body.dataset.brainOverflow = document.body.style.overflow || "";
     document.body.style.overflow = "hidden";
+    setBrainMobileFullscreenGeometry();
     try{ window.scrollTo(0,0); }catch(_){}
   }else{
+    clearBrainMobileFullscreenGeometry();
     document.body.style.overflow = document.body.dataset.brainOverflow || "";
     delete document.body.dataset.brainOverflow;
   }
 }
+(function(){
+  const apply=()=>setBrainMobileFullscreenGeometry();
+  window.addEventListener("resize",apply,{passive:true});
+  if(window.visualViewport) window.visualViewport.addEventListener("resize",apply,{passive:true});
+})();
 function newChat(){if(confirm("¿Nuevo chat?")){document.getElementById('msgsInner').innerHTML=`<div class="msg-row akira"><div class="avatar"></div><div class="bubble">Nuevo chat Akira.</div></div>`;}}
 
 async function handleCredentialResponse(r){
@@ -691,7 +726,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 });
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
-<script src="./js/akira_brain_3d.js?v=akira-brain-3d-v15-adaptive"></script>
+<script src="./js/akira_brain_3d.js?v=akira-brain-3d-v16-mobile-viewport"></script>
 <script src="./js/obsidian_membrane.js?v=akira-membrane-v35"></script>
 <script src="./js/akira_brain.js?v=akira-final-v6"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
