@@ -251,7 +251,14 @@
     if(root) root.innerHTML = '<div class="learning-empty">Ejecutando SELFTEST SEMÁNTICO…</div>';
     const r = await request("/api/v8/memory/semantic-selftest");
     if(!r.ok || !r.data || !r.data.ok){
-      const detail = (r.data && r.data.reason) || r.error || ("HTTP "+r.status);
+      let detail = (r.data && r.data.reason) || r.error || ("HTTP "+r.status);
+      if(r.status === 404){
+        const contract = await request("/api/v8/runtime/contract");
+        if(contract.ok && contract.data){
+          detail += " · build="+(contract.data.build_marker || "unknown");
+          detail += " · route="+(contract.data.semantic_selftest_route ? "registered" : "missing");
+        }
+      }
       if(root) root.innerHTML = '<div class="learning-empty learning-selftest-fail">SEMÁNTICO no ejecutado: '+esc(detail)+'</div>';
       return;
     }
@@ -272,12 +279,15 @@
     if(!r.ok || !r.data || !r.data.ok){
       let detail = (r.data && r.data.reason) || r.error || ("HTTP "+r.status);
       if(r.status === 404){
-        const health = await request("/health");
-        if(health.ok && health.data){
-          const contract = health.data.backend_contract || "unknown";
-          detail += " · backend_contract="+contract;
-          if(health.data.learning_selftest_route === false){
-            detail += " · route=disabled";
+        const contract = await request("/api/v8/runtime/contract");
+        if(contract.ok && contract.data){
+          detail += " · build="+(contract.data.build_marker || "unknown");
+          detail += " · route="+(contract.data.learning_selftest_route ? "registered" : "missing");
+        } else {
+          const health = await request("/health");
+          if(health.ok && health.data){
+            detail += " · backend_contract="+(health.data.backend_contract || "unknown");
+            detail += " · route="+(health.data.learning_selftest_route ? "registered" : "missing");
           }
         }
       } else if(r.status === 401){
