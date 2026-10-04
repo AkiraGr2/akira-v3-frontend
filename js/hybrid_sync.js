@@ -55,7 +55,9 @@ async function countNeuronas(){
     let hive = null;
     try{
       const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
-      const r = await fetch(backend + "/api/brain/shared", {method:"GET", cache:"no-store"});
+      const headers = typeof window.akiraAuthHeaders === "function" ? window.akiraAuthHeaders() : {"Content-Type":"application/json"};
+      const r = await fetch(backend + "/api/brain/shared", {method:"GET", headers, cache:"no-store"});
+      if(r.status === 401 && typeof window.akiraHandleAuthFailure === "function") window.akiraHandleAuthFailure(401);
       if(r.ok){
         const j = await r.json();
         if(j && j.membrana && j.membrana.available === true){
@@ -71,10 +73,10 @@ async function countNeuronas(){
     const el3 = document.getElementById("sharedCount");
     const elK = document.getElementById('knowledgeCount');
     const elH = document.getElementById('hiveCount');
-    if(el1) el1.textContent = (locales.length + (shared ?? 0));
-    if(el2) el2.textContent = `Local ${locales.length}`;
-    if(el3) el3.textContent = `Shared ${fmt(shared)}`;
-    if(elK) elK.textContent = `Know ${fmt(knowledge)}`;
+    if(el1) el1.textContent = fmt((j && typeof j.count === "number") ? j.count : null);
+    if(el2) el2.textContent = String(locales.length);
+    if(el3) el3.textContent = fmt(shared);
+    if(elK) elK.textContent = fmt(knowledge);
     if(elH) elH.textContent = `Hive ${fmt(hive)}`;
     return {local: locales.length, shared: shared ?? 0, knowledge: knowledge ?? 0, hive: hive ?? 0, total: locales.length + (shared ?? 0), available: shared !== null};
   }catch(e){
