@@ -899,7 +899,16 @@ async function renderLevels(){
     const d=await r.json();
     if(!d.ok) throw new Error(d.reason || "self_model_unavailable");
     const sm = d.self_model;
-    const capStatus = (name) => {const c = (sm.capabilities||[]).find(x=>x.name===name);return c ? c.status : "not_implemented";};
+    const capabilityRegistry = Array.isArray(d.capabilities_registry)
+      ? d.capabilities_registry
+      : (sm.capabilities || []);
+    const capStatus = (name) => {
+      const c = capabilityRegistry.find(x => x.name === name);
+      const raw = c && (c.effective_state || c.status);
+      if (raw === "verified") return "verified";
+      if (raw && (raw.includes("verified") || raw.includes("partial") || raw.includes("implemented_"))) return "partial";
+      return "not_implemented";
+    };
     const runtime=window.akiraRuntimeCapabilities || await fetchRuntimeCapabilities();
     const imageStatus=runtimeStatus(runtime && runtime.image && runtime.image.status);
     const pdfStatus=runtimeStatus(runtime && runtime.pdf && runtime.pdf.status);
