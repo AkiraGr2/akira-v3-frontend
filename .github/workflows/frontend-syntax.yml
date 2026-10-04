@@ -27,6 +27,7 @@ jobs:
           node --check js/akira_missions_panel.js
           node --check js/akira_admin.js
           node --check js/akira_extras.js
+          node --check js/akira-office-floor-v2.js
 
       - name: Guard verified learning evaluation action
         run: |
@@ -59,6 +60,9 @@ jobs:
           if (!css.includes("@media(max-width:768px)")) throw new Error("mobile-first rules missing");
           if (!contract.includes("Akira Cognitive Workspace")) throw new Error("UI contract missing");
           if (!contract.includes("Este rediseño es visual; no debe cambiar APIs, persistencia, permisos ni comportamiento de negocio.")) throw new Error("UI contract must protect backend contracts");
+          if (!index.includes("js/akira-office-floor-v2.js")) throw new Error("living cognitive office script must be loaded");
+          if (!index.includes("Oficina Cognitiva")) throw new Error("cognitive office surface missing");
+          if (!css.includes(".office-v2-stage")) throw new Error("living office visual rules missing");
           console.log("Cognitive Workspace V2 visual contract OK");
           NODE
 
