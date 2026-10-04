@@ -2326,7 +2326,6 @@
     hudText();
     apply3dRuntime();
     dispatchSemanticRoute();
-    setTimeout(focusSemanticRoute, 90);
   });
 
   window.akiraBrainFocus = function(){
