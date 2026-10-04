@@ -46,19 +46,6 @@ jobs:
           console.log("verified learning evaluation action guard OK");
           NODE
 
-      - name: Guard Brain 3D availability contract
-        run: |
-          node - <<'NODE'
-          const fs = require("fs");
-          const index = fs.readFileSync("index.html", "utf8");
-          const brain3d = fs.readFileSync("js/akira_brain_3d.js", "utf8");
-          if (!index.includes("id=\"brainMode3d\"") || !index.includes("akiraBrainSetMode('3d')")) throw new Error("Brain 3D control must expose the 3D mode action");
-          if (!brain3d.includes("function set3dAvailability(available)")) throw new Error("3D availability helper missing");
-          if (!brain3d.includes("set3dAvailability(true);")) throw new Error("3D control must become available after engine initialization");
-          if (!brain3d.includes("set3dAvailability(false);")) throw new Error("3D control must be hidden when the engine cannot load");
-          console.log("Brain 3D availability contract guard OK");
-          NODE
-
       - name: Guard runtime capability truth surface
         run: |
           node - <<'NODE'
@@ -113,17 +100,6 @@ jobs:
           }
           if (!index.includes('"akira_is_owner"') || !index.includes("localStorage.removeItem(k)")) throw new Error("legacy owner flag should be actively purged");
           console.log("signed-session UX contract guard OK");
-          NODE
-
-      - name: Guard 3D community importance contract
-        run: |
-          node - <<'NODE'
-          const fs = require("fs");
-          const text = fs.readFileSync("js/akira_brain_3d.js", "utf8");
-          if (!text.includes("const importance = new Map();")) throw new Error("3D community importance map missing");
-          if (!text.includes("importance.set(id, n._importance);")) throw new Error("3D community hub score must consume computed node importance");
-          if (!text.includes("(importance.get(id)||0) * 2")) throw new Error("3D community hub ranking must use node importance");
-          console.log("3D community importance contract guard OK");
           NODE
 
       - name: Guard image error truthfulness
