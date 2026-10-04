@@ -57,3 +57,19 @@ jobs:
           if (!text.includes("runtimeStatus(runtime && runtime.video && runtime.video.status)")) throw new Error("video status must derive from runtime");
           console.log("runtime capability truth surface guard OK");
           NODE
+
+      - name: Guard image error truthfulness
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const text = fs.readFileSync("js/akira_brain.js", "utf8");
+          const start = text.indexOf("async function generateImageAkira");
+          const end = text.indexOf("\nfunction renderLevels", start);
+          if (start < 0 || end < 0) throw new Error("generateImageAkira block not found");
+          const block = text.slice(start, end);
+          if (!block.includes("if(!r.ok)")) throw new Error("image handler must reject non-2xx responses");
+          if (!block.includes("d.message || d.reason")) throw new Error("image error reason must surface to user");
+          if (!block.includes("document.createElement(\"img\")")) throw new Error("image rendering should use DOM nodes");
+          if (block.includes("✅ Imagen generada (revisa R2)")) throw new Error("stale false-success image message remains");
+          console.log("image error truthfulness guard OK");
+          NODE

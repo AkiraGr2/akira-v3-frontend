@@ -395,12 +395,38 @@ async function generateImageAkira(prompt){
       body: JSON.stringify({prompt, user_id: localStorage.getItem('akira_user_id')||'anon'})
     });
     const d = await r.json();
+    if(!r.ok){
+      addMsg("⚠️ Generación de imagen no disponible: " + (d.message || d.reason || ("HTTP " + r.status)), 'akira');
+      return;
+    }
     if(d.image_url || d.url){
-      addMsg(`<img src="${d.image_url||d.url}" style="max-width:100%;border-radius:12px;margin-top:8px">`, 'akira');
+      const src = String(d.image_url || d.url || "");
+      const allowed = src.startsWith("https://") || src.startsWith("data:image/png;base64,") || src.startsWith("data:image/jpeg;base64,") || src.startsWith("data:image/webp;base64,");
+      if(!allowed){
+        addMsg("⚠️ El proveedor devolvió una referencia de imagen no permitida.", 'akira');
+        return;
+      }
+      const row = document.createElement("div");
+      row.className = "msg-row akira";
+      const avatar = document.createElement("div");
+      avatar.className = "avatar";
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = "Imagen generada por Akira";
+      img.style.maxWidth = "100%";
+      img.style.borderRadius = "12px";
+      img.style.marginTop = "8px";
+      bubble.appendChild(img);
+      row.appendChild(avatar);
+      row.appendChild(bubble);
+      const inner = document.getElementById("msgsInner");
+      if(inner){ inner.appendChild(row); inner.scrollTop = inner.scrollHeight; }
     } else if(d.response){
       addMsg(d.response, 'akira');
     } else {
-      addMsg("✅ Imagen generada (revisa R2)", 'akira');
+      addMsg("⚠️ El proveedor no devolvió una imagen.", 'akira');
     }
   }catch(e){
     addMsg("❌ Error generando imagen: " + e.message, 'akira');
