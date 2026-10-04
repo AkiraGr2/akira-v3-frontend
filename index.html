@@ -539,10 +539,10 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
         <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
         <div id="userInfo" style="margin-top:14px;font-size:13px;display:none;background:#0e0e12;border:3px solid var(--border);padding:12px;font-family:'Pixelify Sans', sans-serif;"></div>
       </div>
-      <h3 style="margin-top:24px;font-family:'Press Start 2P', monospace;font-size:14px;">🔑 Mi API Key (opcional)</h3>
-      <p style="font-size:12.5px;color:var(--muted);margin-top:6px">Si tienes tu propia key de Google o Groq, la puedes usar aquí.</p>
-      <input id="apiKeyInput" placeholder="AIza... o gsk_..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:12px;color:#fff;margin-top:12px;font-family:'Pixelify Sans', sans-serif;border-radius:0;">
-      <div style="display:flex;gap:8px;margin-top:10px"><button class="pixel-btn" onclick="saveKey()">💾 Guardar</button><button class="pixel-btn" onclick="testKeys()">🧪 Probar</button></div>
+      <h3 style="margin-top:24px;font-family:'Press Start 2P', monospace;font-size:14px;">🔑 Mi API Key de Google (opcional)</h3>
+      <p style="font-size:12.5px;color:var(--muted);margin-top:6px">Puedes guardar una API Key de Google para que Akira la use en tus conversaciones desde este dispositivo. La clave queda guardada localmente en este navegador.</p>
+      <input id="apiKeyInput" placeholder="AIza..." autocomplete="off" spellcheck="false" style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:12px;color:#fff;margin-top:12px;font-family:'Pixelify Sans', sans-serif;border-radius:0;">
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="pixel-btn" onclick="saveKey()">💾 Guardar mi API Key</button><button class="pixel-btn" onclick="testKeys()">🧪 Comprobar formato</button></div>
       <div id="keyStatus" style="margin-top:12px;font-size:12px;color:var(--muted)"></div>
       <div style="margin-top:24px;background:#0e0e12;border:3px solid var(--border);padding:14px;">
         <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block"></span><span style="font-size:13px;font-weight:600" id="bridgeSimple">Conectado</span></div>
@@ -678,7 +678,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
             </button>
           </div>
           <pre id="adminTools" class="admin-v2-output">Las herramientas disponibles aparecerán aquí.</pre>
-          <pre id="f8Output" class="admin-v2-output" style="display:none">Todavía no se ha hecho una comprobación.</pre>
+          <pre id="f8Output" class="admin-v2-output">Todavía no se ha hecho una comprobación.</pre>
         </div>
 
         <div class="admin-v2-section">
@@ -1079,6 +1079,7 @@ async function renderLevels(){
     const imageDesc=runtime && runtime.image ? "Proveedor externo; gratuidad no garantizada." : "Estado runtime no verificado.";
     const pdfDesc=runtime && runtime.pdf ? "Motor local PyMuPDF, límite de 5 MB." : "Estado runtime no verificado.";
     const videoDesc=runtime && runtime.video ? "No implementado bajo la política 100% gratuita." : "Estado runtime no verificado.";
+    const toolCount = capabilityRegistry.reduce((n, c) => c && c.name ? n : n, 0);
     const levels = [
       {id:"V1", name:"Chat", desc:"Chat multi-proveedor con fallback.", status: "verified"},
       {id:"V2", name:"Colmena", desc:"IndexedDB + almacenamiento compartido.", status: "verified"},
@@ -1088,10 +1089,10 @@ async function renderLevels(){
       {id:"V6", name:"Auto-Repair", desc:"Reparación automática de transporte y fallbacks.", status: "verified"},
       {id:"V7", name:"PDF local", desc:pdfDesc, status: pdfStatus},
       {id:"V8", name:"Video", desc:videoDesc, status: videoStatus},
-      {id:"F5", name:"Self-Model Persistente", desc:"Migración 002. Entidad self_model.", status: capStatus("self_model_persistent")},
-      {id:"F6", name:"Grafo Neuronal + Aprendizaje", desc:"Migraciones 003 + 010. Auto-conexión por tags activa.", status: capStatus("graph_persistent")},
-      {id:"F7", name:"Ciclo Cognitivo Persistente", desc:"Migraciones 004, 005, 006. 9 etapas.", status: capStatus("cognitive_cycle_persistent")},
-      {id:"F8", name:"Tool Registry", desc:"12 herramientas registradas.", status: capStatus("tool_registry")},
+      {id:"F5", name:"Autoconocimiento persistente", desc:"Akira puede conservar y consultar información sobre su propio estado.", status: capStatus("self_model_persistent")},
+      {id:"F6", name:"Cerebro y aprendizaje", desc:"Memoria, conexiones y aprendizaje persistentes.", status: capStatus("graph_persistent")},
+      {id:"F7", name:"Proceso cognitivo persistente", desc:"Akira conserva los pasos de sus ciclos cognitivos.", status: capStatus("cognitive_cycle_persistent")},
+      {id:"F8", name:"Herramientas de Akira", desc:"Cantidad y estado tomados del registro real de herramientas.", status: capStatus("tool_registry")},
       {id:"F9", name:"Agentes + Tareas", desc:"Agentes persistentes y especializados. Estado y número se derivan del registro real.", status: capStatus("agents_persistent")},
       {id:"F10", name:"Mission Engine + Conversaciones", desc:"Migraciones 011 + 012. Orquestador + chats persistentes.", status: capStatus("missions")},
       {id:"F11", name:"Self-Repair Real", desc:"No implementado", status: capStatus("self_repair_full")},
