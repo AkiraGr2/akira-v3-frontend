@@ -46,6 +46,22 @@ jobs:
           console.log("verified learning evaluation action guard OK");
           NODE
 
+      - name: Guard Cognitive Workspace V2 visual contract
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const index = fs.readFileSync("index.html", "utf8");
+          const css = fs.readFileSync("css/akira-cognitive-workspace-v2.css", "utf8");
+          const contract = fs.readFileSync("AKIRA_UI_CONTRACT_V2.md", "utf8");
+          if (!index.includes("css/akira-cognitive-workspace-v2.css")) throw new Error("Cognitive Workspace V2 stylesheet must be loaded");
+          if (!css.includes("--bg:#080b12")) throw new Error("V2 design token set missing");
+          if (!css.includes(".sidebar")) throw new Error("V2 workspace shell rules missing");
+          if (!css.includes("@media(max-width:768px)")) throw new Error("mobile-first rules missing");
+          if (!contract.includes("Akira Cognitive Workspace")) throw new Error("UI contract missing");
+          if (!contract.includes("No se deben cambiar APIs, persistencia, permisos ni comportamiento de negocio.")) throw new Error("UI contract must protect backend contracts");
+          console.log("Cognitive Workspace V2 visual contract OK");
+          NODE
+
       - name: Guard runtime capability truth surface
         run: |
           node - <<'NODE'
