@@ -901,12 +901,20 @@ async function renderLevels(){
     const sm = d.self_model;
     const capabilityRegistry = Array.isArray(d.capabilities_registry)
       ? d.capabilities_registry
-      : (sm.capabilities || []);
+      : [];
+    const legacyCapabilities = Array.isArray(sm.capabilities) ? sm.capabilities : [];
     const capStatus = (name) => {
       const c = capabilityRegistry.find(x => x.name === name);
-      const raw = c && (c.effective_state || c.status);
-      if (raw === "verified") return "verified";
-      if (raw && (raw.includes("verified") || raw.includes("partial") || raw.includes("implemented_"))) return "partial";
+      if (c) {
+        const raw = c.effective_state || c.status;
+        if (raw === "verified") return "verified";
+        if (raw && (raw.includes("verified") || raw.includes("partial") || raw.includes("implemented_"))) return "partial";
+        return "not_implemented";
+      }
+      const legacy = legacyCapabilities.find(x => x && x.name === name);
+      const legacyStatus = legacy && legacy.status;
+      if (legacyStatus === "verified") return "verified";
+      if (legacyStatus === "partial") return "partial";
       return "not_implemented";
     };
     const runtime=window.akiraRuntimeCapabilities || await fetchRuntimeCapabilities();
