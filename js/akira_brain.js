@@ -434,30 +434,9 @@ async function generateImageAkira(prompt){
   }
 }
 
-function renderLevels(){
-  const levels=[
-    {nivel:"V1 Chat", estado:"✅", desc:"Chat basico Gemini 3.8-flash Sept 2026", costo:"$0"},
-    {nivel:"V2 Colmena", estado:"✅", desc:"IndexedDB 100K + R2 10M", costo:"$0"},
-    {nivel:"V3 Tavily + Jina", estado:"✅", desc:"Busqueda real web 1000 req/mes", costo:"$0"},
-    {nivel:"V4 Streaming AUTO", estado:"✅", desc:"SSE 100% interno auto-reparable sin botón", costo:"$0"},
-    {nivel:"V5 Imagen (experimental)", estado:"🟡", desc:"Proveedor externo; cuota gratuita no garantizada", costo:"No garantizado"},
-    {nivel:"V6 Auto-Repair", estado:"✅", desc:"Akira hija autónoma detecta y repara errores", costo:"$0"},
-    {nivel:"V7 PDF local", estado:"✅", desc:"PyMuPDF local, hasta 5MB por archivo", costo:"$0"},
-    {nivel:"V8 Video", estado:"🔴", desc:"No implementado bajo la política 100% gratuita", costo:"$0"},
-  ];
-  const container = document.getElementById("levelsList");
-  if(!container) return;
-  container.innerHTML = levels.map(l=>`
-    <div style="background:#16161b;border:1px solid var(--border);border-radius:12px;padding:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:14px">${l.nivel}</b><span style="font-size:10px;background:#1e1e26;padding:3px 8px;border-radius:10px;border:1px solid #2a2a36">${l.estado}</span></div>
-      <div style="font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.5">${l.desc}</div>
-      <div style="font-size:11px;color:#10b981;margin-top:8px;font-weight:600">Costo: ${l.costo}</div>
-    </div>
-  `).join("");
-}
+
 document.addEventListener("DOMContentLoaded", async ()=>{
   countNeuronas();
-  renderLevels();
   logAutoRepair("Inicializando 100% AUTO interno Sept 2026");
   const healthy = await checkBackendHealth();
   if(!healthy){

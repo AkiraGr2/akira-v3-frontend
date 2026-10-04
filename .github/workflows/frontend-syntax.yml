@@ -121,16 +121,13 @@ jobs:
           const index = fs.readFileSync("index.html", "utf8");
           const syncStart = index.indexOf("async function forceSyncR2");
           const syncEnd = index.indexOf("\nfunction exportBackup", syncStart);
-          const countStart = index.indexOf("async function countNeuronas");
-          const countEnd = index.indexOf("\ndocument.addEventListener", countStart);
           if (syncStart < 0 || syncEnd < 0) throw new Error("forceSyncR2 block not found");
-          if (countStart < 0 || countEnd < 0) throw new Error("countNeuronas block not found");
           const syncBlock = index.slice(syncStart, syncEnd);
-          const countBlock = index.slice(countStart, countEnd);
-          for (const [name, block] of [["forceSyncR2", syncBlock], ["countNeuronas", countBlock]]) {
-            if (!block.includes("akiraAuthHeaders()")) throw new Error(name+" must use signed session headers");
-            if (!block.includes("akiraHandleAuthFailure(401)")) throw new Error(name+" must invalidate session on 401");
-          }
+          if (!syncBlock.includes("akiraAuthHeaders()")) throw new Error("forceSyncR2 must use signed session headers");
+          if (!syncBlock.includes("akiraHandleAuthFailure(401)")) throw new Error("forceSyncR2 must invalidate session on HTTP 401");
+          const counter = fs.readFileSync("js/hybrid_sync.js", "utf8");
+          if (!counter.includes("window.akiraAuthHeaders()")) throw new Error("countNeuronas must use signed session headers for shared data");
+          if (!counter.includes("window.akiraHandleAuthFailure(401)")) throw new Error("countNeuronas must invalidate session on HTTP 401");
           console.log("Brain count authorization guard OK");
           NODE
 
@@ -172,13 +169,61 @@ jobs:
           console.log("signed-session UX contract guard OK");
           NODE
 
+      - name: Guard interactive UI integrity
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const index = fs.readFileSync("index.html", "utf8");
+          const office = fs.readFileSync("js/akira-office-floor-v2.js", "utf8");
+          const missions = fs.readFileSync("js/akira_missions_panel.js", "utf8");
+
+          if (!index.includes("function saveKey()")) throw new Error("saveKey handler missing");
+          if (!index.includes("function testKeys()")) throw new Error("testKeys handler missing");
+          if (!index.includes('localStorage.setItem("akira_user_key",key)')) throw new Error("API key persistence handler missing");
+          if (!index.includes("id=\"f8Output\" class=\"admin-v2-output\"")) throw new Error("tool result surface missing");
+          if (!index.includes('id:"F8", name:"Herramientas de Akira"')) throw new Error("level F8 must use owner-friendly label");
+          if (index.includes("12 herramientas registradas")) throw new Error("stale tool count remains");
+          if (index.includes("Google o Groq")) throw new Error("UI must not promise unsupported Groq user-key flow");
+
+          if (!office.includes("const POLL_MS = 8000")) throw new Error("office polling interval missing");
+          if (!office.includes("window.setInterval")) throw new Error("office live polling is not scheduled");
+          if (!office.includes('current.classList.contains("active")')) throw new Error("office polling must respect section visibility");
+          if (!office.includes("const renderTs=paused ? lastTs : ts")) throw new Error("office pause must freeze visual time");
+          if (!office.includes("if(ar.ok || tr.ok) lastPoll=Date.now()")) throw new Error("office sync timestamp must represent a successful read");
+
+          if (!missions.includes('setMissionActionBusy(id, "execute")')) throw new Error("mission execution lock missing");
+          if (!missions.includes('actionBusyFor(id, "execute") ? "disabled" : ""')) throw new Error("mission execute button must disable while busy");
+          if (!missions.includes('updated?.status !== "running"')) throw new Error("mission execution lock must be released at terminal state");
+          const brain = fs.readFileSync("js/akira_brain.js", "utf8");
+          if (/^function\s+renderLevels\s*\(/m.test(brain)) throw new Error("legacy brain.js renderLevels must not override the authoritative levels renderer");
+          if ((index.match(/function\s+renderLevels\s*\(/g) || []).length !== 1) throw new Error("exactly one authoritative renderLevels function is expected");
+          if (index.includes('user-scalable=no')) throw new Error("mobile UI must not disable user zoom");
+          const sync = fs.readFileSync("js/hybrid_sync.js", "utf8");
+          if (!sync.includes("async function countNeuronas()")) throw new Error("authoritative counter function missing from hybrid_sync.js");
+          if (!sync.includes("window.akiraAuthHeaders()")) throw new Error("shared brain counter read must use signed session headers");
+          if (!sync.includes("window.akiraHandleAuthFailure(401)")) throw new Error("shared brain counter must invalidate expired sessions");
+          const legacyCounter = index.match(/async function countNeuronas\s*\(/g) || [];
+          if (legacyCounter.length !== 0) throw new Error("duplicate legacy countNeuronas must not return to index.html");
+          if (!missions.includes("window.missionPanelRenderList")) throw new Error("mission search render handler must be public to the HTML");
+          if (missions.includes("getToken()")) throw new Error("missions must not call removed getToken helper");
+          const brain3d = fs.readFileSync("js/akira_brain_3d.js", "utf8");
+          const membrane = fs.readFileSync("js/obsidian_membrane.js", "utf8");
+          if (!brain3d.includes("window.akiraBrainClearSelection3D")) throw new Error("3D selection clear hook missing");
+          if (!membrane.includes("window.akiraBrainClearSelection3D()")) throw new Error("2D/3D selection clear bridge missing");
+          if (!brain3d.includes("window.akiraBrainSetMode")) throw new Error("brain mode control missing");
+          if (!index.includes('id="brainMode3d" class="brain-mode"')) throw new Error("3D brain button missing");
+          if (!index.includes("akiraBrainSetMode('3d')")) throw new Error("3D brain button must invoke the 3D mode");
+          if (index.includes('id="brainMode3d" class="brain-mode" type="button" style="display:none"')) throw new Error("3D brain button must not remain hidden");
+          console.log("interactive UI integrity guard OK");
+          NODE
+
       - name: Guard image error truthfulness
         run: |
           node - <<'NODE'
           const fs = require("fs");
           const text = fs.readFileSync("js/akira_brain.js", "utf8");
           const start = text.indexOf("async function generateImageAkira");
-          const end = text.indexOf("\nfunction renderLevels", start);
+          const end = text.indexOf("\ndocument.addEventListener", start);
           if (start < 0 || end < 0) throw new Error("generateImageAkira block not found");
           const block = text.slice(start, end);
           if (!block.includes("if(!r.ok)")) throw new Error("image handler must reject non-2xx responses");

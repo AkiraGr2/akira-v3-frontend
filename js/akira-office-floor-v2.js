@@ -12,7 +12,7 @@
     "#8b7cff","#5eead4","#60a5fa","#f59e0b","#fb7185",
     "#34d399","#a78bfa","#38bdf8","#c084fc","#f472b6"
   ];
-  let canvas, ctx, raf = 0, lastTs = 0, lastPoll = 0;
+  let canvas, ctx, raf = 0, pollTimer = 0, lastTs = 0, lastPoll = 0;
   let initialized = false;
   let paused = false;
   let agents = [];
@@ -46,6 +46,15 @@
     return String(value == null ? "" : value)
       .replace(/&/g,"&amp;").replace(/</g,"&lt;")
       .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function hexToRgba(hex, alpha){
+    const h=String(hex).replace("#","");
+    if(!/^[0-9a-fA-F]{6}$/.test(h)) return "rgba(139,124,255,"+alpha+")";
+    const r=parseInt(h.slice(0,2),16);
+    const g=parseInt(h.slice(2,4),16);
+    const b=parseInt(h.slice(4,6),16);
+    return "rgba("+r+","+g+","+b+","+alpha+")";
   }
 
   function agentState(agent){
@@ -209,7 +218,7 @@
     }
     ctx.globalAlpha=disabled?.48:1;
     const glow=ctx.createRadialGradient(x,y-8,2,x,y-8,55);
-    glow.addColorStop(0,color.replace(")",",.28)").replace("rgb","rgba"));
+    glow.addColorStop(0,hexToRgba(color,.28));
     glow.addColorStop(1,"rgba(0,0,0,0)");
     ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(x,y-10,55,0,Math.PI*2); ctx.fill();
 
@@ -319,14 +328,17 @@
 
   function draw(ts){
     if(!initialized) return;
+    const section=document.getElementById("officeSection");
+    if(section && !section.classList.contains("active")) return;
     const {w,h}=canvasSize();
     if(!paused || lastTs===0){ lastTs=ts; }
+    const renderTs=paused ? lastTs : ts;
     ctx.clearRect(0,0,w,h);
-    drawBackground(w,h,ts);
-    drawLinks(w,h,ts);
-    drawCore(w,h,ts);
+    drawBackground(w,h,renderTs);
+    drawLinks(w,h,renderTs);
+    drawCore(w,h,renderTs);
     const positions=agentPositions(w,h,agents.length);
-    agents.forEach((a,i)=>drawAgent(a,i,positions[i],ts,w,h));
+    agents.forEach((a,i)=>drawAgent(a,i,positions[i],renderTs,w,h));
     // top title + live indicator
     ctx.fillStyle="rgba(244,247,251,.94)"; ctx.textAlign="left";
     ctx.font="700 15px Inter,system-ui,sans-serif"; ctx.fillText("AKIRA · OFICINA COGNITIVA",20,28);
@@ -349,12 +361,14 @@
         fetch(backend()+"/api/v8/tasks?limit=100",{headers,cache:"no-store"})
       ]);
       if(ar.status===401 && typeof window.akiraHandleAuthFailure==="function") window.akiraHandleAuthFailure(401);
+      if(tr.status===401 && typeof window.akiraHandleAuthFailure==="function") window.akiraHandleAuthFailure(401);
       if(ar.ok){
         const ad=await ar.json(); agents=Array.isArray(ad.agents)?ad.agents:[];
       }
       if(tr.ok){
         const td=await tr.json(); tasks=Array.isArray(td.tasks)?td.tasks:[];
       }
+      if(ar.ok || tr.ok) lastPoll=Date.now();
       renderList();
       updateStats();
     }catch(e){
@@ -362,7 +376,6 @@
       if(detail && !agents.length) detail.innerHTML='<strong>No se pudo leer la actividad.</strong><span>La Oficina está diseñada para degradar con honestidad cuando el backend no responde.</span>';
     }finally{
       fetchBusy=false;
-      lastPoll=Date.now();
     }
   }
 
@@ -407,12 +420,23 @@
     if(!sec || !canvas) return;
     if(!initialized){
       ctx=canvas.getContext("2d");
+      if(!ctx){
+        const detail=document.getElementById("officeAgentDetail");
+        if(detail) detail.innerHTML='<strong>Vista no disponible.</strong><span>Este dispositivo no pudo iniciar el lienzo de la Oficina.</span>';
+        return;
+      }
       initialized=true;
       bind();
       renderList();
       draw(performance.now());
     }
     poll();
+    if(!pollTimer){
+      pollTimer=window.setInterval(()=>{
+        const current=document.getElementById("officeSection");
+        if(current && current.classList.contains("active")) poll();
+      },POLL_MS);
+    }
     if(!raf){
       const loop=(ts)=>{
         raf=requestAnimationFrame(loop);
@@ -422,5 +446,8 @@
     }
   };
 
-  window.addEventListener("beforeunload",()=>{ if(raf) cancelAnimationFrame(raf); });
+  window.addEventListener("beforeunload",()=>{
+    if(raf) cancelAnimationFrame(raf);
+    if(pollTimer) window.clearInterval(pollTimer);
+  });
 })();

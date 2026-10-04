@@ -2326,7 +2326,7 @@
     } catch(_) {}
   };
 
-  window.akiraBrainClearSelection = function(){
+  window.akiraBrainClearSelection3D = function(){
     selectedNodeId = null;
     hoveredNodeId = null;
     navigationHistory.length = 0;

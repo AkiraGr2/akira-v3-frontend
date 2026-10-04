@@ -2115,8 +2115,13 @@ function _clearMembraneSelection(){
 window.akiraBrainClearSelection=function(){
   _clearMembraneSelection();
   try{
+    if(typeof window.akiraBrainClearSelection3D === "function"){
+      window.akiraBrainClearSelection3D();
+    }
+  }catch(_){}
+  try{
     window.dispatchEvent(new CustomEvent("akira:brain-select",{
-      detail:{nodeId:null,source:"2d"}
+      detail:{nodeId:null,source:"all"}
     }));
   }catch(_){}
 }
