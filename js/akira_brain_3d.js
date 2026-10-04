@@ -1620,9 +1620,14 @@
     updateOrbitUI();
     if(currentMode === "3d"){
       ensure3d().then(() => {
+        scheduleGraphRefresh();
         setTimeout(() => { try { if(fg) fg.width(document.getElementById("membrane3d")?.clientWidth || undefined).height(document.getElementById("membrane3d")?.clientHeight || undefined); } catch(_){} }, 60);
       });
     } else {
+      stopGraphRefresh();
+      if(fg){
+        try { if(typeof fg.pauseAnimation === "function") fg.pauseAnimation(); } catch(_) {}
+      }
       try { if(window.AkiraMembrane && window.AkiraMembrane.resizeMembrane) window.AkiraMembrane.resizeMembrane(); } catch(_) {}
     }
   }
@@ -2056,6 +2061,24 @@
     }
   }
 
+  function scheduleGraphRefresh(){
+    if(refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = null;
+    refreshTimer = setInterval(() => {
+      const section = document.getElementById("membraneSection");
+      if(currentMode === "3d" && section && section.classList.contains("active")){
+        fetchGraph();
+      }
+    }, REFRESH_MS);
+  }
+
+  function stopGraphRefresh(){
+    if(refreshTimer){
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+  }
+
   async function ensure3d(){
     DEVICE_3D_PROFILE = get3DDeviceProfile();
     if(initialized && fg) {
@@ -2261,7 +2284,8 @@
         );
       } catch(_) {}
       clearInterval(refreshTimer);
-      refreshTimer = setInterval(fetchGraph, REFRESH_MS);
+      refreshTimer = null;
+      scheduleGraphRefresh();
       apply3dRuntime();
     }catch(e){
       console.error("[akira-brain-3d] init",e);
@@ -2439,7 +2463,14 @@
 
   window.akiraBrainSetMode = function(mode){
     setModeUI(mode);
-    if(mode === "3d" && !initialized) ensure3d();
+    if(mode === "3d"){
+      ensure3d().then(() => {
+        scheduleGraphRefresh();
+        if(fg){
+          try { if(typeof fg.resumeAnimation === "function") fg.resumeAnimation(); } catch(_) {}
+        }
+      });
+    }
     if(mode === "2d"){
       try { if(window.AkiraMembrane && window.AkiraMembrane.resizeMembrane) window.AkiraMembrane.resizeMembrane(); } catch(_) {}
     }
