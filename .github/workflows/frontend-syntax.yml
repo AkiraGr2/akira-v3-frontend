@@ -121,16 +121,13 @@ jobs:
           const index = fs.readFileSync("index.html", "utf8");
           const syncStart = index.indexOf("async function forceSyncR2");
           const syncEnd = index.indexOf("\nfunction exportBackup", syncStart);
-          const countStart = index.indexOf("async function countNeuronas");
-          const countEnd = index.indexOf("\ndocument.addEventListener", countStart);
           if (syncStart < 0 || syncEnd < 0) throw new Error("forceSyncR2 block not found");
-          if (countStart < 0 || countEnd < 0) throw new Error("countNeuronas block not found");
           const syncBlock = index.slice(syncStart, syncEnd);
-          const countBlock = index.slice(countStart, countEnd);
-          for (const [name, block] of [["forceSyncR2", syncBlock], ["countNeuronas", countBlock]]) {
-            if (!block.includes("akiraAuthHeaders()")) throw new Error(name+" must use signed session headers");
-            if (!block.includes("akiraHandleAuthFailure(401)")) throw new Error(name+" must invalidate session on 401");
-          }
+          if (!syncBlock.includes("akiraAuthHeaders()")) throw new Error("forceSyncR2 must use signed session headers");
+          if (!syncBlock.includes("akiraHandleAuthFailure(401)")) throw new Error("forceSyncR2 must invalidate session on HTTP 401");
+          const counter = fs.readFileSync("js/hybrid_sync.js", "utf8");
+          if (!counter.includes("window.akiraAuthHeaders()")) throw new Error("countNeuronas must use signed session headers for shared data");
+          if (!counter.includes("window.akiraHandleAuthFailure(401)")) throw new Error("countNeuronas must invalidate session on HTTP 401");
           console.log("Brain count authorization guard OK");
           NODE
 
@@ -202,8 +199,11 @@ jobs:
           if ((index.match(/function\\s+renderLevels\\s*\\(/g) || []).length !== 1) throw new Error("exactly one authoritative renderLevels function is expected");
           if (index.includes('user-scalable=no')) throw new Error("mobile UI must not disable user zoom");
           const sync = fs.readFileSync("js/hybrid_sync.js", "utf8");
+          if (!sync.includes("async function countNeuronas()")) throw new Error("authoritative counter function missing from hybrid_sync.js");
           if (!sync.includes("window.akiraAuthHeaders()")) throw new Error("shared brain counter read must use signed session headers");
           if (!sync.includes("window.akiraHandleAuthFailure(401)")) throw new Error("shared brain counter must invalidate expired sessions");
+          const legacyCounter = index.match(/async function countNeuronas\s*\(/g) || [];
+          if (legacyCounter.length !== 0) throw new Error("duplicate legacy countNeuronas must not return to index.html");
           if (!missions.includes("window.missionPanelRenderList")) throw new Error("mission search render handler must be public to the HTML");
           if (missions.includes("getToken()")) throw new Error("missions must not call removed getToken helper");
           const brain3d = fs.readFileSync("js/akira_brain_3d.js", "utf8");
