@@ -25,6 +25,7 @@
   let selectedNodeId = null;
   let hoveredNodeId = null;
   let currentMode = "2d";
+  let modeUserSelected = false;
   let initialized = false;
   let refreshTimer = null;
   let autoOrbit = false;
@@ -2462,6 +2463,7 @@
   };
 
   window.akiraBrainSetMode = function(mode){
+    modeUserSelected = true;
     setModeUI(mode);
     if(mode === "3d"){
       ensure3d().then(() => {
@@ -2493,7 +2495,7 @@
 
   document.addEventListener("DOMContentLoaded", function(){
     setTimeout(() => {
-      setModeUI("2d");
+      if(!modeUserSelected) setModeUI("2d");
       updateOrbitUI();
       updateStats();
       updateNavigationUI();
