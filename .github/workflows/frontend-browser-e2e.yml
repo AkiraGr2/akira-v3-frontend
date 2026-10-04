@@ -20,7 +20,13 @@ jobs:
       - name: Install Chromium
         run: npx -y playwright@latest install --with-deps chromium
 
-      - name: Smoke test public Brain 2D/3D
+      - name: Serve checked-out frontend
+        run: |
+          python3 -m http.server 4173 --directory . > /tmp/akira-pages.log 2>&1 &
+          echo $! > /tmp/akira-pages.pid
+          sleep 2
+
+      - name: Smoke test checked-out Brain 2D/3D
         run: |
           npx -y -p playwright node <<'NODE'
           const { chromium } = require("playwright");
@@ -31,7 +37,7 @@ jobs:
             const errors = [];
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
 
-            await page.goto("https://akiragr2.github.io/akira-v3-frontend/", {
+            await page.goto("http://127.0.0.1:4173/", {
               waitUntil:"domcontentloaded",
               timeout:30000
             });
