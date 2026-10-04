@@ -9,15 +9,8 @@
     if (typeof window.akiraAuthHeaders === "function") {
       try { return window.akiraAuthHeaders(); } catch(_){}
     }
-    const h = { "Content-Type": "application/json" };
-    try {
-      const t = localStorage.getItem("akira_session_token");
-      const exp = parseInt(localStorage.getItem("akira_session_exp") || "0", 10);
-      if (t && exp > Math.floor(Date.now() / 1000)) h["Authorization"] = "Bearer " + t;
-    } catch(_){}
-    return h;
+    return { "Content-Type": "application/json" };
   }
-
   async function _fetch(path, options, timeoutMs){
     options = options || {};
     timeoutMs = timeoutMs || 20000;
@@ -35,6 +28,8 @@
       clearTimeout(to);
       let data = null;
       try { data = await r.json(); } catch(_){}
+      if (r.status === 401 && typeof window.akiraHandleAuthFailure === "function") window.akiraHandleAuthFailure(401);
+
       return { ok: r.ok, status: r.status, data: data };
     } catch(e){
       clearTimeout(to);
@@ -681,27 +676,34 @@
 
   window.checkBridgeAdmin = function(){ return window.adminDashboard(); };
 
-  function restoreSession(){
+  async function restoreSession(){
     try {
       const t = localStorage.getItem("akira_session_token");
       const exp = parseInt(localStorage.getItem("akira_session_exp") || "0", 10);
-      const email = localStorage.getItem("akira_user_email");
-      if (!t || !email) return;
-      if (exp <= Math.floor(Date.now() / 1000)) {
-        localStorage.removeItem("akira_session_token");
-        localStorage.removeItem("akira_session_exp");
+      if (!t || exp <= Math.floor(Date.now() / 1000)) {
+        if (t || exp) window.akiraClearSession && window.akiraClearSession("missing_or_expired");
         return;
       }
+      const i = document.getElementById("userInfo");
+      if (i) { i.style.display = "block"; i.textContent = "🔐 Verificando sesión con el backend…"; }
+      const verified = (typeof window.akiraVerifySession === "function")
+        ? await window.akiraVerifySession()
+        : {ok:false,status:0};
+      if (!verified || !verified.ok || verified.authenticated !== true) {
+        if (verified && verified.status === 401 && window.akiraClearSession) window.akiraClearSession("unauthorized");
+        else if (i && verified && verified.status === 0) i.textContent = "⚠️ No se pudo verificar la sesión ahora.";
+        return;
+      }
+      const email = verified.email || localStorage.getItem("akira_user_email") || "";
       const av = document.getElementById("userAvatar");
       if (av) av.textContent = email.charAt(0).toUpperCase();
-      const i = document.getElementById("userInfo");
       if (i) {
         i.style.display = "block";
-        i.textContent = "✅ " + email + " · sesión activa hasta " + new Date(exp * 1000).toLocaleString();
+        i.textContent = "✅ " + email + (verified.is_owner ? " · 🔒 sesión verificada (propietario)" : " · 🔒 sesión verificada")
+          + (verified.expires_at ? " · válida hasta " + new Date(verified.expires_at * 1000).toLocaleString() : "");
       }
     } catch(_){}
   }
-
   document.addEventListener("DOMContentLoaded", function(){
     if (typeof window.adminCheckSession !== "function") {
       window.adminCheckSession = async function(){
