@@ -27,6 +27,7 @@ jobs:
           node --check js/akira_missions_panel.js
           node --check js/akira_admin.js
           node --check js/akira_extras.js
+          node --check js/akira-office-floor-v2.js
 
       - name: Guard verified learning evaluation action
         run: |
@@ -44,6 +45,25 @@ jobs:
             throw new Error("verified learning evaluate gate threshold missing");
           }
           console.log("verified learning evaluation action guard OK");
+          NODE
+
+      - name: Guard Cognitive Workspace V2 visual contract
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const index = fs.readFileSync("index.html", "utf8");
+          const css = fs.readFileSync("css/akira-cognitive-workspace-v2.css", "utf8");
+          const contract = fs.readFileSync("AKIRA_UI_CONTRACT_V2.md", "utf8");
+          if (!index.includes("css/akira-cognitive-workspace-v2.css")) throw new Error("Cognitive Workspace V2 stylesheet must be loaded");
+          if (!css.includes("--bg:#080b12")) throw new Error("V2 design token set missing");
+          if (!css.includes(".sidebar")) throw new Error("V2 workspace shell rules missing");
+          if (!css.includes("@media(max-width:768px)")) throw new Error("mobile-first rules missing");
+          if (!contract.includes("Akira Cognitive Workspace")) throw new Error("UI contract missing");
+          if (!contract.includes("Este rediseño es visual; no debe cambiar APIs, persistencia, permisos ni comportamiento de negocio.")) throw new Error("UI contract must protect backend contracts");
+          if (!index.includes("js/akira-office-floor-v2.js")) throw new Error("living cognitive office script must be loaded");
+          if (!index.includes("Oficina Cognitiva")) throw new Error("cognitive office surface missing");
+          if (!css.includes(".office-v2-stage")) throw new Error("living office visual rules missing");
+          console.log("Cognitive Workspace V2 visual contract OK");
           NODE
 
       - name: Guard runtime capability truth surface
