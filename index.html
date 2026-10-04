@@ -785,17 +785,27 @@ async function handleCredentialResponse(r){
     const re=await fetch(b+"/api/auth/google",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({credential:c})});
     const d=await re.json();
     if(d.error){alert(d.error);return;}
-    localStorage.setItem("akira_user_id",d.user_id);
-    localStorage.setItem("akira_user_email",d.email);
-    localStorage.setItem("akira_is_owner",d.is_owner?"1":"0");
-    if(d.session_token){localStorage.setItem("akira_session_token",d.session_token);localStorage.setItem("akira_session_exp",String(d.expires_at||0));}
-    else{localStorage.removeItem("akira_session_token");localStorage.removeItem("akira_session_exp");}
+    if(!re.ok || !d || !d.session_token){
+      alert((d && (d.error || d.message || d.reason)) || ("Error HTTP "+re.status));
+      return;
+    }
+    localStorage.setItem("akira_user_id",d.user_id||"");
+    localStorage.setItem("akira_user_email",d.email||"");
+    localStorage.removeItem("akira_is_owner");
+    localStorage.setItem("akira_session_token",d.session_token);
+    localStorage.setItem("akira_session_exp",String(d.expires_at||0));
+    const md=await akiraVerifySession();
+    if(!md || !md.ok || md.authenticated!==true){
+      akiraClearSession("login_verification_failed");
+      alert("La sesión no pudo verificarse en el backend.");
+      return;
+    }
+    const email=md.email||d.email||"";
+    const ver=md.is_owner ? " · 🔒 sesión verificada (propietario)" : " · 🔒 sesión verificada";
     const i=document.getElementById("userInfo");
-    let ver="";
-    try{const mr=await fetch(b+"/api/v8/me",{headers:akiraAuthHeaders()});const md=await mr.json();ver=md.authenticated?(md.is_owner?" · 🔒 sesión verificada (propietario)":" · 🔒 sesión verificada"):" · ⚠️ sin sesión firmada";}catch(e){ver=" · ⚠️ no se pudo verificar la sesión";}
-    if(i){i.style.display="block";i.textContent="✅ "+d.email+ver;}
+    if(i){i.style.display="block";i.textContent="✅ "+email+ver;}
     const av=document.getElementById("userAvatar");
-    if(av) av.textContent = d.email.charAt(0).toUpperCase();
+    if(av) av.textContent = email.charAt(0).toUpperCase();
     addMsg(`Bienvenido ${d.email} a Akira`,"akira");
     showSection('chat');
   }catch(e){alert(e.message);}
