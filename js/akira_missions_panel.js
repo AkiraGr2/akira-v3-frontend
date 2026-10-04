@@ -2716,6 +2716,9 @@
       setMobileMissionView(false);
     };
 
+  window.missionPanelRenderList =
+    renderMissionList;
+
   window.missionPanelLoad =
     loadMissions;
 
