@@ -88,7 +88,9 @@ jobs:
           const block = index.slice(start, end);
           if (!block.includes("d.capabilities_registry")) throw new Error("renderLevels must read capabilities_registry");
           if (!block.includes("effective_state")) throw new Error("renderLevels must use effective capability state");
-          if (!block.includes("sm.capabilities || []")) throw new Error("legacy capability fallback missing");
+          if (!block.includes("legacyCapabilities.find")) throw new Error("per-capability legacy fallback missing");
+          if (!block.includes("if (c)")) throw new Error("registry entry must take precedence over legacy fallback");
+          if (!block.includes("const legacyStatus = legacy && legacy.status")) throw new Error("legacy status fallback missing");
           console.log("Capability registry consumption guard OK");
           NODE
 
