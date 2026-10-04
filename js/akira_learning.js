@@ -52,6 +52,7 @@
       }catch(e){
         parseError = String((e && e.message) || e);
       }
+      if(r.status === 401 && typeof window.akiraHandleAuthFailure === "function") window.akiraHandleAuthFailure(401);
       return {ok:r.ok, status:r.status, data:data, rawText:rawText, parseError:parseError,
         contentType:(r.headers && r.headers.get) ? (r.headers.get("content-type") || "") : ""};
     }catch(e){
