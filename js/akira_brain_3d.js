@@ -455,7 +455,6 @@
       }));
     } catch(_) {}
 
-    setTimeout(focusSemanticRoute, 90);
   }
 
   function navigateHistory(delta){
@@ -1571,7 +1570,11 @@
 
   function updateOrbitUI(){
     const b = document.getElementById("brainOrbitBtn");
-    if(b) b.classList.toggle("active-orbit", autoOrbit);
+    if(b){
+      b.classList.toggle("active-orbit", autoOrbit && currentMode === "3d");
+      b.disabled = currentMode !== "3d";
+      b.title = currentMode === "3d" ? "Rotación automática 3D" : "Rotación automática: disponible en 3D";
+    }
   }
 
   function hudText(){
@@ -1605,9 +1608,16 @@
     const status = document.getElementById("brainModeStatus");
     if(v2) v2.classList.toggle("is-hidden", currentMode !== "2d");
     if(v3) v3.classList.toggle("is-hidden", currentMode !== "3d");
-    if(b2) b2.classList.toggle("active", currentMode === "2d");
-    if(b3) b3.classList.toggle("active", currentMode === "3d");
+    if(b2) {
+      b2.classList.toggle("active", currentMode === "2d");
+      b2.setAttribute("aria-pressed", currentMode === "2d" ? "true" : "false");
+    }
+    if(b3) {
+      b3.classList.toggle("active", currentMode === "3d");
+      b3.setAttribute("aria-pressed", currentMode === "3d" ? "true" : "false");
+    }
     if(status) status.textContent = "BRAIN · " + currentMode.toUpperCase();
+    updateOrbitUI();
     if(currentMode === "3d"){
       ensure3d().then(() => {
         setTimeout(() => { try { if(fg) fg.width(document.getElementById("membrane3d")?.clientWidth || undefined).height(document.getElementById("membrane3d")?.clientHeight || undefined); } catch(_){} }, 60);
@@ -2292,18 +2302,6 @@
     apply3dRuntime();
     dispatchSemanticRoute();
     setTimeout(focusSemanticRoute, 90);
-    if(fg && selectedNodeId){
-      try{
-        const node = graphData.nodes.find(n => String(n.id) === selectedNodeId);
-        if(node && node.x !== undefined){
-          fg.cameraPosition(
-            {x:(node.x||0)+90, y:(node.y||0)+65, z:(node.z||0)+90},
-            {x:node.x||0,y:node.y||0,z:node.z||0},
-            600
-          );
-        }
-      }catch(_) {}
-    }
   });
 
   window.akiraBrainFocus = function(){
@@ -2368,6 +2366,7 @@
   };
 
   window.akiraBrainToggleOrbit = function(){
+    if(currentMode !== "3d") return;
     autoOrbit = !autoOrbit;
     updateOrbitUI();
     if(fg){
