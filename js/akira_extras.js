@@ -109,7 +109,8 @@ async function uploadFileToAkira(event){
         alert("No se pudo leer el PDF: respuesta inválida del backend (HTTP " + r.status + ").");
         return;
       }
-      if(!r.ok || !d || d.ok !== true){
+      if(r.status === 401 && typeof window.akiraHandleAuthFailure === "function") window.akiraHandleAuthFailure(401);
+       if(!r.ok || !d || d.ok !== true){
         const reason = d && (d.message || d.reason);
         alert("No se pudo leer el PDF: " + (reason || ("HTTP " + r.status)));
         return;
