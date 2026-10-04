@@ -1086,6 +1086,7 @@
       const score = Math.max(0, Math.min(1, 0.28*weight + 0.27*reuse + 0.18*confidence + 0.27*deg));
       n._importance = id === core ? 1 : score;
       n._degree = degree.get(id)||0;
+      importance.set(id, n._importance);
     }
 
     const clusters = new Map();
