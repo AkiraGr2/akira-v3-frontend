@@ -50,15 +50,6 @@
       .replace(/'/g, "&#039;");
   }
 
-  function getToken() {
-    return (
-      localStorage.getItem("akira_session_token") ||
-      localStorage.getItem("akira_token") ||
-      localStorage.getItem("token") ||
-      localStorage.getItem("access_token") ||
-      ""
-    );
-  }
 
   async function apiFetch(url, options = {}) {
     let headers = {
@@ -78,17 +69,6 @@
     }
 
     const token = getToken();
-
-    if (
-      token &&
-      !headers.Authorization &&
-      !headers.authorization
-    ) {
-      headers.Authorization =
-        token.startsWith("Bearer ")
-          ? token
-          : `Bearer ${token}`;
-    }
 
     headers = Object.assign(
       headers,
@@ -126,6 +106,10 @@
       data = await response.json();
     } catch (_) {
       data = null;
+    }
+
+    if (response.status === 401 && typeof window.akiraHandleAuthFailure === "function") {
+      window.akiraHandleAuthFailure(401);
     }
 
     if (!response.ok) {
