@@ -553,99 +553,234 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 
   <div id="adminSection" class="section">
     <div class="section-header">
-      <h2>👑 Panel Técnico</h2>
-      <p>Solo para el propietario. Estado del sistema, self-model, ciclos cognitivos, tools y mantenimiento.</p>
+      <h2>👑 Control de Akira</h2>
+      <p>Este espacio es para administrar y comprobar a Akira. No necesitas saber programación: cada botón explica para qué sirve.</p>
     </div>
-    <div style="padding:22px;max-width:800px;margin:0 auto;width:100%;overflow-y:auto">
-      <div id="adminLogin" style="background:#16161b;border:3px solid var(--border);padding:20px">
-        <p style="font-size:12px;color:var(--muted)">Acceso solo para el propietario con sesión de Google verificada por el servidor.</p>
-        <button class="pixel-btn" onclick="adminCheckSession()" style="margin-top:14px;width:100%;justify-content:center">Verificar sesión de propietario</button>
-        <div id="adminLoginStatus" style="font-size:12px;color:#f59e0b;margin-top:10px"></div>
+
+    <div class="admin-v2-wrap">
+      <div id="adminLogin" class="admin-v2-login">
+        <p style="font:12px/1.5 var(--font-sans);color:var(--muted)">Primero verifica que tu sesión de propietario está activa. Esto protege las funciones de administración.</p>
+        <button class="admin-v2-action" onclick="adminCheckSession()" style="margin-top:12px;width:100%;min-height:64px">
+          <strong>🔐 Comprobar que soy el propietario</strong>
+          <small>Confirma con el servidor que tu sesión tiene permisos de administración.</small>
+        </button>
+        <div id="adminLoginStatus" style="font:12px var(--font-sans);color:var(--warning);margin-top:10px"></div>
       </div>
+
       <div id="adminPanel" style="display:none">
-        <div style="display:flex;justify-content:space-between;align-items:center"><h3 style="font-family:'Press Start 2P', monospace;font-size:12px;">Panel Técnico Akira</h3><button class="pixel-btn" onclick="adminLogout()">Cerrar</button></div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px">
-          <div style="background:#16161b;border:3px solid var(--border);padding:10px;text-align:center"><div style="font-size:10px;color:var(--muted)">TOTAL</div><div id="neuronCount" style="font-size:18px;font-weight:700;margin-top:4px">--</div></div>
-          <div style="background:#16161b;border:3px solid var(--border);padding:10px;text-align:center"><div style="font-size:10px;color:var(--muted)" id="localCount">Local --</div><div style="font-size:12px;margin-top:4px">💾 Local</div></div>
-          <div style="background:#16161b;border:3px solid var(--border);padding:10px;text-align:center"><div style="font-size:10px;color:var(--muted)" id="sharedCount">Shared --</div><div style="font-size:12px;margin-top:4px">☁️ Shared</div></div>
-          <div style="background:#16161b;border:3px solid var(--border);padding:10px;text-align:center"><div style="font-size:10px;color:var(--muted)" id="knowledgeCount">Know --</div><div style="font-size:10px;color:var(--muted)" id="hiveCount">Hive --</div></div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
-          <div style="background:#16161b;border:3px solid var(--border);padding:14px"><div style="font-size:11px;color:var(--muted)">ESTADO GENERAL</div><div style="font-size:11px;margin-top:6px;word-break:break-all;font-family:'Pixelify Sans', sans-serif;" id="adminMembrana">Cargando...</div></div>
-          <div style="background:#16161b;border:3px solid var(--border);padding:14px"><div style="font-size:11px;color:var(--muted)">TOOLS</div><div style="font-size:11px;margin-top:6px;font-family:'Pixelify Sans', sans-serif;" id="adminTools">Cargando...</div></div>
-        </div>
-
-        <div style="margin-top:16px;background:#0e0e12;border:3px solid var(--border);padding:14px">
-          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🧪 Self-Model (Fase 5)</h4>
-          <p style="font-size:11px;color:var(--muted);margin-top:6px">Verifica el self-model persistente.</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-            <button class="pixel-btn" onclick="smGet()">📖 Leer</button>
-            <button class="pixel-btn" onclick="smPatch()">✏️ Modificar</button>
-            <button class="pixel-btn" onclick="smReset()">🧹 Limpiar</button>
+        <div class="admin-v2-header">
+          <div class="admin-v2-title">
+            <h3>Centro de control de Akira</h3>
+            <p>Aquí puedes conocer cómo está Akira, comprobar que sus funciones siguen funcionando, revisar a sus agentes y cuidar sus datos.</p>
           </div>
-          <pre id="smOutput" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos todavía.</pre>
+          <button class="admin-v2-close" onclick="adminLogout()">Cerrar</button>
         </div>
 
-        <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
-          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🧠 Fase 7 — Ciclo Cognitivo</h4>
-          <p style="font-size:11px;color:var(--muted);margin-top:6px">Ejecuta un ciclo cognitivo de 9 etapas.</p>
-          <div style="margin-top:10px"><input id="f7Message" placeholder="Mensaje para el ciclo..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;font-size:13px;font-family:'Pixelify Sans', sans-serif;border-radius:0;"></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-            <button class="pixel-btn" onclick="f7Run()">▶️ Ejecutar ciclo</button>
-            <button class="pixel-btn" onclick="f7ReadLast()">📖 Leer último</button>
-            <button class="pixel-btn" onclick="f7ListCycles()">📚 Listar</button>
-            <button class="pixel-btn" onclick="f7Reset()">🧹 Limpiar</button>
+        <div class="admin-v2-summary">
+          <div class="admin-v2-summary-card"><span>🧠 Elementos del Cerebro</span><b id="neuronCount">—</b></div>
+          <div class="admin-v2-summary-card"><span>💾 Datos locales</span><b id="localCount">—</b></div>
+          <div class="admin-v2-summary-card"><span>☁️ Datos compartidos</span><b id="sharedCount">—</b></div>
+          <div class="admin-v2-summary-card"><span>📚 Conocimiento</span><b id="knowledgeCount">—</b></div>
+        </div>
+
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🟢 ¿Cómo está Akira ahora?</h4>
+            <p>Consulta el estado real del servidor, tu sesión, el autoconocimiento, los agentes y el almacenamiento. El resultado aparece abajo.</p>
           </div>
-          <pre id="f7Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
-        </div>
-
-        <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
-          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🔧 Fase 8 — Tool Registry</h4>
-          <p style="font-size:11px;color:var(--muted);margin-top:6px">12 herramientas reales registradas. Cada invocación queda en un log persistente.</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-            <button class="pixel-btn" onclick="f8ListTools()">📚 Listar tools</button>
-            <button class="pixel-btn" onclick="f8TestWebSearch()">🔎 Test web_search</button>
-            <button class="pixel-btn" onclick="f8TestSelfModel()">🧠 Test self_model_read</button>
-            <button class="pixel-btn" onclick="f8ViewInvocations()">📜 Ver invocaciones</button>
-            <button class="pixel-btn" onclick="f8Reset()">🧹 Limpiar</button>
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action" onclick="adminDashboard()">
+              <strong>🔄 Actualizar estado de Akira</strong>
+              <small>Vuelve a comprobar cómo están sus principales sistemas.</small>
+            </button>
+            <button class="admin-v2-action" onclick="showSection('office')">
+              <strong>🏢 Ver la Oficina de Akira</strong>
+              <small>Abre el espacio donde puedes ver a los agentes trabajando y sus estados.</small>
+            </button>
           </div>
-          <pre id="f8Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
+          <pre id="adminMembrana" class="admin-v2-output">Todavía no se ha consultado el estado.</pre>
         </div>
 
-        <div style="margin-top:16px;background:#0e0e12;border:3px solid var(--border);padding:14px">
-          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🌐 Grafo + Aprendizaje</h4>
-          <p style="font-size:11px;color:var(--muted);margin-top:6px">Herramientas técnicas del grafo. Úsalas para pruebas, lectura, refuerzo, limpieza y reorganización. El Cerebro 2D queda libre de controles técnicos.</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-            <button class="pixel-btn" onclick="f6TestFull()">🧪 Test completo</button>
-            <button class="pixel-btn" onclick="f6ReadAll()">📖 Leer todo</button>
-            <button class="pixel-btn" onclick="graphReinforce()">🔗 Reforzar</button>
-            <button class="pixel-btn" onclick="graphCleanupTests()">🧹 Limpiar test_*</button>
-            <button class="pixel-btn" onclick="reorganizeMembrane()">🔄 Reorganizar</button>
-            <button class="pixel-btn" onclick="f6Reset()">🗑️ Salida</button>
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🪞 Conocer a Akira</h4>
+            <p>Estas opciones te permiten ver qué sabe Akira sobre sí misma y añadir una nota sencilla a su autoconocimiento.</p>
           </div>
-          <pre id="f6Output" style="margin-top:10px;background:#0e0e12;border:3px solid var(--border);padding:10px;font-size:10px;color:#8a8a93;max-height:260px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:'Pixelify Sans', sans-serif;">Sin datos.</pre>
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action" onclick="smGet()">
+              <strong>👁️ Ver qué sabe Akira sobre sí misma</strong>
+              <small>Muestra su identidad, estado, capacidades verificadas e incertidumbres.</small>
+            </button>
+            <button class="admin-v2-action" onclick="adminAddSelfNote()">
+              <strong>📝 Añadir una nota al autoconocimiento</strong>
+              <small>Escribe una observación en lenguaje normal. Akira la guarda como una nota.</small>
+            </button>
+            <button class="admin-v2-action" onclick="smReset()">
+              <strong>🧹 Limpiar esta pantalla</strong>
+              <small>Solo borra el resultado mostrado aquí; no borra el autoconocimiento.</small>
+            </button>
+          </div>
+          <pre id="smOutput" class="admin-v2-output">Todavía no se ha consultado el autoconocimiento.</pre>
         </div>
 
-        <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
-          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🎯 Fase 10.8 — Panel de Misiones</h4>
-          <p style="font-size:11px;color:var(--muted);margin-top:6px">Los controles temporales de 10.3–10.7 fueron trasladados a la sección dedicada “🎯 Misiones”. El motor no se duplica: la UI consume los endpoints y funciones existentes.</p>
-          <button class="pixel-btn" onclick="showSection('missions')" style="margin-top:10px">Abrir Misiones</button>
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🧠 Probar cómo piensa Akira</h4>
+            <p>Estas pruebas sirven para comprobar que el ciclo cognitivo sigue funcionando. Son pruebas controladas; no cambian la arquitectura de Akira.</p>
+          </div>
+          <input id="f7Message" class="admin-v2-input" placeholder="Escribe algo para que Akira procese una prueba, por ejemplo: Analiza el estado de mi sistema.">
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action" onclick="f7Run()">
+              <strong>▶️ Probar un ciclo de pensamiento</strong>
+              <small>Envía el texto de arriba a las etapas cognitivas persistentes.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f7ReadLast()">
+              <strong>👁️ Ver el último ciclo</strong>
+              <small>Muestra qué ocurrió en la última ejecución.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f7ListCycles()">
+              <strong>📚 Ver ciclos anteriores</strong>
+              <small>Consulta las últimas ejecuciones registradas.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f7Reset()">
+              <strong>🧹 Limpiar esta pantalla</strong>
+              <small>No elimina los ciclos guardados; solo limpia el resultado visible.</small>
+            </button>
+          </div>
+          <pre id="f7Output" class="admin-v2-output">Todavía no se ha ejecutado una prueba.</pre>
         </div>
 
-        <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
-          <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🧰 Mantenimiento</h4>
-          <p style="font-size:11px;color:var(--muted);margin-top:6px">Herramientas de limpieza y respaldo.</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-            <button class="pixel-btn" onclick="clearLocalDB()">🗑️ Limpiar DB local</button>
-            <button class="pixel-btn" onclick="forceSyncR2()">☁️ Forzar Sync R2</button>
-            <button class="pixel-btn" onclick="exportBackup()">💾 Export Backup</button>
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🧰 Herramientas que puede usar Akira</h4>
+            <p>Revisa las herramientas disponibles y prueba dos funciones concretas. Las pruebas dejan registro de la actividad.</p>
+          </div>
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action" onclick="f8ListTools()">
+              <strong>📋 Ver las herramientas disponibles</strong>
+              <small>Te muestra qué herramientas tiene registradas Akira.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f8TestWebSearch()">
+              <strong>🔎 Probar que Akira puede buscar en Internet</strong>
+              <small>Hace una búsqueda de prueba y muestra el resultado.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f8TestSelfModel()">
+              <strong>🪞 Comprobar que Akira puede consultar su autoconocimiento</strong>
+              <small>Prueba que una herramienta pueda leer el estado de Akira.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f8ViewInvocations()">
+              <strong>📜 Ver las herramientas que se han usado</strong>
+              <small>Muestra actividad reciente registrada por el sistema.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f8Reset()">
+              <strong>🧹 Limpiar esta pantalla</strong>
+              <small>No borra el historial; solo limpia el resultado visible.</small>
+            </button>
+          </div>
+          <pre id="adminTools" class="admin-v2-output">Las herramientas disponibles aparecerán aquí.</pre>
+          <pre id="f8Output" class="admin-v2-output" style="display:none">Todavía no se ha hecho una comprobación.</pre>
+        </div>
+
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🤖 Agentes de Akira</h4>
+            <p>Desde aquí puedes comprobar quiénes están registrados, pedir una acción controlada a algunos agentes y revisar las tareas que han realizado.</p>
+          </div>
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action" onclick="f9ListAgents()">
+              <strong>👥 Ver todos los agentes y su estado</strong>
+              <small>Lista los agentes registrados, su función y su estado actual.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f9RunResearcher()">
+              <strong>🔎 Pedirle al agente investigador que busque algo</strong>
+              <small>Escribe una consulta y Researcher hará una búsqueda controlada.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f9RunMemorizer()">
+              <strong>💾 Pedirle a Memorizador que guarde algo</strong>
+              <small>Escribe un dato y se enviará al agente encargado de memoria.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f9RunInternal()">
+              <strong>🧠 Pedirle al agente interno que revise a Akira</strong>
+              <small>Comprueba que el agente interno pueda leer el autoconocimiento.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f9ListTasks()">
+              <strong>📜 Ver las tareas que han realizado los agentes</strong>
+              <small>Muestra la actividad reciente de los agentes.</small>
+            </button>
+          </div>
+          <pre id="f9Output" class="admin-v2-output">Todavía no se ha consultado la actividad de los agentes.</pre>
+        </div>
+
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🕸️ Cerebro, conexiones y aprendizaje</h4>
+            <p>Estas acciones permiten comprobar el Cerebro de Akira y mantener limpias sus conexiones de prueba.</p>
+          </div>
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action" onclick="f6TestFull()">
+              <strong>🧪 Comprobar que el Cerebro y el aprendizaje funcionan juntos</strong>
+              <small>Crea datos de prueba controlados y comprueba que pueden relacionarse.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f6ReadAll()">
+              <strong>👁️ Ver el estado del Cerebro</strong>
+              <small>Consulta cantidades y tipos de nodos y conexiones.</small>
+            </button>
+            <button class="admin-v2-action" onclick="graphReinforce()">
+              <strong>🔗 Mejorar conexiones existentes</strong>
+              <small>Ejecuta el proceso que refuerza relaciones detectadas por Akira.</small>
+            </button>
+            <button class="admin-v2-action danger" onclick="graphCleanupTests()">
+              <strong>🧹 Limpiar datos de prueba del Cerebro</strong>
+              <small>Archiva únicamente los elementos creados con el identificador de prueba.</small>
+            </button>
+            <button class="admin-v2-action" onclick="reorganizeMembrane()">
+              <strong>🔄 Ordenar visualmente el Cerebro</strong>
+              <small>Reorganiza la vista de la membrana; no es una nueva forma de pensar.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f6Reset()">
+              <strong>🧹 Limpiar esta pantalla</strong>
+              <small>No borra el Cerebro; solo limpia el resultado visible.</small>
+            </button>
+          </div>
+          <pre id="f6Output" class="admin-v2-output">Todavía no se ha hecho una comprobación.</pre>
+        </div>
+
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🎯 Misiones</h4>
+            <p>Las misiones son el espacio donde Akira puede planificar, pedir aprobación y supervisar trabajos más grandes.</p>
+          </div>
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action" onclick="showSection('missions')">
+              <strong>🎯 Abrir el centro de Misiones</strong>
+              <small>Ve las misiones, sus planes, aprobaciones, progreso y resultados.</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🧹 Cuidar y guardar los datos</h4>
+            <p>Estas acciones afectan datos del navegador o ayudan a conservar una copia. Las dos primeras son especialmente importantes para no confundir datos locales con los datos de Akira guardados en servidor.</p>
+          </div>
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action danger" onclick="clearLocalDB()">
+              <strong>🗑️ Borrar los datos locales de este teléfono</strong>
+              <small>Borra la base de datos guardada en este navegador. No es lo mismo que borrar los datos de Akira del servidor.</small>
+            </button>
+            <button class="admin-v2-action" onclick="forceSyncR2()">
+              <strong>☁️ Sincronizar los datos de Akira</strong>
+              <small>Comprueba que los datos del Cerebro compartido puedan consultarse desde el servidor.</small>
+            </button>
+            <button class="admin-v2-action" onclick="exportBackup()">
+              <strong>💾 Guardar una copia de seguridad</strong>
+              <small>Descarga una copia de los datos locales disponibles en este dispositivo.</small>
+            </button>
           </div>
         </div>
       </div>
     </div>
   </div>
-</div>
-
 <script>
 if(!localStorage.getItem("akira_backend_url")) localStorage.setItem("akira_backend_url", "https://akira-empresa.onrender.com");
 function akiraClearSession(reason){
