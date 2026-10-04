@@ -102,9 +102,20 @@ async function uploadFileToAkira(event){
         headers: h,
         body: JSON.stringify({filename: file.name, content_base64: b64})
       });
-      const d = await r.json();
-      if(!d.ok){
-        alert("No se pudo leer el PDF: " + (d.reason || "error"));
+      let d;
+      try{
+        d = await r.json();
+      }catch(_){
+        alert("No se pudo leer el PDF: respuesta inválida del backend (HTTP " + r.status + ").");
+        return;
+      }
+      if(!r.ok || !d || d.ok !== true){
+        const reason = d && (d.message || d.reason);
+        alert("No se pudo leer el PDF: " + (reason || ("HTTP " + r.status)));
+        return;
+      }
+      if(typeof d.text !== "string"){
+        alert("No se pudo leer el PDF: el backend no devolvió texto válido.");
         return;
       }
       if(ta){
