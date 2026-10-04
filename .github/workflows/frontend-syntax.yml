@@ -25,6 +25,7 @@ jobs:
           node --check js/akira_learning.js
           node --check js/akira_brain.js
           node --check js/akira_missions_panel.js
+          node --check js/akira_extras.js
 
       - name: Guard verified learning evaluation action
         run: |
@@ -56,6 +57,21 @@ jobs:
           if (!text.includes("runtimeStatus(runtime && runtime.pdf && runtime.pdf.status)")) throw new Error("pdf status must derive from runtime");
           if (!text.includes("runtimeStatus(runtime && runtime.video && runtime.video.status)")) throw new Error("video status must derive from runtime");
           console.log("runtime capability truth surface guard OK");
+          NODE
+
+      - name: Guard PDF upload error truthfulness
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const text = fs.readFileSync("js/akira_extras.js", "utf8");
+          const start = text.indexOf("async function uploadFileToAkira");
+          const end = text.indexOf("\n// -------- 📝 Crear archivo --------", start);
+          if (start < 0 || end < 0) throw new Error("uploadFileToAkira block not found");
+          const block = text.slice(start, end);
+          if (!block.includes("if(!r.ok || !d || d.ok !== true)")) throw new Error("PDF handler must reject non-2xx or non-ok backend responses");
+          if (!block.includes("typeof d.text !== \"string\"")) throw new Error("PDF handler must validate returned text");
+          if (!block.includes("d.message || d.reason")) throw new Error("PDF handler must surface backend reason");
+          console.log("PDF upload error truthfulness guard OK");
           NODE
 
       - name: Guard image error truthfulness
