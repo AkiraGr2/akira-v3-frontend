@@ -25,6 +25,7 @@ jobs:
           node --check js/akira_learning.js
           node --check js/akira_brain.js
           node --check js/akira_missions_panel.js
+          node --check js/akira_admin.js
           node --check js/akira_extras.js
 
       - name: Guard verified learning evaluation action
@@ -72,6 +73,33 @@ jobs:
           if (!block.includes("typeof d.text !== \"string\"")) throw new Error("PDF handler must validate returned text");
           if (!block.includes("d.message || d.reason")) throw new Error("PDF handler must surface backend reason");
           console.log("PDF upload error truthfulness guard OK");
+          NODE
+
+
+      - name: Guard signed-session UX contract
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const index = fs.readFileSync("index.html", "utf8");
+          const admin = fs.readFileSync("js/akira_admin.js", "utf8");
+          const missions = fs.readFileSync("js/akira_missions_panel.js", "utf8");
+          const learning = fs.readFileSync("js/akira_learning.js", "utf8");
+          const extras = fs.readFileSync("js/akira_extras.js", "utf8");
+          const brain = fs.readFileSync("js/akira_brain.js", "utf8");
+          if (!index.includes("function akiraVerifySession()")) throw new Error("central session verifier missing");
+          if (!index.includes("function akiraClearSession(reason)")) throw new Error("central session clear helper missing");
+          if (!index.includes("function akiraHandleAuthFailure(status)")) throw new Error("central 401 handler missing");
+          if (!index.includes("/api/v8/me")) throw new Error("frontend session verifier must use /api/v8/me");
+          if (/localStorage\\.setItem\\([\\"']akira_is_owner/.test(index)) throw new Error("owner state must not be persisted as local authority");
+          if (/localStorage\\.getItem\\([\\"']akira_is_owner/.test(index)) throw new Error("owner state must not be read from localStorage");
+          if (missions.includes("localStorage.getItem(\"akira_token\")") || missions.includes("localStorage.getItem(\"token\")") || missions.includes("localStorage.getItem(\"access_token\")")) throw new Error("mission panel must not use generic token fallbacks");
+          if (!admin.includes("window.akiraVerifySession")) throw new Error("restored session must be verified against backend");
+          if (!admin.includes("window.akiraHandleAuthFailure(401)")) throw new Error("admin must invalidate session on HTTP 401");
+          for (const [name,text] of [["learning",learning],["extras",extras],["brain",brain]]) {
+            if (!text.includes("akiraHandleAuthFailure(401)")) throw new Error(name+" must invalidate session on HTTP 401");
+          }
+          if (!index.includes("localStorage.removeItem(\"akira_is_owner\")")) throw new Error("legacy owner flag should be actively purged");
+          console.log("signed-session UX contract guard OK");
           NODE
 
       - name: Guard image error truthfulness
