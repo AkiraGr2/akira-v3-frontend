@@ -110,6 +110,30 @@
     }, false);
   };
 
+  window.adminAddSelfNote = async function(){
+    const note = prompt("Escribe la observación que quieres guardar sobre el estado de Akira:");
+    if (!note || !note.trim()) return;
+    const cur = await _fetch("/api/v8/self");
+    if (!cur.ok || !cur.data || !cur.data.ok) return _out("smOutput", _errText(cur), true);
+    const self = cur.data.self_model || {};
+    const currentState = (self.current_state && typeof self.current_state === "object" && !Array.isArray(self.current_state))
+      ? Object.assign({}, self.current_state)
+      : {};
+    currentState.owner_observation = note.trim();
+    const expected = self.version;
+    const r = await _fetch("/api/v8/self", {
+      method: "PATCH",
+      body: JSON.stringify({ changes: { current_state: currentState }, expected_version: expected }),
+    });
+    if (!r.ok || !r.data || !r.data.ok) return _out("smOutput", _errText(r), true);
+    _out("smOutput", {
+      ok: true,
+      mensaje: "La observación quedó guardada en el autoconocimiento de Akira.",
+      version_nueva: r.data.self_model.version,
+      observacion: currentState.owner_observation,
+    }, false);
+  };
+
   window.smReset = function(){ _out("smOutput", "Salida limpiada.", false); };
 
   // ============================================================
@@ -643,7 +667,7 @@
   // Dashboard unificado
   // ============================================================
   window.adminDashboard = async function(){
-    _out("adminMembrana", "Consultando dashboard…", false);
+    _out("adminMembrana", "Comprobando el estado de Akira…", false);
     const res = await Promise.all([
       _fetch("/health"),
       _fetch("/api/v8/me"),
@@ -654,28 +678,40 @@
       _fetch("/api/v8/persistence/status"),
     ]);
     const health = res[0], me = res[1], self = res[2], tools = res[3], agents = res[4], tasks = res[5], pers = res[6];
-    const dash = {
-      backend: health.ok ? "🟢 OK (" + ((health.data && health.data.version) || "?") + ")" : "🔴 " + _errText(health),
-      sesion: (me.ok && me.data && me.data.authenticated)
-        ? "🟢 " + me.data.email + (me.data.is_owner ? " (propietario)" : "")
-        : "🔴 " + _errText(me),
-      self_model: (self.ok && self.data && self.data.ok)
-        ? "🟢 v" + self.data.self_model.version + " · " +
-          (self.data.self_model.capabilities || []).filter(c => c.status === "verified").length +
-          " capacidades verificadas"
-        : "🔴 " + _errText(self),
-      tools: (tools.ok && tools.data && tools.data.ok) ? "🟢 " + tools.data.count + " registradas" : "🔴 " + _errText(tools),
-      agentes: (agents.ok && agents.data && agents.data.ok) ? "🟢 " + agents.data.count + " activos" : "🔴 " + _errText(agents),
-      tareas: (tasks.ok && tasks.data && tasks.data.ok) ? "🟢 " + tasks.data.count + " recientes" : "🔴 " + _errText(tasks),
-      persistencia: (pers.ok && pers.data) ? "🟢 " + (pers.data.state || "?") : "🔴 " + _errText(pers),
-      generado: new Date().toLocaleString(),
-    };
-    _out("adminMembrana", dash, false);
+
+    const lines = [];
+    lines.push("ESTADO DE AKIRA");
+    lines.push("----------------");
+    lines.push("Servidor: " + (health.ok ? "🟢 Funcionando" : "🔴 No responde"));
+    lines.push("Tu acceso: " + ((me.ok && me.data && me.data.authenticated && me.data.is_owner) ? "🟢 Propietario verificado" : "🔴 Revisar acceso"));
+    if(self.ok && self.data && self.data.ok){
+      const sm=self.data.self_model||{};
+      const caps=Array.isArray(sm.capabilities)?sm.capabilities:[];
+      lines.push("Autoconocimiento: 🟢 Disponible · versión " + String(sm.version ?? "?"));
+      lines.push("Capacidades verificadas: " + caps.filter(c=>c.status==="verified").length + " de " + caps.length);
+    }else{
+      lines.push("Autoconocimiento: 🔴 No disponible");
+    }
+    lines.push("Herramientas registradas: " + (tools.ok && tools.data && tools.data.ok ? tools.data.count : "No disponible"));
+    lines.push("Agentes registrados: " + (agents.ok && agents.data && agents.data.ok ? agents.data.count : "No disponible"));
+    lines.push("Tareas recientes: " + (tasks.ok && tasks.data && tasks.data.ok ? tasks.data.count : "No disponible"));
+    lines.push("Almacenamiento: " + ((pers.ok && pers.data)
+      ? ((["ready","healthy","ok","available"].includes(String(pers.data.state||"").toLowerCase())) ? "🟢 Funcionando" : "🟡 " + String(pers.data.state||"Revisar"))
+      : "🔴 No disponible"));
+    lines.push("");
+    lines.push("Actualizado: " + new Date().toLocaleString("es-CO"));
+
+    _out("adminMembrana", lines.join("\n"), false);
     const toolsEl = document.getElementById("adminTools");
     if (toolsEl) {
       toolsEl.textContent = (tools.ok && tools.data)
-        ? (tools.data.count + " tools registradas") : "n/d";
+        ? ("Akira tiene " + tools.data.count + " herramientas registradas.")
+        : "No se pudo consultar las herramientas.";
     }
+
+    try{
+      if(typeof window.countNeuronas === "function") await window.countNeuronas();
+    }catch(_){}
   };
 
   window.checkBridgeAdmin = function(){ return window.adminDashboard(); };
