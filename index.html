@@ -348,7 +348,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
       <div class="brain-toolbar">
         <div class="brain-mode-group" role="tablist" aria-label="Vista del cerebro">
           <button id="brainMode2d" class="brain-mode active" type="button" onclick="window.akiraBrainSetMode && akiraBrainSetMode('2d')">2D</button>
-          <button id="brainMode3d" class="brain-mode" type="button" style="display:none" aria-hidden="true" tabindex="-1">3D</button>
+          <button id="brainMode3d" class="brain-mode" type="button" onclick="window.akiraBrainSetMode && akiraBrainSetMode('3d')" aria-label="Cambiar el Cerebro a vista 3D">3D</button>
           <button id="brainMobileViewBtn" class="brain-mode brain-mobile-view-btn" type="button" onclick="toggleBrainMobileView()" title="Ver la membrana a pantalla completa">⛶ MEMBRANA</button>
         </div>
         <div class="brain-toolbar-actions">
