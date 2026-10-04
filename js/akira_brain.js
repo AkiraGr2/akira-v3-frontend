@@ -178,7 +178,7 @@ async function sendMsg(){
       if (_cid) payload.conversation_id = _cid;
     } catch(_){}
     const r = await fetch(backend + "/api/chat", {method:'POST',headers:_akiraH(),body:JSON.stringify(payload)});
-    if(!r.ok) throw new Error("Backend error " + r.status);
+    if(!r.ok){ if(r.status===401 && window.akiraHandleAuthFailure) window.akiraHandleAuthFailure(401); throw new Error("Backend error " + r.status); }
     const d = await r.json();
     try {
       if (d && d.conversation_id && window.akiraConversations && window.akiraConversations.onConversationIdReceived) {
@@ -249,7 +249,7 @@ async function sendMsgStream(){
       if (_cid) payload.conversation_id = _cid;
     } catch(_){}
     const r = await fetch(backend + "/api/chat/stream", {method:'POST',headers:_akiraH(),body:JSON.stringify(payload)});
-    if(!r.ok) throw new Error("Stream error "+r.status);
+    if(!r.ok){ if(r.status===401 && window.akiraHandleAuthFailure) window.akiraHandleAuthFailure(401); throw new Error("Stream error "+r.status); }
     const reader = r.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -395,6 +395,7 @@ async function generateImageAkira(prompt){
       body: JSON.stringify({prompt, user_id: localStorage.getItem('akira_user_id')||'anon'})
     });
     const d = await r.json();
+    if(r.status===401 && window.akiraHandleAuthFailure) window.akiraHandleAuthFailure(401);
     if(!r.ok){
       addMsg("⚠️ Generación de imagen no disponible: " + (d.message || d.reason || ("HTTP " + r.status)), 'akira');
       return;
