@@ -160,16 +160,16 @@ jobs:
           const adminStart = index.indexOf('<div id="adminSection" class="section">');
           const adminEnd = index.indexOf('\n<script>\nif(!localStorage.getItem("akira_backend_url"))', adminStart);
           if (adminStart < 0 || adminEnd < 0) throw new Error("admin section boundaries not found");
-          const admin = index.slice(adminStart, adminEnd);
+          const adminHtml = index.slice(adminStart, adminEnd);
           for (const forbidden of ["Panel Técnico Akira","Tool Registry","Self-Model","Ciclo Cognitivo","verificar sesión de propietario"]) {
-            if (admin.includes(forbidden)) throw new Error("admin UI still exposes technical label: " + forbidden);
+            if (adminHtml.includes(forbidden)) throw new Error("admin UI still exposes technical label: " + forbidden);
           }
           for (const required of ["Control de Akira","Actualizar estado de Akira","Ver qué sabe Akira sobre sí misma","Ver todos los agentes y su estado","Abrir el centro de Misiones"]) {
-            if (!admin.includes(required)) throw new Error("owner-friendly admin label missing: " + required);
+            if (!adminHtml.includes(required)) throw new Error("owner-friendly admin label missing: " + required);
           }
-          if (!text.includes("adminAddSelfNote")) throw new Error("plain-language self-knowledge action missing");
+          if (!admin.includes("adminAddSelfNote")) throw new Error("plain-language self-knowledge action missing");
           console.log("owner-friendly admin UI guard OK");
-                    console.log("signed-session UX contract guard OK");
+          console.log("signed-session UX contract guard OK");
           NODE
 
       - name: Guard image error truthfulness
