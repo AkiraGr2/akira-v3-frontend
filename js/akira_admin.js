@@ -39,6 +39,10 @@
   }
 
   function _errText(res){
+    if (typeof window.akiraAuthErrorText === "function") {
+      const authText = window.akiraAuthErrorText(res.status);
+      if (authText) return authText;
+    }
     if (res.status === 401) return "Sesión no válida o expirada. Entra a Cuenta e inicia sesión.";
     if (res.status === 403) return "No autorizado (requiere propietario).";
     if (res.status === 422) return "El planificador rechazó el objetivo.";
