@@ -46,6 +46,19 @@ jobs:
           console.log("verified learning evaluation action guard OK");
           NODE
 
+      - name: Guard Brain 3D availability contract
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const index = fs.readFileSync("index.html", "utf8");
+          const brain3d = fs.readFileSync("js/akira_brain_3d.js", "utf8");
+          if (!index.includes("id=\"brainMode3d\"") || !index.includes("akiraBrainSetMode('3d')")) throw new Error("Brain 3D control must expose the 3D mode action");
+          if (!brain3d.includes("function set3dAvailability(available)")) throw new Error("3D availability helper missing");
+          if (!brain3d.includes("set3dAvailability(true);")) throw new Error("3D control must become available after engine initialization");
+          if (!brain3d.includes("set3dAvailability(false);")) throw new Error("3D control must be hidden when the engine cannot load");
+          console.log("Brain 3D availability contract guard OK");
+          NODE
+
       - name: Guard runtime capability truth surface
         run: |
           node - <<'NODE'
