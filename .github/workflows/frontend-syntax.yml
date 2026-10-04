@@ -54,7 +54,7 @@ jobs:
             if (!brain3d.includes(required)) throw new Error("3D parity contract missing: " + required);
           }
 
-          if (!brain3d.includes('window.setInterval')) throw new Error("3D graph refresh scheduler missing");
+          if (!brain3d.includes('setInterval')) throw new Error("3D graph refresh scheduler missing");
           if (!brain3d.includes('currentMode === "3d"')) throw new Error("3D refresh must be limited to active 3D mode");
           if (!brain3d.includes('classList.contains("active")')) throw new Error("3D refresh must be limited to visible Brain section");
           if (!brain3d.includes("stopGraphRefresh()")) throw new Error("3D refresh must stop when leaving 3D");
