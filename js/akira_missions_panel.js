@@ -1350,6 +1350,7 @@
           class="mission-action"
           data-mission-action="diagnose"
           data-mission-id="${escapeHtml(id)}"
+          ${actionBusyFor(id, "execute") ? "disabled" : ""}
         >
           🔎 Diagnosticar planificación
         </button>
@@ -1366,7 +1367,7 @@
           data-mission-action="execute"
           data-mission-id="${escapeHtml(id)}"
         >
-          ▶ Ejecutar
+          ${actionBusyFor(id, "execute") ? "⏳ Ejecución en curso..." : "▶ Ejecutar"}
         </button>
 
         <button
@@ -1906,6 +1907,12 @@
       return;
     }
 
+    if (missionActionBusyId !== null) {
+      return;
+    }
+
+    setMissionActionBusy(id, "execute");
+
     try {
       const response =
         await apiFetch(
@@ -1957,6 +1964,8 @@
         300
       );
     } catch (error) {
+      clearMissionActionBusy();
+
       console.error(
         "Akira execute error:",
         error
@@ -2270,6 +2279,14 @@
             const updated =
               response?.mission ||
               response;
+
+            if (
+              updated?.status !== "running" &&
+              updated?.status !== "planning" &&
+              actionBusyFor(id, "execute")
+            ) {
+              clearMissionActionBusy();
+            }
 
             const index =
               missionsCache.findIndex(
