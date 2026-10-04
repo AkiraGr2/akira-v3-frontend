@@ -328,6 +328,8 @@
 
   function draw(ts){
     if(!initialized) return;
+    const section=document.getElementById("officeSection");
+    if(section && !section.classList.contains("active")) return;
     const {w,h}=canvasSize();
     if(!paused || lastTs===0){ lastTs=ts; }
     const renderTs=paused ? lastTs : ts;
@@ -359,6 +361,7 @@
         fetch(backend()+"/api/v8/tasks?limit=100",{headers,cache:"no-store"})
       ]);
       if(ar.status===401 && typeof window.akiraHandleAuthFailure==="function") window.akiraHandleAuthFailure(401);
+      if(tr.status===401 && typeof window.akiraHandleAuthFailure==="function") window.akiraHandleAuthFailure(401);
       if(ar.ok){
         const ad=await ar.json(); agents=Array.isArray(ad.agents)?ad.agents:[];
       }
