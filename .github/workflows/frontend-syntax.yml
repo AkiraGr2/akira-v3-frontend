@@ -76,6 +76,22 @@ jobs:
           NODE
 
 
+
+      - name: Guard capability registry consumption contract
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const index = fs.readFileSync("index.html", "utf8");
+          const start = index.indexOf("async function renderLevels");
+          const end = index.indexOf("\n</script>", start);
+          if (start < 0 || end < 0) throw new Error("renderLevels block not found");
+          const block = index.slice(start, end);
+          if (!block.includes("d.capabilities_registry")) throw new Error("renderLevels must read capabilities_registry");
+          if (!block.includes("effective_state")) throw new Error("renderLevels must use effective capability state");
+          if (!block.includes("sm.capabilities || []")) throw new Error("legacy capability fallback missing");
+          console.log("Capability registry consumption guard OK");
+          NODE
+
       - name: Guard Brain count authorization contract
         run: |
           node - <<'NODE'
