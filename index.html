@@ -582,7 +582,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 
         <div style="margin-top:16px;background:#16161b;border:3px solid var(--border);padding:14px">
           <h4 style="font-family:'Press Start 2P', monospace;font-size:12px;">🔧 Fase 8 — Tool Registry</h4>
-          <p style="font-size:11px;color:var(--muted);margin-top:6px">11 herramientas reales registradas. Cada invocación queda en un log persistente.</p>
+          <p style="font-size:11px;color:var(--muted);margin-top:6px">12 herramientas reales registradas. Cada invocación queda en un log persistente.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
             <button class="pixel-btn" onclick="f8ListTools()">📚 Listar tools</button>
             <button class="pixel-btn" onclick="f8TestWebSearch()">🔎 Test web_search</button>
@@ -816,8 +816,10 @@ async function renderLevels(){
       {id:"V2", name:"Colmena", desc:"IndexedDB 100K + R2 10M", status: "verified"},
       {id:"V3", name:"Tavily + Jina", desc:"Busqueda real web 1000 req/mes", status: "verified"},
       {id:"V4", name:"Streaming AUTO", desc:"SSE 100% Interno auto-reparable sin boton", status: "verified"},
-      {id:"V5", name:"Imagen + Video", desc:"Pollinations flux + gpt-oss-120b Groq", status: "verified"},
+      {id:"V5", name:"Imagen (experimental)", desc:"Proveedor externo; cuota gratuita no garantizada.", status: "partial"},
       {id:"V6", name:"Auto-Repair", desc:"Kira hija autonoma detecta y repara errores", status: "verified"},
+      {id:"V7", name:"PDF local", desc:"PyMuPDF local, archivos de hasta 5 MB.", status: "verified"},
+      {id:"V8", name:"Video", desc:"No implementado bajo la politica 100% gratuita.", status: "not_implemented"},
       {id:"F5", name:"Self-Model Persistente", desc:"Migracion 002. Entidad self_model.", status: capStatus("self_model_persistent")},
       {id:"F6", name:"Grafo Neuronal + Aprendizaje", desc:"Migraciones 003 + 010. Auto-conexion por tags activa.", status: capStatus("graph_persistent")},
       {id:"F7", name:"Ciclo Cognitivo Persistente", desc:"Migraciones 004, 005, 006. 9 etapas.", status: capStatus("cognitive_cycle_persistent")},

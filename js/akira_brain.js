@@ -413,8 +413,10 @@ function renderLevels(){
     {nivel:"V2 Colmena", estado:"✅", desc:"IndexedDB 100K + R2 10M", costo:"$0"},
     {nivel:"V3 Tavily + Jina", estado:"✅", desc:"Busqueda real web 1000 req/mes", costo:"$0"},
     {nivel:"V4 Streaming AUTO", estado:"✅", desc:"SSE 100% interno auto-reparable sin botón", costo:"$0"},
-    {nivel:"V5 Imagen + Video", estado:"✅", desc:"Pollinations flux + gpt-oss-120b Groq", costo:"$0"},
+    {nivel:"V5 Imagen (experimental)", estado:"🟡", desc:"Proveedor externo; cuota gratuita no garantizada", costo:"No garantizado"},
     {nivel:"V6 Auto-Repair", estado:"✅", desc:"Akira hija autónoma detecta y repara errores", costo:"$0"},
+    {nivel:"V7 PDF local", estado:"✅", desc:"PyMuPDF local, hasta 5MB por archivo", costo:"$0"},
+    {nivel:"V8 Video", estado:"🔴", desc:"No implementado bajo la política 100% gratuita", costo:"$0"},
   ];
   const container = document.getElementById("levelsList");
   if(!container) return;
