@@ -157,6 +157,18 @@ jobs:
             if (!text.includes("akiraHandleAuthFailure(401)")) throw new Error(name+" must invalidate session on HTTP 401");
           }
           if (!index.includes('"akira_is_owner"') || !index.includes("localStorage.removeItem(k)")) throw new Error("legacy owner flag should be actively purged");
+          const adminStart = index.indexOf('<div id="adminSection" class="section">');
+          const adminEnd = index.indexOf('\n<script>\nif(!localStorage.getItem("akira_backend_url"))', adminStart);
+          if (adminStart < 0 || adminEnd < 0) throw new Error("admin section boundaries not found");
+          const adminHtml = index.slice(adminStart, adminEnd);
+          for (const forbidden of ["Panel Técnico Akira","Tool Registry","Self-Model","Ciclo Cognitivo","verificar sesión de propietario"]) {
+            if (adminHtml.includes(forbidden)) throw new Error("admin UI still exposes technical label: " + forbidden);
+          }
+          for (const required of ["Control de Akira","Actualizar estado de Akira","Ver qué sabe Akira sobre sí misma","Ver todos los agentes y su estado","Abrir el centro de Misiones"]) {
+            if (!adminHtml.includes(required)) throw new Error("owner-friendly admin label missing: " + required);
+          }
+          if (!admin.includes("adminAddSelfNote")) throw new Error("plain-language self-knowledge action missing");
+          console.log("owner-friendly admin UI guard OK");
           console.log("signed-session UX contract guard OK");
           NODE
 
