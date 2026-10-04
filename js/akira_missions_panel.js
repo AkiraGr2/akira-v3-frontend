@@ -113,7 +113,11 @@
     }
 
     if (!response.ok) {
+      const authText = typeof window.akiraAuthErrorText === "function"
+        ? window.akiraAuthErrorText(response.status)
+        : "";
       const message =
+        authText ||
         data?.detail ||
         data?.message ||
         data?.reason ||
