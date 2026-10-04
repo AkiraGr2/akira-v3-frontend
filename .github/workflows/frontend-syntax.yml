@@ -197,6 +197,9 @@ jobs:
           if (!missions.includes('setMissionActionBusy(id, "execute")')) throw new Error("mission execution lock missing");
           if (!missions.includes('actionBusyFor(id, "execute") ? "disabled" : ""')) throw new Error("mission execute button must disable while busy");
           if (!missions.includes('updated?.status !== "running"')) throw new Error("mission execution lock must be released at terminal state");
+          const brain = fs.readFileSync("js/akira_brain.js", "utf8");
+          if (/^function\\s+renderLevels\\s*\\(/m.test(brain)) throw new Error("legacy brain.js renderLevels must not override the authoritative levels renderer");
+          if ((index.match(/function\\s+renderLevels\\s*\\(/g) || []).length !== 1) throw new Error("exactly one authoritative renderLevels function is expected");
           console.log("interactive UI integrity guard OK");
           NODE
 
