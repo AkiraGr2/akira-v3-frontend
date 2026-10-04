@@ -629,16 +629,70 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 
 <script>
 if(!localStorage.getItem("akira_backend_url")) localStorage.setItem("akira_backend_url", "https://akira-empresa.onrender.com");
-function akiraAuthHeaders(){
-  const h={'Content-Type':'application/json'};
+function akiraClearSession(reason){
   try{
-    const t=localStorage.getItem('akira_session_token');
-    const exp=parseInt(localStorage.getItem('akira_session_exp')||'0',10);
-    if(t && exp>Math.floor(Date.now()/1000)) h['Authorization']='Bearer '+t;
+    ["akira_session_token","akira_session_exp","akira_user_id","akira_user_email","akira_is_owner"].forEach(k=>localStorage.removeItem(k));
+  }catch(e){}
+  const i=document.getElementById("userInfo");
+  if(i){i.style.display="none";i.textContent="";}
+  const av=document.getElementById("userAvatar");
+  if(av) av.textContent="";
+  const adminLogin=document.getElementById("adminLogin");
+  const adminPanel=document.getElementById("adminPanel");
+  if(adminPanel) adminPanel.style.display="none";
+  if(adminLogin) adminLogin.style.display="block";
+  window.akiraSessionState={authenticated:false,is_owner:false,reason:String(reason||"session_cleared")};
+  try{window.dispatchEvent(new CustomEvent("akira:session-invalid",{detail:window.akiraSessionState}));}catch(e){}
+}
+
+function akiraHandleAuthFailure(status){
+  if(Number(status)===401) akiraClearSession("unauthorized");
+  return Number(status)||0;
+}
+
+function akiraAuthHeaders(){
+  const h={"Content-Type":"application/json"};
+  try{
+    const t=localStorage.getItem("akira_session_token");
+    const exp=parseInt(localStorage.getItem("akira_session_exp")||"0",10);
+    const now=Math.floor(Date.now()/1000);
+    if(t && exp>now) h["Authorization"]="Bearer "+t;
+    else if(t || exp) akiraClearSession("expired_local_session");
   }catch(e){}
   return h;
 }
+
+async function akiraVerifySession(){
+  const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+  const t=localStorage.getItem("akira_session_token");
+  const exp=parseInt(localStorage.getItem("akira_session_exp")||"0",10);
+  if(!t || exp<=Math.floor(Date.now()/1000)){
+    akiraClearSession("missing_or_expired");
+    return {ok:false,status:401,authenticated:false};
+  }
+  try{
+    const r=await fetch(b+"/api/v8/me",{headers:akiraAuthHeaders(),cache:"no-store"});
+    let d=null;
+    try{d=await r.json();}catch(e){}
+    if(r.status===401){
+      akiraHandleAuthFailure(401);
+      return {ok:false,status:401,authenticated:false,data:d};
+    }
+    if(r.ok && d && d.authenticated===true){
+      localStorage.setItem("akira_user_email",String(d.email||""));
+      window.akiraSessionState=d;
+      return Object.assign({ok:true,status:r.status},d);
+    }
+    return {ok:false,status:r.status,authenticated:Boolean(d&&d.authenticated),data:d};
+  }catch(e){
+    return {ok:false,status:0,authenticated:false,error:String((e&&e.message)||e)};
+  }
+}
+
+window.akiraClearSession=akiraClearSession;
+window.akiraHandleAuthFailure=akiraHandleAuthFailure;
 window.akiraAuthHeaders=akiraAuthHeaders;
+window.akiraVerifySession=akiraVerifySession;
 
 function showSection(name){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
