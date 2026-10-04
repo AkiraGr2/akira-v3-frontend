@@ -1086,7 +1086,6 @@
       const score = Math.max(0, Math.min(1, 0.28*weight + 0.27*reuse + 0.18*confidence + 0.27*deg));
       n._importance = id === core ? 1 : score;
       n._degree = degree.get(id)||0;
-      importance.set(id, n._importance);
     }
 
     const clusters = new Map();
@@ -1597,22 +1596,6 @@
     return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   }
 
-  function set3dAvailability(available){
-    const b3 = document.getElementById("brainMode3d");
-    if(!b3) return;
-    const ready = !!available;
-    b3.style.display = ready ? "inline-flex" : "none";
-    b3.setAttribute("aria-hidden", ready ? "false" : "true");
-    if(ready){
-      b3.removeAttribute("tabindex");
-      b3.disabled = false;
-    }else{
-      b3.setAttribute("tabindex","-1");
-      b3.disabled = true;
-      b3.classList.remove("active");
-    }
-  }
-
   function setModeUI(mode){
     currentMode = mode === "3d" ? "3d" : "2d";
     const v2 = document.getElementById("brainView2d");
@@ -2090,7 +2073,6 @@
           '<button type="button" class="pixel-btn" onclick="window.akiraBrainRetry3d && akiraBrainRetry3d()">🔄 REINTENTAR 3D</button>' +
           '</div>';
         console.warn("[akira-brain-3d] force-graph", e);
-        set3dAvailability(false);
         return;
       }
     }
@@ -2171,7 +2153,6 @@
         });
 
       initialized = true;
-      set3dAvailability(true);
       try {
         let animationFrame = 0;
         fg.onRenderFramePre(() => {
@@ -2451,7 +2432,6 @@
         neuralStarMaterial = null;
       }
     }
-    set3dAvailability(false);
     if(container){
       container.innerHTML = '<div style="padding:24px;color:#9ca3af;font-family:monospace;text-align:center">Cargando motor 3D…</div>';
     }
