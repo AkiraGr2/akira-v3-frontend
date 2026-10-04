@@ -186,11 +186,11 @@ jobs:
           if (!index.includes("id=\"f8Output\" class=\"admin-v2-output\"")) throw new Error("tool result surface missing");
           if (!index.includes('id:"F8", name:"Herramientas de Akira"')) throw new Error("level F8 must use owner-friendly label");
           if (index.includes("12 herramientas registradas")) throw new Error("stale tool count remains");
-          if (index.includes("si tienes tu propia key de Google o Groq")) throw new Error("UI must not promise unsupported Groq user-key flow");
+          if (index.includes("Google o Groq")) throw new Error("UI must not promise unsupported Groq user-key flow");
 
           if (!office.includes("const POLL_MS = 8000")) throw new Error("office polling interval missing");
           if (!office.includes("window.setInterval")) throw new Error("office live polling is not scheduled");
-          if (!office.includes("current.classList.contains("active")")) throw new Error("office polling must respect section visibility");
+          if (!office.includes('current.classList.contains("active")')) throw new Error("office polling must respect section visibility");
           if (!office.includes("const renderTs=paused ? lastTs : ts")) throw new Error("office pause must freeze visual time");
           if (!office.includes("if(ar.ok || tr.ok) lastPoll=Date.now()")) throw new Error("office sync timestamp must represent a successful read");
 
