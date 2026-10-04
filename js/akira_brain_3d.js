@@ -1620,6 +1620,7 @@
     updateOrbitUI();
     if(currentMode === "3d"){
       ensure3d().then(() => {
+        if(currentMode !== "3d") return;
         scheduleGraphRefresh();
         setTimeout(() => { try { if(fg) fg.width(document.getElementById("membrane3d")?.clientWidth || undefined).height(document.getElementById("membrane3d")?.clientHeight || undefined); } catch(_){} }, 60);
       });
@@ -2285,7 +2286,7 @@
       } catch(_) {}
       clearInterval(refreshTimer);
       refreshTimer = null;
-      scheduleGraphRefresh();
+      if(currentMode === "3d") scheduleGraphRefresh();
       apply3dRuntime();
     }catch(e){
       console.error("[akira-brain-3d] init",e);
@@ -2465,6 +2466,7 @@
     setModeUI(mode);
     if(mode === "3d"){
       ensure3d().then(() => {
+        if(currentMode !== "3d") return;
         scheduleGraphRefresh();
         if(fg){
           try { if(typeof fg.resumeAnimation === "function") fg.resumeAnimation(); } catch(_) {}
