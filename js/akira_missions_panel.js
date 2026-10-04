@@ -1350,7 +1350,6 @@
           class="mission-action"
           data-mission-action="diagnose"
           data-mission-id="${escapeHtml(id)}"
-          ${actionBusyFor(id, "execute") ? "disabled" : ""}
         >
           🔎 Diagnosticar planificación
         </button>
@@ -1366,6 +1365,7 @@
           class="mission-action mission-action-primary"
           data-mission-action="execute"
           data-mission-id="${escapeHtml(id)}"
+          ${actionBusyFor(id, "execute") ? "disabled" : ""}
         >
           ${actionBusyFor(id, "execute") ? "⏳ Ejecución en curso..." : "▶ Ejecutar"}
         </button>
@@ -1399,8 +1399,9 @@
           class="mission-action mission-action-primary"
           data-mission-action="execute"
           data-mission-id="${escapeHtml(id)}"
+          ${actionBusyFor(id, "execute") ? "disabled" : ""}
         >
-          ▶ Ejecutar
+          ${actionBusyFor(id, "execute") ? "⏳ Iniciando..." : "▶ Ejecutar"}
         </button>
       `;
     }
