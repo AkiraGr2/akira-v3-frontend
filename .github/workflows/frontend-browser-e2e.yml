@@ -17,8 +17,11 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install Playwright
+        run: npm install --no-save --no-package-lock playwright@latest
+
       - name: Install Chromium
-        run: npx -y playwright@latest install --with-deps chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Serve checked-out frontend
         run: |
@@ -28,7 +31,7 @@ jobs:
 
       - name: Smoke test checked-out Brain 2D/3D
         run: |
-          npx -y -p playwright node <<'NODE'
+          node <<'NODE'
           const { chromium } = require("playwright");
 
           (async () => {
