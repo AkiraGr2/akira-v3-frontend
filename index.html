@@ -645,6 +645,11 @@ function akiraClearSession(reason){
   try{window.dispatchEvent(new CustomEvent("akira:session-invalid",{detail:window.akiraSessionState}));}catch(e){}
 }
 
+function akiraAuthErrorText(status){
+  if(Number(status)===401) return "Sesión no válida o expirada. Entra a Cuenta e inicia sesión.";
+  if(Number(status)===403) return "No autorizado (requiere propietario).";
+  return "";
+}
 function akiraHandleAuthFailure(status){
   if(Number(status)===401) akiraClearSession("unauthorized");
   return Number(status)||0;
@@ -691,6 +696,7 @@ async function akiraVerifySession(){
 
 window.akiraClearSession=akiraClearSession;
 window.akiraHandleAuthFailure=akiraHandleAuthFailure;
+window.akiraAuthErrorText=akiraAuthErrorText;
 window.akiraAuthHeaders=akiraAuthHeaders;
 window.akiraVerifySession=akiraVerifySession;
 
