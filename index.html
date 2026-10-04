@@ -509,7 +509,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
   <div id="levelsSection" class="section">
     <div class="section-header">
       <h2>📊 Niveles del Proyecto</h2>
-      <p>Estado real de cada fase, leído desde el self-model persistente. Verde = verificado, amarillo = parcial, rojo = no implementado.</p>
+      <p>Estado de las capacidades registradas de Akira. Cuando existe una verificación del sistema se muestra aquí; verde = verificado, amarillo = parcial, rojo = no implementado.</p>
     </div>
     <div style="padding:22px;max-width:800px;margin:0 auto;width:100%;overflow-y:auto">
       <div id="levelsList" style="display:flex;flex-direction:column;gap:10px"></div>
@@ -519,7 +519,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
   <div id="upworkSection" class="section">
     <div class="section-header">
       <h2>💼 Upwork</h2>
-      <p>Akira buscará trabajos, filtrará, preparará propuestas y entregará proyectos freelance.</p>
+      <p>Pega la descripción de un trabajo y Akira te ayuda a preparar una propuesta para postularte.</p>
     </div>
     <div style="padding:22px;max-width:800px;margin:0 auto;width:100%;overflow-y:auto">
       <textarea id="upworkDesc" placeholder="Pega descripción trabajo Upwork..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;min-height:120px;font-family:'Pixelify Sans', sans-serif;border-radius:0;"></textarea>
@@ -542,7 +542,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
       <h3 style="margin-top:24px;font-family:'Press Start 2P', monospace;font-size:14px;">🔑 Mi API Key de Google (opcional)</h3>
       <p style="font-size:12.5px;color:var(--muted);margin-top:6px">Puedes guardar una API Key de Google para que Akira la use en tus conversaciones desde este dispositivo. La clave queda guardada localmente en este navegador.</p>
       <input id="apiKeyInput" type="password" placeholder="AIza..." autocomplete="off" spellcheck="false" style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:12px;color:#fff;margin-top:12px;font-family:'Pixelify Sans', sans-serif;border-radius:0;">
-      <div style="display:flex;gap:8px;margin-top:10px"><button class="pixel-btn" onclick="saveKey()">💾 Guardar mi API Key</button><button class="pixel-btn" onclick="testKeys()">🧪 Comprobar formato</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="pixel-btn" onclick="saveKey()">💾 Guardar mi API Key</button><button class="pixel-btn" onclick="testKeys()">🧪 Comprobar formato</button><button class="pixel-btn" onclick="clearKey()">🗑️ Borrar mi API Key</button></div>
       <div id="keyStatus" style="margin-top:12px;font-size:12px;color:var(--muted)"></div>
       <div style="margin-top:24px;background:#0e0e12;border:3px solid var(--border);padding:14px;">
         <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block"></span><span style="font-size:13px;font-weight:600" id="bridgeSimple">Conectado</span></div>
@@ -1019,6 +1019,16 @@ function saveKey(){
     if(status) status.textContent="✅ API Key guardada localmente en este navegador. Akira podrá usarla en tus próximas conversaciones.";
   }catch(e){
     if(status) status.textContent="No se pudo guardar la API Key en este navegador.";
+  }
+}
+
+function clearKey(){
+  const status=document.getElementById("keyStatus");
+  try{
+    localStorage.removeItem("akira_user_key");
+    if(status) status.textContent="✅ API Key eliminada de este navegador.";
+  }catch(e){
+    if(status) status.textContent="No se pudo eliminar la API Key de este navegador.";
   }
 }
 
