@@ -211,6 +211,9 @@ jobs:
           if (!brain3d.includes("window.akiraBrainClearSelection3D")) throw new Error("3D selection clear hook missing");
           if (!membrane.includes("window.akiraBrainClearSelection3D()")) throw new Error("2D/3D selection clear bridge missing");
           if (!brain3d.includes("window.akiraBrainSetMode")) throw new Error("brain mode control missing");
+          if (!index.includes('id="brainMode3d" class="brain-mode"')) throw new Error("3D brain button missing");
+          if (!index.includes("akiraBrainSetMode('3d')")) throw new Error("3D brain button must invoke the 3D mode");
+          if (index.includes('id="brainMode3d" class="brain-mode" type="button" style="display:none"')) throw new Error("3D brain button must not remain hidden");
           console.log("interactive UI integrity guard OK");
           NODE
 
