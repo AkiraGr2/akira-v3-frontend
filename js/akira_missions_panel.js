@@ -68,8 +68,6 @@
       } catch (_) {}
     }
 
-    const token = getToken();
-
     headers = Object.assign(
       headers,
       options.headers || {}
