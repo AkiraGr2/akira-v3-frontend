@@ -200,6 +200,17 @@ jobs:
           const brain = fs.readFileSync("js/akira_brain.js", "utf8");
           if (/^function\\s+renderLevels\\s*\\(/m.test(brain)) throw new Error("legacy brain.js renderLevels must not override the authoritative levels renderer");
           if ((index.match(/function\\s+renderLevels\\s*\\(/g) || []).length !== 1) throw new Error("exactly one authoritative renderLevels function is expected");
+          if (index.includes('user-scalable=no')) throw new Error("mobile UI must not disable user zoom");
+          const sync = fs.readFileSync("js/hybrid_sync.js", "utf8");
+          if (!sync.includes("window.akiraAuthHeaders()")) throw new Error("shared brain counter read must use signed session headers");
+          if (!sync.includes("window.akiraHandleAuthFailure(401)")) throw new Error("shared brain counter must invalidate expired sessions");
+          if (!missions.includes("window.missionPanelRenderList")) throw new Error("mission search render handler must be public to the HTML");
+          if (missions.includes("getToken()")) throw new Error("missions must not call removed getToken helper");
+          const brain3d = fs.readFileSync("js/akira_brain_3d.js", "utf8");
+          const membrane = fs.readFileSync("js/obsidian_membrane.js", "utf8");
+          if (!brain3d.includes("window.akiraBrainClearSelection3D")) throw new Error("3D selection clear hook missing");
+          if (!membrane.includes("window.akiraBrainClearSelection3D()")) throw new Error("2D/3D selection clear bridge missing");
+          if (!brain3d.includes("window.akiraBrainSetMode")) throw new Error("brain mode control missing");
           console.log("interactive UI integrity guard OK");
           NODE
 
