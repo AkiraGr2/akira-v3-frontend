@@ -782,6 +782,7 @@ async function generateUpwork(){const desc=document.getElementById("upworkDesc")
 async function countNeuronas(){try{const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";const r=await fetch(b+"/api/brain/count",{cache:"no-store"});const d=await r.json();const el=document.getElementById("neuronCount");if(el) el.textContent = d.total || "0";}catch(e){console.log("countNeuronas error",e);}}
 
 document.addEventListener("DOMContentLoaded", async ()=>{
+  fetchRuntimeCapabilities();
   checkBridgeSimple();
   setInterval(checkBridgeSimple, 30000);
   if('serviceWorker' in navigator){
@@ -800,6 +801,24 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 <script src="./js/akira_admin.js?v=akira-admin-v1-7-reinforce-timeout"></script>
 <script src="./js/akira_missions_panel.js?v=akira-missions-v5"></script>
 <script>
+async function fetchRuntimeCapabilities(){
+  const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+  try{
+    const r=await fetch(b+"/api/v8/runtime/capabilities",{cache:"no-store"});
+    const d=await r.json();
+    if(!d || !d.ok) throw new Error((d && d.reason) || "runtime_capabilities_unavailable");
+    window.akiraRuntimeCapabilities=d;
+    return d;
+  }catch(e){
+    window.akiraRuntimeCapabilities=null;
+    return null;
+  }
+}
+
+function runtimeStatus(status){
+  return status === "ready" ? "verified" : (status === "experimental" || status === "partial" ? "partial" : "not_implemented");
+}
+
 async function renderLevels(){
   const listEl=document.getElementById("levelsList");
   if(!listEl) return;
@@ -811,37 +830,42 @@ async function renderLevels(){
     if(!d.ok) throw new Error(d.reason || "self_model_unavailable");
     const sm = d.self_model;
     const capStatus = (name) => {const c = (sm.capabilities||[]).find(x=>x.name===name);return c ? c.status : "not_implemented";};
+    const runtime=window.akiraRuntimeCapabilities || await fetchRuntimeCapabilities();
+    const imageStatus=runtimeStatus(runtime && runtime.image && runtime.image.status);
+    const pdfStatus=runtimeStatus(runtime && runtime.pdf && runtime.pdf.status);
+    const videoStatus=runtimeStatus(runtime && runtime.video && runtime.video.status);
+    const imageDesc=runtime && runtime.image ? "Proveedor externo; gratuidad no garantizada." : "Estado runtime no verificado.";
+    const pdfDesc=runtime && runtime.pdf ? "Motor local PyMuPDF, límite de 5 MB." : "Estado runtime no verificado.";
+    const videoDesc=runtime && runtime.video ? "No implementado bajo la política 100% gratuita." : "Estado runtime no verificado.";
     const levels = [
-      {id:"V1", name:"Chat", desc:"Chat basico Gemini 3.8-flash Sept 2026", status: "verified"},
-      {id:"V2", name:"Colmena", desc:"IndexedDB 100K + R2 10M", status: "verified"},
-      {id:"V3", name:"Tavily + Jina", desc:"Busqueda real web 1000 req/mes", status: "verified"},
-      {id:"V4", name:"Streaming AUTO", desc:"SSE 100% Interno auto-reparable sin boton", status: "verified"},
-      {id:"V5", name:"Imagen (experimental)", desc:"Proveedor externo; cuota gratuita no garantizada.", status: "partial"},
-      {id:"V6", name:"Auto-Repair", desc:"Kira hija autonoma detecta y repara errores", status: "verified"},
-      {id:"V7", name:"PDF local", desc:"PyMuPDF local, archivos de hasta 5 MB.", status: "verified"},
-      {id:"V8", name:"Video", desc:"No implementado bajo la politica 100% gratuita.", status: "not_implemented"},
-      {id:"F5", name:"Self-Model Persistente", desc:"Migracion 002. Entidad self_model.", status: capStatus("self_model_persistent")},
-      {id:"F6", name:"Grafo Neuronal + Aprendizaje", desc:"Migraciones 003 + 010. Auto-conexion por tags activa.", status: capStatus("graph_persistent")},
+      {id:"V1", name:"Chat", desc:"Chat multi-proveedor con fallback.", status: "verified"},
+      {id:"V2", name:"Colmena", desc:"IndexedDB + almacenamiento compartido.", status: "verified"},
+      {id:"V3", name:"Búsqueda web", desc:"Herramientas web disponibles en el backend.", status: "verified"},
+      {id:"V4", name:"Streaming AUTO", desc:"SSE interno con fallback automático.", status: "verified"},
+      {id:"V5", name:"Imagen (experimental)", desc:imageDesc, status: imageStatus},
+      {id:"V6", name:"Auto-Repair", desc:"Reparación automática de transporte y fallbacks.", status: "verified"},
+      {id:"V7", name:"PDF local", desc:pdfDesc, status: pdfStatus},
+      {id:"V8", name:"Video", desc:videoDesc, status: videoStatus},
+      {id:"F5", name:"Self-Model Persistente", desc:"Migración 002. Entidad self_model.", status: capStatus("self_model_persistent")},
+      {id:"F6", name:"Grafo Neuronal + Aprendizaje", desc:"Migraciones 003 + 010. Auto-conexión por tags activa.", status: capStatus("graph_persistent")},
       {id:"F7", name:"Ciclo Cognitivo Persistente", desc:"Migraciones 004, 005, 006. 9 etapas.", status: capStatus("cognitive_cycle_persistent")},
-      {id:"F8", name:"Tool Registry", desc:"Migracion 007. 11 tools registradas.", status: capStatus("tool_registry")},
-      {id:"F9", name:"Agentes + Tareas", desc:"Migracion 008, 009. 5 agentes reales.", status: capStatus("agents_persistent")},
-      {id:"F10", name:"Mission Engine + Conversaciones", desc:"Migracion 011 + 012. Orquestador + chats persistentes.", status: capStatus("missions")},
+      {id:"F8", name:"Tool Registry", desc:"12 herramientas registradas.", status: capStatus("tool_registry")},
+      {id:"F9", name:"Agentes + Tareas", desc:"Migraciones 008, 009. 5 agentes reales.", status: capStatus("agents_persistent")},
+      {id:"F10", name:"Mission Engine + Conversaciones", desc:"Migraciones 011 + 012. Orquestador + chats persistentes.", status: capStatus("missions")},
       {id:"F11", name:"Self-Repair Real", desc:"No implementado", status: capStatus("self_repair_full")},
       {id:"F12", name:"Evolution Engine", desc:"No implementado", status: capStatus("evolution_engine")},
-      {id:"F13", name:"Autonomia Controlada", desc:"Futuro", status: "not_implemented"},
-      {id:"F14", name:"Auditoria V8 end-to-end", desc:"Futuro", status: "not_implemented"},
+      {id:"F13", name:"Autonomía Controlada", desc:"Futuro", status: "not_implemented"},
+      {id:"F14", name:"Auditoría V8 end-to-end", desc:"Futuro", status: "not_implemented"},
     ];
-    listEl.innerHTML = levels.map(l => `
-      <div style="background:#16161b;border:3px solid var(--border);padding:12px;display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-family:'Press Start 2P', monospace;font-size:12px;">${l.id} ${l.name}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;">${l.desc}</div>
-        </div>
-        <div style="font-size:20px;">${l.status === 'verified' ? '🟢' : (l.status === 'partial' ? '🟡' : '🔴')}</div>
-      </div>
-    `).join('');
+    listEl.innerHTML = levels.map(l => (
+      '<div style="background:#16161b;border:3px solid var(--border);padding:12px;display:flex;justify-content:space-between;align-items:center;">' +
+        '<div><div style="font-family:\'Press Start 2P\', monospace;font-size:12px;">'+l.id+' '+l.name+'</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px;">'+l.desc+'</div></div>' +
+        '<div style="font-size:20px;">'+(l.status === "verified" ? "🟢" : (l.status === "partial" ? "🟡" : "🔴"))+'</div>' +
+      '</div>'
+    )).join("");
   }catch(e){
-    listEl.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px;">Error al cargar niveles: ${e.message}</div>`;
+    listEl.innerHTML = '<div style="color:#ef4444;text-align:center;padding:20px;">Error al cargar niveles: '+e.message+'</div>';
   }
 }
 </script>
