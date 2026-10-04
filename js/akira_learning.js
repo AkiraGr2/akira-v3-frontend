@@ -351,7 +351,9 @@
           }
         }
       } else if(r.status === 401){
-        detail += " · sesión requerida";
+        detail += " · " + (typeof window.akiraAuthErrorText === "function" ? window.akiraAuthErrorText(401) : "sesión requerida");
+      } else if(r.status === 403){
+        detail += " · " + (typeof window.akiraAuthErrorText === "function" ? window.akiraAuthErrorText(403) : "no autorizado");
       }
       if(!detail || detail === ("HTTP "+r.status)){
         if(r.parseError) detail += " · parse_error="+r.parseError;
