@@ -1,0 +1,95 @@
+name: Frontend browser E2E
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  brain-2d-3d:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright
+        run: npm install --no-save --no-package-lock playwright@latest
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Serve checked-out frontend
+        run: |
+          python3 -m http.server 4173 --directory . > /tmp/akira-pages.log 2>&1 &
+          echo $! > /tmp/akira-pages.pid
+          sleep 2
+
+      - name: Smoke test checked-out Brain 2D/3D
+        run: |
+          node <<'NODE'
+          const { chromium } = require("playwright");
+
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+            const page = await browser.newPage({viewport:{width:1440,height:900}, deviceScaleFactor:1});
+            const errors = [];
+            page.on("pageerror", err => errors.push(String(err && err.message || err)));
+
+            await page.goto("http://127.0.0.1:4173/", {
+              waitUntil:"domcontentloaded",
+              timeout:30000
+            });
+
+            await page.click("#btn-membrane");
+            await page.waitForSelector("#brainMode3d", {state:"visible", timeout:10000});
+            await page.click("#brainMode3d");
+
+            await page.waitForFunction(() => {
+              const view = document.querySelector("#brainView3d");
+              return view && !view.classList.contains("is-hidden");
+            }, null, {timeout:10000});
+
+            await page.waitForSelector("#membrane3d canvas", {state:"visible", timeout:20000});
+
+            const mode3d = await page.$eval("#brainMode3d", el => ({
+              active: el.classList.contains("active"),
+              pressed: el.getAttribute("aria-pressed")
+            }));
+            if(!mode3d.active || mode3d.pressed !== "true"){
+              throw new Error("3D mode did not become active");
+            }
+
+            const orbit3d = await page.$eval("#brainOrbitBtn", el => ({
+              disabled: el.disabled,
+              title: el.title
+            }));
+            if(orbit3d.disabled) throw new Error("Orbit must be available in 3D");
+
+            await page.click("#brainMode2d");
+            await page.waitForFunction(() => {
+              const view = document.querySelector("#brainView2d");
+              return view && !view.classList.contains("is-hidden");
+            }, null, {timeout:10000});
+
+            const orbit2d = await page.$eval("#brainOrbitBtn", el => el.disabled);
+            if(!orbit2d) throw new Error("Orbit must be disabled in 2D");
+
+            await page.click("#brainMode3d");
+            await page.waitForSelector("#membrane3d canvas", {state:"visible", timeout:10000});
+
+            if(errors.length){
+              throw new Error("Unexpected page errors: " + errors.slice(0,5).join(" | "));
+            }
+
+            console.log("BRAIN_2D_3D_SMOKE_PASS");
+            await browser.close();
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          NODE
