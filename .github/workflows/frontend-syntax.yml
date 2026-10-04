@@ -76,6 +76,26 @@ jobs:
           NODE
 
 
+      - name: Guard Brain count authorization contract
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const index = fs.readFileSync("index.html", "utf8");
+          const syncStart = index.indexOf("async function forceSyncR2");
+          const syncEnd = index.indexOf("\nfunction exportBackup", syncStart);
+          const countStart = index.indexOf("async function countNeuronas");
+          const countEnd = index.indexOf("\ndocument.addEventListener", countStart);
+          if (syncStart < 0 || syncEnd < 0) throw new Error("forceSyncR2 block not found");
+          if (countStart < 0 || countEnd < 0) throw new Error("countNeuronas block not found");
+          const syncBlock = index.slice(syncStart, syncEnd);
+          const countBlock = index.slice(countStart, countEnd);
+          for (const [name, block] of [["forceSyncR2", syncBlock], ["countNeuronas", countBlock]]) {
+            if (!block.includes("akiraAuthHeaders()")) throw new Error(name+" must use signed session headers");
+            if (!block.includes("akiraHandleAuthFailure(401)")) throw new Error(name+" must invalidate session on 401");
+          }
+          console.log("Brain count authorization guard OK");
+          NODE
+
       - name: Guard signed-session UX contract
         run: |
           node - <<'NODE'
