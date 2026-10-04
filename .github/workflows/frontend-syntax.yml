@@ -195,8 +195,8 @@ jobs:
           if (!missions.includes('actionBusyFor(id, "execute") ? "disabled" : ""')) throw new Error("mission execute button must disable while busy");
           if (!missions.includes('updated?.status !== "running"')) throw new Error("mission execution lock must be released at terminal state");
           const brain = fs.readFileSync("js/akira_brain.js", "utf8");
-          if (/^function\\s+renderLevels\\s*\\(/m.test(brain)) throw new Error("legacy brain.js renderLevels must not override the authoritative levels renderer");
-          if ((index.match(/function\\s+renderLevels\\s*\\(/g) || []).length !== 1) throw new Error("exactly one authoritative renderLevels function is expected");
+          if (/^function\s+renderLevels\s*\(/m.test(brain)) throw new Error("legacy brain.js renderLevels must not override the authoritative levels renderer");
+          if ((index.match(/function\s+renderLevels\s*\(/g) || []).length !== 1) throw new Error("exactly one authoritative renderLevels function is expected");
           if (index.includes('user-scalable=no')) throw new Error("mobile UI must not disable user zoom");
           const sync = fs.readFileSync("js/hybrid_sync.js", "utf8");
           if (!sync.includes("async function countNeuronas()")) throw new Error("authoritative counter function missing from hybrid_sync.js");
