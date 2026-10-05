@@ -1,5 +1,5 @@
 {
-  "version": "6.0",
+  "version": "7.0",
   "scene": "assets/office/01_akira_office_floor_v5_doors.png",
   "scene_px": [
     1536,
@@ -1044,8 +1044,8 @@
     },
     "agent_clearance_px": 13,
     "speed_px_per_second": 74,
-    "walk_frame_ms": 130,
-    "note": "V6 semantic office: backend-authoritative tasks, role-based station fallback, exact interaction points, deterministic meeting seats, physical-door routes, no random roaming, no visible route debug."
+    "walk_frame_ms": 115,
+    "note": "Backend task state is authoritative. Agents move through physical doors/corridors, use calibrated interaction points, and use the directional locomotion atlas for walking. No random roaming or debug route rendering."
   },
   "station_resolution": {
     "explicit_fields": [
@@ -1467,5 +1467,38 @@
     "working_home_monitor": true,
     "station_badges": true,
     "static_scene_not_duplicated": true
+  },
+  "directional_walk": {
+    "path": "assets/office/02_akira_agents_walk_directional_v8_transparent.png",
+    "columns": 16,
+    "rows": 9,
+    "row_order": [
+      "Akira",
+      "Luna",
+      "Nexo",
+      "Nova",
+      "Orion",
+      "Kaori",
+      "Zeri",
+      "Lyra",
+      "Dante"
+    ],
+    "vertical_front": {
+      "start": 0,
+      "count": 4
+    },
+    "vertical_back": {
+      "start": 4,
+      "count": 4
+    },
+    "horizontal_left": {
+      "start": 8,
+      "count": 4
+    },
+    "horizontal_right": {
+      "start": 12,
+      "count": 4
+    },
+    "note": "Transparent directional locomotion atlas. Front=4, back=4, left=4, right=4 frames per agent. No horizontal mirroring."
   }
 }
