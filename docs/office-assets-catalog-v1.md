@@ -1,51 +1,35 @@
-# Akira Office — Asset Catalog V1
+# AKIRA OFFICE — AUTHORED PIXEL ASSETS V2
 
 Fecha: 2026-10-05
 
 ## Decisión
 
-La Oficina no debe depender de muebles dibujados manualmente cuando existen assets 3D gratuitos y reutilizables con licencia clara.
+Los assets Pixel Art autorales existentes son la **fuente visual canónica de la Oficina**.
 
-La estrategia V1 usa un **mirror público de transporte** para los GLB, pero conserva el origen/licencia de cada asset y fija el commit del mirror.
+Archivos:
 
-Mirror:
+| Archivo | Uso |
+|---|---|
+| `LargePixelOffice.png` | Escena principal de Oficina |
+| `PixelOffice.png` | Fallback de la escena |
+| `PixelOfficeAssets.png` | Hoja de assets / referencia visual |
 
-- Repository: `yadneshSalvi/hearth-webmcp`
-- Commit: `617d6073a557cbc2f0f2ac917916e01b9c4b631b`
-- CREDITS.md del mirror identifica los packs originales y sus licencias.
+Estos archivos fueron incorporados al repositorio antes de la implementación actual de la Oficina y no deben quedar sin utilizar mientras sigan siendo el diseño aprobado.
 
-## Assets seleccionados
+## Eliminación de 3D
 
-| Categoría | Archivo | Creador/origen | Licencia |
-|---|---|---|---|
-| Desk | `desk-kari.glb` | Quaternius Furniture Pack | CC0 |
-| Chair | `chair-olve.glb` | Kenney Furniture Kit 2.0 | CC0 |
-| Shelf | `shelf-kant.glb` | Quaternius Furniture Pack | CC0 |
-| Lamp | `floor-lamp-arc.glb` | Kenney Furniture Kit 2.0 | CC0 |
-| Plant | `plant-fern.glb` | Isa Lousberg / House Plants set | CC0 |
-| Lounge | `armchair-kyst.glb` | KayKit Furniture Bits 1.0 | CC0 |
-| Meeting table | `table-rove.glb` | Kenney Furniture Kit 2.0 | CC0 |
-| Decoration | `decor-vase.glb` | CreativeTrio / Household Props 001 | CC0 |
+La Oficina ya no utiliza:
 
-## Fuentes oficiales
+- Three.js/WebGL para el escenario.
+- Modelos GLB de mobiliario.
+- Modelos GLB de personajes.
+- Registro de assets 3D específico de Oficina.
+- Renderer `akira-office-floor-v3.js`.
 
-- Quaternius Furniture Pack: https://quaternius.com/packs/furniture.html
-- Quaternius Ultimate House Interior Pack: https://quaternius.com/packs/ultimatehomeinterior.html
-- Quaternius Stylized Nature MegaKit: https://quaternius.com/packs/stylizednaturemegakit.html
-- Kenney Furniture Kit: https://kenney.nl/assets/furniture-kit
-- KayKit Furniture Bits: https://kaylousberg.itch.io/furniture-bits
+La importación de Three.js que permanezca en el proyecto corresponde únicamente a otras funciones independientes, como el Cerebro 3D, y no forma parte de la Oficina.
 
-## Principios de integración
+## Principio de fidelidad
 
-1. Licencia explícita antes de integrar.
-2. Commit/version pinning cuando el transporte sea externo.
-3. GLB/glTF preferido para Three.js.
-4. Reutilización de geometría mediante clones.
-5. Mantener fallback procedural si una descarga falla.
-6. No bloquear la Oficina completa por un asset decorativo opcional.
-7. Prioridad al rendimiento móvil.
+No se debe crear una representación procedural genérica cuando existe un asset autoral equivalente.
 
-## Scope
-
-Este catálogo no cambia backend, Supabase, RLS, Identity Root ni el modelo de verdad de agentes.
-
+La Oficina debe verse primero como el diseño aprobado y solo después enriquecerse con interacción y estado real.
