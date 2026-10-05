@@ -600,8 +600,24 @@ body{
   text-align:center;
 }
 @media(max-width:980px){
-  .office-v2-shell{grid-template-columns:1fr}
-  .office-v2-side{display:grid;grid-template-columns:1fr 1fr}
+  /* Mobile/tablet: stack the office viewport and its state panel.
+   * Flex is intentional here: the stage wrapper contains fixed-height
+   * visual canvases, so grid auto-row sizing can collapse the wrapper
+   * and let the side panel overlap its overflowing children. */
+  .office-v2-shell{
+    display:flex;
+    flex-direction:column;
+    overflow:auto;
+  }
+  .office-v2-stage-wrap{
+    flex:0 0 auto;
+    min-height:0;
+  }
+  .office-v2-side{
+    flex:0 0 auto;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
 }
 @media(max-width:700px){
   .office-v2-shell{padding:8px;gap:8px}

@@ -883,6 +883,12 @@ function showSection(name){
     if(window.initAkiraOfficePixel) initAkiraOfficePixel();
     if(window.initOfficeFloor) initOfficeFloor();
     window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"office"}}));
+    // Office was hidden during initial page boot; recalculate canvas geometry
+    // after the section is actually laid out.
+    requestAnimationFrame(()=>{
+      try{window.resizeAkiraOfficePixel && window.resizeAkiraOfficePixel();}catch(_){}
+      try{window.akiraOfficeResize && window.akiraOfficeResize();}catch(_){}
+    });
   }
   else if(name==='missions'){if(window.missionPanelLoad)window.missionPanelLoad();}
   else if(name==='levels'){renderLevels();}
@@ -1197,8 +1203,14 @@ async function renderLevels(){
   document.addEventListener("DOMContentLoaded",function(){
     const p=document.getElementById("officePixelMode");
     const t=document.getElementById("office3dMode");
-    if(p) p.addEventListener("click",()=>setOfficeView("pixel"));
-    if(t) t.addEventListener("click",()=>setOfficeView("3d"));
+    if(p) p.addEventListener("click",()=>{
+      setOfficeView("pixel");
+      requestAnimationFrame(()=>window.resizeAkiraOfficePixel&&window.resizeAkiraOfficePixel());
+    });
+    if(t) t.addEventListener("click",()=>{
+      setOfficeView("3d");
+      requestAnimationFrame(()=>window.akiraOfficeResize&&window.akiraOfficeResize());
+    });
     const refresh=document.getElementById("officeRefresh");
     if(refresh) refresh.addEventListener("click",()=>window.refreshAkiraOfficePixel&&refreshAkiraOfficePixel());
     const pause=document.getElementById("officePause");
