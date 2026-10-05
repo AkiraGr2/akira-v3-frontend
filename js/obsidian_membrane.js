@@ -3497,7 +3497,9 @@ async function refreshMembrane(
         ? e.message
         : e
     );
-    if (message === "HTTP 401") {
+    // Un fallo de autenticación/autorización no debe dejar el Brain completamente vacío.
+    // Si la vista privada no está disponible, usamos la topología pública segura.
+    if (message === "HTTP 401" || message === "HTTP 403") {
       try {
         const publicData = await _fetchPublicJson(
           "/api/v8/graph/public-overview"
