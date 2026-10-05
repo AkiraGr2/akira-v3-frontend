@@ -101,6 +101,9 @@
   let pollTimer = 0;
   let fetchBusy = false;
   let lastPoll = 0;
+  let syncStatus = "idle";
+  let syncHttpStatus = 0;
+  let syncError = "";
   let agents = [];
   let tasks = [];
   let actors = new Map();
@@ -305,7 +308,12 @@
     const list=document.getElementById("officeAgentList");
     if(!list) return;
     if(!agents.length){
-      list.innerHTML='<div class="office-empty">No hay agentes disponibles para esta sesión.</div>';
+      const emptyText = syncStatus === "auth_required"
+        ? "Inicia sesión como propietario para mostrar los agentes reales."
+        : (syncStatus === "forbidden"
+          ? "La sesión actual no tiene permisos para mostrar los agentes."
+          : (syncStatus === "error" ? "No se pudo sincronizar el registro real de agentes." : "No hay agentes disponibles para esta sesión."));
+      list.innerHTML='<div class="office-empty">'+esc(emptyText)+'</div>';
       updateDetail(null);
       return;
     }
@@ -818,10 +826,32 @@
     return loaded.some(Boolean);
   }
 
+  function normalizePlantAppearance(root){
+    if(!root) return;
+    const overall=new THREE.Box3().setFromObject(root);
+    const size=overall.getSize(new THREE.Vector3());
+    root.traverse(obj=>{
+      if(!obj.isMesh || !obj.material) return;
+      const mats=Array.isArray(obj.material)?obj.material:[obj.material];
+      const box=new THREE.Box3().setFromObject(obj);
+      const center=box.getCenter(new THREE.Vector3());
+      const relY=(center.y-overall.min.y)/Math.max(size.y,.001);
+      const name=(String(obj.name||"")+" "+mats.map(m=>String(m.name||"")).join(" ")).toLowerCase();
+      const isContainer=/pot|planter|container|base|vase/.test(name) || relY<0.28;
+      mats.forEach(m=>{
+        if(!m || !m.color) return;
+        m.color.set(isContainer?"#725742":"#4f9f68");
+        if("roughness" in m) m.roughness=Math.max(Number(m.roughness||0),.78);
+        if("metalness" in m) m.metalness=0;
+      });
+    });
+  }
+
   function addOfficeAsset(key,targetSize,position,rotationY){
     const root=cloneOfficeAsset(key);
     if(!root) return null;
     fitOfficeAsset(root,targetSize,position,rotationY);
+    if(key==="plant") normalizePlantAppearance(root);
     root.userData.officeAssetKey=key;
     scene.add(root);
     officeAssetInstances.push(root);
@@ -1248,16 +1278,40 @@
   }
 
   async function poll(){
-    if(fetchBusy || paused) return;
+    if(fetchBusy || paused) return false;
     fetchBusy=true;
+    syncStatus="loading";
+    syncHttpStatus=0;
+    syncError="";
+    const refresh=document.getElementById("officeRefresh");
+    if(refresh){
+      refresh.disabled=true;
+      refresh.textContent="Actualizando…";
+      refresh.setAttribute("aria-busy","true");
+    }
     try{
       const headers=authHeaders();
       const [ar,tr]=await Promise.all([
         fetch(backend()+"/api/v8/agents",{headers,cache:"no-store"}),
         fetch(backend()+"/api/v8/tasks?limit=100",{headers,cache:"no-store"})
       ]);
+      syncHttpStatus=ar.status || tr.status || 0;
       if(ar.status===401 && typeof window.akiraHandleAuthFailure==="function") window.akiraHandleAuthFailure(401);
       if(tr.status===401 && typeof window.akiraHandleAuthFailure==="function") window.akiraHandleAuthFailure(401);
+
+      if(ar.status===401 || tr.status===401){
+        syncStatus="auth_required";
+        syncError="owner_auth_required";
+        setOverlay("Inicia sesión como propietario para mostrar los agentes reales.","error");
+      }else if(ar.status===403 || tr.status===403){
+        syncStatus="forbidden";
+        syncError="owner_required";
+        setOverlay("La sesión actual no tiene permisos para mostrar los agentes.","error");
+      }else if(!ar.ok || !tr.ok){
+        syncStatus="error";
+        syncError="backend_sync_failed";
+        setOverlay("No se pudo sincronizar la Oficina con el registro real.","error");
+      }
 
       if(ar.ok){
         const data=await ar.json();
@@ -1269,6 +1323,11 @@
       }
 
       if(ar.ok || tr.ok) lastPoll=Date.now();
+      if(ar.ok && tr.ok){
+        syncStatus="ok";
+        syncHttpStatus=200;
+        syncError="";
+      }
       updateStats();
       renderList();
 
@@ -1278,13 +1337,23 @@
         if(key && !actors.has(key)) makeActor(a);
       });
 
-      setOverlay("", "");
-      window.dispatchEvent(new CustomEvent("akira:office-living-sync",{detail:{agents:agents.length,tasks:tasks.length,lastPoll}}));
+      if(syncStatus==="ok") setOverlay("", "");
+      window.dispatchEvent(new CustomEvent("akira:office-living-sync",{detail:{agents:agents.length,tasks:tasks.length,lastPoll,syncStatus,syncHttpStatus,syncError}}));
+      return syncStatus==="ok";
     }catch(err){
+      syncStatus="error";
+      syncError=String(err && err.message || err || "network_error");
       console.warn("[akira-office-living] poll",err);
-      if(!actors.size) setOverlay("La Oficina no pudo sincronizar agentes. La escena no inventará estados.","error");
+      if(!actors.size) setOverlay("No se pudo conectar con el registro real de agentes.","error");
+      return false;
     }finally{
       fetchBusy=false;
+      const refresh=document.getElementById("officeRefresh");
+      if(refresh){
+        refresh.disabled=false;
+        refresh.textContent="Actualizar";
+        refresh.removeAttribute("aria-busy");
+      }
     }
   }
 
@@ -1355,7 +1424,10 @@
         if(!paused) poll();
       };
     }
-    if(refresh) refresh.onclick=()=>poll();
+    if(refresh) refresh.onclick=async()=>{
+      if(paused) return;
+      await poll();
+    };
 
     window.addEventListener("resize",rendererSize,{passive:true});
   }
@@ -1391,6 +1463,9 @@
       get officeAssetErrors(){return Object.fromEntries(officeAssetErrors);},
       get officeAssetTransports(){return Object.fromEntries(officeAssetTransports);},
       get assetsReady(){return officeAssetMode && officeAssetInstances.length>0;},
+      get syncStatus(){return syncStatus;},
+      get syncHttpStatus(){return syncHttpStatus;},
+      get syncError(){return syncError;},
       get states(){
         const out={};
         agents.forEach(a=>{out[String(a.name)]=agentState(a);});
