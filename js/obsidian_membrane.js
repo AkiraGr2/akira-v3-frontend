@@ -1665,6 +1665,8 @@ function _runFlowerPhysics(nodes, edges, coreId){
   const groupAngles=state.groupAngles instanceof Map
     ? state.groupAngles
     : new Map();
+  const coreSafe=Number(state.coreSafe)>0 ? Number(state.coreSafe) : 155;
+  const spacing=Number(state.spacing)>0 ? Number(state.spacing) : 52;
   const assignments=_communityState && _communityState.assignments instanceof Map
     ? _communityState.assignments
     : new Map();
