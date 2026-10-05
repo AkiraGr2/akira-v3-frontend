@@ -394,6 +394,7 @@
         task:null,
         holdAtStation:false,
         durationMs:0,
+        manualCommand:false,
         facing:1,
         direction:"down",
         lastDirection:null,
@@ -526,6 +527,7 @@
     agent.intentKey="";
     agent.actionState=null;
     agent.routeFinalDirection=null;
+    agent.manualCommand=false;
   }
 
   function finishStation(agent,now){
@@ -540,6 +542,7 @@
 
   function reconcileAgent(agent){
     if(agent.status==="disabled"){
+      agent.manualCommand=false;
       agent.machine="disabled";
       agent.visualState="idle";
       return;
@@ -548,6 +551,16 @@
     const activeTask=taskForAgent(agent);
     agent.task=activeTask;
     const desiredStation=taskStationId(activeTask);
+
+    // Una orden explícita de la interfaz debe completar su recorrido aunque
+    // el backend permanezca idle. El polling no debe cortar la ruta a mitad.
+    if(agent.manualCommand && (
+      agent.machine==="walking" ||
+      agent.machine==="station" ||
+      agent.machine==="returning"
+    )){
+      return;
+    }
 
     if(agent.backendState==="error"){
       if(agent.machine==="walking"||agent.machine==="station"||agent.machine==="returning"){
@@ -678,6 +691,7 @@
     if(!agent||agent.status!=="active")return false;
     if(agent.machine==="walking" && agent.routeTargetId===targetId)return true;
     agent.durationMs=duration||0;
+    agent.manualCommand=true;
     if(startRoute(agent,targetId,state,"working",duration||0,false)){
       if(message)say(message);
       return true;
