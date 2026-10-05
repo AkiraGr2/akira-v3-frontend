@@ -255,6 +255,9 @@ jobs:
           if (!office.includes("function addRealOfficeFurniture(profile)")) throw new Error("real office furniture integration missing");
           if (!office.includes("function fitOfficeAsset(root,targetSize,position,rotationY)")) throw new Error("office asset fit helper missing");
           if (!office.includes("officeAssetMode")) throw new Error("office asset mode debug state missing");
+          if (!office.includes("Promise.race")) throw new Error("office asset loading must be bounded");
+          if (!office.includes("loadOfficeAssets().then")) throw new Error("office asset loading must be progressive/non-blocking");
+          if (!office.includes("assetsReady:false")) throw new Error("office asset readiness debug state missing");
 
           if (!missions.includes('setMissionActionBusy(id, "execute")')) throw new Error("mission execution lock missing");
           if (!missions.includes('actionBusyFor(id, "execute") ? "disabled" : ""')) throw new Error("mission execute button must disable while busy");
