@@ -203,6 +203,24 @@ jobs:
               throw new Error("Plant asset materials remain effectively white: "+JSON.stringify(plantMaterialColors));
             }
 
+            const actorDiagnostics = await page.evaluate(() => window.akiraOfficeLivingDebug.actorDiagnostics);
+            const actorEntries = Object.entries(actorDiagnostics || {});
+            if(actorEntries.length !== 9){
+              throw new Error("Expected diagnostics for all 9 persisted agents: "+JSON.stringify(actorDiagnostics));
+            }
+            for(const [name,diag] of actorEntries){
+              const calibration=diag && diag.calibration || {};
+              if(!Number.isFinite(calibration.height) || calibration.height < 1.35 || calibration.height > 2.05){
+                throw new Error("Character calibration height out of bounds for "+name+": "+JSON.stringify(diag));
+              }
+              if(diag.activeClipBlocked){
+                throw new Error("Character entered a blocked/fall/death/sleep clip for "+name+": "+JSON.stringify(diag));
+              }
+              if(!Array.isArray(diag.clipNames)){
+                throw new Error("Character clip diagnostics missing for "+name);
+              }
+            }
+
             const states = await page.evaluate(() => window.akiraOfficeLivingDebug.states);
             if(states.researcher !== "briefing") throw new Error("Researcher should enter a real-task briefing state");
             if(states.developer !== "briefing") throw new Error("Developer should enter a real-task briefing state");
