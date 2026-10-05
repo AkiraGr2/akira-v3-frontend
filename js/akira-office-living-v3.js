@@ -62,98 +62,11 @@
     });
   }
 
-  function pointInsideBlock(p,b){
-    // Tile rectangles are half-open: [x,x+w) × [y,y+h).
-    return p[0]>=b.x && p[0]<b.x+b.w && p[1]>=b.y && p[1]<b.y+b.h;
-  }
-
-  function segmentTouchesBlock(a,b,block){
-    const steps=Math.max(12,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])*10));
-    for(let i=0;i<=steps;i++){
-      const t=i/steps;
-      const p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
-      if(pointInsideBlock(p,block))return true;
-    }
-    return false;
-  }
-
-  function edgeAllowed(a,b){
-    const A=config.waypoints[a]?.world,B=config.waypoints[b]?.world;
-    if(!A||!B)return false;
-    return !(config.collision_blocks||[]).some(block=>segmentTouchesBlock(A,B,block));
-  }
-
-  function buildGraph(){
-    graph={};invalidEdges=[];
-    for(const [a,b] of config.movement_edges||[]){
-      if(!edgeAllowed(a,b)){
-        invalidEdges.push([a,b]);
-        continue;
-      }
-      (graph[a]||(graph[a]=[])).push(b);
-      (graph[b]||(graph[b]=[])).push(a);
-    }
-  }
-
-  function shortestPath(start,end){
-    if(start===end)return[start];
-    const q=[start],prev=new Map([[start,null]]);
-    while(q.length){
-      const cur=q.shift();
-      for(const next of graph[cur]||[]){
-        if(prev.has(next))continue;
-        prev.set(next,cur);
-        if(next===end){
-          const out=[];let p=end;
-          while(p!==null){out.unshift(p);p=prev.get(p);}
-          return out;
-        }
-        q.push(next);
-      }
-    }
-    return[];
-  }
-
-  function homeVisual(name){
-    return config.homes[name]||null;
-  }
-  function nodeScreen(id){
-    return config.waypoints[id]?.screen||[0,0];
-  }
-  function nodeWorld(id){
-    return config.waypoints[id]?.world||[0,0];
-  }
-
-  function makeAgents(){
-    agents=config.agents.map(c=>{
-      const home=config.homes[c.name]||{visual:[0,0],nav:"P05_CENTRO_NORTE"};
-      const nav=home.nav;
-      return {
-        ...c,
-        homeVisual:[...home.visual],
-        homeNav:nav,
-        node:nav,
-        world:[...nodeWorld(nav)],
-        screen:[...home.visual],
-        route:[],
-        routeIndex:0,
-        actionState:null,
-        actionPhase:"home",
-        actionUntil:0,
-        afterMs:0,
-        frame:0,
-        frameClock:0,
-        backendState:"unknown",
-        nextAmbient:performance.now()/1000+5+Math.random()*7
-      };
-    });
-  }
-
   function backendStateFor(a){
     const s=String(a&&a.status||"").toLowerCase();
     if(s==="disabled")return"disabled";
     if(["error","failed","failure"].includes(s))return"error";
-    if(["working","running","busy","executing","active"].includes(s))return"working";
+    if(["working","running","busy","executing"].includes(s))return"working";
     const n=String(a&&a.name||"").toLowerCase();
     return tasks.some(t=>
       String(t&&t.agent_name||"").toLowerCase()===n &&
@@ -234,26 +147,210 @@
     });
   }
 
+  const WALK_PX_PER_SEC=74;
+  const WALK_FRAME_MS=0.24;
+  const PATH_CELL=24;
+  const AGENT_CLEARANCE=26;
+  const WALK_BOUNDS={x:70,y:270,w:1390,h:650};
+
+  function pointInsideBlock(p,b,pad=0){
+    return p[0]>=b.x-pad && p[0]<b.x+b.w+pad &&
+           p[1]>=b.y-pad && p[1]<b.y+b.h+pad;
+  }
+
+  function blockedScreen(p){
+    return (config.screen_collision_blocks||[]).some(b=>pointInsideBlock(p,b,AGENT_CLEARANCE));
+  }
+
+  function screenGridKey(gx,gy){ return gx+","+gy; }
+
+  function screenToGrid(p){
+    return [
+      Math.round((p[0]-(WALK_BOUNDS.x+PATH_CELL/2))/PATH_CELL),
+      Math.round((p[1]-(WALK_BOUNDS.y+PATH_CELL/2))/PATH_CELL)
+    ];
+  }
+
+  function gridToScreen(gx,gy){
+    return [
+      WALK_BOUNDS.x+PATH_CELL/2+gx*PATH_CELL,
+      WALK_BOUNDS.y+PATH_CELL/2+gy*PATH_CELL
+    ];
+  }
+
+  function gridInside(gx,gy){
+    const p=gridToScreen(gx,gy);
+    return p[0]>=WALK_BOUNDS.x && p[0]<=WALK_BOUNDS.x+WALK_BOUNDS.w &&
+           p[1]>=WALK_BOUNDS.y && p[1]<=WALK_BOUNDS.y+WALK_BOUNDS.h;
+  }
+
+  function segmentClearScreen(a,b){
+    const steps=Math.max(4,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/8));
+    for(let i=0;i<=steps;i++){
+      const t=i/steps;
+      const p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+      if(blockedScreen(p))return false;
+    }
+    return true;
+  }
+
+  function screenPath(start,end){
+    if(!start||!end)return null;
+    if(segmentClearScreen(start,end))return[end];
+
+    const s=screenToGrid(start),t=screenToGrid(end);
+    const q=[s],came=new Map(),gScore=new Map([[screenGridKey(s[0],s[1]),0]]);
+    const fScore=new Map([[screenGridKey(s[0],s[1]),Math.hypot(s[0]-t[0],s[1]-t[1])]]);
+    const closed=new Set();
+    came.set(screenGridKey(s[0],s[1]),null);
+
+    const dirs=[
+      [1,0,1],[-1,0,1],[0,1,1],[0,-1,1],
+      [1,1,1.414],[-1,1,1.414],[1,-1,1.414],[-1,-1,1.414]
+    ];
+
+    while(q.length){
+      let bi=0;
+      for(let i=1;i<q.length;i++){
+        if((fScore.get(screenGridKey(q[i][0],q[i][1]))??Infinity) <
+           (fScore.get(screenGridKey(q[bi][0],q[bi][1]))??Infinity)) bi=i;
+      }
+      const cur=q.splice(bi,1)[0], ck=screenGridKey(cur[0],cur[1]);
+      if(closed.has(ck))continue;
+      closed.add(ck);
+
+      if(Math.abs(cur[0]-t[0])<=1 && Math.abs(cur[1]-t[1])<=1){
+        const out=[end];
+        let k=ck;
+        while(k!==screenGridKey(s[0],s[1])){
+          const p=came.get(k);
+          if(!p)break;
+          const [gx,gy]=p;
+          out.unshift(gridToScreen(gx,gy));
+          k=screenGridKey(gx,gy);
+        }
+        // Remove unnecessary bends with line-of-sight smoothing.
+        const smooth=[];
+        let anchor=start;
+        for(const p of out){
+          if(segmentClearScreen(anchor,p)){
+            continue;
+          }
+          const lastGood=out[Math.max(0,out.indexOf(p)-1)];
+          if(lastGood && (!smooth.length || smooth[smooth.length-1][0]!==lastGood[0] || smooth[smooth.length-1][1]!==lastGood[1])){
+            smooth.push(lastGood);
+            anchor=lastGood;
+          }
+        }
+        smooth.push(end);
+        return smooth;
+      }
+
+      for(const [dx,dy,cost] of dirs){
+        const nx=cur[0]+dx,ny=cur[1]+dy;
+        if(!gridInside(nx,ny))continue;
+        const np=gridToScreen(nx,ny), from=gridToScreen(cur[0],cur[1]);
+        if(blockedScreen(np) || !segmentClearScreen(from,np))continue;
+        const nk=screenGridKey(nx,ny);
+        if(closed.has(nk))continue;
+        const tentative=(gScore.get(ck)??Infinity)+cost;
+        if(tentative<(gScore.get(nk)??Infinity)){
+          came.set(nk,[cur[0],cur[1]]);
+          gScore.set(nk,tentative);
+          fScore.set(nk,tentative+Math.hypot(nx-t[0],ny-t[1]));
+          q.push([nx,ny]);
+        }
+      }
+    }
+    return null;
+  }
+
+  function buildGraph(){
+    // The legacy semantic graph remains in the manifest for auditability.
+    // Runtime navigation now uses screen-space A* with collision clearance.
+    graph={};invalidEdges=[];
+    for(const [a,b] of config.movement_edges||[]){
+      const A=config.waypoints[a]?.screen,B=config.waypoints[b]?.screen;
+      if(!A||!B||!segmentClearScreen(A,B)){
+        invalidEdges.push([a,b]);
+        continue;
+      }
+      (graph[a]||(graph[a]=[])).push(b);
+      (graph[b]||(graph[b]=[])).push(a);
+    }
+  }
+
+  function shortestPath(start,end){
+    // Semantic fallback/debug helper only.
+    if(start===end)return[start];
+    const q=[start],prev=new Map([[start,null]]);
+    while(q.length){
+      const cur=q.shift();
+      for(const next of graph[cur]||[]){
+        if(prev.has(next))continue;
+        prev.set(next,cur);
+        if(next===end){
+          const out=[];let p=end;
+          while(p!==null){out.unshift(p);p=prev.get(p);}
+          return out;
+        }
+        q.push(next);
+      }
+    }
+    return[];
+  }
+
+  function nodeScreen(id){return config.waypoints[id]?.screen||[0,0];}
+  function nodeWorld(id){return config.waypoints[id]?.world||[0,0];}
+
+  function homeVisual(name){return config.homes[name]||null;}
+
+  function makeAgents(){
+    agents=config.agents.map(c=>{
+      const home=config.homes[c.name]||{visual:[0,0],nav:"P05_CENTRO_NORTE"};
+      return {
+        ...c,
+        homeVisual:[...home.visual],
+        homeNav:home.nav,
+        node:home.nav,
+        world:[...nodeWorld(home.nav)],
+        screen:[...home.visual],
+        route:[],
+        routeIndex:0,
+        actionState:null,
+        actionPhase:"home",
+        actionUntil:0,
+        afterMs:0,
+        frame:0,
+        frameClock:0,
+        backendState:"unknown"
+      };
+    });
+  }
+
   function pathTo(agent,targetId){
-    const path=shortestPath(agent.node,targetId);
-    if(!path.length)return null;
-    return path;
+    return screenPath(agent.screen,nodeScreen(targetId));
   }
 
   function startRoute(agent,targetId,state,duration){
     if(!agent||agent.status!=="active")return false;
-    const path=pathTo(agent,targetId);
-    if(!path)return false;
-
-    // First visual leg: leave the workstation/seat and arrive at the approved walk tile.
-    const route=[];
-    const exitId=agent.homeNav;
-    if(agent.actionPhase==="home" && exitId){
-      route.push({id:exitId,screen:nodeScreen(exitId),world:nodeWorld(exitId),kind:"exit"});
+    const target=nodeScreen(targetId);
+    let points=screenPath(agent.screen,target);
+    if(agent.actionPhase==="home"){
+      const exit=nodeScreen(agent.homeNav);
+      const leave=[...exit];
+      // Leaving a workstation is allowed through its own station footprint.
+      if(Math.hypot(agent.screen[0]-exit[0],agent.screen[1]-exit[1])>2){
+        points=[leave,...(screenPath(exit,target)||[])];
+      }
     }
-    path.slice(1).forEach(id=>route.push({id,screen:nodeScreen(id),world:nodeWorld(id),kind:"walk"}));
-
-    agent.route=route;
+    if(!points||!points.length)return false;
+    agent.route=points.map((p,i)=>({
+      screen:[...p],
+      world:i===points.length-1?[...nodeWorld(targetId)]:[...agent.world],
+      id:i===points.length-1?targetId:null,
+      kind:"walk"
+    }));
     agent.routeIndex=0;
     agent.actionState=state||"idle";
     agent.actionPhase="travelling";
@@ -265,9 +362,16 @@
   }
 
   function beginHomeReturn(agent){
-    const path=shortestPath(agent.node,agent.homeNav);
-    if(!path.length)return false;
-    agent.route=path.map(id=>({id,screen:nodeScreen(id),world:nodeWorld(id),kind:"return"}));
+    const exit=nodeScreen(agent.homeNav);
+    const points=screenPath(agent.screen,exit);
+    if(!points)return false;
+    agent.route=points.map((p,i)=>({
+      screen:[...p],
+      world:i===points.length-1?[...nodeWorld(agent.homeNav)]:[...agent.world],
+      id:i===points.length-1?agent.homeNav:null,
+      kind:"return"
+    }));
+    agent.route.push({screen:[...agent.homeVisual],world:[...nodeWorld(agent.homeNav)],id:agent.homeNav,kind:"seat"});
     agent.routeIndex=0;
     agent.actionState="idle";
     agent.actionPhase="returning";
@@ -285,7 +389,6 @@
     agent.actionPhase="home";
     agent.actionState=null;
     agent.state=agent.backendState==="working"?"work":agent.backendState==="error"?"reaction":"idle";
-    agent.nextAmbient=performance.now()/1000+8+Math.random()*10;
   }
 
   function finishAction(agent,now){
@@ -297,10 +400,8 @@
   }
 
   function actionForTarget(id){
-    if(id==="P07_TABLERO_STAND")return"use";
-    if(id==="P08_CAFE_STAND")return"use";
-    if(id==="P09_IMPRESORA_STAND")return"use";
-    if(id.startsWith("M"))return"talk";
+    if(id==="P07_TABLERO_STAND"||id==="P08_CAFE_STAND"||id==="P09_IMPRESORA_STAND")return"use";
+    if(id&&id.startsWith("M"))return"talk";
     return"idle";
   }
 
@@ -308,26 +409,23 @@
     const live=agents.filter(a=>a.status==="active");
     if(kind==="mission"){
       const a=agents.find(x=>x.name==="Akira");
-      if(a&&startRoute(a,config.interactions.mission, "use",6500))say("Akira → Tablero de Misiones.");
+      if(a&&startRoute(a,config.interactions.mission,"use",6500))say("Akira → Tablero de Misiones.");
       return;
     }
     if(kind==="coffee"){
-      const picks=live.slice(0,3);
-      picks.forEach(a=>startRoute(a,config.interactions.coffee,"use",4500));
-      say("Pausa de café · rutas seguras activadas.");
+      live.slice(0,3).forEach(a=>startRoute(a,config.interactions.coffee,"use",5000));
+      say("Pausa de café · movimiento seguro.");
       return;
     }
     if(kind==="print"){
       const a=agents.find(x=>x.name==="Nexo")||live[0];
-      if(a&&startRoute(a,config.interactions.print,"use",4500))say(a.name+" → Impresora.");
+      if(a&&startRoute(a,config.interactions.print,"use",5000))say(a.name+" → Impresora.");
       return;
     }
     if(kind==="meeting"){
       const slots=config.interactions.meeting||[];
-      live.forEach((a,i)=>{
-        if(slots[i])startRoute(a,slots[i],"talk",5500);
-      });
-      say("Reunión de equipo · posiciones alrededor de la mesa.");
+      live.forEach((a,i)=>{if(slots[i])startRoute(a,slots[i],"talk",6500);});
+      say("Reunión de equipo · desplazamiento por pasillos.");
     }
   }
 
@@ -341,20 +439,30 @@
 
     if(a.actionPhase==="travelling"||a.actionPhase==="returning"){
       const target=a.route[a.routeIndex];
-      if(!target){finishAtHome(a);return;}
-      const tx=target.world[0],ty=target.world[1];
-      const dx=tx-a.world[0],dy=ty-a.world[1];
+      if(!target){
+        finishAtHome(a);
+        return;
+      }
+
+      const tx=target.screen[0],ty=target.screen[1];
+      const dx=tx-a.screen[0],dy=ty-a.screen[1];
       const dist=Math.hypot(dx,dy);
-      const step=Math.min(dist,dt*3.1);
+      const step=Math.min(dist,dt*WALK_PX_PER_SEC);
 
       a.state="walk";
       a.frameClock+=dt;
-      a.frame=Math.floor(a.frameClock/0.14)%3;
+      a.frame=Math.floor(a.frameClock/WALK_FRAME_MS)%3;
 
-      if(dist<0.045){
-        a.world=[tx,ty];
-        a.node=target.id;
-        a.screen=[...target.screen];
+      if(dist<0.5){
+        a.screen=[tx,ty];
+        if(target.id){
+          a.node=target.id;
+          a.world=[...target.world];
+        }
+        if(target.kind==="seat"){
+          finishAtHome(a);
+          return;
+        }
         if(a.routeIndex<a.route.length-1){
           a.routeIndex++;
         }else if(a.actionPhase==="returning"){
@@ -366,10 +474,8 @@
       }
 
       const k=step/Math.max(.0001,dist);
-      a.world[0]+=dx*k;
-      a.world[1]+=dy*k;
-      a.screen[0]+=(target.screen[0]-a.screen[0])*k;
-      a.screen[1]+=(target.screen[1]-a.screen[1])*k;
+      a.screen[0]+=dx*k;
+      a.screen[1]+=dy*k;
       return;
     }
 
@@ -377,33 +483,19 @@
       if(now<a.actionUntil){
         const st=STATE_BY_NAME[a.actionState]||STATE_BY_NAME.idle;
         a.frameClock+=dt;
-        a.frame=Math.floor(a.frameClock/0.30)%st.count;
+        a.frame=Math.floor(a.frameClock/0.34)%st.count;
         return;
       }
       beginHomeReturn(a);
       return;
     }
 
+    // Backend is authoritative for activity. Available agents do not wander.
     a.state=a.backendState==="working"?"work":a.backendState==="error"?"reaction":"idle";
     const st=STATE_BY_NAME[a.state]||STATE_BY_NAME.idle;
     a.frameClock+=dt;
-    a.frame=Math.floor(a.frameClock/0.32)%st.count;
-
-    if(a.backendState==="idle" && now>=a.nextAmbient && Array.isArray(a.ambient)&&a.ambient.length){
-      const candidates=a.ambient.filter(id=>id!==a.node && graph[id]);
-      if(candidates.length){
-        const target=candidates[Math.floor(Math.random()*candidates.length)];
-        const action=actionForTarget(target);
-        if(startRoute(a,target,action,action==="talk"?3500:3000)){
-          say(a.name+" → "+target.replace(/^P\d+_/,"").replace(/_/g," ")+" · rutina de "+a.role+".");
-          a.nextAmbient=now+14+Math.random()*12;
-        }
-      }else{
-        a.nextAmbient=now+5;
-      }
-    }
+    a.frame=Math.floor(a.frameClock/(a.state==="work"?0.38:0.34))%st.count;
   }
-
   function frameRect(row,col){
     const xCenters=FRAME_X;
     const yCenters=FRAME_Y;
@@ -557,6 +649,8 @@
     get sceneSource(){return SCENE_SRC;},
     get atlasSource(){return ATLAS_SRC;},
     get atlasLayout(){return {rows:9,framesPerRow:19,states:STATES.map(x=>({...x}))};},
+    get navigationMode(){return "screen-a-star";},
+    get walkSpeed(){return WALK_PX_PER_SEC;},
     get agents(){return agents.map(a=>({name:a.name,node:a.node,world:[...a.world],screen:[...a.screen],state:a.state,backendState:a.backendState,phase:a.actionPhase}));},
     get invalidEdges(){return invalidEdges.map(x=>x.slice());},
     get graph(){return Object.fromEntries(Object.entries(graph).map(([k,v])=>[k,[...v]]));},

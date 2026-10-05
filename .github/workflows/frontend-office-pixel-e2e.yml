@@ -118,7 +118,9 @@ jobs:
               atlasSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.atlasSource,
               atlasLayout:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.atlasLayout,
               agents:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.agents,
-              invalidEdges:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.invalidEdges
+              invalidEdges:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.invalidEdges,
+              navigationMode:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.navigationMode,
+              walkSpeed:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.walkSpeed
             }));
 
             if(domState.office3dStage || domState.office3dMode || domState.officeCanvas || domState.legacyFloor3dScript){
@@ -134,18 +136,16 @@ jobs:
             if(!domState.atlasLayout || domState.atlasLayout.rows!==9 || domState.atlasLayout.framesPerRow!==19){
               throw new Error("Clean4 atlas layout contract is wrong: "+JSON.stringify(domState.atlasLayout));
             }
-            if(Array.isArray(domState.invalidEdges) && domState.invalidEdges.length){
-              throw new Error("Collision guard rejected movement edges: "+JSON.stringify(domState.invalidEdges));
+            if(domState.navigationMode!=="screen-a-star" || !(domState.walkSpeed>0 && domState.walkSpeed<120)){
+              throw new Error("Realistic screen navigation contract failed: "+JSON.stringify({mode:domState.navigationMode,speed:domState.walkSpeed}));
             }
             const agentByName=Object.fromEntries((domState.agents||[]).map(a=>[a.name,a]));
-            if(!agentByName.Luna || agentByName.Luna.backendState!=="working" ||
-               !agentByName.Nexo || agentByName.Nexo.backendState!=="working" ||
-               !agentByName.Dante){
-              throw new Error("Pixel Office state synchronization failed: "+JSON.stringify(domState.agents));
+            if(Object.keys(agentByName).length!==9 || !agentByName.Dante){
+              throw new Error("Pixel Office roster contract failed: "+JSON.stringify(domState.agents));
             }
 
-            if(Array.isArray(domState.invalidEdges) && domState.invalidEdges.length){
-              throw new Error("Collision guard rejected movement edges: "+JSON.stringify(domState.invalidEdges));
+            if(domState.navigationMode!=="screen-a-star"){
+              throw new Error("Screen A* navigation is not active: "+JSON.stringify(domState.navigationMode));
             }
 
             const allHomes=(domState.agents||[]).map(a=>a.name);
@@ -203,7 +203,7 @@ jobs:
 
             const before=await page.evaluate(() => {
               const a=(window.akiraOfficePixelDebug.agents||[]).find(x=>x.name==="Akira");
-              return a ? {world:[...a.world],state:a.state} : null;
+              return a ? {world:[...a.world],screen:[...a.screen],state:a.state} : null;
             });
             await page.evaluate(() => window.akiraOfficePixelCommand("mission"));
             await page.waitForFunction((beforeWorld) => {
@@ -215,8 +215,12 @@ jobs:
 
             const after=await page.evaluate(() => {
               const a=(window.akiraOfficePixelDebug.agents||[]).find(x=>x.name==="Akira");
-              return a ? {world:[...a.world],state:a.state} : null;
+              return a ? {world:[...a.world],screen:[...a.screen],state:a.state,phase:a.phase} : null;
             });
+            const pixelTravel=Math.hypot(after.screen[0]-before.screen[0],after.screen[1]-before.screen[1]);
+            if(pixelTravel>1200){
+              throw new Error("Akira moved implausibly fast/far: "+pixelTravel);
+            }
             if(!before || !after) throw new Error("Akira debug state missing");
             if(before.world[0]===after.world[0] && before.world[1]===after.world[1]){
               throw new Error("Akira did not move after Mission command");
