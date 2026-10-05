@@ -66,7 +66,7 @@
     const s=String(a&&a.status||"").toLowerCase();
     if(s==="disabled")return"disabled";
     if(["error","failed","failure"].includes(s))return"error";
-    if(["working","running","busy","executing","active"].includes(s))return"working";
+    if(["working","running","busy","executing"].includes(s))return"working";
     const n=String(a&&a.name||"").toLowerCase();
     return tasks.some(t=>
       String(t&&t.agent_name||"").toLowerCase()===n &&
