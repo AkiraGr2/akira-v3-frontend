@@ -63,7 +63,8 @@
   }
 
   function pointInsideBlock(p,b){
-    return p[0]>=b.x && p[0]<=b.x+b.w && p[1]>=b.y && p[1]<=b.y+b.h;
+    // Tile rectangles are half-open: [x,x+w) × [y,y+h).
+    return p[0]>=b.x && p[0]<b.x+b.w && p[1]>=b.y && p[1]<b.y+b.h;
   }
 
   function segmentTouchesBlock(a,b,block){
