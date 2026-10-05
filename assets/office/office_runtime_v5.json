@@ -1,5 +1,5 @@
 {
-  "version": "5.0",
+  "version": "6.0",
   "scene": "assets/office/01_akira_office_floor_v5_doors.png",
   "scene_px": [
     1536,
@@ -1025,7 +1025,7 @@
     ]
   },
   "navigation": {
-    "mode": "grid-a-star-stations-v5",
+    "mode": "grid-a-star-semantic-v6",
     "grid": {
       "width": 48,
       "height": 32,
@@ -1045,7 +1045,7 @@
     "agent_clearance_px": 13,
     "speed_px_per_second": 74,
     "walk_frame_ms": 130,
-    "note": "Backend task state is authoritative. When a working task has no explicit station, the agent uses its role primary station. Agents return to a calibrated seat/work anchor. Routes cross physical doors and avoid furniture; no random roaming."
+    "note": "V6 semantic office: backend-authoritative tasks, role-based station fallback, exact interaction points, deterministic meeting seats, physical-door routes, no random roaming, no visible route debug."
   },
   "station_resolution": {
     "explicit_fields": [
