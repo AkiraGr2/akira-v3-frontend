@@ -546,6 +546,8 @@
     get sceneSource(){return SCENE_SRC;},
     get atlasSource(){return ATLAS_SRC;},
     get atlasLayout(){return {rows:9,framesPerRow:19,states:STATES.map(x=>({...x}))};},
+    get navigationMode(){return "screen-a-star";},
+    get walkSpeed(){return WALK_PX_PER_SEC;},
     get agents(){return agents.map(a=>({name:a.name,node:a.node,world:[...a.world],screen:[...a.screen],state:a.state,backendState:a.backendState,phase:a.actionPhase}));},
     get invalidEdges(){return invalidEdges.map(x=>x.slice());},
     get graph(){return Object.fromEntries(Object.entries(graph).map(([k,v])=>[k,[...v]]));},
