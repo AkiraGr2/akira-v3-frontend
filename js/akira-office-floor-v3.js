@@ -97,6 +97,8 @@
   let reducedMotion = false;
   let currentSceneTime = 0;
   let resizeObserver = null;
+  let coreLinksGroup = null;
+  let coreLinkLines = new Map();
 
   const stateMeta = {
     idle:{label:"Disponible",cls:"idle"},
@@ -777,25 +779,64 @@
     });
   }
 
+  function ensureCoreLinks(){
+    if(coreLinksGroup) return;
+    coreLinksGroup=new THREE.Group();
+    coreLinksGroup.name="officeCoreLinks";
+    scene.add(coreLinksGroup);
+  }
+
+  function removeCoreLink(name){
+    const entry=coreLinkLines.get(String(name));
+    if(!entry) return;
+    try{ entry.geometry.dispose(); }catch(_){}
+    try{ entry.material.dispose(); }catch(_){}
+    coreLinksGroup.remove(entry);
+    coreLinkLines.delete(String(name));
+  }
+
   function updateCoreLinks(){
-    // Recreate only a small, lightweight connection field.
-    const old=scene.getObjectByName("officeCoreLinks");
-    if(old) scene.remove(old);
-    const group=new THREE.Group();
-    group.name="officeCoreLinks";
+    // Keep link objects stable and only update their tiny position buffer.
+    // Rebuilding geometry on every animation frame is deliberately avoided.
+    ensureCoreLinks();
+    const liveNames=new Set();
+
     actors.forEach((actor,i)=>{
-      if(!actor.root.visible) return;
+      const name=String(actor.agent && actor.agent.name || "");
+      if(!name || !actor.root.visible) return;
+      liveNames.add(name);
+
+      let line=coreLinkLines.get(name);
+      if(!line){
+        const positions=new Float32Array(6);
+        const geometry=new THREE.BufferGeometry();
+        geometry.setAttribute("position",new THREE.BufferAttribute(positions,3));
+        const material=new THREE.LineBasicMaterial({
+          color:new THREE.Color(AGENT_COLORS[i%AGENT_COLORS.length]),
+          transparent:true,
+          opacity:.10
+        });
+        line=new THREE.Line(geometry,material);
+        coreLinkLines.set(name,line);
+        coreLinksGroup.add(line);
+      }
+
+      const attr=line.geometry.getAttribute("position");
+      const arr=attr.array;
+      arr[0]=0; arr[1]=1.25; arr[2]=0;
+      arr[3]=actor.root.position.x;
+      arr[4]=1.0;
+      arr[5]=actor.root.position.z;
+      attr.needsUpdate=true;
+
       const active=actor.desiredState==="working"||actor.desiredState==="briefing";
-      const color=new THREE.Color(active?AGENT_COLORS[i%AGENT_COLORS.length]:"#2c3b58");
-      const points=[new THREE.Vector3(0,1.25,0),actor.root.position.clone().setY(1.0)];
-      const geom=new THREE.BufferGeometry().setFromPoints(points);
-      const line=new THREE.Line(
-        geom,
-        new THREE.LineBasicMaterial({color,transparent:true,opacity:active?.46:.10})
-      );
-      group.add(line);
+      line.material.opacity=active?.46:.10;
+      line.material.color.set(active?AGENT_COLORS[i%AGENT_COLORS.length]:"#2c3b58");
     });
-    scene.add(group);
+
+    [...coreLinkLines.keys()].forEach(name=>{
+      if(!liveNames.has(name)) removeCoreLink(name);
+    });
   }
 
   function handleSelection(event){
