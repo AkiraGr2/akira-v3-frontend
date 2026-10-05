@@ -4064,13 +4064,19 @@ function _updateMembraneStats() {
   const nodesCount = c.nodes || 0;
   const edgesCount = c.edges || 0;
 
-  el.textContent =
-    nodesCount +
-    " nodos · " +
-    edgesCount +
-    " aristas · " +
-    clusterCount +
-    " clusters";
+  if (membraneError) {
+    el.textContent =
+      "⚠ CEREBRO 2D · " + String(membraneError).slice(0, 140) +
+      " · toca ACTUALIZAR para reintentar";
+  } else {
+    el.textContent =
+      nodesCount +
+      " nodos · " +
+      edgesCount +
+      " aristas · " +
+      clusterCount +
+      " clusters";
+  }
 
   // Keep the shared Brain HUD synchronized with the live 2D membrane.
   // This also covers the initialization-order case where brain_3d.js
@@ -4323,11 +4329,25 @@ window.addEventListener(
           () => {
             if (cyMembrane) {
               cyMembrane.resize();
+              refreshMembrane(true);
             }
           },
           100
         );
       }
+
+      // The Brain section can become visible after auth/session startup. Give
+      // the layout one frame to acquire its real mobile dimensions, then retry
+      // the 2D graph once so a startup race cannot leave a permanently blank view.
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (!cyMembrane) initMembraneGraph();
+          if (cyMembrane) {
+            try { cyMembrane.resize(); } catch(_) {}
+            refreshMembrane(true);
+          }
+        }, 250);
+      });
     }
 
     if (
