@@ -1,8 +1,8 @@
-/* AKIRA OFFICE — Living V5
- * Map / station / state architecture inspired by the public Munder Difflin design.
+/* AKIRA OFFICE — Living V6
+ * Semantic office choreography: calibrated home seats, role stations, physical-door routing,
+ * deterministic meeting seats, contextual object interactions, and backend-authoritative state.
  * Reimplemented for Akira with Akira-only scene + sprite assets.
  * 9 agents total: 8 active + Dante disabled.
- * V5: Akira floor with physical doors, ambient station life, directional movement, and contextual asset previews.
  */
 (function(){
   "use strict";
@@ -656,11 +656,14 @@
 
       const dx=target.screen[0]-a.screen[0];
       const dy=target.screen[1]-a.screen[1];
-      if(Math.abs(dx)>1)a.facing=dx<0?-1:1;
       if(Math.abs(dy)>=Math.abs(dx)*0.72){
         a.direction=dy<0?"up":"down";
+        // The legacy atlas has no rear-facing rows; do not retain a stale
+        // left/right mirror while moving vertically.
+        a.facing=1;
       }else{
         a.direction=dx<0?"left":"right";
+        a.facing=dx<0?-1:1;
       }
       const dist=Math.hypot(dx,dy);
       const step=Math.min(dist,dt*Number(config.navigation.speed_px_per_second||80));
@@ -930,6 +933,32 @@
     });
   }
 
+  function drawActiveObjectCue(){
+    if(!selectedName||!assetSheet)return;
+    const a=agents.find(x=>x.name===selectedName);
+    if(!a||a.machine!=="station")return;
+
+    const kind=stationKindForAgent(a);
+    const rect=config.asset_previews&&config.asset_previews[kind||"development"];
+    if(!rect)return;
+
+    const maxW=72,maxH=48;
+    const scale=Math.min(maxW/rect[2],maxH/rect[3]);
+    const dw=rect[2]*scale,dh=rect[3]*scale;
+    const x=Math.min(1536-dw-12,Math.max(12,a.screen[0]+26));
+    const y=Math.max(14,a.screen[1]-dh-54);
+
+    ctx.save();
+    ctx.fillStyle="rgba(8,16,29,.92)";
+    ctx.strokeStyle="#39D4C6";
+    ctx.lineWidth=1;
+    ctx.fillRect(Math.round(x-5),Math.round(y-5),Math.round(dw+10),Math.round(dh+10));
+    ctx.strokeRect(Math.round(x-5),Math.round(y-5),Math.round(dw+10),Math.round(dh+10));
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(assetSheet,rect[0],rect[1],rect[2],rect[3],Math.round(x),Math.round(y),Math.round(dw),Math.round(dh));
+    ctx.restore();
+  }
+
   function drawSelectedAssetPreview(){
     if(!selectedName||!assetSheet)return;
     const a=agents.find(x=>x.name===selectedName);
@@ -965,6 +994,7 @@
     drawDoorEffects(officeClock);
     drawRoutes();
     [...agents].sort((a,b)=>a.screen[1]-b.screen[1]).forEach(drawSprite);
+    drawActiveObjectCue();
     drawSelectedAssetPreview();
   }
 
@@ -1077,6 +1107,7 @@
       intentKey:a.intentKey,
       route:a.route.map(p=>[...p.screen])
     }));},
+    get objectCatalog(){return {...((config&&config.object_catalog)||{})};},
     get truth(){return {...truth};}
   };
 
