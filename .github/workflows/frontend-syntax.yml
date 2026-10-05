@@ -246,6 +246,15 @@ jobs:
           if (!office.includes("function ambientMoverCount()")) throw new Error("idle ambient concurrency guard missing");
           if (office.includes("function randomIdleTarget")) throw new Error("random idle wandering must not return");
           if (!office.includes("function createOfficeLife(profile)")) throw new Error("office-life environment layer missing");
+          const assetRegistry = fs.readFileSync("js/akira-office-assets-v1.js", "utf8");
+          if (!index.includes("js/akira-office-assets-v1.js")) throw new Error("office asset registry must be loaded before the living office");
+          if (!assetRegistry.includes("AKIRA_OFFICE_ASSET_REGISTRY")) throw new Error("office asset registry global missing");
+          if (!assetRegistry.includes("CC0-1.0")) throw new Error("office asset registry must record licenses");
+          if (!assetRegistry.includes("617d6073a557cbc2f0f2ac917916e01b9c4b631b")) throw new Error("office asset transport must be commit-pinned");
+          if (!office.includes("function loadOfficeAssets()")) throw new Error("office asset loader missing");
+          if (!office.includes("function addRealOfficeFurniture(profile)")) throw new Error("real office furniture integration missing");
+          if (!office.includes("function fitOfficeAsset(root,targetSize,position,rotationY)")) throw new Error("office asset fit helper missing");
+          if (!office.includes("officeAssetMode")) throw new Error("office asset mode debug state missing");
 
           if (!missions.includes('setMissionActionBusy(id, "execute")')) throw new Error("mission execution lock missing");
           if (!missions.includes('actionBusyFor(id, "execute") ? "disabled" : ""')) throw new Error("mission execute button must disable while busy");
