@@ -20,10 +20,10 @@
   const THREE_VERSION = "0.180.0";
   const MODULE_BASE = "https://cdn.jsdelivr.net/npm/three@" + THREE_VERSION;
   const MODEL_SOURCES = Object.freeze({
-    business: "https://static.poly.pizza/e599abbe-7d73-488c-9d7e-3ead281e705c.glb",
-    woman: "https://static.poly.pizza/ba7a1955-ea51-4cb9-a561-188bdef0a6c7.glb",
-    hoodie: "https://static.poly.pizza/bcd66ec5-5e81-4901-a222-47abc875fe2a.glb",
-    worker: "https://static.poly.pizza/3a5f3056-ffe6-42eb-bd52-122afcbd22b2.glb"
+    business: "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/business-man.glb",
+    woman: "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/casual-woman.glb",
+    hoodie: "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/casual-man.glb",
+    worker: "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/worker.glb"
   });
 
   const AGENT_COLORS = [
