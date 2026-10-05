@@ -1269,7 +1269,7 @@
       const dist=distance(actor.root.position,target);
       if(dist>.38){
         const speedBoost=s==="working"?1.12:(s==="briefing"?1.02:1.0);
-        const ambientSpeed=(actor.targetMode==="ambient"||actor.targetMode==="ambient-return")?.70:speedBoost;
+        const ambientSpeed=(actor.targetMode==="ambient"||actor.targetMode==="ambient-return") ? 0.70 : speedBoost;
         const step=Math.min(dist,actor.speed*ambientSpeed*delta);
         actor.root.position.lerp(target,step/Math.max(dist,.0001));
         orientToward(actor,target,Math.min(1,delta*7));
