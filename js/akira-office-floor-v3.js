@@ -1050,7 +1050,7 @@
     const walk=resolveClip(template.animations,"Walk");
     const run=resolveClip(template.animations,"Run");
     const sitEnter=resolveClip(template.animations,"SitDown");
-    const sitIdle=resolveClip(template.animations,"Sitting");
+    const sitIdle=resolveClip(template.animations,"Sitting_Idle") || resolveClip(template.animations,"Sitting");
     const sitTalk=resolveClip(template.animations,"SittingTalking");
     const sitExit=resolveClip(template.animations,"StandUp");
     const talk=resolveClip(template.animations,"Talk");
