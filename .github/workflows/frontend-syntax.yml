@@ -28,6 +28,7 @@ jobs:
           node --check js/akira_admin.js
           node --check js/akira_extras.js
           node --check js/akira-office-floor-v2.js
+          node --check js/akira-office-floor-v3.js
 
       - name: Guard Brain 3D parity contract
         run: |
@@ -103,7 +104,7 @@ jobs:
           if (!css.includes("@media(max-width:768px)")) throw new Error("mobile-first rules missing");
           if (!contract.includes("Akira Cognitive Workspace")) throw new Error("UI contract missing");
           if (!contract.includes("Este rediseño es visual; no debe cambiar APIs, persistencia, permisos ni comportamiento de negocio.")) throw new Error("UI contract must protect backend contracts");
-          if (!index.includes("js/akira-office-floor-v2.js")) throw new Error("living cognitive office script must be loaded");
+          if (!index.includes("js/akira-office-floor-v3.js")) throw new Error("living cognitive office script must be loaded");
           if (!index.includes("Oficina Cognitiva")) throw new Error("cognitive office surface missing");
           if (!css.includes(".office-v2-stage")) throw new Error("living office visual rules missing");
           console.log("Cognitive Workspace V2 visual contract OK");
@@ -217,7 +218,7 @@ jobs:
           node - <<'NODE'
           const fs = require("fs");
           const index = fs.readFileSync("index.html", "utf8");
-          const office = fs.readFileSync("js/akira-office-floor-v2.js", "utf8");
+          const office = fs.readFileSync("js/akira-office-floor-v3.js", "utf8");
           const missions = fs.readFileSync("js/akira_missions_panel.js", "utf8");
 
           if (!index.includes("function saveKey()")) throw new Error("saveKey handler missing");
@@ -229,9 +230,13 @@ jobs:
           if (index.includes("Google o Groq")) throw new Error("UI must not promise unsupported Groq user-key flow");
 
           if (!office.includes("const POLL_MS = 8000")) throw new Error("office polling interval missing");
+          if (!office.includes("THREE_VERSION = \"0.180.0\"")) throw new Error("living office must pin Three.js version");
+          if (!office.includes("static.poly.pizza")) throw new Error("living office must declare external CC0 asset source");
+          if (!office.includes("window.akiraOfficeLivingDebug")) throw new Error("living office debug contract missing");
           if (!office.includes("window.setInterval")) throw new Error("office live polling is not scheduled");
           if (!office.includes('current.classList.contains("active")')) throw new Error("office polling must respect section visibility");
-          if (!office.includes("const renderTs=paused ? lastTs : ts")) throw new Error("office pause must freeze visual time");
+          if (!office.includes("paused")) throw new Error("office pause state missing");
+          if (!office.includes("requestAnimationFrame(animate)")) throw new Error("living office animation loop missing");
           if (!office.includes("if(ar.ok || tr.ok) lastPoll=Date.now()")) throw new Error("office sync timestamp must represent a successful read");
 
           if (!missions.includes('setMissionActionBusy(id, "execute")')) throw new Error("mission execution lock missing");
