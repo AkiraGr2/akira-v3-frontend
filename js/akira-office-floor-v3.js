@@ -23,13 +23,14 @@
   const MODULE_BASE = "https://cdn.jsdelivr.net/npm/three@" + THREE_VERSION;
   const CHARACTER_REPO = "techdou/lumen-gallery";
   const CHARACTER_COMMIT = "1c8a694c5669171b3b6a0f4bffc6f75d0772630a";
+  const CHARACTER_LOCAL_BASE = "./assets/characters/";
   const CHARACTER_CDN_BASE = "https://cdn.jsdelivr.net/gh/" + CHARACTER_REPO + "@" + CHARACTER_COMMIT + "/public/assets/characters/";
   const CHARACTER_RAW_BASE = "https://raw.githubusercontent.com/" + CHARACTER_REPO + "/" + CHARACTER_COMMIT + "/public/assets/characters/";
   const MODEL_SOURCES = Object.freeze({
-    business: Object.freeze([CHARACTER_CDN_BASE+"business-man.glb",CHARACTER_RAW_BASE+"business-man.glb"]),
-    woman: Object.freeze([CHARACTER_CDN_BASE+"casual-woman.glb",CHARACTER_RAW_BASE+"casual-woman.glb"]),
-    hoodie: Object.freeze([CHARACTER_CDN_BASE+"casual-man.glb",CHARACTER_RAW_BASE+"casual-man.glb"]),
-    worker: Object.freeze([CHARACTER_CDN_BASE+"worker.glb",CHARACTER_RAW_BASE+"worker.glb"])
+    business: Object.freeze([CHARACTER_LOCAL_BASE+"business-man.glb",CHARACTER_CDN_BASE+"business-man.glb",CHARACTER_RAW_BASE+"business-man.glb"]),
+    woman: Object.freeze([CHARACTER_LOCAL_BASE+"casual-woman.glb",CHARACTER_CDN_BASE+"casual-woman.glb",CHARACTER_RAW_BASE+"casual-woman.glb"]),
+    hoodie: Object.freeze([CHARACTER_LOCAL_BASE+"casual-man.glb",CHARACTER_CDN_BASE+"casual-man.glb",CHARACTER_RAW_BASE+"casual-man.glb"]),
+    worker: Object.freeze([CHARACTER_LOCAL_BASE+"worker.glb",CHARACTER_CDN_BASE+"worker.glb",CHARACTER_RAW_BASE+"worker.glb"])
   });
 
   const AGENT_COLORS = [
@@ -730,7 +731,7 @@
             reject(err);
           });
         });
-        return {gltf,transport:index===0?"jsdelivr":"rawgithub",url};
+        return {gltf,transport:index===0?"local":(index===1?"jsdelivr":"rawgithub"),url};
       }catch(err){
         lastError=err;
       }
