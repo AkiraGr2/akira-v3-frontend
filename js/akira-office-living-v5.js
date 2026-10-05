@@ -761,8 +761,11 @@
           : a.direction==="left"
             ? config.directional_walk&&config.directional_walk.horizontal_left
             : config.directional_walk&&config.directional_walk.horizontal_right;
-      const walkCount=Number(layout&&layout.count||4);
-      a.frame=Math.floor(a.frameClock/Number(config.navigation.walk_frame_ms||125))%Math.max(1,walkCount);
+      const cycle=Array.isArray(layout&&layout.cycle)&&layout.cycle.length
+        ? layout.cycle.map(Number) : null;
+      const walkCount=cycle ? cycle.length : Number(layout&&layout.count||4);
+      a.frame=Math.floor(a.frameClock/Number(config.navigation.walk_frame_ms||125))
+        %Math.max(1,walkCount);
 
       if(dist<=0.75){
         a.screen=[...target.screen];
@@ -834,8 +837,11 @@
 
     const count=Number(layout.count||1);
     const start=Number(layout.start||0);
-    const fi=Math.max(0,Math.min(count-1,a.frame||0));
-    const frameIndex=start+fi;
+    const fi=Math.max(0,Math.min((Array.isArray(layout.cycle)&&layout.cycle.length
+      ? layout.cycle.length : count)-1,a.frame||0));
+    const slot=(Array.isArray(layout.cycle)&&layout.cycle.length)
+      ? Number(layout.cycle[fi]??0) : fi;
+    const frameIndex=start+Math.max(0,Math.min(count-1,slot));
 
     // V8 is not a uniform 16-column grid. Pixel audit of the published PNG
     // found 14 actual poses per row: 4 front + 4 back + 3 left + 3 right.
