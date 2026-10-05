@@ -277,7 +277,27 @@
   function nodeWorld(id){return config.waypoints[id]?.world||[0,0];}
 
   function homeVisual(name){return config.homes[name]?.visual||[0,0];}
+  function homeSeat(name){return config.homes[name]?.seat||homeVisual(name);}
   function homeExit(name){return config.homes[name]?.nav||null;}
+
+  function interactionPoint(id){
+    const p=config.interaction_points&&config.interaction_points[id];
+    return Array.isArray(p)?p:nodeScreen(id);
+  }
+
+  function roleStationForAgent(agent){
+    const rp=config.role_profiles&&config.role_profiles[agent&&agent.name];
+    if(!rp)return null;
+    const st=config.stations&&config.stations[rp.primary];
+    if(st&&st.id)return st.id;
+    if(st&&Array.isArray(st.ids))return st.ids[0]||null;
+    return null;
+  }
+
+  function roleWorkStateForAgent(agent){
+    const rp=config.role_profiles&&config.role_profiles[agent&&agent.name];
+    return rp&&rp.work_state ? rp.work_state : "think";
+  }
 
   function makeAgents(){
     agents=(config.agents||[]).map(c=>{
@@ -285,6 +305,7 @@
       return {
         ...c,
         homeVisual:[...h.visual],
+        homeSeat:[...(h.seat||h.visual||[0,0])],
         homeNav:h.nav,
         node:h.nav,
         world:[...nodeWorld(h.nav)],
@@ -310,7 +331,7 @@
   }
 
   function routePoints(agent,targetId){
-    const target=nodeScreen(targetId);
+    const target=interactionPoint(targetId);
     if(!target)return null;
 
     const exit=nodeScreen(agent.homeNav);
@@ -368,7 +389,7 @@
 
   function startRoute(agent,targetId,kind,returnState="working",duration=0,holdAtStation=false){
     if(!agent||agent.status!=="active"||!targetId)return false;
-    const target=nodeScreen(targetId);
+    const target=interactionPoint(targetId);
     const points=routePoints(agent,targetId);
     if(!target||!points||!points.length){
       say(agent.name+" no tiene una ruta segura hacia "+targetId+".");
@@ -399,8 +420,18 @@
     const exit=nodeScreen(agent.homeNav);
     const points=exit?aStar(agent.screen,exit):null;
     if(!points){finishHome(agent);return;}
-    agent.route=points.map((p,i)=>({screen:[...p],id:i===points.length-1?agent.homeNav:null}));
-    agent.route.push({screen:[...agent.homeVisual],id:agent.homeNav,seat:true});
+
+    let route=points.map((p,i)=>({screen:[...p],id:i===points.length-1?agent.homeNav:null}));
+    const seat=homeSeat(agent.name);
+    if(seat){
+      const from=route.length?route[route.length-1].screen:agent.screen;
+      const toSeat=aStar(from,seat);
+      if(toSeat) route=route.concat(toSeat.map((p,i)=>({screen:[...p],id:i===toSeat.length-1?agent.homeNav:null,seat:i===toSeat.length-1})));
+      else route.push({screen:[...seat],id:agent.homeNav,seat:true});
+    } else {
+      route.push({screen:[...agent.homeVisual],id:agent.homeNav,seat:true});
+    }
+    agent.route=route;
     agent.routeIndex=0;
     agent.machine="returning";
     agent.visualState="walk";
@@ -411,7 +442,7 @@
   function finishHome(agent){
     agent.node=agent.homeNav;
     agent.world=[...nodeWorld(agent.homeNav)];
-    agent.screen=[...agent.homeVisual];
+    agent.screen=[...(agent.homeSeat||agent.homeVisual)];
     agent.route=[];
     agent.routeTargetId=null;
     agent.routeIndex=0;
@@ -453,12 +484,13 @@
     }
 
     if(agent.backendState==="working"){
-      const target=desiredStation;
+      const target=desiredStation||roleStationForAgent(agent);
       if(target){
         const key=target+"|backend";
         const atTarget=agent.node===target && Math.hypot(agent.screen[0]-nodeScreen(target)[0],agent.screen[1]-nodeScreen(target)[1])<18;
         if(!atTarget && agent.intentKey!==key && agent.machine!=="walking"){
-          if(startRoute(agent,target,"think","working",0,true)){
+          const roleState=desiredStation ? "think" : roleWorkStateForAgent(agent);
+          if(startRoute(agent,target,roleState,"working",0,true)){
             agent.intentKey=key;
           }
         }
@@ -596,7 +628,10 @@
     if(kind==="meeting"){
       const slots=(config.stations.meeting&&config.stations.meeting.ids)||[];
       live.forEach((a,i)=>{
-        if(slots[i])beginExplicitRoute(a,slots[i],"talk",6500,"");
+        if(!slots[i])return;
+        const seat= config.meeting_seats && config.meeting_seats[slots[i]];
+        if(seat) a.direction=seat.direction||"down";
+        beginExplicitRoute(a,slots[i],"talk",6500,"");
       });
       say("Reunión de equipo · movimiento por pasillos.");
     }
@@ -841,7 +876,7 @@
     if(stations.development?.id)targets.push({id:stations.development.id,kind:"development",color:"#70E1FF"});
     if(stations.meeting?.ids?.[0])targets.push({id:stations.meeting.ids[0],kind:"meeting",color:"#39D4C6"});
     targets.forEach(s=>{
-      const p=nodeScreen(s.id);
+      const p=interactionPoint(s.id);
       if(!p)return;
       const busy=agents.some(a=>stationKindForAgent(a)===s.kind);
       if(!busy)return;
@@ -1025,7 +1060,12 @@
     get atlasSource(){return ATLAS_SRC;},
     get assetSheetSource(){return ASSET_SHEET_SRC;},
     get doors(){return (config&&config.doors||[]).map(d=>({...d}));},
-    get atlasLayout(){return {rows:9,framesPerRow:19,states:STATES.map(x=>({...x}))};},
+    get atlasLayout(){return {
+      rows:9,framesPerRow:19,
+      states:STATES.map(x=>({...x})),
+      directionalReady:Boolean(config&&config.atlas&&config.atlas.directional_rows),
+      characterAliases:(config&&config.atlas&&config.atlas.character_aliases)||{}
+    };},
     get navigationMode(){return "grid-a-star-stations-v5";},
     get walkSpeed(){return Number(config&&config.navigation&&config.navigation.speed_px_per_second||80);},
     get grid(){
