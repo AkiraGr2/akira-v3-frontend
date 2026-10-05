@@ -811,78 +811,92 @@
     "agent_clearance_px": 12,
     "speed_px_per_second": 80,
     "walk_frame_ms": 125,
-    "note": "Agents remain at their workstations unless backend truth or an explicit office action selects a semantic station."
+    "note": "Agents remain at their workstations unless backend truth or an explicit office action selects a semantic station.",
+    "screen_mapping": {
+      "world_grid_px": [
+        48,
+        42.666666666666664
+      ],
+      "note": "Screen collision rectangles are projected from the authored world collision map; this avoids oversized hand-drawn screen blockers."
+    }
   },
   "screen_collision_blocks": [
     {
-      "id": "AKIRA_DESK",
-      "x": 485,
-      "y": 190,
-      "w": 380,
-      "h": 225
+      "id": "Z01_AKIRA_DESK",
+      "x": 576,
+      "y": 171,
+      "w": 192,
+      "h": 128
     },
     {
-      "id": "LUNA_DESK",
-      "x": 15,
-      "y": 325,
-      "w": 335,
-      "h": 215
+      "id": "Z02_LUNA_DESK",
+      "x": 192,
+      "y": 256,
+      "w": 144,
+      "h": 85
     },
     {
-      "id": "ORION_LEFT_DESK",
-      "x": 80,
-      "y": 460,
-      "w": 300,
-      "h": 220
+      "id": "Z03_NEXO_DESK",
+      "x": 384,
+      "y": 427,
+      "w": 144,
+      "h": 85
     },
     {
-      "id": "NEXO_DESK",
-      "x": 340,
-      "y": 510,
-      "w": 360,
-      "h": 215
+      "id": "Z04_NOVA_DESK",
+      "x": 768,
+      "y": 427,
+      "w": 144,
+      "h": 85
     },
     {
-      "id": "NOVA_DESK",
-      "x": 665,
-      "y": 380,
-      "w": 270,
-      "h": 185
+      "id": "Z05_MEETING_TABLE",
+      "x": 960,
+      "y": 469,
+      "w": 192,
+      "h": 128
     },
     {
-      "id": "KAORI_DESK",
-      "x": 805,
-      "y": 385,
-      "w": 250,
-      "h": 185
+      "id": "Z07_PRINTER",
+      "x": 672,
+      "y": 427,
+      "w": 96,
+      "h": 85
     },
     {
-      "id": "MEETING_TABLE",
-      "x": 800,
-      "y": 505,
-      "w": 420,
-      "h": 220
+      "id": "Z08_SHELF",
+      "x": 480,
+      "y": 256,
+      "w": 144,
+      "h": 85
     },
     {
-      "id": "RIGHT_WORKSTATION",
-      "x": 1090,
-      "y": 380,
-      "w": 230,
-      "h": 180
+      "id": "Z09_MISSION_BOARD",
+      "x": 960,
+      "y": 128,
+      "w": 192,
+      "h": 128
     },
     {
-      "id": "LOUNGE",
-      "x": 335,
-      "y": 735,
-      "w": 365,
-      "h": 220
+      "id": "Z10_KITCHEN",
+      "x": 1248,
+      "y": 171,
+      "w": 192,
+      "h": 171
     },
     {
-      "id": "ENTRY_STRUCTURE",
-      "x": 1280,
-      "y": 700,
-      "w": 240,
-      "h": 240
+      "id": "Z11_KAORI_DESK",
+      "x": 1056,
+      "y": 341,
+      "w": 144,
+      "h": 85
+    },
+    {
+      "id": "Z12_ENTRY_STRUCTURE",
+      "x": 1248,
+      "y": 683,
+      "w": 144,
+      "h": 128
     }
   ],
   "architecture": {
