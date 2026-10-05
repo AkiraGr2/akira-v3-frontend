@@ -103,10 +103,9 @@ jobs:
             await page.waitForFunction(() => {
               const canvas=document.getElementById("officePixelCanvas");
               const stage=document.getElementById("officePixelStage");
-              const hud=document.getElementById("officePixelHud");
-              if(!canvas || !stage || !hud) return false;
+              if(!canvas || !stage) return false;
               const c=canvas.getBoundingClientRect();
-              return c.width>300 && c.height>300 && Boolean(window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.artSource);
+              return c.width>300 && c.height>220 && Boolean(window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.artSource==="01_office_master_scene.png");
             }, null, {timeout:20000});
 
             const domState=await page.evaluate(() => ({
@@ -114,17 +113,21 @@ jobs:
               office3dMode:document.getElementById("office3dMode"),
               officeCanvas:document.getElementById("officeCanvas"),
               legacyFloor3dScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-floor")),
-              pixelScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-pixel-v2")),
+              pixelScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-canonical-v3")),
               artSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.artSource,
+              renderMode:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.renderMode,
               states:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.states
             }));
 
             if(domState.office3dStage || domState.office3dMode || domState.officeCanvas || domState.legacyFloor3dScript){
               throw new Error("3D Office elements/scripts are still present: "+JSON.stringify(domState));
             }
-            if(!domState.pixelScript) throw new Error("Pixel Office V2 script is not loaded");
-            if(domState.artSource!=="LargePixelOffice.png" && domState.artSource!=="PixelOffice.png"){
-              throw new Error("Authored Pixel Office artwork was not loaded: "+JSON.stringify(domState.artSource));
+            if(!domState.pixelScript) throw new Error("Canonical Pixel Office V3 script is not loaded");
+            if(domState.artSource!=="01_office_master_scene.png"){
+              throw new Error("Canonical Office master artwork was not loaded: "+JSON.stringify(domState.artSource));
+            }
+            if(domState.renderMode!=="authored-master-image"){
+              throw new Error("Office is not running in authored-master-image mode");
             }
             if(!domState.states || domState.states.Luna!=="working" || domState.states.Nexo!=="working" || domState.states.Dante!=="disabled"){
               throw new Error("Pixel Office state synchronization failed: "+JSON.stringify(domState.states));
@@ -132,9 +135,11 @@ jobs:
 
             const assets=await page.evaluate(async () => {
               const paths=[
-                "assets/office/LargePixelOffice.png",
-                "assets/office/PixelOffice.png",
-                "assets/office/PixelOfficeAssets.png"
+                "assets/office/01_office_master_scene.png",
+                "assets/office/02_office_ui_reference.png",
+                "assets/office/03_office_production_map.png",
+                "assets/office/04_office_map_objects_and_zones.png",
+                "assets/office/05_office_assets_and_spritesheets.png"
               ];
               return Promise.all(paths.map(async path => {
                 const r=await fetch(path,{cache:"no-store"});
@@ -155,15 +160,12 @@ jobs:
               return {canvas:{width:r.width,height:r.height},stage:{top:stage.top,bottom:stage.bottom},sample};
             });
 
-            if(layout.canvas.width<300 || layout.canvas.height<300){
+            if(layout.canvas.width<300 || layout.canvas.height<220){
               throw new Error("Pixel Office canvas is too small: "+JSON.stringify(layout.canvas));
             }
             if(!layout.sample.length || layout.sample[3]===0){
               throw new Error("Pixel Office canvas did not paint");
             }
-
-            await page.click("#officePixelMeeting");
-            await page.click("#officePixelPet");
 
             await page.setViewportSize({width:1440,height:900});
             await page.waitForFunction(() => {

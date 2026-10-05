@@ -23,7 +23,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./css/akira-brain-space.css?v=akira-brain-space-v1">
 <link rel="stylesheet" href="./css/akira-cognitive-workspace-v2.css?v=akira-cognitive-workspace-v2">
-<link rel="stylesheet" href="./css/akira-office-pixel-v2.css?v=akira-office-pixel-v2">
+<link rel="stylesheet" href="./css/akira-office-canonical-v3.css?v=akira-office-canonical-v3">
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -431,16 +431,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
             <button id="officePause" class="office-v2-btn" type="button">Pausar</button>
           </div>
         </div>
-        <div class="office-pixel-toolbar" aria-label="Controles de la oficina Pixel">
-          <button id="officePixelMission" class="office-view-btn" type="button">MISIÓN</button>
-          <button id="officePixelCoffee" class="office-view-btn" type="button">CAFÉ</button>
-          <button id="officePixelMeeting" class="office-view-btn" type="button">REUNIÓN</button>
-          <button id="officePixelPet" class="office-view-btn" type="button">MASCOTA</button>
-        </div>
         <div id="officePixelStage" class="office-pixel-stage">
-          <canvas id="officePixelCanvas" width="688" height="630" aria-label="Oficina Pixel interactiva de Akira"></canvas>
-          <div id="officePixelHud" class="office-pixel-hud">AKIRA PROJECT</div>
-          <div id="officePixelEvent" class="office-pixel-event">Cargando arte de la Oficina…</div>
+          <canvas id="officePixelCanvas" width="1536" height="1024" aria-label="Oficina Pixel de Akira — diseño maestro V3"></canvas>
         </div>
       </div>
 
@@ -1089,7 +1081,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 <script src="./js/akira_learning.js?v=akira-learning-v12-e2e-diagnostics"></script>
 <script src="./js/akira_admin.js?v=akira-admin-v1-7-reinforce-timeout"></script>
 <script src="./js/akira_missions_panel.js?v=akira-missions-v5"></script>
-<script src="./js/akira-office-pixel-v2.js?v=akira-office-pixel-v2"></script>
+<script src="./js/akira-office-canonical-v3.js?v=akira-office-canonical-v3"></script>
 <script>
 async function fetchRuntimeCapabilities(){
   const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
