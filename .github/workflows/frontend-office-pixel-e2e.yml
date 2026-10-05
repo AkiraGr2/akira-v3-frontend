@@ -144,6 +144,15 @@ jobs:
               throw new Error("Pixel Office state synchronization failed: "+JSON.stringify(domState.agents));
             }
 
+            if(Array.isArray(domState.invalidEdges) && domState.invalidEdges.length){
+              throw new Error("Collision guard rejected movement edges: "+JSON.stringify(domState.invalidEdges));
+            }
+
+            const allHomes=(domState.agents||[]).map(a=>a.name);
+            if(allHomes.length!==9){
+              throw new Error("Office roster is not 9 agents: "+JSON.stringify(allHomes));
+            }
+
             const assets=await page.evaluate(async () => {
               const paths=[
                 "assets/office/01_office_scene_clean_v3.png",
@@ -177,6 +186,13 @@ jobs:
             }
             if(!layout.sample.length || layout.sample[3]===0){
               throw new Error("Pixel Office canvas did not paint");
+            }
+
+            const frameBefore=await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[]).find(a=>a.name==="Akira"));
+            await page.waitForTimeout(500);
+            const frameAfter=await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[]).find(a=>a.name==="Akira"));
+            if(!frameBefore || !frameAfter){
+              throw new Error("Akira sprite debug state missing");
             }
 
             await page.setViewportSize({width:1440,height:900});
