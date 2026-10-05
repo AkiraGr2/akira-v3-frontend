@@ -35,6 +35,22 @@
   let eventText="Cargando Oficina V6…";
   let navMap=null,assetSheet=null,officeClock=0;
   const doorPulse=Object.create(null);
+  // Keep the front/back relationship stable while avatars overlap. Sorting only
+  // by raw Y lets two crossing agents swap painter's order frame-by-frame,
+  // producing the exact "front half behind / back half in front" illusion seen
+  // in the review video. A small hysteresis band prevents that visual zipper.
+  const depthRank=new Map();
+  const DEPTH_HYSTERESIS_PX=18;
+
+  function depthCompare(a,b){
+    const dy=a.screen[1]-b.screen[1];
+    if(Math.abs(dy)>DEPTH_HYSTERESIS_PX)return dy;
+    const ra=depthRank.get(a.name);
+    const rb=depthRank.get(b.name);
+    if(ra!=null&&rb!=null&&ra!==rb)return ra-rb;
+    if(dy!==0)return dy;
+    return String(a.name||"").localeCompare(String(b.name||""));
+  }
 
   const el=id=>document.getElementById(id);
   const gridKey=(x,y)=>x+","+y;
@@ -201,7 +217,23 @@
 
   function aStar(startPx,targetPx){
     if(!navMap)return null;
-    if(segmentClear(startPx,targetPx))return [targetPx];
+
+    // The office uses a four-direction sprite contract. A clear Euclidean line
+    // is NOT enough: it would make the avatar physically move diagonally while
+    // the renderer can only show up/down/left/right. Prefer a safe cardinal
+    // two-leg shortcut when possible; otherwise fall back to the grid.
+    if(startPx[0]===targetPx[0] || startPx[1]===targetPx[1]){
+      if(segmentClear(startPx,targetPx))return [targetPx];
+    }else{
+      const horizontal=[targetPx[0],startPx[1]];
+      const vertical=[startPx[0],targetPx[1]];
+      if(segmentClear(startPx,horizontal) && segmentClear(horizontal,targetPx)){
+        return [horizontal,targetPx];
+      }
+      if(segmentClear(startPx,vertical) && segmentClear(vertical,targetPx)){
+        return [vertical,targetPx];
+      }
+    }
 
     const s=nearestOpenCell(screenToGrid(startPx));
     const t=nearestOpenCell(screenToGrid(targetPx));
@@ -237,18 +269,34 @@
           k=p?gridKey(p[0],p[1]):null;
         }
 
-        const out=[];
-        let anchor=startPx;
-        for(let i=1;i<nodes.length;i++){
-          const p=nodes[i];
-          if(segmentClear(anchor,p))continue;
-          const prev=nodes[i-1];
-          if(!out.length||out[out.length-1][0]!==prev[0]||out[out.length-1][1]!==prev[1]){
-            out.push(prev);
-            anchor=prev;
-          }
+        // Keep the BFS path cardinal. The previous simplifier could connect
+        // two non-collinear nodes whenever their Euclidean segment was clear,
+        // silently reintroducing diagonal movement even with diagonal=false.
+        const out=nodes.slice(1).map(p=>[...p]);
+
+        if(!out.length){
+          if(segmentClear(startPx,targetPx))return [targetPx];
+          return null;
         }
-        out.push(targetPx);
+
+        const last=out[out.length-1];
+        if(last[0]===targetPx[0] || last[1]===targetPx[1]){
+          if(segmentClear(last,targetPx)) out.push([...targetPx]);
+          return out;
+        }
+
+        // The authored interaction point can sit a few pixels off a grid
+        // center. Finish through one axis at a time, but only when both legs
+        // are actually clear. Otherwise the last safe grid cell is the
+        // destination; callers already tolerate the calibrated station radius.
+        const horizontal=[targetPx[0],last[1]];
+        const vertical=[last[0],targetPx[1]];
+        if(segmentClear(last,horizontal) && segmentClear(horizontal,targetPx)){
+          out.push(horizontal,[...targetPx]);
+        }else if(segmentClear(last,vertical) && segmentClear(vertical,targetPx)){
+          out.push(vertical,[...targetPx]);
+        }
+
         return out;
       }
 
@@ -1095,7 +1143,11 @@
     drawStationEffects();
     drawDoorEffects(officeClock);
     drawRoutes();
-    [...agents].sort((a,b)=>a.screen[1]-b.screen[1]).forEach(drawSprite);
+
+    const ordered=[...agents].sort(depthCompare);
+    ordered.forEach((a,i)=>depthRank.set(a.name,i));
+    ordered.forEach(drawSprite);
+
     drawObjectInteractionBadges();
     drawActiveObjectCue();
     drawSelectedAssetPreview();
