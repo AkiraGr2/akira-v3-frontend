@@ -601,7 +601,7 @@
     }
 
     if(a.machine==="station"){
-      if(a.backendState==="idle"&&a.actionUntil&&now>=a.actionUntil){
+      if(a.actionUntil&&now>=a.actionUntil&&(!a.holdAtStation||a.backendState==="idle")){
         beginReturn(a);
         return;
       }
@@ -799,7 +799,8 @@
     get agents(){return agents.map(a=>({
       name:a.name,node:a.node,world:[...a.world],screen:[...a.screen],
       state:a.visualState,backendState:a.backendState,machine:a.machine,
-      intentKey:a.intentKey
+      intentKey:a.intentKey,
+      route:a.route.map(p=>[...p.screen])
     }));},
     get truth(){return {...truth};}
   };
