@@ -235,7 +235,7 @@ function _authHeaders() {
   return {};
 }
 
-async async function _fetchPublicJson(url) {
+async function _fetchPublicJson(url) {
   const full =
     url.indexOf("http") === 0
       ? url
