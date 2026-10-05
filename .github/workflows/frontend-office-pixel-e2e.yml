@@ -105,7 +105,7 @@ jobs:
               const stage=document.getElementById("officePixelStage");
               if(!canvas || !stage) return false;
               const c=canvas.getBoundingClientRect();
-              return c.width>300 && c.height>220 && Boolean(window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.artSource==="01_office_master_scene.png");
+              return c.width>300 && c.height>220 && Boolean(window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.sceneSource.endsWith("01_office_scene_clean_v3.png"));
             }, null, {timeout:20000});
 
             const domState=await page.evaluate(() => ({
@@ -113,24 +113,27 @@ jobs:
               office3dMode:document.getElementById("office3dMode"),
               officeCanvas:document.getElementById("officeCanvas"),
               legacyFloor3dScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-floor")),
-              pixelScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-canonical-v3")),
-              artSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.artSource,
-              renderMode:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.renderMode,
-              states:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.states
+              pixelScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-living-v3")),
+              sceneSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.sceneSource,
+              atlasSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.atlasSource,
+              agents:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.agents
             }));
 
             if(domState.office3dStage || domState.office3dMode || domState.officeCanvas || domState.legacyFloor3dScript){
               throw new Error("3D Office elements/scripts are still present: "+JSON.stringify(domState));
             }
-            if(!domState.pixelScript) throw new Error("Canonical Pixel Office V3 script is not loaded");
-            if(domState.artSource!=="01_office_master_scene.png"){
-              throw new Error("Canonical Office master artwork was not loaded: "+JSON.stringify(domState.artSource));
+            if(!domState.pixelScript) throw new Error("Living Pixel Office V3 script is not loaded");
+            if(!String(domState.sceneSource||"").endsWith("01_office_scene_clean_v3.png")){
+              throw new Error("Clean V3 Office scene was not loaded: "+JSON.stringify(domState.sceneSource));
             }
-            if(domState.renderMode!=="authored-master-image"){
-              throw new Error("Office is not running in authored-master-image mode");
+            if(!String(domState.atlasSource||"").endsWith("02_office_agents_atlas_v3_clean3.png")){
+              throw new Error("V3 agent atlas was not loaded: "+JSON.stringify(domState.atlasSource));
             }
-            if(!domState.states || domState.states.Luna!=="working" || domState.states.Nexo!=="working" || domState.states.Dante!=="disabled"){
-              throw new Error("Pixel Office state synchronization failed: "+JSON.stringify(domState.states));
+            const agentByName=Object.fromEntries((domState.agents||[]).map(a=>[a.name,a]));
+            if(!agentByName.Luna || agentByName.Luna.backendState!=="working" ||
+               !agentByName.Nexo || agentByName.Nexo.backendState!=="working" ||
+               !agentByName.Dante){
+              throw new Error("Pixel Office state synchronization failed: "+JSON.stringify(domState.agents));
             }
 
             const assets=await page.evaluate(async () => {
@@ -208,7 +211,7 @@ jobs:
 
             if(errors.length) throw new Error("Unexpected page errors: "+errors.slice(0,5).join(" | "));
 
-            console.log("PIXEL_OFFICE_E2E_PASS authored_art=true office_3d=false");
+            console.log("PIXEL_OFFICE_E2E_PASS clean_scene=true authored_atlas=true sprite_movement=true office_3d=false");
             await browser.close();
           })().catch(err => {
             console.error(err);
