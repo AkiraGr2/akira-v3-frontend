@@ -496,6 +496,24 @@
     a.frameClock+=dt;
     a.frame=Math.floor(a.frameClock/(a.state==="work"?0.38:0.34))%st.count;
   }
+  function frameRect(row,col){
+    const xCenters=FRAME_X;
+    const yCenters=FRAME_Y;
+    const x0=col===0?0:Math.round((xCenters[col-1]+xCenters[col])/2);
+    const x1=col===xCenters.length-1?1536:Math.round((xCenters[col]+xCenters[col+1])/2);
+    const y0=row===0?0:Math.round((yCenters[row-1]+yCenters[row])/2);
+    const y1=row===yCenters.length-1?1024:Math.round((yCenters[row]+yCenters[row+1])/2);
+    return [x0,y0,x1-x0,y1-y0];
+  }
+
+  function spriteFrame(a){
+    const row=config.atlas.row_order.indexOf(a.name);
+    if(row<0)return null;
+    const state=STATE_BY_NAME[a.state]||STATE_BY_NAME.idle;
+    const fi=Math.max(0,Math.min(state.count-1,a.frame||0));
+    return frameRect(row,state.start+fi);
+  }
+
   function drawSprite(a){
     const src=spriteFrame(a);
     if(!src||!atlas)return;
