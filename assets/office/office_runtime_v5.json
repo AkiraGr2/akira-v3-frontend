@@ -51,7 +51,11 @@
       "use": 3,
       "reaction": 2
     },
-    "directional_rows": null
+    "directional_rows": null,
+    "character_aliases": {
+      "Kaori": "Kael",
+      "Zeri": "Zane"
+    }
   },
   "calibration": {
     "x_centers": [
@@ -852,63 +856,99 @@
     "Akira": {
       "visual": [
         500,
-        245
+        318
+      ],
+      "seat": [
+        500,
+        318
       ],
       "nav": "P06_AKIRA_EXIT"
     },
     "Luna": {
       "visual": [
         790,
-        245
+        318
+      ],
+      "seat": [
+        790,
+        318
       ],
       "nav": "P05_CENTRO_NORTE"
     },
     "Nexo": {
       "visual": [
         450,
-        420
+        488
+      ],
+      "seat": [
+        450,
+        488
       ],
       "nav": "P07_TOP_WEST"
     },
     "Nova": {
       "visual": [
         1065,
-        420
+        488
+      ],
+      "seat": [
+        1065,
+        488
       ],
       "nav": "P08_TOP_EAST"
     },
     "Orion": {
       "visual": [
         450,
-        580
+        648
+      ],
+      "seat": [
+        450,
+        648
       ],
       "nav": "P09_LEFT_MID"
     },
     "Kaori": {
       "visual": [
         1065,
-        580
+        648
+      ],
+      "seat": [
+        1065,
+        648
       ],
       "nav": "P11_RIGHT_MID"
     },
     "Zeri": {
       "visual": [
-        660,
-        700
+        690,
+        865
+      ],
+      "seat": [
+        690,
+        865
       ],
       "nav": "P03_CENTRO_SUR"
     },
     "Lyra": {
       "visual": [
-        930,
-        700
+        860,
+        865
+      ],
+      "seat": [
+        860,
+        865
       ],
       "nav": "P03_CENTRO_SUR"
     },
     "Dante": {
       "visual": [
         1385,
-        175
+        245
+      ],
+      "seat": [
+        1385,
+        245
       ],
       "nav": "P17_DANTE_DOOR"
     }
@@ -1002,10 +1042,10 @@
       "w": 1472,
       "h": 928
     },
-    "agent_clearance_px": 10,
+    "agent_clearance_px": 13,
     "speed_px_per_second": 74,
     "walk_frame_ms": 130,
-    "note": "No ambient random roaming. Agents move only from backend truth or explicit office commands; routes must cross physical doors and remain inside walkable corridors."
+    "note": "Backend task state is authoritative. When a working task has no explicit station, the agent uses its role primary station. Agents return to a calibrated seat/work anchor. Routes cross physical doors and avoid furniture; no random roaming."
   },
   "station_resolution": {
     "explicit_fields": [
@@ -1147,5 +1187,190 @@
     "P25_DEVELOPMENT": "P20_DEV_DOOR",
     "P21_MISSION": "P16_REUNION_DOOR"
   },
-  "meeting_access": "P16_REUNION_DOOR"
+  "meeting_access": "P16_REUNION_DOOR",
+  "role_profiles": {
+    "Akira": {
+      "primary": "mission",
+      "secondary": [
+        "meeting",
+        "development"
+      ],
+      "work_state": "think"
+    },
+    "Luna": {
+      "primary": "web",
+      "secondary": [
+        "memory",
+        "meeting"
+      ],
+      "work_state": "think"
+    },
+    "Nexo": {
+      "primary": "development",
+      "secondary": [
+        "mcp",
+        "printer"
+      ],
+      "work_state": "use"
+    },
+    "Nova": {
+      "primary": "web",
+      "secondary": [
+        "mission",
+        "meeting"
+      ],
+      "work_state": "think"
+    },
+    "Orion": {
+      "primary": "mission",
+      "secondary": [
+        "printer",
+        "meeting"
+      ],
+      "work_state": "think"
+    },
+    "Kaori": {
+      "primary": "memory",
+      "secondary": [
+        "printer",
+        "meeting"
+      ],
+      "work_state": "use"
+    },
+    "Zeri": {
+      "primary": "printer",
+      "secondary": [
+        "coffee",
+        "meeting"
+      ],
+      "work_state": "use"
+    },
+    "Lyra": {
+      "primary": "meeting",
+      "secondary": [
+        "web",
+        "memory"
+      ],
+      "work_state": "think"
+    },
+    "Dante": {
+      "primary": "mcp",
+      "secondary": [
+        "development",
+        "meeting"
+      ],
+      "work_state": "use"
+    }
+  },
+  "interaction_points": {
+    "P21_MISSION": [
+      1065,
+      235
+    ],
+    "P22_CAFE": [
+      1460,
+      400
+    ],
+    "P23_PRINTER": [
+      1310,
+      600
+    ],
+    "P24_MEMORY": [
+      220,
+      375
+    ],
+    "P25_DEVELOPMENT": [
+      1170,
+      820
+    ],
+    "P26_WEB": [
+      800,
+      330
+    ],
+    "P27_MCP": [
+      1165,
+      835
+    ]
+  },
+  "meeting_seats": {
+    "M01": {
+      "direction": "down",
+      "screen": [
+        1015,
+        105
+      ]
+    },
+    "M02": {
+      "direction": "down",
+      "screen": [
+        1065,
+        105
+      ]
+    },
+    "M03": {
+      "direction": "down",
+      "screen": [
+        1135,
+        105
+      ]
+    },
+    "M04": {
+      "direction": "down",
+      "screen": [
+        1190,
+        105
+      ]
+    },
+    "M05": {
+      "direction": "up",
+      "screen": [
+        1015,
+        235
+      ]
+    },
+    "M06": {
+      "direction": "up",
+      "screen": [
+        1065,
+        235
+      ]
+    },
+    "M07": {
+      "direction": "up",
+      "screen": [
+        1135,
+        235
+      ]
+    },
+    "M08": {
+      "direction": "up",
+      "screen": [
+        1190,
+        235
+      ]
+    }
+  },
+  "object_catalog": {
+    "desk": "workstation / monitors / keyboard",
+    "monitor": "screens / active display",
+    "printer": "printer station / paper",
+    "coffee": "coffee counter / cups",
+    "memory": "archive / books / memory station",
+    "mission": "mission board / reunion whiteboard",
+    "development": "development workstation",
+    "mcp": "core tools workstation",
+    "meeting": "meeting table / chairs",
+    "door": "physical room doors",
+    "lighting": "lamps / ambient details",
+    "props": "small office props"
+  },
+  "choreography": {
+    "backend_authority": true,
+    "idle_behavior": "return_home",
+    "working_behavior": "role_station_fallback",
+    "meeting": "seat_specific_then_talk",
+    "random_roaming": false,
+    "object_interaction": "station_specific",
+    "route_debug_visible": false
+  }
 }
