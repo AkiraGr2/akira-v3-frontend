@@ -297,7 +297,7 @@
     agent.actionPhase="home";
     agent.actionState=null;
     agent.state=agent.backendState==="working"?"work":agent.backendState==="error"?"reaction":"idle";
-    agent.nextAmbient=performance.now()/1000+8+Math.random()*10;
+    agent.nextAmbient=Infinity;
   }
 
   function finishAction(agent,now){
@@ -401,19 +401,7 @@
     a.frameClock+=dt;
     a.frame=Math.floor(a.frameClock/0.32)%st.count;
 
-    if(a.backendState==="idle" && now>=a.nextAmbient && Array.isArray(a.ambient)&&a.ambient.length){
-      const candidates=a.ambient.filter(id=>id!==a.node && graph[id]);
-      if(candidates.length){
-        const target=candidates[Math.floor(Math.random()*candidates.length)];
-        const action=actionForTarget(target);
-        if(startRoute(a,target,action,action==="talk"?3500:3000)){
-          say(a.name+" → "+target.replace(/^P\d+_/,"").replace(/_/g," ")+" · rutina de "+a.role+".");
-          a.nextAmbient=now+14+Math.random()*12;
-        }
-      }else{
-        a.nextAmbient=now+5;
-      }
-    }
+    // Autonomous wandering is disabled. Agents move only for explicit office actions.
   }
 
   function frameRect(row,col){
