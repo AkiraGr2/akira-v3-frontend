@@ -705,7 +705,7 @@
     }
   }
 
-  function loadGltfWithFallback(loader,urls,timeoutMs){
+  async function loadGltfWithFallback(loader,urls,timeoutMs){
     let lastError=null;
     const candidates=Array.isArray(urls)?urls.filter(Boolean):[];
     for(let index=0;index<candidates.length;index++){
