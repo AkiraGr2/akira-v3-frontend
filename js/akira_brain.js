@@ -47,27 +47,18 @@ async function checkBackendHealth(){
           logAutoRepair(`Render despertando ${latency}ms -> AUTO OFF interno`);
         }
         USE_STREAM = false;
-        setTimeout(async ()=>{
-          const ok = await checkBackendHealth();
-          if(ok && LAST_LATENCY < 1500){
-            USE_STREAM = true;
-            STREAM_FAIL_COUNT = 0;
-            logAutoRepair(`Backend estable ${LAST_LATENCY}ms -> AUTO ON recuperado`);
-          }
-        }, 10000);
+        logAutoRepair("Stream pausado hasta recibir una prueba real de stream OK");
         return false;
       }
-      if(!USE_STREAM && STREAM_FAIL_COUNT===0 && latency < 1500){
-        USE_STREAM = true;
-        logAutoRepair(`Recuperado estable -> AUTO ON`);
-      }
+      // /health demuestra disponibilidad del backend, NO la salud del canal SSE.
+      // La reactivación de USE_STREAM ocurre exclusivamente cuando /api/chat/stream
+      // entrega un evento done correctamente.
       return true;
-    } else {
-      BACKEND_HEALTHY = false;
-      USE_STREAM = false;
-      logAutoRepair(`Health no ok ${r.status} -> AUTO OFF`);
-      return false;
     }
+    BACKEND_HEALTHY = false;
+    USE_STREAM = false;
+    logAutoRepair(`Health no ok ${r.status} -> AUTO OFF`);
+    return false;
   }catch(e){
     BACKEND_HEALTHY = false;
     LAST_LATENCY = 9999;
