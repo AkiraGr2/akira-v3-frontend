@@ -916,15 +916,82 @@
     return true;
   }
 
-  function chooseAnimation(animations, patterns){
+  function normalizeClipName(value){
+    return String(value||"")
+      .toLowerCase()
+      .trim()
+      .replace(/[\s-]+/g,"_")
+      .replace(/_+/g,"_");
+  }
+
+  function chooseAnimation(animations, patterns, blockedPatterns){
     if(!Array.isArray(animations) || !animations.length) return null;
-    const normalized=animations.map(a=>({clip:a,name:String(a.name||"").toLowerCase()}));
-    for(const pattern of patterns){
-      const p=String(pattern).toLowerCase();
-      const hit=normalized.find(x=>x.name===p || x.name.includes(p));
+    const normalized=animations.map(clip=>({
+      clip,
+      name:normalizeClipName(clip && clip.name)
+    }));
+    const blocked=(Array.isArray(blockedPatterns)?blockedPatterns:[]).map(normalizeClipName);
+    const usable=normalized.filter(x=>!blocked.some(b=>b && (x.name===b || x.name.includes(b))));
+    for(const pattern of (Array.isArray(patterns)?patterns:[])){
+      const p=normalizeClipName(pattern);
+      const hit=usable.find(x=>x.name===p || x.name.includes(p));
       if(hit) return hit.clip;
     }
-    return animations[0];
+    return null;
+  }
+
+  function measureObject(root){
+    root.updateMatrixWorld(true);
+    const box=new THREE.Box3().setFromObject(root);
+    const size=box.getSize(new THREE.Vector3());
+    return {
+      box,
+      size,
+      height:Math.max(0,size.y),
+      width:Math.max(0,size.x),
+      depth:Math.max(0,size.z)
+    };
+  }
+
+  function calibrateCharacterModel(model, targetHeight=1.72){
+    if(!model) return {height:0,width:0,depth:0,orientation:"unknown",scale:1};
+    model.position.set(0,0,0);
+    model.rotation.set(0,0,0);
+    model.scale.setScalar(1);
+    model.updateMatrixWorld(true);
+
+    const candidates=[
+      {label:"native",rotation:[0,0,0]},
+      {label:"rot_x_pos_90",rotation:[Math.PI/2,0,0]},
+      {label:"rot_x_neg_90",rotation:[-Math.PI/2,0,0]},
+      {label:"rot_z_pos_90",rotation:[0,0,Math.PI/2]},
+      {label:"rot_z_neg_90",rotation:[0,0,-Math.PI/2]}
+    ];
+    let best=null;
+    candidates.forEach(candidate=>{
+      model.rotation.set(candidate.rotation[0],candidate.rotation[1],candidate.rotation[2]);
+      const metrics=measureObject(model);
+      const score=metrics.height - (Math.max(metrics.width,metrics.depth)*.08);
+      if(!best || score>best.score) best=Object.assign({score},candidate,metrics);
+    });
+
+    model.rotation.set(best.rotation[0],best.rotation[1],best.rotation[2]);
+    model.scale.setScalar(targetHeight/Math.max(best.height,.001));
+    model.updateMatrixWorld(true);
+
+    const fitted=measureObject(model);
+    model.position.y -= fitted.box.min.y;
+    model.position.x -= (fitted.box.min.x+fitted.box.max.x)/2;
+    model.position.z -= (fitted.box.min.z+fitted.box.max.z)/2;
+    model.updateMatrixWorld(true);
+
+    return {
+      height:fitted.height,
+      width:fitted.width,
+      depth:fitted.depth,
+      orientation:best.label,
+      scale:model.scale.x
+    };
   }
 
   function prepareTemplate(gltf){
@@ -935,9 +1002,11 @@
         obj.receiveShadow=true;
       }
     });
+    const metrics=measureObject(root);
     return {
       scene:root,
-      animations:Array.isArray(gltf.animations)?gltf.animations:[]
+      animations:Array.isArray(gltf.animations)?gltf.animations:[],
+      sourceMetrics:metrics
     };
   }
 
@@ -974,6 +1043,7 @@
     root.scale.setScalar(.92);
 
     const model=skeletonClone(template.scene);
+    const characterCalibration=calibrateCharacterModel(model,1.72);
     const tint=AGENT_COLORS[agents.indexOf(agent)%AGENT_COLORS.length];
     model.traverse(obj=>{
       if(!obj.isMesh) return;
@@ -988,14 +1058,46 @@
     root.add(model);
 
     const mixer=new THREE.AnimationMixer(model);
-    const idle=chooseAnimation(template.animations,["idle_loop","idle","idle_2"]);
-    const walk=chooseAnimation(template.animations,["walk_loop","walk","run"]);
-    const work=chooseAnimation(template.animations,["work","typing","interact","use","talk"]);
-    const sitEnter=chooseAnimation(template.animations,["sitting_enter","sitdown","sit_down"]);
-    const sitIdle=chooseAnimation(template.animations,["sitting_idle","sit_idle","sitting"]);
-    const sitTalk=chooseAnimation(template.animations,["sitting_talking","sit_talk","talking"]);
-    const sitExit=chooseAnimation(template.animations,["sitting_exit","situp","stand_up"]);
-    const talk=chooseAnimation(template.animations,["talk","talking","idle_2","idle"]);
+    const idle=chooseAnimation(
+      template.animations,
+      ["idle_loop","idle","idle_1","idle_2","standing","breathe","breath"],
+      ["fall","death","die","sleep","sit","lying","knock","hit","attack","jump","walk","run","talk","wave","yes","no"]
+    );
+    const walk=chooseAnimation(
+      template.animations,
+      ["walk_loop","walking","walk","walk_fwd","walk_forward"],
+      ["fall","death","die","sleep","sit","lying","jump","attack","hit","talk","run_back","walk_back"]
+    );
+    const work=chooseAnimation(
+      template.animations,
+      ["work_loop","work","typing","computer","interact","use"],
+      ["fall","death","die","sleep","sit","lying","jump","attack","hit"]
+    );
+    const sitEnter=chooseAnimation(
+      template.animations,
+      ["sitting_enter","sitdown","sit_down","sitting_down"],
+      ["fall","death","die","sleep","lying"]
+    );
+    const sitIdle=chooseAnimation(
+      template.animations,
+      ["sitting_idle","sit_idle","sitting","sit"],
+      ["fall","death","die","sleep","lying"]
+    );
+    const sitTalk=chooseAnimation(
+      template.animations,
+      ["sitting_talking","sit_talk","talk_sit"],
+      ["fall","death","die","sleep","lying"]
+    );
+    const sitExit=chooseAnimation(
+      template.animations,
+      ["sitting_exit","situp","stand_up","standing_up"],
+      ["fall","death","die","sleep","lying"]
+    );
+    const talk=chooseAnimation(
+      template.animations,
+      ["talking","talk","conversation","speaking"],
+      ["fall","death","die","sleep","sit","lying","walk","run","jump","attack","hit"]
+    );
 
     const actor={
       agent,
@@ -1003,6 +1105,8 @@
       model,
       mixer,
       clips:{idle,walk,work,sitEnter,sitIdle,sitTalk,sitExit,talk},
+      clipNames:template.animations.map(clip=>String(clip && clip.name || "")).filter(Boolean),
+      calibration:characterCalibration,
       action:null,
       target:stationFor(agent),
       targetMode:"station",
@@ -1014,7 +1118,7 @@
       ambientHoldUntil:0,
       ambientNextAt:performance.now()+18000+agents.indexOf(agent)*2600,
       baseScale:.92,
-      seated:true,
+      seated:false,
       transitionUntil:0,
       transitionKind:"",
       ambientPath:[],
@@ -1396,13 +1500,13 @@
     }
   }
 
-  function installControls(){
+  function installControls(profile){
     controls=new OrbitControls(camera,renderer.domElement);
     controls.enableDamping=true;
     controls.dampingFactor=.06;
-    controls.minDistance=11;
-    controls.maxDistance=24;
-    controls.target.set(0,1.4,0);
+    controls.minDistance=profile.mobile?8.5:11;
+    controls.maxDistance=profile.mobile?19:24;
+    controls.target.set(0,profile.mobile?1.05:1.4,0);
     controls.enablePan=false;
     controls.autoRotate=false;
     controls.touchAction="pan-y";
@@ -1455,6 +1559,25 @@
       get agentCount(){return agents.length;},
       get modelCount(){return modelTemplates.size;},
       get modelKeys(){return Array.from(modelTemplates.keys());},
+      get modelAnimations(){
+        return Object.fromEntries(Array.from(modelTemplates.entries()).map(([key,t])=>[
+          key,
+          Array.isArray(t.animations)?t.animations.map(clip=>String(clip && clip.name || "")):[]
+        ]));
+      },
+      get actorDiagnostics(){
+        return Object.fromEntries(Array.from(actors.entries()).map(([name,actor])=>[
+          name,
+          {
+            desiredState:actor.desiredState,
+            targetMode:actor.targetMode,
+            seated:actor.seated,
+            calibration:actor.calibration,
+            clipNames:actor.clipNames,
+            activeClip:String(actor.action && actor.action.getClip ? actor.action.getClip().name || "" : "")
+          }
+        ]));
+      },
       get modelErrors(){return Object.fromEntries(modelLoadErrors);},
       get modelTransports(){return Object.fromEntries(modelLoadTransports);},
       get officeAssetMode(){return officeAssetMode;},
@@ -1520,10 +1643,10 @@
       renderer.toneMappingExposure=1.22;
 
       scene=new THREE.Scene();
-      camera=new THREE.PerspectiveCamera(42,1,.1,80);
-      camera.position.set(0,9.6,17.8);
+      camera=new THREE.PerspectiveCamera(profile.mobile?40:42,1,.1,80);
+      camera.position.set(0,profile.mobile?8.0:9.6,profile.mobile?15.2:17.8);
 
-      installControls();
+      installControls(profile);
       createRoom(profile);
       installEvents();
       applyReducedMotion();
@@ -1606,6 +1729,12 @@
     const nowMs=performance.now();
     updateActorGoal(actor,nowMs);
     const s=actor.desiredState;
+
+    // Never allow an arbitrary GLB clip to become a fake idle state. If the
+    // asset has no safe idle clip, its calibrated rest pose is used instead.
+    if(!actor.action && actor.clips.idle){
+      playActorClip(actor,"idle",true,.18);
+    }
 
     if(s==="disabled"){
       actor.mixer.stopAllAction();
