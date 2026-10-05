@@ -1484,27 +1484,27 @@
     ],
     "vertical_front": {
       "start": 0,
-      "count": 4,
-      "cycle": [0, 1, 2, 3]
+      "count": 3,
+      "cycle": [0, 1, 2, 1]
     },
     "vertical_back": {
-      "start": 4,
+      "start": 3,
       "count": 4,
       "cycle": [0, 1, 2, 3]
     },
     "horizontal_left": {
-      "start": 8,
+      "start": 7,
       "count": 3,
       "cycle": [0, 1, 2, 1]
     },
     "horizontal_right": {
-      "start": 11,
-      "count": 3,
-      "cycle": [0, 1, 2, 1]
+      "start": 10,
+      "count": 4,
+      "cycle": [0, 1, 2, 3]
     },
     "frame_centers_x": [
-      97, 195, 292, 402, 501, 596, 693,
-      815, 918, 1020, 1147, 1247, 1346, 1445
+      98, 196, 294, 402, 501, 597, 694,
+      815, 919, 1022, 1148, 1248, 1346, 1446
     ],
     "row_centers_y": [
       67, 178, 290, 404, 517, 634, 743, 851, 959
@@ -1513,6 +1513,6 @@
     "frame_canvas_px": [128, 128],
     "frame_canvas_offset_y": 14,
     "preprocessing": "nearest-center-isolated",
-    "note": "Pixel-audited V8 layout. The published PNG contains 14 actual poses per row (4 front, 4 back, 3 left, 3 right); it is not a uniform 16-column sprite grid. Runtime uses calibrated frame centers and integer crop rectangles to preserve whole sprites."
+    "note": "Pixel-audited V8 layout. The published PNG contains 14 actual poses per row (3 front, 4 back, 3 left, 4 right); it is not a uniform 16-column sprite grid. Runtime uses calibrated frame centers and integer crop rectangles to preserve whole sprites."
   }
 }
