@@ -101,6 +101,9 @@
   let pollTimer = 0;
   let fetchBusy = false;
   let lastPoll = 0;
+  let syncStatus = "idle";
+  let syncHttpStatus = 0;
+  let syncError = "";
   let agents = [];
   let tasks = [];
   let actors = new Map();
@@ -305,7 +308,12 @@
     const list=document.getElementById("officeAgentList");
     if(!list) return;
     if(!agents.length){
-      list.innerHTML='<div class="office-empty">No hay agentes disponibles para esta sesión.</div>';
+      const emptyText = syncStatus === "auth_required"
+        ? "Inicia sesión como propietario para mostrar los agentes reales."
+        : (syncStatus === "forbidden"
+          ? "La sesión actual no tiene permisos para mostrar los agentes."
+          : (syncStatus === "error" ? "No se pudo sincronizar el registro real de agentes." : "No hay agentes disponibles para esta sesión."));
+      list.innerHTML='<div class="office-empty">'+esc(emptyText)+'</div>';
       updateDetail(null);
       return;
     }
@@ -818,10 +826,32 @@
     return loaded.some(Boolean);
   }
 
+  function normalizePlantAppearance(root){
+    if(!root) return;
+    const overall=new THREE.Box3().setFromObject(root);
+    const size=overall.getSize(new THREE.Vector3());
+    root.traverse(obj=>{
+      if(!obj.isMesh || !obj.material) return;
+      const mats=Array.isArray(obj.material)?obj.material:[obj.material];
+      const box=new THREE.Box3().setFromObject(obj);
+      const center=box.getCenter(new THREE.Vector3());
+      const relY=(center.y-overall.min.y)/Math.max(size.y,.001);
+      const name=(String(obj.name||"")+" "+mats.map(m=>String(m.name||"")).join(" ")).toLowerCase();
+      const isContainer=/pot|planter|container|base|vase/.test(name) || relY<0.28;
+      mats.forEach(m=>{
+        if(!m || !m.color) return;
+        m.color.set(isContainer?"#725742":"#4f9f68");
+        if("roughness" in m) m.roughness=Math.max(Number(m.roughness||0),.78);
+        if("metalness" in m) m.metalness=0;
+      });
+    });
+  }
+
   function addOfficeAsset(key,targetSize,position,rotationY){
     const root=cloneOfficeAsset(key);
     if(!root) return null;
     fitOfficeAsset(root,targetSize,position,rotationY);
+    if(key==="plant") normalizePlantAppearance(root);
     root.userData.officeAssetKey=key;
     scene.add(root);
     officeAssetInstances.push(root);
@@ -1248,16 +1278,40 @@
   }
 
   async function poll(){
-    if(fetchBusy || paused) return;
+    if(fetchBusy || paused) return false;
     fetchBusy=true;
+    syncStatus="loading";
+    syncHttpStatus=0;
+    syncError="";
+    const refresh=document.getElementById("officeRefresh");
+    if(refresh){
+      refresh.disabled=true;
+      refresh.textContent="Actualizando…";
+      refresh.setAttribute("aria-busy","true");
+    }
     try{
       const headers=authHeaders();
       const [ar,tr]=await Promise.all([
         fetch(backend()+"/api/v8/agents",{headers,cache:"no-store"}),
         fetch(backend()+"/api/v8/tasks?limit=100",{headers,cache:"no-store"})
       ]);
+      syncHttpStatus=ar.status || tr.status || 0;
       if(ar.status===401 && typeof window.akiraHandleAuthFailure==="function") window.akiraHandleAuthFailure(401);
       if(tr.status===401 && typeof window.akiraHandleAuthFailure==="function") window.akiraHandleAuthFailure(401);
+
+      if(ar.status===401 || tr.status===401){
+        syncStatus="auth_required";
+        syncError="owner_auth_required";
+        setOverlay("Inicia sesión como propietario para mostrar los agentes reales.","error");
+      }else if(ar.status===403 || tr.status===403){
+        syncStatus="forbidden";
+        syncError="owner_required";
+        setOverlay("La sesión actual no tiene permisos para mostrar los agentes.","error");
+      }else if(!ar.ok || !tr.ok){
+        syncStatus="error";
+        syncError="backend_sync_failed";
+        setOverlay("No se pudo sincronizar la Oficina con el registro real.","error");
+      }
 
       if(ar.ok){
         const data=await ar.json();
@@ -1269,6 +1323,11 @@
       }
 
       if(ar.ok || tr.ok) lastPoll=Date.now();
+      if(ar.ok && tr.ok){
+        syncStatus="ok";
+        syncHttpStatus=200;
+        syncError="";
+      }
       updateStats();
       renderList();
 
@@ -1278,13 +1337,23 @@
         if(key && !actors.has(key)) makeActor(a);
       });
 
-      setOverlay("", "");
-      window.dispatchEvent(new CustomEvent("akira:office-living-sync",{detail:{agents:agents.length,tasks:tasks.length,lastPoll}}));
+      if(syncStatus==="ok") setOverlay("", "");
+      window.dispatchEvent(new CustomEvent("akira:office-living-sync",{detail:{agents:agents.length,tasks:tasks.length,lastPoll,syncStatus,syncHttpStatus,syncError}}));
+      return syncStatus==="ok";
     }catch(err){
+      syncStatus="error";
+      syncError=String(err && err.message || err || "network_error");
       console.warn("[akira-office-living] poll",err);
-      if(!actors.size) setOverlay("La Oficina no pudo sincronizar agentes. La escena no inventará estados.","error");
+      if(!actors.size) setOverlay("No se pudo conectar con el registro real de agentes.","error");
+      return false;
     }finally{
       fetchBusy=false;
+      const refresh=document.getElementById("officeRefresh");
+      if(refresh){
+        refresh.disabled=false;
+        refresh.textContent="Actualizar";
+        refresh.removeAttribute("aria-busy");
+      }
     }
   }
 
@@ -1355,7 +1424,10 @@
         if(!paused) poll();
       };
     }
-    if(refresh) refresh.onclick=()=>poll();
+    if(refresh) refresh.onclick=async()=>{
+      if(paused) return;
+      await poll();
+    };
 
     window.addEventListener("resize",rendererSize,{passive:true});
   }
@@ -1391,6 +1463,20 @@
       get officeAssetErrors(){return Object.fromEntries(officeAssetErrors);},
       get officeAssetTransports(){return Object.fromEntries(officeAssetTransports);},
       get assetsReady(){return officeAssetMode && officeAssetInstances.length>0;},
+      get syncStatus(){return syncStatus;},
+      get syncHttpStatus(){return syncHttpStatus;},
+      get syncError(){return syncError;},
+      get plantMaterialColors(){
+        const colors=[];
+        officeAssetInstances.filter(root=>root && root.userData && root.userData.officeAssetKey==="plant").forEach(root=>{
+          root.traverse(obj=>{
+            if(!obj.isMesh || !obj.material) return;
+            const mats=Array.isArray(obj.material)?obj.material:[obj.material];
+            mats.forEach(m=>{if(m && m.color) colors.push("#"+m.color.getHexString());});
+          });
+        });
+        return colors;
+      },
       get states(){
         const out={};
         agents.forEach(a=>{out[String(a.name)]=agentState(a);});
@@ -1595,256 +1681,5 @@
     }
     actor.mixer.update(delta);
   }
-
-  function updateCore(now){
-    if(!coreGroup) return;
-    const pulse=.5+.5*Math.sin(now*.0015);
-    coreGroup.rotation.y+=(reducedMotion?0:.0022);
-    const scale=1+(.025*pulse);
-    coreGroup.scale.setScalar(scale);
-    coreMaterials.forEach((m,i)=>{
-      if(m.emissiveIntensity!==undefined) m.emissiveIntensity=(i===0?1.55:0.55)+pulse*(i===0?.35:.16);
-    });
-  }
-
-  function updateAmbient(now){
-    ambientObjects.forEach(item=>{
-      if(!item.mesh) return;
-      const phase=item.phase||0;
-      if(item.type==="leaf"){
-        item.mesh.rotation.z=reducedMotion?0:Math.sin(now*.0014+phase)*.08;
-      }else if(item.type==="screen"){
-        const m=item.mesh.material;
-        if(m && "emissiveIntensity" in m) m.emissiveIntensity=.8+(.45*(.5+.5*Math.sin(now*.003+phase)));
-      }else if(item.type==="ceiling"){
-        item.mesh.material.opacity=.58+.18*(.5+.5*Math.sin(now*.002+phase));
-      }else if(item.type==="coreRing"){
-        if(!reducedMotion) item.mesh.rotation.z+=.003*(1+phase);
-      }else if(item.type==="air"){
-        const pos=item.mesh.geometry.attributes.position;
-        const arr=pos.array;
-        for(let i=0;i<arr.length;i+=3){
-          const baseY=arr[i+1];
-          arr[i+1]=0.5+((baseY + now*.00012*(item.mesh.userData.speeds?item.mesh.userData.speeds[i/3]||.06:.06))-0.5)%6.4;
-          arr[i]+=reducedMotion?0:Math.sin(now*.0004+i)*.0005;
-        }
-        pos.needsUpdate=true;
-      }else if(item.type==="window"){
-        item.mesh.material.opacity=.15+.12*(.5+.5*Math.sin(now*.0017+phase));
-      }else if(item.type==="building"){
-        if(!reducedMotion) item.mesh.position.y += Math.sin(now*.00035+phase)*.00015;
-      }
-    });
-  }
-
-  function ensureCoreLinks(){
-    if(coreLinksGroup) return;
-    coreLinksGroup=new THREE.Group();
-    coreLinksGroup.name="officeCoreLinks";
-    scene.add(coreLinksGroup);
-  }
-
-  function removeCoreLink(name){
-    const entry=coreLinkLines.get(String(name));
-    if(!entry) return;
-    try{ entry.geometry.dispose(); }catch(_){}
-    try{ entry.material.dispose(); }catch(_){}
-    coreLinksGroup.remove(entry);
-    coreLinkLines.delete(String(name));
-  }
-
-  function updateCoreLinks(){
-    // Keep link objects stable and only update their tiny position buffer.
-    // Rebuilding geometry on every animation frame is deliberately avoided.
-    ensureCoreLinks();
-    const liveNames=new Set();
-
-    actors.forEach((actor,i)=>{
-      const name=String(actor.agent && actor.agent.name || "");
-      if(!name || !actor.root.visible) return;
-      liveNames.add(name);
-
-      let line=coreLinkLines.get(name);
-      if(!line){
-        const positions=new Float32Array(6);
-        const geometry=new THREE.BufferGeometry();
-        geometry.setAttribute("position",new THREE.BufferAttribute(positions,3));
-        const material=new THREE.LineBasicMaterial({
-          color:new THREE.Color(AGENT_COLORS[i%AGENT_COLORS.length]),
-          transparent:true,
-          opacity:.10
-        });
-        line=new THREE.Line(geometry,material);
-        coreLinkLines.set(name,line);
-        coreLinksGroup.add(line);
-      }
-
-      const attr=line.geometry.getAttribute("position");
-      const arr=attr.array;
-      arr[0]=0; arr[1]=1.25; arr[2]=0;
-      arr[3]=actor.root.position.x;
-      arr[4]=1.0;
-      arr[5]=actor.root.position.z;
-      attr.needsUpdate=true;
-
-      const active=actor.desiredState==="working"||actor.desiredState==="briefing";
-      line.material.opacity=active?.46:.10;
-      line.material.color.set(active?AGENT_COLORS[i%AGENT_COLORS.length]:"#2c3b58");
-    });
-
-    [...coreLinkLines.keys()].forEach(name=>{
-      if(!liveNames.has(name)) removeCoreLink(name);
-    });
-  }
-
-  function handleSelection(event){
-    if(!renderer || !camera || !scene) return;
-    const rect=canvas.getBoundingClientRect();
-    const x=((event.clientX-rect.left)/rect.width)*2-1;
-    const y=-((event.clientY-rect.top)/rect.height)*2+1;
-    pointer.set(x,y);
-    raycaster.setFromCamera(pointer,camera);
-    const objects=[];
-    actors.forEach(actor=>{
-      if(actor.root.visible) actor.root.traverse(o=>{if(o.isMesh) objects.push(o);});
-    });
-    const hits=raycaster.intersectObjects(objects,true);
-    if(!hits.length) return;
-    let obj=hits[0].object;
-    while(obj && !obj.userData.actor) obj=obj.parent;
-    if(obj && obj.userData.actor){
-      selectAgent(obj.userData.agentName);
-    }
-  }
-
-  async function poll(){
-    if(fetchBusy || paused) return;
-    fetchBusy=true;
-    try{
-      const headers=authHeaders();
-      const [ar,tr]=await Promise.all([
-        fetch(backend()+"/api/v8/agents",{headers,cache:"no-store"}),
-        fetch(backend()+"/api/v8/tasks?limit=100",{headers,cache:"no-store"})
-      ]);
-      if(ar.status===401 && typeof window.akiraHandleAuthFailure==="function") window.akiraHandleAuthFailure(401);
-      if(tr.status===401 && typeof window.akiraHandleAuthFailure==="function") window.akiraHandleAuthFailure(401);
-
-      if(ar.ok){
-        const data=await ar.json();
-        agents=Array.isArray(data && data.agents)?data.agents:[];
-      }
-      if(tr.ok){
-        const data=await tr.json();
-        tasks=Array.isArray(data && data.tasks)?data.tasks:[];
-      }
-
-      if(ar.ok || tr.ok) lastPoll=Date.now();
-      updateStats();
-      renderList();
-
-      // Add any new agent actor once modules/models are ready.
-      agents.forEach(a=>{
-        const key=String(a && a.name || "");
-        if(key && !actors.has(key)) makeActor(a);
-      });
-
-      setOverlay("", "");
-      window.dispatchEvent(new CustomEvent("akira:office-living-sync",{detail:{agents:agents.length,tasks:tasks.length,lastPoll}}));
-    }catch(err){
-      console.warn("[akira-office-living] poll",err);
-      if(!actors.size) setOverlay("La Oficina no pudo sincronizar agentes. La escena no inventará estados.","error");
-    }finally{
-      fetchBusy=false;
-    }
-  }
-
-  function rendererSize(){
-    if(!renderer || !camera || !stage) return;
-    const rect=stage.getBoundingClientRect();
-    const w=Math.max(320,Math.floor(rect.width));
-    const h=Math.max(420,Math.floor(rect.height));
-    renderer.setSize(w,h,false);
-    camera.aspect=w/h;
-    camera.updateProjectionMatrix();
-  }
-
-  function animate(ts){
-    raf=requestAnimationFrame(animate);
-    if(!initialized) return;
-    if(paused){
-      renderer.render(scene,camera);
-      return;
-    }
-    if(!currentSceneTime) currentSceneTime=ts;
-    const delta=Math.min(.05,(ts-currentSceneTime)/1000);
-    currentSceneTime=ts;
-
-    updateCore(ts);
-    updateAmbient(ts);
-    actors.forEach(actor=>updateActor(actor,delta,ts));
-    updateCoreLinks();
-
-    controls.update();
-    renderer.render(scene,camera);
-  }
-
-  function installResize(){
-    if(typeof ResizeObserver==="function"){
-      resizeObserver=new ResizeObserver(rendererSize);
-      resizeObserver.observe(stage);
-    }else{
-      window.addEventListener("resize",rendererSize,{passive:true});
-    }
-  }
-
-  function installControls(){
-    controls=new OrbitControls(camera,renderer.domElement);
-    controls.enableDamping=true;
-    controls.dampingFactor=.06;
-    controls.minDistance=11;
-    controls.maxDistance=24;
-    controls.target.set(0,1.4,0);
-    controls.enablePan=false;
-    controls.autoRotate=false;
-    controls.touchAction="pan-y";
-  }
-
-  function installEvents(){
-    raycaster=new THREE.Raycaster();
-    pointer=new THREE.Vector2();
-    canvas.addEventListener("pointerup",handleSelection,{passive:true});
-
-    const btn=document.getElementById("officePause");
-    const refresh=document.getElementById("officeRefresh");
-    if(btn){
-      btn.onclick=()=>{
-        paused=!paused;
-        btn.textContent=paused?"Reanudar":"Pausar";
-        btn.setAttribute("aria-pressed",paused?"true":"false");
-        if(!paused) currentSceneTime=performance.now();
-        if(!paused) poll();
-      };
-    }
-    if(refresh) refresh.onclick=()=>poll();
-
-    window.addEventListener("resize",rendererSize,{passive:true});
-  }
-
-  function applyReducedMotion(){
-    reducedMotion=!!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-    const mq=window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
-    if(mq && mq.addEventListener) mq.addEventListener("change",ev=>{reducedMotion=ev.matches;});
-  }
-
-  function getProfile(){
-    const coarse=window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-    const narrow=Math.min(window.innerWidth||9999,window.innerHeight||9999)<=900;
-    const mobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||"");
-    return {
-      mobile:!!(coarse && (narrow||mobile)),
-      pixelRatio:Math.min(window.devicePixelRatio||1,1.6)
-    };
-  }
-
 
 })();

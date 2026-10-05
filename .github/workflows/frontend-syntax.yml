@@ -233,6 +233,10 @@ jobs:
           if (!office.includes("THREE_VERSION = \"0.180.0\"")) throw new Error("living office must pin Three.js version");
           if (!office.includes("meshopt_decoder.module.js")) throw new Error("living office must enable Meshopt decoding");
           if (!office.includes("setMeshoptDecoder")) throw new Error("GLTFLoader Meshopt decoder hookup missing");
+          for (const fn of ["poll","rendererSize","animate","installResize","installControls","installEvents","applyReducedMotion","getProfile","updateCore","updateAmbient","ensureCoreLinks","removeCoreLink","updateCoreLinks","handleSelection"]) {
+            const count = (office.match(new RegExp("^\\s*(?:async\\s+)?function\\s+" + fn + "\\b", "gm")) || []).length;
+            if (count !== 1) throw new Error("Office runtime must define exactly one " + fn + " function; found " + count);
+          }
           if (!office.includes("CHARACTER_REPO = \"techdou/lumen-gallery\"")) throw new Error("living office must declare pinned character repo");
           if (!office.includes("CHARACTER_COMMIT = \"1c8a694c5669171b3b6a0f4bffc6f75d0772630a\"")) throw new Error("living office must pin character commit");
           if (!office.includes("CHARACTER_CDN_BASE")) throw new Error("living office CDN transport missing");

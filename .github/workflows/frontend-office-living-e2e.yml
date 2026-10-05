@@ -188,6 +188,21 @@ jobs:
               throw new Error("Published-style local office assets were not used");
             }
 
+            const refreshState = await page.evaluate(() => ({
+              syncStatus: window.akiraOfficeLivingDebug.syncStatus,
+              syncHttpStatus: window.akiraOfficeLivingDebug.syncHttpStatus,
+              syncError: window.akiraOfficeLivingDebug.syncError
+            }));
+
+            if(refreshState.syncStatus !== "ok" || refreshState.syncHttpStatus !== 200 || refreshState.syncError !== ""){
+              throw new Error("Office agent sync did not reach a clean success state after agents loaded: "+JSON.stringify(refreshState));
+            }
+
+            const plantMaterialColors = await page.evaluate(() => window.akiraOfficeLivingDebug.plantMaterialColors);
+            if(!Array.isArray(plantMaterialColors) || !plantMaterialColors.length || plantMaterialColors.every(v => ["#ffffff","#fefefe","#fff"].includes(String(v).toLowerCase()))){
+              throw new Error("Plant asset materials remain effectively white: "+JSON.stringify(plantMaterialColors));
+            }
+
             const states = await page.evaluate(() => window.akiraOfficeLivingDebug.states);
             if(states.researcher !== "briefing") throw new Error("Researcher should enter a real-task briefing state");
             if(states.developer !== "briefing") throw new Error("Developer should enter a real-task briefing state");
