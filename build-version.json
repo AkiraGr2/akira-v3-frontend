@@ -1,0 +1,10 @@
+{
+  "version": "akira-cache-v20261005-2335",
+  "generated_at": "2026-10-05T23:35:00Z",
+  "assets": {
+    "js/akira_brain.js": "akira-brain-v7-stream-root",
+    "js/obsidian_membrane.js": "akira-membrane-v48-rootfix",
+    "js/akira_learning.js": "akira-learning-v13-root-auth",
+    "js/akira-office-living-v5.js": "akira-office-v6-soft-collision"
+  }
+}
