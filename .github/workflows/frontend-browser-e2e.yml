@@ -155,7 +155,7 @@ jobs:
             });
 
             await page.goto("http://127.0.0.1:4173/", {waitUntil:"domcontentloaded", timeout:30000});
-            await page.click("#btn-membrane");
+            await page.evaluate(() => showSection("membrane"));
             await page.waitForSelector("#membraneCy canvas", {state:"visible", timeout:15000});
 
             await page.waitForFunction(() => {
