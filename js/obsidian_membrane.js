@@ -255,6 +255,11 @@ async function _fetchJson(url) {
   );
 
   if (!r.ok) {
+    try {
+      if (r.status === 401 && typeof window.akiraHandleAuthFailure === "function") {
+        window.akiraHandleAuthFailure(401);
+      }
+    } catch (_) {}
     throw new Error("HTTP " + r.status);
   }
 
@@ -1660,6 +1665,8 @@ function _runFlowerPhysics(nodes, edges, coreId){
   const groupAngles=state.groupAngles instanceof Map
     ? state.groupAngles
     : new Map();
+  const coreSafe=Number(state.coreSafe)>0 ? Number(state.coreSafe) : 155;
+  const spacing=Number(state.spacing)>0 ? Number(state.spacing) : 52;
   const assignments=_communityState && _communityState.assignments instanceof Map
     ? _communityState.assignments
     : new Map();
@@ -3457,13 +3464,12 @@ async function refreshMembrane(
         "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now()
       );
 
-    if (
-      data &&
-      data.ok
-    ) {
-      _applyGraphToCy(data);
-      membraneError = null;
+    if (!data || data.ok !== true) {
+      throw new Error("Respuesta del Cerebro 2D no válida");
     }
+
+    _applyGraphToCy(data);
+    membraneError = null;
   } catch (e) {
     membraneError =
       String(
@@ -3472,6 +3478,7 @@ async function refreshMembrane(
           ? e.message
           : e
       );
+    _updateMembraneStats();
   } finally {
     membraneFetching =
       false;
@@ -4059,13 +4066,19 @@ function _updateMembraneStats() {
   const nodesCount = c.nodes || 0;
   const edgesCount = c.edges || 0;
 
-  el.textContent =
-    nodesCount +
-    " nodos · " +
-    edgesCount +
-    " aristas · " +
-    clusterCount +
-    " clusters";
+  if (membraneError) {
+    el.textContent =
+      "⚠ CEREBRO 2D · " + String(membraneError).slice(0, 140) +
+      " · reintento automático";
+  } else {
+    el.textContent =
+      nodesCount +
+      " nodos · " +
+      edgesCount +
+      " aristas · " +
+      clusterCount +
+      " clusters";
+  }
 
   // Keep the shared Brain HUD synchronized with the live 2D membrane.
   // This also covers the initialization-order case where brain_3d.js
@@ -4318,11 +4331,25 @@ window.addEventListener(
           () => {
             if (cyMembrane) {
               cyMembrane.resize();
+              refreshMembrane(true);
             }
           },
           100
         );
       }
+
+      // The Brain section can become visible after auth/session startup. Give
+      // the layout one frame to acquire its real mobile dimensions, then retry
+      // the 2D graph once so a startup race cannot leave a permanently blank view.
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (!cyMembrane) initMembraneGraph();
+          if (cyMembrane) {
+            try { cyMembrane.resize(); } catch(_) {}
+            refreshMembrane(true);
+          }
+        }, 250);
+      });
     }
 
     if (
