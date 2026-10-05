@@ -457,7 +457,8 @@
     addBox(scene,[5.2,1.9,.08],[-8.2,3.55,-10.12],accent);
     addBox(scene,[5.2,1.9,.08],[8.2,3.55,-10.12],makeMaterial("#c9b9a5",.58,.05,false,1));
 
-    // Ceiling light bands.    for(let i=0;i<5;i++){
+    // Ceiling light bands.
+    for(let i=0;i<5;i++){
       const line=new THREE.Mesh(
         new THREE.BoxGeometry(3.4,0.045,0.10),
         new THREE.MeshBasicMaterial({color:i%2?"#ffffff":"#dff4ff",transparent:true,opacity:.9})
