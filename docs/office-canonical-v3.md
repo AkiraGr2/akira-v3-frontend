@@ -1,4 +1,4 @@
-# AKIRA OFFICE — CANONICAL V3
+# AKIRA OFFICE — CANONICAL V3.2
 
 ## Runtime visual source
 
@@ -73,3 +73,11 @@ Sistema lógico de 32×24 tiles, origen arriba-izquierda.
 La Oficina no vuelve a dibujar con rectángulos ni sustituye los elementos del diseño por muebles genéricos.
 
 La escena visible debe partir del arte maestro. Cualquier capa interactiva posterior se superpone con discreción y nunca reemplaza el diseño.
+
+
+## V3.2 runtime guarantees
+
+- El atlas de agentes V3.2 usa 19 frames por personaje: idle(3), walk(3), work(3), talk(3), think(2), use(3), reaction(2).
+- La navegación utiliza puntos de salida/stand separados de las huellas de escritorios, impresora, tablero, cocina y mesa de reuniones.
+- Las aristas de movimiento se validan geométricamente contra `collision_blocks`; una arista que intersecta un obstáculo queda automáticamente excluida.
+- Las rutinas ambientales usan destinos compatibles con el rol de cada agente en lugar de seleccionar rutas arbitrarias.

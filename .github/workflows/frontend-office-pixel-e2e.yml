@@ -116,7 +116,9 @@ jobs:
               pixelScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-living-v3")),
               sceneSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.sceneSource,
               atlasSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.atlasSource,
-              agents:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.agents
+              atlasLayout:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.atlasLayout,
+              agents:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.agents,
+              invalidEdges:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.invalidEdges
             }));
 
             if(domState.office3dStage || domState.office3dMode || domState.officeCanvas || domState.legacyFloor3dScript){
@@ -126,8 +128,14 @@ jobs:
             if(!String(domState.sceneSource||"").endsWith("01_office_scene_clean_v3.png")){
               throw new Error("Clean V3 Office scene was not loaded: "+JSON.stringify(domState.sceneSource));
             }
-            if(!String(domState.atlasSource||"").endsWith("02_office_agents_atlas_v3_clean3.png")){
-              throw new Error("V3 agent atlas was not loaded: "+JSON.stringify(domState.atlasSource));
+            if(!String(domState.atlasSource||"").endsWith("02_office_agents_atlas_v3_clean4.png")){
+              throw new Error("V3 clean4 agent atlas was not loaded: "+JSON.stringify(domState.atlasSource));
+            }
+            if(!domState.atlasLayout || domState.atlasLayout.rows!==9 || domState.atlasLayout.framesPerRow!==19){
+              throw new Error("Clean4 atlas layout contract is wrong: "+JSON.stringify(domState.atlasLayout));
+            }
+            if(Array.isArray(domState.invalidEdges) && domState.invalidEdges.length){
+              throw new Error("Collision guard rejected movement edges: "+JSON.stringify(domState.invalidEdges));
             }
             const agentByName=Object.fromEntries((domState.agents||[]).map(a=>[a.name,a]));
             if(!agentByName.Luna || agentByName.Luna.backendState!=="working" ||
@@ -136,9 +144,19 @@ jobs:
               throw new Error("Pixel Office state synchronization failed: "+JSON.stringify(domState.agents));
             }
 
+            if(Array.isArray(domState.invalidEdges) && domState.invalidEdges.length){
+              throw new Error("Collision guard rejected movement edges: "+JSON.stringify(domState.invalidEdges));
+            }
+
+            const allHomes=(domState.agents||[]).map(a=>a.name);
+            if(allHomes.length!==9){
+              throw new Error("Office roster is not 9 agents: "+JSON.stringify(allHomes));
+            }
+
             const assets=await page.evaluate(async () => {
               const paths=[
-                "assets/office/01_office_master_scene.png",
+                "assets/office/01_office_scene_clean_v3.png",
+                "assets/office/02_office_agents_atlas_v3_clean4.png",
                 "assets/office/02_office_ui_reference.png",
                 "assets/office/03_office_production_map.png",
                 "assets/office/04_office_map_objects_and_zones.png",
@@ -168,6 +186,13 @@ jobs:
             }
             if(!layout.sample.length || layout.sample[3]===0){
               throw new Error("Pixel Office canvas did not paint");
+            }
+
+            const frameBefore=await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[]).find(a=>a.name==="Akira"));
+            await page.waitForTimeout(500);
+            const frameAfter=await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[]).find(a=>a.name==="Akira"));
+            if(!frameBefore || !frameAfter){
+              throw new Error("Akira sprite debug state missing");
             }
 
             await page.setViewportSize({width:1440,height:900});

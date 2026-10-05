@@ -1,142 +1,164 @@
-/* AKIRA OFFICE — Canonical Living V3.1
- * Visual scene: authored clean V3 artwork.
- * Agents: authored V3 sprite atlas (48px cells, 7 states x 3 frames).
- * Navigation: canonical 32x24 coordinate graph + screen calibration.
- * Backend: read-only truth source for technical agent states.
- *
- * No 3D. No procedural furniture. No fake agent sprites.
+/* AKIRA OFFICE — Living V3.2
+ * Clean V3 scene + clean4 high-resolution sprite atlas.
+ * 9 agents, role-aware ambient behavior, collision-guarded navigation.
+ * No 3D, no procedural furniture, no fake sprites.
  */
 (function(){
   "use strict";
 
-  const SCENE_SRC="./assets/office/01_office_scene_clean_v3.png";
-  const ATLAS_SRC="./assets/office/02_office_agents_atlas_v3_clean3.png";
   const CONFIG_SRC="./assets/office/office_runtime_v3.json";
+  const SCENE_SRC="./assets/office/01_office_scene_clean_v3.png";
+  const ATLAS_SRC="./assets/office/02_office_agents_atlas_v3_clean4.png";
   const BACKEND_FALLBACK="https://akira-empresa.onrender.com";
-  const POLL_MS=8000;
-  const CELL=48;
-  const FRAMES_PER_STATE=3;
-  const STATE_ORDER=["idle","walk","work","talk","think","use","reaction"];
+  const FRAME_X=[62.6,144.4,221.8,308.2,380.2,447.9,533.5,616.9,695.6,770.1,846.4,923.3,1000.1,1078.1,1152.7,1231.5,1312.5,1389.9,1467.5];
+  const FRAME_Y=[71.3,178.9,285.3,402.9,510.6,627.5,735.7,844.3,952.7];
+  const STATES=[
+    {name:"idle",count:3,start:0},
+    {name:"walk",count:3,start:3},
+    {name:"work",count:3,start:6},
+    {name:"talk",count:3,start:9},
+    {name:"think",count:2,start:12},
+    {name:"use",count:3,start:14},
+    {name:"reaction",count:2,start:17}
+  ];
+  const STATE_BY_NAME=Object.fromEntries(STATES.map(x=>[x.name,x]));
 
-  let stage,canvas,ctx,scene,atlas,config;
-  let initialized=false,raf=0,last=0,paused=false;
-  let pollTimer=0;
-  let selectedName="";
-  let agents=[];
-  let tasks=[];
+  let stage=null,canvas=null,ctx=null,scene=null,atlas=null,config=null;
+  let initialized=false,raf=0,last=0,paused=false,pollTimer=0;
+  let graph={},invalidEdges=[];
+  let agents=[],tasks=[];
   let truth={loaded:false,total:0,working:0,idle:0,error:0,disabled:0};
+  let selectedName="";
   let eventText="Cargando Oficina V3…";
 
   const el=id=>document.getElementById(id);
+  const key=(x,y)=>x+","+y;
 
   function authHeaders(){
-    try{
-      return typeof window.akiraAuthHeaders==="function" ? window.akiraAuthHeaders() : {};
-    }catch(_){return {};}
+    try{return typeof window.akiraAuthHeaders==="function"?window.akiraAuthHeaders():{};}
+    catch(_){return{};}
   }
-
   function backendUrl(){
-    try{
-      return localStorage.getItem("akira_backend_url")||BACKEND_FALLBACK;
-    }catch(_){return BACKEND_FALLBACK;}
+    try{return localStorage.getItem("akira_backend_url")||BACKEND_FALLBACK;}
+    catch(_){return BACKEND_FALLBACK;}
   }
-
   function say(msg){
     eventText=String(msg||"");
-    const ev=el("officePixelEvent");
-    if(ev)ev.textContent=eventText;
+    const e=el("officePixelEvent");
+    if(e)e.textContent=eventText;
   }
-
   function loadJson(url){
     return fetch(url,{cache:"no-store"}).then(r=>{
       if(!r.ok)throw new Error("HTTP "+r.status+" "+url);
       return r.json();
     });
   }
-
   function loadImage(src){
     return new Promise((resolve,reject)=>{
       const img=new Image();
       img.onload=()=>resolve(img);
       img.onerror=()=>reject(new Error("No se pudo cargar "+src));
-      img.src=src+"?v=office-v3-live";
+      img.src=src+"?v=office-v3-runtime";
     });
   }
 
-  function buildGraph(edges){
-    const g={};
-    for(const [a,b] of edges||[]){
-      (g[a]||(g[a]=[])).push(b);
-      (g[b]||(g[b]=[])).push(a);
-    }
-    return g;
+  function pointInsideBlock(p,b){
+    // Tile rectangles are half-open: [x,x+w) × [y,y+h).
+    return p[0]>=b.x && p[0]<b.x+b.w && p[1]>=b.y && p[1]<b.y+b.h;
   }
 
-  function shortestPath(graph,start,end){
+  function segmentTouchesBlock(a,b,block){
+    const steps=Math.max(12,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])*10));
+    for(let i=0;i<=steps;i++){
+      const t=i/steps;
+      const p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+      if(pointInsideBlock(p,block))return true;
+    }
+    return false;
+  }
+
+  function edgeAllowed(a,b){
+    const A=config.waypoints[a]?.world,B=config.waypoints[b]?.world;
+    if(!A||!B)return false;
+    return !(config.collision_blocks||[]).some(block=>segmentTouchesBlock(A,B,block));
+  }
+
+  function buildGraph(){
+    graph={};invalidEdges=[];
+    for(const [a,b] of config.movement_edges||[]){
+      if(!edgeAllowed(a,b)){
+        invalidEdges.push([a,b]);
+        continue;
+      }
+      (graph[a]||(graph[a]=[])).push(b);
+      (graph[b]||(graph[b]=[])).push(a);
+    }
+  }
+
+  function shortestPath(start,end){
     if(start===end)return[start];
-    const queue=[start],prev=new Map([[start,null]]);
-    while(queue.length){
-      const cur=queue.shift();
+    const q=[start],prev=new Map([[start,null]]);
+    while(q.length){
+      const cur=q.shift();
       for(const next of graph[cur]||[]){
         if(prev.has(next))continue;
         prev.set(next,cur);
         if(next===end){
-          const out=[];
-          let p=end;
+          const out=[];let p=end;
           while(p!==null){out.unshift(p);p=prev.get(p);}
           return out;
         }
-        queue.push(next);
+        q.push(next);
       }
     }
-    return [start];
+    return[];
   }
 
-  function nearestWaypoint(agent){
-    let best="",bestD=Infinity;
-    for(const [id,node] of Object.entries(config.waypoints)){
-      const d=Math.hypot(node.world[0]-agent.world[0],node.world[1]-agent.world[1]);
-      if(d<bestD){bestD=d;best=id;}
-    }
-    return best;
+  function homeVisual(name){
+    return config.homes[name]||null;
+  }
+  function nodeScreen(id){
+    return config.waypoints[id]?.screen||[0,0];
+  }
+  function nodeWorld(id){
+    return config.waypoints[id]?.world||[0,0];
   }
 
-  function screenPointForAgent(agent){
-    const wp=config.waypoints[agent.currentWaypoint];
-    if(!wp)return agent.screen;
-    return wp.screen;
-  }
-
-  function createAgents(){
-    agents=config.agents.map(c=>({
-      ...c,
-      homeWorld:[...c.anchor],
-      world:[...c.anchor],
-      screen:[...c.screen],
-      currentWaypoint:nearestWaypoint({world:c.anchor,screen:c.screen}),
-      route:[],
-      routeIndex:0,
-      state:c.status==="disabled"?"idle":"idle",
-      actionState:null,
-      actionPhase:"home",
-      actionUntil:0,
-      nextAmbient:performance.now()/1000 + 3 + Math.random()*6,
-      frame:0,
-      frameClock:0
-    }));
+  function makeAgents(){
+    agents=config.agents.map(c=>{
+      const home=config.homes[c.name]||{visual:[0,0],nav:"P05_CENTRO_NORTE"};
+      const nav=home.nav;
+      return {
+        ...c,
+        homeVisual:[...home.visual],
+        homeNav:nav,
+        node:nav,
+        world:[...nodeWorld(nav)],
+        screen:[...home.visual],
+        route:[],
+        routeIndex:0,
+        actionState:null,
+        actionPhase:"home",
+        actionUntil:0,
+        afterMs:0,
+        frame:0,
+        frameClock:0,
+        backendState:"unknown",
+        nextAmbient:performance.now()/1000+5+Math.random()*7
+      };
+    });
   }
 
   function backendStateFor(a){
     const s=String(a&&a.status||"").toLowerCase();
     if(s==="disabled")return"disabled";
     if(["error","failed","failure"].includes(s))return"error";
-    const n=String(a&&a.name||"").toLowerCase();
     if(["working","running","busy","executing","active"].includes(s))return"working";
-    const active=tasks.some(t =>
+    const n=String(a&&a.name||"").toLowerCase();
+    return tasks.some(t=>
       String(t&&t.agent_name||"").toLowerCase()===n &&
       ["pending","queued","running","working","executing","in_progress","started","active"].includes(String(t&&t.status||"").toLowerCase())
-    );
-    return active?"working":"idle";
+    )?"working":"idle";
   }
 
   async function pollTruth(){
@@ -151,21 +173,17 @@
         const td=await tr.json();
         tasks=Array.isArray(td&&td.tasks)?td.tasks:[];
       }
-
       if(ar.ok){
         const ad=await ar.json();
         const real=Array.isArray(ad&&ad.agents)?ad.agents:[];
         const byName=new Map(real.map(a=>[String(a.name||"").toLowerCase(),a]));
-        for(const a of agents){
+        agents.forEach(a=>{
           const live=byName.get(String(a.backend||"").toLowerCase());
           a.backendState=live?backendStateFor(live):"unknown";
-          if(a.actionPhase==="home"||!a.actionPhase){
-            if(a.backendState==="working")a.state="work";
-            else if(a.backendState==="error")a.state="reaction";
-            else if(a.backendState==="disabled")a.state="idle";
-            else a.state="idle";
+          if(a.actionPhase==="home"){
+            a.state=a.backendState==="working"?"work":a.backendState==="error"?"reaction":"idle";
           }
-        }
+        });
         truth.loaded=true;
         truth.total=real.length;
         truth.working=real.filter(a=>backendStateFor(a)==="working").length;
@@ -175,133 +193,141 @@
       }
       renderSidePanel();
       renderHud();
-    }catch(_){
-      renderHud();
-    }
+    }catch(_){renderHud();}
   }
 
   function renderHud(){
     const hud=el("officePixelHud");
-    if(!hud)return;
-    if(truth.loaded){
-      hud.innerHTML="<strong>AKIRA PROJECT</strong><br>"+
-        truth.total+" registrados · "+truth.working+" trabajando · "+truth.idle+" disponibles";
-    }else{
-      hud.innerHTML="<strong>AKIRA PROJECT · V3</strong><br>Backend pendiente";
+    if(hud){
+      hud.innerHTML=truth.loaded
+        ? "<strong>AKIRA PROJECT</strong><br>"+truth.total+" registrados · "+truth.working+" trabajando · "+truth.idle+" disponibles"
+        : "<strong>AKIRA PROJECT · V3</strong><br>Estado backend pendiente";
     }
     const ev=el("officePixelEvent");
     if(ev)ev.textContent=eventText;
   }
 
   function renderSidePanel(){
-    const total=el("officeTotal");
-    const working=el("officeWorking");
-    const idle=el("officeIdle");
-    const errors=el("officeErrors");
-    const sync=el("officeSync");
-    const list=el("officeAgentList");
-
+    const total=el("officeTotal"),working=el("officeWorking"),idle=el("officeIdle"),errors=el("officeErrors"),sync=el("officeSync"),list=el("officeAgentList");
     if(total)total.textContent=truth.loaded?String(truth.total):"—";
     if(working)working.textContent=truth.loaded?String(truth.working):"—";
     if(idle)idle.textContent=truth.loaded?String(truth.idle):"—";
     if(errors)errors.textContent=truth.loaded?String(truth.error):"—";
     if(sync)sync.textContent=truth.loaded?new Date().toLocaleTimeString():"—";
-
     if(!list)return;
     list.innerHTML=agents.map(a=>{
-      const status=a.backendState==="working"?"Trabajando":
-        a.backendState==="error"?"Error":
-        a.status==="disabled"?"Desactivado":
-        a.backendState==="idle"?"Disponible":"Sin confirmar";
+      const status=a.backendState==="working"?"Trabajando":a.backendState==="error"?"Error":a.status==="disabled"?"Desactivado":a.backendState==="idle"?"Disponible":"Sin confirmar";
       return '<button type="button" class="office-agent-row" data-office-agent="'+a.name+'">'+
         '<span class="office-agent-dot '+(a.backendState||"idle")+'"></span>'+
         '<span>'+a.name+'</span><small>'+status+'</small></button>';
     }).join("");
-
     list.querySelectorAll("[data-office-agent]").forEach(b=>{
       b.addEventListener("click",()=>{
         selectedName=b.dataset.officeAgent||"";
         const a=agents.find(x=>x.name===selectedName);
         if(a){
-          say(a.name+" · "+a.role+" · "+(a.backendState==="working"?"trabajando":"disponible"));
+          say(a.name+" · "+a.role+" · ("+a.world[0].toFixed(1)+", "+a.world[1].toFixed(1)+")");
           const detail=el("officeAgentDetail");
-          if(detail)detail.innerHTML="<strong>"+a.name+"</strong><br>"+a.role+
-            "<br>Coordenada: ("+a.homeWorld[0]+", "+a.homeWorld[1]+")";
+          if(detail)detail.innerHTML="<strong>"+a.name+"</strong><br>"+a.role+"<br>Coordenada actual: ("+a.world[0].toFixed(1)+", "+a.world[1].toFixed(1)+")";
         }
       });
     });
   }
 
-  function setRoute(agent,targetWaypoint,state,afterMs=0){
-    if(!agent||agent.status==="disabled")return false;
-    const from=nearestWaypoint(agent);
-    const path=shortestPath(graph,from,targetWaypoint);
-    if(path.length<1)return false;
-    agent.route=path;
+  function pathTo(agent,targetId){
+    const path=shortestPath(agent.node,targetId);
+    if(!path.length)return null;
+    return path;
+  }
+
+  function startRoute(agent,targetId,state,duration){
+    if(!agent||agent.status!=="active")return false;
+    const path=pathTo(agent,targetId);
+    if(!path)return false;
+
+    // First visual leg: leave the workstation/seat and arrive at the approved walk tile.
+    const route=[];
+    const exitId=agent.homeNav;
+    if(agent.actionPhase==="home" && exitId){
+      route.push({id:exitId,screen:nodeScreen(exitId),world:nodeWorld(exitId),kind:"exit"});
+    }
+    path.slice(1).forEach(id=>route.push({id,screen:nodeScreen(id),world:nodeWorld(id),kind:"walk"}));
+
+    agent.route=route;
     agent.routeIndex=0;
-    agent.actionState=state;
+    agent.actionState=state||"idle";
     agent.actionPhase="travelling";
     agent.actionUntil=0;
-    agent.state="walk";
+    agent.afterMs=duration||0;
     agent.frame=0;
     agent.frameClock=0;
-    agent.afterMs=afterMs;
     return true;
   }
 
-  function finishRoute(agent){
-    agent.route=[];
-    agent.routeIndex=0;
-    agent.actionPhase="arrived";
-    agent.actionUntil=performance.now()/1000 + ((agent.afterMs||0)/1000);
-    agent.state=agent.actionState||"idle";
-  }
-
-  function returnHome(agent){
-    const home=agent.configHomeWaypoint;
-    if(!home)return;
-    const path=shortestPath(graph,nearestWaypoint(agent),home);
-    agent.route=path;
+  function beginHomeReturn(agent){
+    const path=shortestPath(agent.node,agent.homeNav);
+    if(!path.length)return false;
+    agent.route=path.map(id=>({id,screen:nodeScreen(id),world:nodeWorld(id),kind:"return"}));
     agent.routeIndex=0;
     agent.actionState="idle";
     agent.actionPhase="returning";
-    agent.state="walk";
+    agent.frame=0;
+    agent.frameClock=0;
+    return true;
+  }
+
+  function finishAtHome(agent){
+    agent.node=agent.homeNav;
+    agent.world=[...nodeWorld(agent.homeNav)];
+    agent.screen=[...agent.homeVisual];
+    agent.route=[];
+    agent.routeIndex=0;
+    agent.actionPhase="home";
+    agent.actionState=null;
+    agent.state=agent.backendState==="working"?"work":agent.backendState==="error"?"reaction":"idle";
+    agent.nextAmbient=performance.now()/1000+8+Math.random()*10;
+  }
+
+  function finishAction(agent,now){
+    agent.route=[];
+    agent.routeIndex=0;
+    agent.actionPhase="arrived";
+    agent.actionUntil=now+(agent.afterMs||0)/1000;
+    agent.state=agent.actionState||"idle";
+  }
+
+  function actionForTarget(id){
+    if(id==="P07_TABLERO_STAND")return"use";
+    if(id==="P08_CAFE_STAND")return"use";
+    if(id==="P09_IMPRESORA_STAND")return"use";
+    if(id.startsWith("M"))return"talk";
+    return"idle";
   }
 
   function executeCommand(kind){
     const live=agents.filter(a=>a.status==="active");
     if(kind==="mission"){
       const a=agents.find(x=>x.name==="Akira");
-      if(a){
-        a.configHomeWaypoint=nearestWaypoint({world:a.homeWorld});
-        setRoute(a,"P07_TABLERO","use",7000);
-        say("Akira → Tablero de Misiones.");
-      }
+      if(a&&startRoute(a,config.interactions.mission, "use",6500))say("Akira → Tablero de Misiones.");
       return;
     }
     if(kind==="coffee"){
-      live.slice(0,3).forEach(a=>{
-        a.configHomeWaypoint=nearestWaypoint({world:a.homeWorld});
-        setRoute(a,"P08_CAFE","use",5000);
-      });
-      say("Pausa de café · rutas visuales activadas.");
-      return;
-    }
-    if(kind==="meeting"){
-      live.forEach(a=>{
-        a.configHomeWaypoint=nearestWaypoint({world:a.homeWorld});
-        setRoute(a,"P10_REUNIONES","talk",6000);
-      });
-      say("Reunión de equipo · 8 agentes en ruta.");
+      const picks=live.slice(0,3);
+      picks.forEach(a=>startRoute(a,config.interactions.coffee,"use",4500));
+      say("Pausa de café · rutas seguras activadas.");
       return;
     }
     if(kind==="print"){
       const a=agents.find(x=>x.name==="Nexo")||live[0];
-      if(a){
-        a.configHomeWaypoint=nearestWaypoint({world:a.homeWorld});
-        setRoute(a,"P09_IMPRESORA","use",4500);
-        say(a.name+" → Impresora.");
-      }
+      if(a&&startRoute(a,config.interactions.print,"use",4500))say(a.name+" → Impresora.");
+      return;
+    }
+    if(kind==="meeting"){
+      const slots=config.interactions.meeting||[];
+      live.forEach((a,i)=>{
+        if(slots[i])startRoute(a,slots[i],"talk",5500);
+      });
+      say("Reunión de equipo · posiciones alrededor de la mesa.");
     }
   }
 
@@ -309,135 +335,139 @@
     if(a.status==="disabled"){
       a.state="idle";
       a.frameClock+=dt;
-      a.frame=(Math.floor(a.frameClock/0.45))%FRAMES_PER_STATE;
+      a.frame=(Math.floor(a.frameClock/0.45))%3;
       return;
     }
 
     if(a.actionPhase==="travelling"||a.actionPhase==="returning"){
-      const targetId=a.route[a.routeIndex];
-      const target=config.waypoints[targetId];
-      if(!target){finishRoute(a);return;}
-      const dx=target.world[0]-a.world[0],dy=target.world[1]-a.world[1];
+      const target=a.route[a.routeIndex];
+      if(!target){finishAtHome(a);return;}
+      const tx=target.world[0],ty=target.world[1];
+      const dx=tx-a.world[0],dy=ty-a.world[1];
       const dist=Math.hypot(dx,dy);
-      const speed=dt*3.0;
+      const step=Math.min(dist,dt*3.1);
+
       a.state="walk";
       a.frameClock+=dt;
-      a.frame=(Math.floor(a.frameClock/0.14))%FRAMES_PER_STATE;
+      a.frame=Math.floor(a.frameClock/0.14)%3;
+
       if(dist<0.045){
-        a.world=[...target.world];
+        a.world=[tx,ty];
+        a.node=target.id;
         a.screen=[...target.screen];
-        a.currentWaypoint=targetId;
         if(a.routeIndex<a.route.length-1){
           a.routeIndex++;
         }else if(a.actionPhase==="returning"){
-          a.actionPhase="home";
-          a.actionState=null;
-          a.state=a.backendState==="working"?"work":"idle";
-          a.nextAmbient=now+4+Math.random()*7;
+          finishAtHome(a);
         }else{
-          finishRoute(a);
+          finishAction(a,now);
         }
         return;
       }
-      const k=Math.min(1,speed/Math.max(.001,dist));
-      a.world[0]+=dx*k;a.world[1]+=dy*k;
-      a.screen[0]+=((target.screen[0]-a.screen[0])*k);
-      a.screen[1]+=((target.screen[1]-a.screen[1])*k);
+
+      const k=step/Math.max(.0001,dist);
+      a.world[0]+=dx*k;
+      a.world[1]+=dy*k;
+      a.screen[0]+=(target.screen[0]-a.screen[0])*k;
+      a.screen[1]+=(target.screen[1]-a.screen[1])*k;
       return;
     }
 
     if(a.actionPhase==="arrived"){
       if(now<a.actionUntil){
+        const st=STATE_BY_NAME[a.actionState]||STATE_BY_NAME.idle;
         a.frameClock+=dt;
-        a.frame=(Math.floor(a.frameClock/0.32))%FRAMES_PER_STATE;
+        a.frame=Math.floor(a.frameClock/0.30)%st.count;
         return;
       }
-      returnHome(a);
+      beginHomeReturn(a);
       return;
     }
 
-    a.state=a.backendState==="working"?"work":"idle";
-    if(a.backendState==="error")a.state="reaction";
+    a.state=a.backendState==="working"?"work":a.backendState==="error"?"reaction":"idle";
+    const st=STATE_BY_NAME[a.state]||STATE_BY_NAME.idle;
     a.frameClock+=dt;
-    a.frame=(Math.floor(a.frameClock/0.32))%FRAMES_PER_STATE;
+    a.frame=Math.floor(a.frameClock/0.32)%st.count;
 
-    if(a.backendState==="idle" && now>=a.nextAmbient){
-      const node=a.currentWaypoint;
-      const options=(graph[node]||[]).filter(id=>id!=="P18_DANTE_WAIT");
-      if(options.length){
-        const target=options[Math.floor(Math.random()*options.length)];
-        a.configHomeWaypoint=nearestWaypoint({world:a.homeWorld});
-        a.route=[target,a.configHomeWaypoint];
-        a.routeIndex=0;
-        a.actionState="idle";
-        a.actionPhase="travelling";
-        a.state="walk";
-        a.frameClock=0;
+    if(a.backendState==="idle" && now>=a.nextAmbient && Array.isArray(a.ambient)&&a.ambient.length){
+      const candidates=a.ambient.filter(id=>id!==a.node && graph[id]);
+      if(candidates.length){
+        const target=candidates[Math.floor(Math.random()*candidates.length)];
+        const action=actionForTarget(target);
+        if(startRoute(a,target,action,action==="talk"?3500:3000)){
+          say(a.name+" → "+target.replace(/^P\d+_/,"").replace(/_/g," ")+" · rutina de "+a.role+".");
+          a.nextAmbient=now+14+Math.random()*12;
+        }
+      }else{
+        a.nextAmbient=now+5;
       }
-      a.nextAmbient=now+8+Math.random()*8;
     }
   }
 
+  function frameRect(row,col){
+    const xCenters=FRAME_X;
+    const yCenters=FRAME_Y;
+    const x0=col===0?0:Math.round((xCenters[col-1]+xCenters[col])/2);
+    const x1=col===xCenters.length-1?1536:Math.round((xCenters[col]+xCenters[col+1])/2);
+    const y0=row===0?0:Math.round((yCenters[row-1]+yCenters[row])/2);
+    const y1=row===yCenters.length-1?1024:Math.round((yCenters[row]+yCenters[row+1])/2);
+    return [x0,y0,x1-x0,y1-y0];
+  }
+
+  function spriteFrame(a){
+    const row=config.atlas.row_order.indexOf(a.name);
+    if(row<0)return null;
+    const state=STATE_BY_NAME[a.state]||STATE_BY_NAME.idle;
+    const fi=Math.max(0,Math.min(state.count-1,a.frame||0));
+    return frameRect(row,state.start+fi);
+  }
+
   function drawSprite(a){
-    const row=config.agents.findIndex(c=>c.name===a.name);
-    if(row<0||!atlas)return;
-    let state=a.state||"idle";
-    if(a.status==="disabled")state="idle";
-    const si=Math.max(0,STATE_ORDER.indexOf(state));
-    const fi=Math.max(0,Math.min(FRAMES_PER_STATE-1,a.frame||0));
-    const col=si*FRAMES_PER_STATE+fi;
-    const sx=col*CELL, sy=row*CELL;
+    const src=spriteFrame(a);
+    if(!src||!atlas)return;
     const p=a.screen;
-    const scale=1.33;
-    const dw=CELL*scale, dh=CELL*scale;
+    const scale=.82;
+    const dw=src[2]*scale,dh=src[3]*scale;
+    const left=Math.round(p[0]-dw/2);
+    const top=Math.round(p[1]-dh+6);
+
     ctx.save();
-    ctx.globalAlpha=a.status==="disabled"?0.88:1;
     ctx.imageSmoothingEnabled=false;
-    ctx.fillStyle="rgba(0,0,0,.28)";
-    ctx.beginPath();
-    ctx.ellipse(Math.round(p[0]),Math.round(p[1]+21),18,6,0,0,Math.PI*2);
-    ctx.fill();
-    ctx.drawImage(atlas,sx,sy,CELL,CELL,
-      Math.round(p[0]-dw/2),Math.round(p[1]-dh+10),dw,dh);
+    ctx.globalAlpha=a.status==="disabled"?.86:1;
+    ctx.drawImage(atlas,src[0],src[1],src[2],src[3],left,top,dw,dh);
 
     if(selectedName===a.name){
       ctx.strokeStyle="#ffd166";
       ctx.lineWidth=2;
-      ctx.strokeRect(Math.round(p[0]-22),Math.round(p[1]-61),44,52);
-      ctx.font="bold 14px monospace";
-      const label=a.name;
-      const w=ctx.measureText(label).width+12;
-      ctx.fillStyle="rgba(4,8,16,.9)";
-      ctx.fillRect(Math.round(p[0]-w/2),Math.round(p[1]-82),Math.round(w),18);
-      ctx.fillStyle="#fff";
-      ctx.fillText(label,Math.round(p[0]-w/2+6),Math.round(p[1]-69));
+      ctx.strokeRect(Math.round(p[0]-dw/2-3),Math.round(top-3),Math.round(dw+6),Math.round(dh+6));
     }
     ctx.restore();
   }
 
-  function drawRoute(a){
-    if(!a.route||a.route.length<2)return;
-    ctx.save();
-    ctx.strokeStyle="rgba(99,230,190,.36)";
-    ctx.lineWidth=3;
-    ctx.setLineDash([8,8]);
-    ctx.beginPath();
-    ctx.moveTo(a.screen[0],a.screen[1]);
-    for(let i=a.routeIndex;i<a.route.length;i++){
-      const p=config.waypoints[a.route[i]].screen;
-      ctx.lineTo(p[0],p[1]);
-    }
-    ctx.stroke();
-    ctx.restore();
+  function drawRoutes(){
+    agents.forEach(a=>{
+      if(!a.route.length)return;
+      ctx.save();
+      ctx.strokeStyle="rgba(99,230,190,.30)";
+      ctx.lineWidth=3;
+      ctx.setLineDash([7,7]);
+      ctx.beginPath();
+      ctx.moveTo(a.screen[0],a.screen[1]);
+      for(let i=a.routeIndex;i<a.route.length;i++){
+        const p=a.route[i].screen;
+        ctx.lineTo(p[0],p[1]);
+      }
+      ctx.stroke();
+      ctx.restore();
+    });
   }
 
   function draw(){
     if(!ctx)return;
     ctx.clearRect(0,0,1536,1024);
     if(scene)ctx.drawImage(scene,0,0,1536,1024);
-    const ordered=[...agents].sort((a,b)=>a.screen[1]-b.screen[1]);
-    ordered.forEach(drawRoute);
-    ordered.forEach(drawSprite);
+    drawRoutes();
+    [...agents].sort((a,b)=>a.screen[1]-b.screen[1]).forEach(drawSprite);
   }
 
   function resize(){
@@ -454,17 +484,50 @@
     const r=canvas.getBoundingClientRect();
     const x=(ev.clientX-r.left)/r.width*1536;
     const y=(ev.clientY-r.top)/r.height*1024;
-    let best=null,bestD=999;
+    let hit=null,best=Infinity;
     for(const a of agents){
       const d=Math.hypot(a.screen[0]-x,a.screen[1]-y);
-      if(d<45&&d<bestD){best=a;bestD=d;}
+      if(d<70&&d<best){best=d;hit=a;}
     }
-    selectedName=best?best.name:"";
-    if(best){
-      say(best.name+" · "+best.role+" · coordenada ("+best.homeWorld[0]+", "+best.homeWorld[1]+")");
-      const detail=el("officeAgentDetail");
-      if(detail)detail.innerHTML="<strong>"+best.name+"</strong><br>"+best.role+
-        "<br>Coordenada actual: ("+best.world[0].toFixed(1)+", "+best.world[1].toFixed(1)+")";
+    selectedName=hit?hit.name:"";
+    if(hit)say(hit.name+" · "+hit.role+" · ("+hit.world[0].toFixed(1)+", "+hit.world[1].toFixed(1)+")");
+  }
+
+  function render(){
+    renderHud();
+    renderSidePanel();
+    draw();
+  }
+
+  async function init(){
+    if(initialized){resize();return;}
+    stage=el("officePixelStage");
+    canvas=el("officePixelCanvas");
+    if(!stage||!canvas)return;
+    ctx=canvas.getContext("2d");
+    if(!ctx)return;
+
+    try{
+      [config,scene,atlas]=await Promise.all([
+        loadJson(CONFIG_SRC),
+        loadImage(SCENE_SRC),
+        loadImage(ATLAS_SRC)
+      ]);
+      buildGraph();
+      makeAgents();
+      initialized=true;
+      resize();
+      await pollTruth();
+      render();
+      say("Oficina V3 · escena limpia + atlas clean4 + navegación segura.");
+      last=performance.now();
+      cancelAnimationFrame(raf);
+      raf=requestAnimationFrame(loop);
+      clearInterval(pollTimer);
+      pollTimer=setInterval(pollTruth,8000);
+    }catch(err){
+      eventText="Error cargando Oficina V3: "+err.message;
+      render();
     }
   }
 
@@ -478,40 +541,12 @@
     raf=requestAnimationFrame(loop);
   }
 
-  async function init(){
-    if(initialized){resize();return;}
-    stage=el("officePixelStage");canvas=el("officePixelCanvas");
-    if(!stage||!canvas)return;
-    ctx=canvas.getContext("2d");
-    if(!ctx)return;
-
-    [config,scene,atlas]=await Promise.all([
-      loadJson(CONFIG_SRC),
-      loadImage(SCENE_SRC),
-      loadImage(ATLAS_SRC)
-    ]);
-
-    graph=buildGraph(config.movement_edges);
-    createAgents();
-    initialized=true;
-    resize();
-    renderSidePanel();
-    await pollTruth();
-    renderSidePanel();
-    say("Oficina V3 cargada · escena limpia + sprites reales.");
-    resize();
-    last=performance.now();
-    cancelAnimationFrame(raf);
-    raf=requestAnimationFrame(loop);
-    clearInterval(pollTimer);
-    pollTimer=setInterval(pollTruth,POLL_MS);
-  }
-
-  let graph={};
-
   window.initAkiraOfficePixel=init;
   window.resizeAkiraOfficePixel=resize;
-  window.setAkiraOfficePixelPaused=v=>{paused=Boolean(v);say(paused?"Animación pausada.":"Animación reanudada.");};
+  window.setAkiraOfficePixelPaused=v=>{
+    paused=Boolean(v);
+    say(paused?"Animación pausada.":"Animación reanudada.");
+  };
   window.refreshAkiraOfficePixel=async()=>{
     await pollTruth();
     draw();
@@ -521,9 +556,10 @@
     get initialized(){return initialized;},
     get sceneSource(){return SCENE_SRC;},
     get atlasSource(){return ATLAS_SRC;},
-    get grid(){return config&&config.grid;},
-    get agents(){return agents.map(a=>({name:a.name,world:[...a.world],state:a.state,backendState:a.backendState||"unknown"}));},
-    get graph(){return graph;},
+    get atlasLayout(){return {rows:9,framesPerRow:19,states:STATES.map(x=>({...x}))};},
+    get agents(){return agents.map(a=>({name:a.name,node:a.node,world:[...a.world],screen:[...a.screen],state:a.state,backendState:a.backendState,phase:a.actionPhase}));},
+    get invalidEdges(){return invalidEdges.map(x=>x.slice());},
+    get graph(){return Object.fromEntries(Object.entries(graph).map(([k,v])=>[k,[...v]]));},
     get truth(){return {...truth};}
   };
 
@@ -533,7 +569,7 @@
         const b=el(id);
         if(b)b.addEventListener("click",()=>executeCommand(kind));
       });
-    if(canvas)canvas.addEventListener("click",hitTest);
+    canvas && canvas.addEventListener("click",hitTest);
     init();
   });
 })();
