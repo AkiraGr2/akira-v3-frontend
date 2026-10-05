@@ -805,7 +805,6 @@
     const sourceAtlas=directionalSrc?directionalAtlas:atlas;
     if(!src||!sourceAtlas)return;
     const p=a.screen;
-    const moving=a.machine==="walking"||a.machine==="returning";
     const idleBob=!moving?Math.sin(officeClock*2+(a.seed||0)*0.017)*0.8:0;
     const walkBob=moving?Math.round(Math.sin((a.frame+0.5)*Math.PI/2)):0;
     const scale=.82;
