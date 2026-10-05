@@ -1510,8 +1510,8 @@
       67, 178, 290, 404, 517, 634, 743, 851, 959
     ],
     "frame_crop_px": [112, 112],
-    "frame_canvas_px": [128, 128],
-    "frame_canvas_offset_y": 14,
+    "frame_canvas_px": [112, 112],
+    "frame_canvas_offset_y": 0,
     "preprocessing": "nearest-center-isolated",
     "note": "Pixel-audited V8 layout. The published PNG contains 14 actual poses per row (3 front, 4 back, 3 left, 4 right); it is not a uniform 16-column sprite grid. Runtime uses calibrated frame centers and integer crop rectangles to preserve whole sprites."
   }
