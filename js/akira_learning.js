@@ -388,7 +388,11 @@
       ]);
       const failed = results.find(function(r){ return !r.ok || !r.data || !r.data.ok; });
       if(failed){
-        root.innerHTML = '<div class="learning-empty">No se pudo cargar la revisión: '+esc((failed.data && failed.data.reason) || failed.error || ("HTTP "+failed.status))+'</div>';
+        if (failed.status === 401) {
+          root.innerHTML = '<div class="learning-empty">La revisión de conocimiento es privada. Inicia sesión para consultar y gestionar las enseñanzas de Akira.</div>';
+        } else {
+          root.innerHTML = '<div class="learning-empty">No se pudo cargar la revisión: '+esc((failed.data && failed.data.reason) || failed.error || ("HTTP "+failed.status))+'</div>';
+        }
         return;
       }
       const rows = results.reduce(function(all, r){ return all.concat(Array.isArray(r.data.learning) ? r.data.learning : []); }, []);
