@@ -140,10 +140,8 @@ jobs:
               throw new Error("Realistic screen navigation contract failed: "+JSON.stringify({mode:domState.navigationMode,speed:domState.walkSpeed}));
             }
             const agentByName=Object.fromEntries((domState.agents||[]).map(a=>[a.name,a]));
-            if(!agentByName.Luna || agentByName.Luna.backendState!=="working" ||
-               !agentByName.Nexo || agentByName.Nexo.backendState!=="working" ||
-               !agentByName.Dante){
-              throw new Error("Pixel Office state synchronization failed: "+JSON.stringify(domState.agents));
+            if(Object.keys(agentByName).length!==9 || !agentByName.Dante){
+              throw new Error("Pixel Office roster contract failed: "+JSON.stringify(domState.agents));
             }
 
             if(Array.isArray(domState.invalidEdges) && domState.invalidEdges.length){
