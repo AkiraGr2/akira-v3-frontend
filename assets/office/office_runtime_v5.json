@@ -1238,18 +1238,19 @@
       "work_state": "use"
     },
     "Zeri": {
-      "primary": "printer",
+      "primary": "mcp",
       "secondary": [
         "coffee",
+        "printer",
         "meeting"
       ],
       "work_state": "use"
     },
     "Lyra": {
-      "primary": "meeting",
+      "primary": "web",
       "secondary": [
-        "web",
-        "memory"
+        "memory",
+        "meeting"
       ],
       "work_state": "think"
     },
