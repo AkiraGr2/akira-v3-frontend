@@ -131,7 +131,13 @@ jobs:
             if(!String(domState.sceneSource||"").endsWith("01_akira_office_floor_v5_doors.png")){
               throw new Error("Clean V3 Akira V5 office floor was not loaded: "+JSON.stringify(domState.sceneSource));
             }
-            if(!String(domState.assetSheetSource||"").endsWith("02_akira_office_assets_v5.png")){\n              throw new Error("Akira V5 supplemental asset sheet was not loaded: "+JSON.stringify(domState.assetSheetSource));\n            }\n            if(!Array.isArray(domState.doors) || domState.doors.length < 8){\n              throw new Error("V5 physical door contract is missing: "+JSON.stringify(domState.doors));\n            }\n            if(!String(domState.atlasSource||"").endsWith("02_office_agents_atlas_v3_clean4.png")){
+            if(!String(domState.assetSheetSource||"").endsWith("02_akira_office_assets_v5.png")){
+              throw new Error("Akira V5 supplemental asset sheet was not loaded: "+JSON.stringify(domState.assetSheetSource));
+            }
+            if(!Array.isArray(domState.doors) || domState.doors.length < 8){
+              throw new Error("V5 physical door contract is missing: "+JSON.stringify(domState.doors));
+            }
+            if(!String(domState.atlasSource||"").endsWith("02_office_agents_atlas_v3_clean4.png")){
               throw new Error("V3 clean4 agent atlas was not loaded: "+JSON.stringify(domState.atlasSource));
             }
             if(!domState.atlasLayout || domState.atlasLayout.rows!==9 || domState.atlasLayout.framesPerRow!==19){
