@@ -636,6 +636,22 @@
     [
       "P03_LOUNGE",
       "P18_DANTE_WAIT"
+    ],
+    [
+      "P26_RIGHT_SIDE",
+      "P08_CAFE_STAND"
+    ],
+    [
+      "M01",
+      "M02"
+    ],
+    [
+      "M02",
+      "M03"
+    ],
+    [
+      "M03",
+      "M04"
     ]
   ],
   "homes": {
