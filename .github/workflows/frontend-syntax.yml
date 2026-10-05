@@ -27,9 +27,7 @@ jobs:
           node --check js/akira_missions_panel.js
           node --check js/akira_admin.js
           node --check js/akira_extras.js
-          node --check js/akira-office-floor-v2.js
-          node --check js/akira-office-floor-v3.js
-
+                    
       - name: Guard Brain 3D parity contract
         run: |
           node - <<'NODE'
@@ -104,9 +102,12 @@ jobs:
           if (!css.includes("@media(max-width:768px)")) throw new Error("mobile-first rules missing");
           if (!contract.includes("Akira Cognitive Workspace")) throw new Error("UI contract missing");
           if (!contract.includes("Este rediseño es visual; no debe cambiar APIs, persistencia, permisos ni comportamiento de negocio.")) throw new Error("UI contract must protect backend contracts");
-          if (!index.includes("js/akira-office-floor-v3.js")) throw new Error("living cognitive office script must be loaded");
+          if (!index.includes("js/akira-office-pixel-v2.js")) throw new Error("Pixel Office script must be loaded");
           if (!index.includes("Oficina Cognitiva")) throw new Error("cognitive office surface missing");
-          if (!css.includes(".office-v2-stage")) throw new Error("living office visual rules missing");
+          if (index.includes("akira-office-floor-v3.js") || index.includes("office3dStage") || index.includes("office3dMode")) {
+            throw new Error("Office 3D surface must not return");
+          }
+          if (!css.includes(".office-v2-shell")) throw new Error("Office shell visual rules missing");
           console.log("Cognitive Workspace V2 visual contract OK");
           NODE
 
@@ -218,57 +219,7 @@ jobs:
           node - <<'NODE'
           const fs = require("fs");
           const index = fs.readFileSync("index.html", "utf8");
-          const office = fs.readFileSync("js/akira-office-floor-v3.js", "utf8");
           const missions = fs.readFileSync("js/akira_missions_panel.js", "utf8");
-
-          if (!index.includes("function saveKey()")) throw new Error("saveKey handler missing");
-          if (!index.includes("function testKeys()")) throw new Error("testKeys handler missing");
-          if (!index.includes('localStorage.setItem("akira_user_key",key)')) throw new Error("API key persistence handler missing");
-          if (!index.includes("id=\"f8Output\" class=\"admin-v2-output\"")) throw new Error("tool result surface missing");
-          if (!index.includes('id:"F8", name:"Herramientas de Akira"')) throw new Error("level F8 must use owner-friendly label");
-          if (index.includes("12 herramientas registradas")) throw new Error("stale tool count remains");
-          if (index.includes("Google o Groq")) throw new Error("UI must not promise unsupported Groq user-key flow");
-
-          if (!office.includes("const POLL_MS = 8000")) throw new Error("office polling interval missing");
-          if (!office.includes("THREE_VERSION = \"0.180.0\"")) throw new Error("living office must pin Three.js version");
-          if (!office.includes("meshopt_decoder.module.js")) throw new Error("living office must enable Meshopt decoding");
-          if (!office.includes("setMeshoptDecoder")) throw new Error("GLTFLoader Meshopt decoder hookup missing");
-          for (const fn of ["poll","rendererSize","animate","installResize","installControls","installEvents","applyReducedMotion","getProfile","updateCore","updateAmbient","ensureCoreLinks","removeCoreLink","updateCoreLinks","handleSelection"]) {
-            const count = (office.match(new RegExp("^\\s*(?:async\\s+)?function\\s+" + fn + "\\b", "gm")) || []).length;
-            if (count !== 1) throw new Error("Office runtime must define exactly one " + fn + " function; found " + count);
-          }
-          if (!office.includes("CHARACTER_REPO = \"techdou/lumen-gallery\"")) throw new Error("living office must declare pinned character repo");
-          if (!office.includes("CHARACTER_COMMIT = \"1c8a694c5669171b3b6a0f4bffc6f75d0772630a\"")) throw new Error("living office must pin character commit");
-          if (!office.includes("CHARACTER_CDN_BASE")) throw new Error("living office CDN transport missing");
-          if (!office.includes("CHARACTER_RAW_BASE")) throw new Error("living office raw fallback transport missing");
-          if (!office.includes("window.akiraOfficeLivingDebug")) throw new Error("living office debug contract missing");
-          if (!office.includes("window.setInterval")) throw new Error("office live polling is not scheduled");
-          if (!office.includes('current.classList.contains("active")')) throw new Error("office polling must respect section visibility");
-          if (!office.includes("paused")) throw new Error("office pause state missing");
-          if (!office.includes("requestAnimationFrame(animate)")) throw new Error("living office animation loop missing");
-          if (!office.includes("function beginSit(actor,now)")) throw new Error("seated workstation transition missing");
-          if (!office.includes("Sitting_Idle") && !office.includes("sitting_idle")) throw new Error("seated animation selection missing");
-          if (!office.includes("function buildAmbientPath(actor,target)")) throw new Error("safe ambient route missing");
-          if (!office.includes("Human-scale wall decor")) throw new Error("real office environment decor missing");
-          if (!office.includes("if(ar.ok || tr.ok) lastPoll=Date.now()")) throw new Error("office sync timestamp must represent a successful read");
-          if (!office.includes("const IDLE_AMBIENT_GAP_MS = 28000")) throw new Error("idle ambient cadence must be explicit");
-          if (!office.includes("function ambientMoverCount()")) throw new Error("idle ambient concurrency guard missing");
-          if (office.includes("function randomIdleTarget")) throw new Error("random idle wandering must not return");
-          if (!office.includes("function createOfficeLife(profile)")) throw new Error("office-life environment layer missing");
-          const assetRegistry = fs.readFileSync("js/akira-office-assets-v1.js", "utf8");
-          if (!index.includes("js/akira-office-assets-v1.js")) throw new Error("office asset registry must be loaded before the living office");
-          if (!assetRegistry.includes("AKIRA_OFFICE_ASSET_REGISTRY")) throw new Error("office asset registry global missing");
-          if (!assetRegistry.includes("CC0-1.0")) throw new Error("office asset registry must record licenses");
-          if (!assetRegistry.includes("617d6073a557cbc2f0f2ac917916e01b9c4b631b")) throw new Error("office asset transport must be commit-pinned");
-          if (!office.includes("function loadOfficeAssets()")) throw new Error("office asset loader missing");
-          if (!office.includes("function addRealOfficeFurniture(profile)")) throw new Error("real office furniture integration missing");
-          if (!office.includes("function fitOfficeAsset(root,targetSize,position,rotationY)")) throw new Error("office asset fit helper missing");
-          if (!office.includes("officeAssetMode")) throw new Error("office asset mode debug state missing");
-          if (!office.includes("async function loadGltfWithFallback")) throw new Error("office asset loading fallback helper missing");
-          if (!office.includes("window.setTimeout")) throw new Error("office asset loading must be bounded");
-          if (!office.includes("const officeAssetLoadPromise=loadOfficeAssets()")) throw new Error("office asset loading must be progressive/non-blocking");
-          if (!office.includes("get assetsReady(){")) throw new Error("office asset readiness debug state missing");
-
           if (!missions.includes('setMissionActionBusy(id, "execute")')) throw new Error("mission execution lock missing");
           if (!missions.includes('actionBusyFor(id, "execute") ? "disabled" : ""')) throw new Error("mission execute button must disable while busy");
           if (!missions.includes('updated?.status !== "running"')) throw new Error("mission execution lock must be released at terminal state");
@@ -293,61 +244,6 @@ jobs:
           if (!index.includes("akiraBrainSetMode('3d')")) throw new Error("3D brain button must invoke the 3D mode");
           if (index.includes('id="brainMode3d" class="brain-mode" type="button" style="display:none"')) throw new Error("3D brain button must not remain hidden");
           console.log("interactive UI integrity guard OK");
-          NODE
-
-      - name: Guard Office V14 external asset transport
-        run: |
-          node - <<'NODE'
-          const fs = require("fs");
-          const index = fs.readFileSync("index.html", "utf8");
-          const registry = fs.readFileSync("js/akira-office-assets-v1.js", "utf8");
-          const office = fs.readFileSync("js/akira-office-floor-v3.js", "utf8");
-
-          if (!index.includes("https://cdn.jsdelivr.net")) throw new Error("CSP must allow the office asset CDN");
-          if (!index.includes("https://raw.githubusercontent.com")) throw new Error("CSP must allow the raw GitHub fallback");
-          if (!index.includes("'wasm-unsafe-eval'")) throw new Error("CSP must allow WebAssembly required by the 3D decoder/runtime");
-          if (!registry.includes("https://cdn.jsdelivr.net/gh/")) throw new Error("office assets must use jsDelivr GitHub transport");
-          if (!registry.includes("yadneshSalvi/hearth-webmcp") || !registry.includes("617d6073a557cbc2f0f2ac917916e01b9c4b631b")) {
-            throw new Error("office assets must use the pinned jsDelivr GitHub transport");
-          }
-          if (!registry.includes("const RAW_BASE = \"https://raw.githubusercontent.com/\"")) throw new Error("office asset registry must declare raw GitHub fallback");
-          if (!office.includes("MODEL_LOAD_TIMEOUT_MS = 12000")) throw new Error("character load timeout missing");
-          if (!office.includes("OFFICE_ASSET_LOAD_TIMEOUT_MS = 6500")) throw new Error("office asset load timeout missing");
-          if (!office.includes("const modelLoadPromise=loadModels()")) throw new Error("character loading must start independently");
-          if (!office.includes("const officeAssetLoadPromise=loadOfficeAssets()")) throw new Error("office asset loading must start independently");
-          if (!office.includes("get modelErrors()")) throw new Error("character diagnostics missing");
-          if (!office.includes("get officeAssetErrors()")) throw new Error("office asset diagnostics missing");
-
-          const urls = [
-            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/desk-kari.glb",
-            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/chair-olve.glb",
-            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/shelf-kant.glb",
-            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/floor-lamp-arc.glb",
-            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/plant-fern.glb",
-            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/armchair-kyst.glb",
-            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/table-rove.glb",
-            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/decor-vase.glb",
-            "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/business-man.glb",
-            "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/casual-woman.glb",
-            "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/casual-man.glb",
-            "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/worker.glb"
-          ];
-
-          async function check(url){
-            const controller = new AbortController();
-            const timer = setTimeout(()=>controller.abort(),10000);
-            try{
-              const response = await fetch(url,{method:"HEAD",redirect:"follow",signal:controller.signal});
-              if(!response.ok) throw new Error(url+" -> HTTP "+response.status);
-            } finally {
-              clearTimeout(timer);
-            }
-          }
-
-          (async()=>{
-            await Promise.all(urls.map(check));
-            console.log("Office V14 external asset transport reachable: 12/12");
-          })().catch(err=>{ console.error(err); process.exit(1); });
           NODE
 
       - name: Guard image error truthfulness

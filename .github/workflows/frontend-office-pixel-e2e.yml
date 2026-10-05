@@ -1,0 +1,194 @@
+name: Frontend Pixel Office E2E
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "index.html"
+      - "css/**"
+      - "js/**"
+      - "assets/office/**"
+      - ".github/workflows/frontend-office-pixel-e2e.yml"
+  pull_request:
+    paths:
+      - "index.html"
+      - "css/**"
+      - "js/**"
+      - "assets/office/**"
+      - ".github/workflows/frontend-office-pixel-e2e.yml"
+  workflow_dispatch:
+
+jobs:
+  office-pixel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright
+        run: npm install --no-save --no-package-lock playwright@1.55.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Serve checked-out frontend
+        run: |
+          python3 -m http.server 4173 --directory . > /tmp/akira-office-pages.log 2>&1 &
+          echo $! > /tmp/akira-office-pages.pid
+          sleep 2
+
+      - name: Smoke test Pixel Office
+        run: |
+          node <<'NODE'
+          const { chromium } = require("playwright");
+
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+
+            const errors = [];
+            const page = await browser.newPage({
+              viewport:{width:1440,height:900},
+              deviceScaleFactor:1
+            });
+            page.on("pageerror", err => errors.push(String(err && err.message || err)));
+
+            await page.route("https://akira-empresa.onrender.com/api/v8/agents", route => {
+              route.fulfill({
+                status:200,
+                contentType:"application/json",
+                body:JSON.stringify({
+                  agents:[
+                    {name:"researcher",role:"researcher",status:"idle",allowed_tools:["web_search"]},
+                    {name:"developer",role:"developer",status:"idle",allowed_tools:["developer_propose"]},
+                    {name:"tester",role:"tester",status:"idle",allowed_tools:["python_test"]},
+                    {name:"reviewer",role:"reviewer",status:"idle",allowed_tools:["code_review"]},
+                    {name:"memorizer",role:"memorizer",status:"idle",allowed_tools:["memory_save"]},
+                    {name:"graph_builder",role:"graph_builder",status:"idle",allowed_tools:["graph_create_node"]},
+                    {name:"learner",role:"learner",status:"idle",allowed_tools:["learning_save"]},
+                    {name:"internal",role:"internal",status:"idle",allowed_tools:["self_model_read"]},
+                    {name:"selftest_agent",role:"generic",status:"disabled",allowed_tools:[]}
+                  ]
+                })
+              });
+            });
+
+            await page.route("https://akira-empresa.onrender.com/api/v8/tasks?limit=100", route => {
+              route.fulfill({
+                status:200,
+                contentType:"application/json",
+                body:JSON.stringify({
+                  tasks:[
+                    {agent_name:"researcher",status:"running",tool_name:"web_search",mission_id:"mission-e2e",created_at:"2026-10-04T23:00:00Z"},
+                    {agent_name:"developer",status:"running",tool_name:"developer_propose",mission_id:"mission-e2e",created_at:"2026-10-04T23:01:00Z"}
+                  ]
+                })
+              });
+            });
+
+            await page.goto("http://127.0.0.1:4173/", {
+              waitUntil:"domcontentloaded",
+              timeout:30000
+            });
+
+            await page.click("#btn-office");
+            await page.waitForSelector("#officePixelCanvas", {state:"visible",timeout:10000});
+
+            // Now exercise the actual mobile layout after the section is open.
+            await page.setViewportSize({width:390,height:844});
+            await page.waitForFunction(() => {
+              const canvas=document.getElementById("officePixelCanvas");
+              const stage=document.getElementById("officePixelStage");
+              const hud=document.getElementById("officePixelHud");
+              if(!canvas || !stage || !hud) return false;
+              const c=canvas.getBoundingClientRect();
+              return c.width>300 && c.height>300 && Boolean(window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.artSource);
+            }, null, {timeout:20000});
+
+            const domState=await page.evaluate(() => ({
+              office3dStage:document.getElementById("office3dStage"),
+              office3dMode:document.getElementById("office3dMode"),
+              officeCanvas:document.getElementById("officeCanvas"),
+              legacyFloor3dScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-floor")),
+              pixelScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-pixel-v2")),
+              artSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.artSource,
+              states:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.states
+            }));
+
+            if(domState.office3dStage || domState.office3dMode || domState.officeCanvas || domState.legacyFloor3dScript){
+              throw new Error("3D Office elements/scripts are still present: "+JSON.stringify(domState));
+            }
+            if(!domState.pixelScript) throw new Error("Pixel Office V2 script is not loaded");
+            if(domState.artSource!=="LargePixelOffice.png" && domState.artSource!=="PixelOffice.png"){
+              throw new Error("Authored Pixel Office artwork was not loaded: "+JSON.stringify(domState.artSource));
+            }
+            if(!domState.states || domState.states.Luna!=="working" || domState.states.Nexo!=="working" || domState.states.Dante!=="disabled"){
+              throw new Error("Pixel Office state synchronization failed: "+JSON.stringify(domState.states));
+            }
+
+            const assets=await page.evaluate(async () => {
+              const paths=[
+                "assets/office/LargePixelOffice.png",
+                "assets/office/PixelOffice.png",
+                "assets/office/PixelOfficeAssets.png"
+              ];
+              return Promise.all(paths.map(async path => {
+                const r=await fetch(path,{cache:"no-store"});
+                const b=new Uint8Array(await r.arrayBuffer());
+                return {path,ok:r.ok,status:r.status,size:b.byteLength,signature:Array.from(b.slice(0,8))};
+              }));
+            });
+
+            if(assets.some(x=>!x.ok || x.size<100 || x.signature[0]!==137 || x.signature[1]!==80 || x.signature[2]!==78 || x.signature[3]!==71)){
+              throw new Error("Authored Pixel Office asset delivery failed: "+JSON.stringify(assets));
+            }
+
+            const layout=await page.$eval("#officePixelCanvas",el=>{
+              const r=el.getBoundingClientRect();
+              const stage=document.getElementById("officePixelStage").getBoundingClientRect();
+              const ctx=el.getContext("2d");
+              const sample=ctx ? Array.from(ctx.getImageData(12,12,1,1).data) : [];
+              return {canvas:{width:r.width,height:r.height},stage:{top:stage.top,bottom:stage.bottom},sample};
+            });
+
+            if(layout.canvas.width<300 || layout.canvas.height<300){
+              throw new Error("Pixel Office canvas is too small: "+JSON.stringify(layout.canvas));
+            }
+            if(!layout.sample.length || layout.sample[3]===0){
+              throw new Error("Pixel Office canvas did not paint");
+            }
+
+            await page.click("#officePixelMeeting");
+            await page.click("#officePixelPet");
+
+            await page.setViewportSize({width:1440,height:900});
+            await page.waitForFunction(() => {
+              const canvas=document.getElementById("officePixelCanvas");
+              return canvas && canvas.getBoundingClientRect().width>500;
+            }, null, {timeout:10000});
+
+            await page.click("#officeRefresh");
+            await page.click("#officePause");
+            const paused=await page.$eval("#officePause",el=>({text:el.textContent,pressed:el.getAttribute("aria-pressed")}));
+            if(paused.text!=="Reanudar" || paused.pressed!=="true"){
+              throw new Error("Pixel Office pause control failed");
+            }
+            await page.click("#officePause");
+            const resumed=await page.$eval("#officePause",el=>({text:el.textContent,pressed:el.getAttribute("aria-pressed")}));
+            if(resumed.text!=="Pausar" || resumed.pressed!=="false"){
+              throw new Error("Pixel Office resume control failed");
+            }
+
+            if(errors.length) throw new Error("Unexpected page errors: "+errors.slice(0,5).join(" | "));
+
+            console.log("PIXEL_OFFICE_E2E_PASS authored_art=true office_3d=false");
+            await browser.close();
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          NODE
