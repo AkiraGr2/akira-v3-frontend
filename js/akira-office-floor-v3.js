@@ -1054,7 +1054,9 @@
     const sitTalk=resolveClip(template.animations,"SittingTalking");
     const sitExit=resolveClip(template.animations,"StandUp");
     const talk=resolveClip(template.animations,"Talk");
-    const work=resolveClip(template.animations,"Working") || resolveClip(template.animations,"Typing");
+    const work=resolveClip(template.animations,"Interact")
+      || resolveClip(template.animations,"Working")
+      || resolveClip(template.animations,"Typing");
 
     const actor={
       agent,
@@ -1065,7 +1067,9 @@
       clipNames:template.animations.map(clip=>String(clip && clip.name || "")).filter(Boolean),
       calibration:characterCalibration,
       action:null,
-      target:stationFor(agent),
+      canSit:Boolean(sitEnter || sitIdle),
+      actionRole:work ? "activity" : "idle_only",
+      target:(sitEnter || sitIdle) ? stationFor(agent) : workZoneFor(agent),
       targetMode:"station",
       desiredState:agentState(agent),
       speed:1.15+(agents.indexOf(agent)%3)*.10,
@@ -1137,7 +1141,7 @@
   }
 
   function beginSit(actor,now){
-    if(!actor || actor.seated || actor.transitionKind==="sit") return;
+    if(!actor || !actor.canSit || actor.seated || actor.transitionKind==="sit") return;
     const seat=stationFor(actor.agent);
     actor.root.position.copy(seat);
     actor.root.position.y=.2;
@@ -1169,7 +1173,7 @@
       return;
     }
     if(s==="working"){
-      actor.target=stationFor(actor.agent);
+      actor.target=actor.canSit ? stationFor(actor.agent) : workZoneFor(actor.agent);
       actor.targetMode="work";
       actor.ambientPath=[];
       return;
@@ -1183,14 +1187,14 @@
       if(distance(actor.root.position,actor.target)<.42 && actor.ambientPathIndex>=actor.ambientPath.length-1){
         actor.targetMode="ambient-return";
         actor.ambientStage="return";
-        actor.target=stationFor(actor.agent);
+        actor.target=actor.canSit ? stationFor(actor.agent) : workZoneFor(actor.agent);
         actor.ambientPath=[];
       }
       return;
     }
 
     if(actor.targetMode==="ambient-return"){
-      actor.target=stationFor(actor.agent);
+      actor.target=actor.canSit ? stationFor(actor.agent) : workZoneFor(actor.agent);
       if(distance(actor.root.position,actor.target)<.42){
         actor.targetMode="station";
         actor.ambientStage="station";
@@ -1201,10 +1205,10 @@
     }
 
     actor.targetMode="station";
-    actor.target=stationFor(actor.agent);
-    if(distance(actor.root.position,actor.target)<.42) beginSit(actor,now);
+    actor.target=actor.canSit ? stationFor(actor.agent) : workZoneFor(actor.agent);
+    if(actor.canSit && distance(actor.root.position,actor.target)<.42) beginSit(actor,now);
 
-    if(now>=actor.ambientNextAt && ambientMoverCount()===0 && !reducedMotion && actor.seated){
+    if(now>=actor.ambientNextAt && ambientMoverCount()===0 && !reducedMotion && (actor.seated || !actor.canSit)){
       actor.ambientTripCount=(actor.ambientTripCount||0)+1;
       const destination=ambientPointFor(actor);
       actor.ambientPath=buildAmbientPath(actor,destination);
@@ -1530,6 +1534,8 @@
             desiredState:actor.desiredState,
             targetMode:actor.targetMode,
             seated:actor.seated,
+            canSit:actor.canSit,
+            actionRole:actor.actionRole,
             calibration:actor.calibration,
             clipNames:actor.clipNames,
             poseSafe:Boolean(actor.clips.idle || actor.clips.sitIdle),
@@ -1741,23 +1747,31 @@
         playActorClip(actor,actor.clips.talk?"talk":"idle",true,.22);
       }else if(s==="working"){
         orientToward(actor,deskFor(actor.agent),Math.min(1,delta*4));
-        if(!actor.seated){
-          beginSit(actor,nowMs);
+        if(actor.canSit){
+          if(!actor.seated){
+            beginSit(actor,nowMs);
+          }else{
+            actor.root.position.copy(stationFor(actor.agent));
+            actor.root.position.y=.2;
+            playActorClip(actor,actor.clips.sitIdle?"sitIdle":(actor.clips.work?"work":"idle"),true,.24);
+          }
         }else{
-          actor.root.position.copy(stationFor(actor.agent));
-          actor.root.position.y=.2;
-          playActorClip(actor,actor.clips.work?"work":(actor.clips.sitIdle?"sitIdle":"idle"),true,.24);
+          playActorClip(actor,actor.clips.work?"work":"idle",true,.24);
         }
       }else if(actor.targetMode==="ambient"){
         playActorClip(actor,"idle",true,.32);
       }else{
         orientToward(actor,deskFor(actor.agent),Math.min(1,delta*4));
-        if(!actor.seated){
-          beginSit(actor,nowMs);
+        if(actor.canSit){
+          if(!actor.seated){
+            beginSit(actor,nowMs);
+          }else{
+            actor.root.position.copy(stationFor(actor.agent));
+            actor.root.position.y=.2;
+            playActorClip(actor,actor.clips.sitIdle?"sitIdle":(actor.clips.work?"work":"idle"),true,.22);
+          }
         }else{
-          actor.root.position.copy(stationFor(actor.agent));
-          actor.root.position.y=.2;
-          playActorClip(actor,actor.clips.sitIdle?"sitIdle":(actor.clips.work?"work":"idle"),true,.22);
+          playActorClip(actor,actor.clips.work?"work":"idle",true,.22);
         }
       }
     }
