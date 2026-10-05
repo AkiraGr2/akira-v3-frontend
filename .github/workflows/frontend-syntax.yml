@@ -256,8 +256,8 @@ jobs:
           if (!office.includes("function fitOfficeAsset(root,targetSize,position,rotationY)")) throw new Error("office asset fit helper missing");
           if (!office.includes("officeAssetMode")) throw new Error("office asset mode debug state missing");
           if (!office.includes("Promise.race")) throw new Error("office asset loading must be bounded");
-          if (!office.includes("loadOfficeAssets().then")) throw new Error("office asset loading must be progressive/non-blocking");
-          if (!office.includes("assetsReady:false")) throw new Error("office asset readiness debug state missing");
+          if (!office.includes("const officeAssetLoadPromise=loadOfficeAssets()")) throw new Error("office asset loading must be progressive/non-blocking");
+          if (!office.includes("get assetsReady(){")) throw new Error("office asset readiness debug state missing");
 
           if (!missions.includes('setMissionActionBusy(id, "execute")')) throw new Error("mission execution lock missing");
           if (!missions.includes('actionBusyFor(id, "execute") ? "disabled" : ""')) throw new Error("mission execute button must disable while busy");
@@ -283,6 +283,59 @@ jobs:
           if (!index.includes("akiraBrainSetMode('3d')")) throw new Error("3D brain button must invoke the 3D mode");
           if (index.includes('id="brainMode3d" class="brain-mode" type="button" style="display:none"')) throw new Error("3D brain button must not remain hidden");
           console.log("interactive UI integrity guard OK");
+          NODE
+
+      - name: Guard Office V14 external asset transport
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const index = fs.readFileSync("index.html", "utf8");
+          const registry = fs.readFileSync("js/akira-office-assets-v1.js", "utf8");
+          const office = fs.readFileSync("js/akira-office-floor-v3.js", "utf8");
+
+          if (!index.includes("https://cdn.jsdelivr.net")) throw new Error("CSP must allow the office asset CDN");
+          if (!registry.includes("https://cdn.jsdelivr.net/gh/")) throw new Error("office assets must use jsDelivr GitHub transport");
+          if (!registry.includes("yadneshSalvi/hearth-webmcp") || !registry.includes("617d6073a557cbc2f0f2ac917916e01b9c4b631b")) {
+            throw new Error("office assets must use the pinned jsDelivr GitHub transport");
+          }
+          if (registry.includes("raw.githubusercontent.com")) throw new Error("office asset registry must not use the CSP-blocked raw GitHub transport");
+          if (!office.includes("MODEL_LOAD_TIMEOUT_MS = 12000")) throw new Error("character load timeout missing");
+          if (!office.includes("OFFICE_ASSET_LOAD_TIMEOUT_MS = 6500")) throw new Error("office asset load timeout missing");
+          if (!office.includes("const modelLoadPromise=loadModels()")) throw new Error("character loading must start independently");
+          if (!office.includes("const officeAssetLoadPromise=loadOfficeAssets()")) throw new Error("office asset loading must start independently");
+          if (!office.includes("get modelErrors()")) throw new Error("character diagnostics missing");
+          if (!office.includes("get officeAssetErrors()")) throw new Error("office asset diagnostics missing");
+
+          const urls = [
+            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/desk-kari.glb",
+            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/chair-olve.glb",
+            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/shelf-kant.glb",
+            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/floor-lamp-arc.glb",
+            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/plant-fern.glb",
+            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/armchair-kyst.glb",
+            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/table-rove.glb",
+            "https://cdn.jsdelivr.net/gh/yadneshSalvi/hearth-webmcp@617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb/decor-vase.glb",
+            "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/business-man.glb",
+            "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/casual-woman.glb",
+            "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/casual-man.glb",
+            "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/worker.glb"
+          ];
+
+          async function check(url){
+            const controller = new AbortController();
+            const timer = setTimeout(()=>controller.abort(),10000);
+            try{
+              const response = await fetch(url,{method:"HEAD",redirect:"follow",signal:controller.signal});
+              if(!response.ok) throw new Error(url+" -> HTTP "+response.status);
+            } finally {
+              clearTimeout(timer);
+            }
+          }
+
+          (async()=>{
+            await Promise.all(urls.map(check));
+            console.log("Office V14 external asset transport reachable: 12/12");
+          })().catch(err=>{ console.error(err); process.exit(1); });
           NODE
 
       - name: Guard image error truthfulness

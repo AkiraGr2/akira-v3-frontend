@@ -17,6 +17,8 @@
 
   const BACKEND_FALLBACK = "https://akira-empresa.onrender.com";
   const POLL_MS = 8000;
+  const MODEL_LOAD_TIMEOUT_MS = 12000;
+  const OFFICE_ASSET_LOAD_TIMEOUT_MS = 6500;
   const THREE_VERSION = "0.180.0";
   const MODULE_BASE = "https://cdn.jsdelivr.net/npm/three@" + THREE_VERSION;
   const MODEL_SOURCES = Object.freeze({
@@ -104,6 +106,8 @@
   let interactiveObjects = [];
   let officeAssetTemplates = new Map();
   let officeAssetInstances = [];
+  let officeAssetErrors = new Map();
+  let modelLoadErrors = new Map();
   let officeAssetMode = false;
   let coreGroup = null;
   let coreMaterials = [];
@@ -756,12 +760,14 @@
             loader.load(url,resolve,undefined,reject);
           }),
           new Promise((_,reject)=>{
-            window.setTimeout(()=>reject(new Error("asset_timeout")),6500);
+            window.setTimeout(()=>reject(new Error("asset_timeout")),OFFICE_ASSET_LOAD_TIMEOUT_MS);
           })
         ]);
         officeAssetTemplates.set(key,prepareOfficeAsset(gltf));
+        officeAssetErrors.delete(key);
         return key;
       }catch(err){
+        officeAssetErrors.set(key,String(err && err.message || err || "asset_load_failed"));
         console.warn("[akira-office-assets] asset failed",key,err);
         return null;
       }
@@ -867,17 +873,25 @@
     const entries=Object.entries(MODEL_SOURCES);
     await Promise.all(entries.map(async ([key,url])=>{
       try{
-        const gltf=await new Promise((resolve,reject)=>{
-          loader.load(url,resolve,undefined,reject);
-        });
+        const gltf=await Promise.race([
+          new Promise((resolve,reject)=>{
+            loader.load(url,resolve,undefined,reject);
+          }),
+          new Promise((_,reject)=>{
+            window.setTimeout(()=>reject(new Error("model_timeout")),MODEL_LOAD_TIMEOUT_MS);
+          })
+        ]);
         modelTemplates.set(key,prepareTemplate(gltf));
+        modelLoadErrors.delete(key);
       }catch(err){
+        modelLoadErrors.set(key,String(err && err.message || err || "model_load_failed"));
         console.warn("[akira-office-living] model failed",key,err);
       }
     }));
     if(!modelTemplates.size){
       throw new Error("No se pudo cargar ningún personaje 3D.");
     }
+    return modelTemplates.size;
   }
 
   function makeActor(agent){
@@ -1330,9 +1344,14 @@
       get initialized(){return initialized;},
       get actorCount(){return actors.size;},
       get agentCount(){return agents.length;},
+      get modelCount(){return modelTemplates.size;},
+      get modelKeys(){return Array.from(modelTemplates.keys());},
+      get modelErrors(){return Object.fromEntries(modelLoadErrors);},
       get officeAssetMode(){return officeAssetMode;},
       get officeAssetCount(){return officeAssetInstances.length;},
-      assetsReady:false,
+      get officeAssetKeys(){return Array.from(officeAssetTemplates.keys());},
+      get officeAssetErrors(){return Object.fromEntries(officeAssetErrors);},
+      get assetsReady(){return officeAssetMode && officeAssetInstances.length>0;},
       get states(){
         const out={};
         agents.forEach(a=>{out[String(a.name)]=agentState(a);});
@@ -1386,24 +1405,38 @@
       installResize();
       rendererSize();
 
-      setOverlay("Cargando personajes…","loading");
-      await loadModels();
+      setOverlay("Cargando oficina 3D…","loading");
 
-      agents.forEach(a=>makeActor(a));
-      updateStats();
-      renderList();
+      // Start both external asset pipelines immediately. V14 previously waited
+      // for all character models before even starting the furniture pipeline,
+      // which made a slow mobile character download leave the old procedural
+      // furniture visible for the whole first render window.
+      const modelLoadPromise=loadModels();
+      const officeAssetLoadPromise=loadOfficeAssets();
+
+      modelLoadPromise.then(()=>{
+        agents.forEach(a=>{
+          const key=String(a && a.name || "");
+          if(key && !actors.has(key)) makeActor(a);
+        });
+        updateStats();
+        renderList();
+      }).catch(err=>{
+        console.warn("[akira-office-living] character pipeline",err);
+        setOverlay("Los personajes 3D no pudieron cargarse. La oficina no inventará agentes.","error");
+      });
+
       exposeDebug();
 
       initialized=true;
       currentSceneTime=performance.now();
       setOverlay("", "");
 
-      // Real furniture is progressive/optional: the office must become usable
-      // even if a third-party asset mirror is slow or unavailable.
-      loadOfficeAssets().then(loaded=>{
+      officeAssetLoadPromise.then(loaded=>{
         if(!loaded || !initialized) return;
-        addRealOfficeFurniture(profile);
-        if(window.akiraOfficeLivingDebug) window.akiraOfficeLivingDebug.assetsReady=true;
+        if(addRealOfficeFurniture(profile)){
+          setOverlay("", "");
+        }
       }).catch(err=>{
         console.warn("[akira-office-assets] progressive load",err);
       });
