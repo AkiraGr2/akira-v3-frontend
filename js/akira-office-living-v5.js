@@ -31,7 +31,7 @@
   let agents=[],tasks=[];
   let truth={loaded:false,total:0,working:0,idle:0,error:0,disabled:0};
   let selectedName="";
-  let eventText="Cargando Oficina V4…";
+  let eventText="Cargando Oficina V5…";
   let navMap=null,assetSheet=null,officeClock=0;
   const doorPulse=Object.create(null);
 
@@ -938,7 +938,7 @@
       clearInterval(pollTimer);
       pollTimer=setInterval(pollTruth,5000);
     }catch(err){
-      eventText="Error cargando Oficina V4: "+err.message;
+      eventText="Error cargando Oficina V5: "+err.message;
       render();
     }
   }
