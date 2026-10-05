@@ -231,7 +231,12 @@ jobs:
 
           if (!office.includes("const POLL_MS = 8000")) throw new Error("office polling interval missing");
           if (!office.includes("THREE_VERSION = \"0.180.0\"")) throw new Error("living office must pin Three.js version");
-          if (!office.includes("cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a")) throw new Error("living office must use pinned free character transport");
+          if (!office.includes("meshopt_decoder.module.js")) throw new Error("living office must enable Meshopt decoding");
+          if (!office.includes("setMeshoptDecoder")) throw new Error("GLTFLoader Meshopt decoder hookup missing");
+          if (!office.includes("CHARACTER_REPO = \"techdou/lumen-gallery\"")) throw new Error("living office must declare pinned character repo");
+          if (!office.includes("CHARACTER_COMMIT = \"1c8a694c5669171b3b6a0f4bffc6f75d0772630a\"")) throw new Error("living office must pin character commit");
+          if (!office.includes("CHARACTER_CDN_BASE")) throw new Error("living office CDN transport missing");
+          if (!office.includes("CHARACTER_RAW_BASE")) throw new Error("living office raw fallback transport missing");
           if (!office.includes("window.akiraOfficeLivingDebug")) throw new Error("living office debug contract missing");
           if (!office.includes("window.setInterval")) throw new Error("office live polling is not scheduled");
           if (!office.includes('current.classList.contains("active")')) throw new Error("office polling must respect section visibility");
@@ -255,7 +260,8 @@ jobs:
           if (!office.includes("function addRealOfficeFurniture(profile)")) throw new Error("real office furniture integration missing");
           if (!office.includes("function fitOfficeAsset(root,targetSize,position,rotationY)")) throw new Error("office asset fit helper missing");
           if (!office.includes("officeAssetMode")) throw new Error("office asset mode debug state missing");
-          if (!office.includes("Promise.race")) throw new Error("office asset loading must be bounded");
+          if (!office.includes("async function loadGltfWithFallback")) throw new Error("office asset loading fallback helper missing");
+          if (!office.includes("window.setTimeout")) throw new Error("office asset loading must be bounded");
           if (!office.includes("const officeAssetLoadPromise=loadOfficeAssets()")) throw new Error("office asset loading must be progressive/non-blocking");
           if (!office.includes("get assetsReady(){")) throw new Error("office asset readiness debug state missing");
 
@@ -294,11 +300,13 @@ jobs:
           const office = fs.readFileSync("js/akira-office-floor-v3.js", "utf8");
 
           if (!index.includes("https://cdn.jsdelivr.net")) throw new Error("CSP must allow the office asset CDN");
+          if (!index.includes("https://raw.githubusercontent.com")) throw new Error("CSP must allow the raw GitHub fallback");
+          if (!index.includes("'wasm-unsafe-eval'")) throw new Error("CSP must allow WebAssembly required by the 3D decoder/runtime");
           if (!registry.includes("https://cdn.jsdelivr.net/gh/")) throw new Error("office assets must use jsDelivr GitHub transport");
           if (!registry.includes("yadneshSalvi/hearth-webmcp") || !registry.includes("617d6073a557cbc2f0f2ac917916e01b9c4b631b")) {
             throw new Error("office assets must use the pinned jsDelivr GitHub transport");
           }
-          if (registry.includes("raw.githubusercontent.com")) throw new Error("office asset registry must not use the CSP-blocked raw GitHub transport");
+          if (!registry.includes("const RAW_BASE = \"https://raw.githubusercontent.com/\"")) throw new Error("office asset registry must declare raw GitHub fallback");
           if (!office.includes("MODEL_LOAD_TIMEOUT_MS = 12000")) throw new Error("character load timeout missing");
           if (!office.includes("OFFICE_ASSET_LOAD_TIMEOUT_MS = 6500")) throw new Error("office asset load timeout missing");
           if (!office.includes("const modelLoadPromise=loadModels()")) throw new Error("character loading must start independently");

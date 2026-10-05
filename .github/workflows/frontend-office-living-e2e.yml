@@ -24,6 +24,21 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Prepare local Office assets
+        run: |
+          set -euo pipefail
+          mkdir -p assets/office assets/characters
+          base1="https://raw.githubusercontent.com/yadneshSalvi/hearth-webmcp/617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb"
+          base2="https://raw.githubusercontent.com/techdou/lumen-gallery/1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters"
+          for f in desk-kari.glb chair-olve.glb shelf-kant.glb floor-lamp-arc.glb plant-fern.glb armchair-kyst.glb table-rove.glb decor-vase.glb; do
+            curl --fail --location --retry 3 --retry-all-errors --connect-timeout 10 --max-time 60 "$base1/$f" -o "assets/office/$f"
+            test -s "assets/office/$f"
+          done
+          for f in business-man.glb casual-woman.glb casual-man.glb worker.glb; do
+            curl --fail --location --retry 3 --retry-all-errors --connect-timeout 10 --max-time 60 "$base2/$f" -o "assets/characters/$f"
+            test -s "assets/characters/$f"
+          done
+
       - name: Serve checked-out frontend
         run: |
           python3 -m http.server 4173 --directory . > /tmp/akira-office-pages.log 2>&1 &
@@ -51,10 +66,15 @@ jobs:
                 contentType:"application/json",
                 body:JSON.stringify({
                   agents:[
-                    {name:"researcher",role:"Investigación",status:"idle",allowed_tools:["web_search","memory_search"]},
-                    {name:"developer",role:"Desarrollo",status:"idle",allowed_tools:["github_repo_read","developer_propose"]},
-                    {name:"reviewer",role:"Revisión",status:"idle",allowed_tools:["github_repo_read","python_test","code_review"]},
-                    {name:"learner",role:"Aprendizaje",status:"idle",allowed_tools:["learning_save","memory_save"]}
+                    {name:"researcher",role:"researcher",status:"idle",allowed_tools:["web_search","memory_search","github_repo_read"]},
+                    {name:"developer",role:"developer",status:"idle",allowed_tools:["github_repo_read","developer_propose"]},
+                    {name:"tester",role:"tester",status:"idle",allowed_tools:["github_repo_read","python_test"]},
+                    {name:"reviewer",role:"reviewer",status:"idle",allowed_tools:["github_repo_read","python_test","code_review"]},
+                    {name:"memorizer",role:"memorizer",status:"idle",allowed_tools:["memory_save","memory_search"]},
+                    {name:"graph_builder",role:"graph_builder",status:"idle",allowed_tools:["graph_create_node","graph_create_edge","graph_related"]},
+                    {name:"learner",role:"learner",status:"idle",allowed_tools:["learning_save","memory_save"]},
+                    {name:"internal",role:"internal",status:"idle",allowed_tools:["self_model_read","cognitive_cycle"]},
+                    {name:"selftest_agent",role:"generic",status:"disabled",allowed_tools:["memory_save","memory_search"]}
                   ]
                 })
               });
@@ -85,10 +105,88 @@ jobs:
             await page.waitForFunction(() => {
               return Boolean(
                 window.akiraOfficeLivingDebug &&
-                window.akiraOfficeLivingDebug.initialized &&
-                window.akiraOfficeLivingDebug.actorCount >= 4
+                window.akiraOfficeLivingDebug.initialized
               );
             }, null, {timeout:30000});
+
+            const localAssetChecks = await page.evaluate(async () => {
+              const paths = [
+                "assets/office/desk-kari.glb",
+                "assets/office/chair-olve.glb",
+                "assets/office/shelf-kant.glb",
+                "assets/office/floor-lamp-arc.glb",
+                "assets/office/plant-fern.glb",
+                "assets/office/armchair-kyst.glb",
+                "assets/office/table-rove.glb",
+                "assets/office/decor-vase.glb",
+                "assets/characters/business-man.glb",
+                "assets/characters/casual-woman.glb",
+                "assets/characters/casual-man.glb",
+                "assets/characters/worker.glb"
+              ];
+              return Promise.all(paths.map(async path => {
+                const r = await fetch(path, {cache:"no-store"});
+                const b = new Uint8Array(await r.arrayBuffer());
+                return {path,ok:r.ok,status:r.status,size:b.byteLength,magic:Array.from(b.slice(0,4))};
+              }));
+            });
+            console.log("LOCAL_ASSET_CHECKS="+JSON.stringify(localAssetChecks));
+            if(localAssetChecks.some(x => !x.ok || x.size < 16 || x.magic[0] !== 0x67 || x.magic[1] !== 0x6c || x.magic[2] !== 0x54 || x.magic[3] !== 0x46)){
+              throw new Error("Published local GLB asset delivery check failed");
+            }
+
+            try{
+              await page.waitForFunction(() => {
+                const d = window.akiraOfficeLivingDebug;
+                return Boolean(
+                  d &&
+                  d.agentCount === 9 &&
+                  d.actorCount === 9 &&
+                  d.modelCount >= 4 &&
+                  d.officeAssetCount > 0 &&
+                  d.officeAssetMode === true &&
+                  d.modelKeys.includes("business") &&
+                  d.modelKeys.includes("woman") &&
+                  d.modelKeys.includes("hoodie") &&
+                  d.modelKeys.includes("worker") &&
+                  d.officeAssetKeys.includes("desk") &&
+                  d.officeAssetKeys.includes("chair") &&
+                  d.states.selftest_agent === "disabled" &&
+                  ["researcher","developer","tester","reviewer","memorizer","graph_builder","learner","internal","selftest_agent"].every(name => Object.prototype.hasOwnProperty.call(d.states,name))
+                );
+              }, null, {timeout:60000});
+            }catch(err){
+              const debug = await page.evaluate(() => {
+                const d = window.akiraOfficeLivingDebug;
+                return d ? {
+                  initialized:d.initialized,
+                  agentCount:d.agentCount,
+                  modelCount:d.modelCount,
+                  modelKeys:d.modelKeys,
+                  modelErrors:d.modelErrors,
+                  modelTransports:d.modelTransports,
+                  officeAssetCount:d.officeAssetCount,
+                  officeAssetMode:d.officeAssetMode,
+                  officeAssetKeys:d.officeAssetKeys,
+                  officeAssetErrors:d.officeAssetErrors,
+                  officeAssetTransports:d.officeAssetTransports,
+                  actorCount:d.actorCount
+                } : null;
+              });
+              console.log("OFFICE_DEBUG_TIMEOUT="+JSON.stringify(debug));
+              throw err;
+            }
+
+            const transports = await page.evaluate(() => ({
+              model: window.akiraOfficeLivingDebug.modelTransports,
+              office: window.akiraOfficeLivingDebug.officeAssetTransports
+            }));
+            if(Object.values(transports.model).some(v => v !== "local")){
+              throw new Error("Published-style local character assets were not used");
+            }
+            if(Object.values(transports.office).some(v => v !== "local")){
+              throw new Error("Published-style local office assets were not used");
+            }
 
             const states = await page.evaluate(() => window.akiraOfficeLivingDebug.states);
             if(states.researcher !== "briefing") throw new Error("Researcher should enter a real-task briefing state");
@@ -124,7 +222,7 @@ jobs:
               throw new Error("Unexpected page errors: " + errors.slice(0,5).join(" | "));
             }
 
-            console.log("OFFICE_LIVING_E2E_PASS");
+            console.log("OFFICE_LIVING_E2E_PASS local_assets=true");
             await browser.close();
           })().catch(err => {
             console.error(err);

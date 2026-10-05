@@ -21,11 +21,16 @@
   const OFFICE_ASSET_LOAD_TIMEOUT_MS = 6500;
   const THREE_VERSION = "0.180.0";
   const MODULE_BASE = "https://cdn.jsdelivr.net/npm/three@" + THREE_VERSION;
+  const CHARACTER_REPO = "techdou/lumen-gallery";
+  const CHARACTER_COMMIT = "1c8a694c5669171b3b6a0f4bffc6f75d0772630a";
+  const CHARACTER_LOCAL_BASE = "./assets/characters/";
+  const CHARACTER_CDN_BASE = "https://cdn.jsdelivr.net/gh/" + CHARACTER_REPO + "@" + CHARACTER_COMMIT + "/public/assets/characters/";
+  const CHARACTER_RAW_BASE = "https://raw.githubusercontent.com/" + CHARACTER_REPO + "/" + CHARACTER_COMMIT + "/public/assets/characters/";
   const MODEL_SOURCES = Object.freeze({
-    business: "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/business-man.glb",
-    woman: "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/casual-woman.glb",
-    hoodie: "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/casual-man.glb",
-    worker: "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/worker.glb"
+    business: Object.freeze([CHARACTER_LOCAL_BASE+"business-man.glb",CHARACTER_CDN_BASE+"business-man.glb",CHARACTER_RAW_BASE+"business-man.glb"]),
+    woman: Object.freeze([CHARACTER_LOCAL_BASE+"casual-woman.glb",CHARACTER_CDN_BASE+"casual-woman.glb",CHARACTER_RAW_BASE+"casual-woman.glb"]),
+    hoodie: Object.freeze([CHARACTER_LOCAL_BASE+"casual-man.glb",CHARACTER_CDN_BASE+"casual-man.glb",CHARACTER_RAW_BASE+"casual-man.glb"]),
+    worker: Object.freeze([CHARACTER_LOCAL_BASE+"worker.glb",CHARACTER_CDN_BASE+"worker.glb",CHARACTER_RAW_BASE+"worker.glb"])
   });
 
   const AGENT_COLORS = [
@@ -83,6 +88,7 @@
   let GLTFLoader = null;
   let OrbitControls = null;
   let skeletonClone = null;
+  let MeshoptDecoder = null;
   let canvas = null;
   let stage = null;
   let renderer = null;
@@ -107,7 +113,9 @@
   let officeAssetTemplates = new Map();
   let officeAssetInstances = [];
   let officeAssetErrors = new Map();
+  let officeAssetTransports = new Map();
   let modelLoadErrors = new Map();
+  let modelLoadTransports = new Map();
   let officeAssetMode = false;
   let coreGroup = null;
   let coreMaterials = [];
@@ -356,12 +364,17 @@
       import(MODULE_BASE+"/build/three.module.js"),
       import(MODULE_BASE+"/examples/jsm/loaders/GLTFLoader.js"),
       import(MODULE_BASE+"/examples/jsm/controls/OrbitControls.js"),
-      import(MODULE_BASE+"/examples/jsm/utils/SkeletonUtils.js")
+      import(MODULE_BASE+"/examples/jsm/utils/SkeletonUtils.js"),
+      import(MODULE_BASE+"/examples/jsm/libs/meshopt_decoder.module.js")
     ]);
     THREE=results[0];
     GLTFLoader=results[1].GLTFLoader;
     OrbitControls=results[2].OrbitControls;
     skeletonClone=results[3].clone;
+    MeshoptDecoder=results[4].MeshoptDecoder;
+    if(MeshoptDecoder && MeshoptDecoder.ready){
+      await MeshoptDecoder.ready;
+    }
   }
 
   function makeMaterial(color, roughness, metalness, transparent, opacity){
@@ -687,14 +700,49 @@
 
 
 
-  function officeAssetUrl(key){
+  function officeAssetUrls(key){
     try{
       const registry=window.AKIRA_OFFICE_ASSET_REGISTRY;
       const item=registry && registry.get ? registry.get(key) : null;
-      return item && item.url ? item.url : null;
+      if(!item) return [];
+      if(Array.isArray(item.urls) && item.urls.length) return item.urls.slice();
+      return item.url ? [item.url] : [];
     }catch(_){
-      return null;
+      return [];
     }
+  }
+
+  async function loadGltfWithFallback(loader,urls,timeoutMs){
+    let lastError=null;
+    const candidates=Array.isArray(urls)?urls.filter(Boolean):[];
+    for(let index=0;index<candidates.length;index++){
+      const url=candidates[index];
+      try{
+        const gltf=await new Promise((resolve,reject)=>{
+          let settled=false;
+          const timer=window.setTimeout(()=>{
+            if(settled) return;
+            settled=true;
+            reject(new Error("asset_timeout"));
+          },timeoutMs);
+          loader.load(url,(value)=>{
+            if(settled) return;
+            settled=true;
+            window.clearTimeout(timer);
+            resolve(value);
+          },undefined,(err)=>{
+            if(settled) return;
+            settled=true;
+            window.clearTimeout(timer);
+            reject(err);
+          });
+        });
+        return {gltf,transport:index===0?"local":(index===1?"jsdelivr":"rawgithub"),url};
+      }catch(err){
+        lastError=err;
+      }
+    }
+    throw lastError || new Error("asset_load_failed");
   }
 
   function prepareOfficeAsset(gltf){
@@ -750,20 +798,15 @@
     const registry=window.AKIRA_OFFICE_ASSET_REGISTRY;
     if(!registry || !registry.keys) return false;
     const loader=new GLTFLoader();
+    if(MeshoptDecoder && loader.setMeshoptDecoder) loader.setMeshoptDecoder(MeshoptDecoder);
     const keys=registry.keys();
     const loaded=await Promise.all(keys.map(async key=>{
-      const url=officeAssetUrl(key);
-      if(!url) return null;
+      const urls=officeAssetUrls(key);
+      if(!urls.length) return null;
       try{
-        const gltf=await Promise.race([
-          new Promise((resolve,reject)=>{
-            loader.load(url,resolve,undefined,reject);
-          }),
-          new Promise((_,reject)=>{
-            window.setTimeout(()=>reject(new Error("asset_timeout")),OFFICE_ASSET_LOAD_TIMEOUT_MS);
-          })
-        ]);
-        officeAssetTemplates.set(key,prepareOfficeAsset(gltf));
+        const result=await loadGltfWithFallback(loader,urls,OFFICE_ASSET_LOAD_TIMEOUT_MS);
+        officeAssetTemplates.set(key,prepareOfficeAsset(result.gltf));
+        officeAssetTransports.set(key,result.transport);
         officeAssetErrors.delete(key);
         return key;
       }catch(err){
@@ -873,15 +916,9 @@
     const entries=Object.entries(MODEL_SOURCES);
     await Promise.all(entries.map(async ([key,url])=>{
       try{
-        const gltf=await Promise.race([
-          new Promise((resolve,reject)=>{
-            loader.load(url,resolve,undefined,reject);
-          }),
-          new Promise((_,reject)=>{
-            window.setTimeout(()=>reject(new Error("model_timeout")),MODEL_LOAD_TIMEOUT_MS);
-          })
-        ]);
-        modelTemplates.set(key,prepareTemplate(gltf));
+        const result=await loadGltfWithFallback(loader,url,MODEL_LOAD_TIMEOUT_MS);
+        modelTemplates.set(key,prepareTemplate(result.gltf));
+        modelLoadTransports.set(key,result.transport);
         modelLoadErrors.delete(key);
       }catch(err){
         modelLoadErrors.set(key,String(err && err.message || err || "model_load_failed"));
@@ -1347,10 +1384,12 @@
       get modelCount(){return modelTemplates.size;},
       get modelKeys(){return Array.from(modelTemplates.keys());},
       get modelErrors(){return Object.fromEntries(modelLoadErrors);},
+      get modelTransports(){return Object.fromEntries(modelLoadTransports);},
       get officeAssetMode(){return officeAssetMode;},
       get officeAssetCount(){return officeAssetInstances.length;},
       get officeAssetKeys(){return Array.from(officeAssetTemplates.keys());},
       get officeAssetErrors(){return Object.fromEntries(officeAssetErrors);},
+      get officeAssetTransports(){return Object.fromEntries(officeAssetTransports);},
       get assetsReady(){return officeAssetMode && officeAssetInstances.length>0;},
       get states(){
         const out={};
@@ -1807,109 +1846,5 @@
     };
   }
 
-  function exposeDebug(){
-    window.akiraOfficeLivingDebug={
-      get initialized(){return initialized;},
-      get actorCount(){return actors.size;},
-      get agentCount(){return agents.length;},
-      get states(){
-        const out={};
-        agents.forEach(a=>{out[String(a.name)]=agentState(a);});
-        return out;
-      },
-      pause(){paused=true;},
-      resume(){paused=false;}
-    };
-  }
 
-  window.initOfficeFloor=async function(){
-    const sec=document.getElementById("officeSection");
-    stage=document.querySelector("#officeSection .office-v2-stage");
-    canvas=document.getElementById("officeCanvas");
-    if(!sec || !stage || !canvas) return;
-    if(initialized) return;
-
-    try{
-      await loadModules();
-
-      if(!document.getElementById("officeLivingStatusOverlay")){
-        const overlay=document.createElement("div");
-        overlay.id="officeLivingStatusOverlay";
-        overlay.className="office-living-overlay";
-        overlay.hidden=true;
-        stage.appendChild(overlay);
-      }
-
-      const profile=getProfile();
-      reducedMotion=!!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-
-      renderer=new THREE.WebGLRenderer({
-        canvas,
-        antialias:!profile.mobile,
-        alpha:false,
-        powerPreference:"high-performance"
-      });
-      renderer.setPixelRatio(profile.pixelRatio);
-      renderer.outputColorSpace=THREE.SRGBColorSpace;
-      renderer.toneMapping=THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure=1.22;
-
-      scene=new THREE.Scene();
-      camera=new THREE.PerspectiveCamera(42,1,.1,80);
-      camera.position.set(0,9.6,17.8);
-
-      installControls();
-      createRoom(profile);
-      installEvents();
-      applyReducedMotion();
-      installResize();
-      rendererSize();
-
-      setOverlay("Cargando personajes…","loading");
-      await loadModels();
-
-      agents.forEach(a=>makeActor(a));
-      updateStats();
-      renderList();
-      exposeDebug();
-
-      initialized=true;
-      currentSceneTime=performance.now();
-      setOverlay("", "");
-
-      if(!pollTimer){
-        pollTimer=window.setInterval(()=>{
-          const current=document.getElementById("officeSection");
-          if(current && current.classList.contains("active")) poll();
-        },POLL_MS);
-      }
-
-      poll();
-      if(!raf) raf=requestAnimationFrame(animate);
-
-    }catch(err){
-      console.error("[akira-office-living] init",err);
-      setOverlay("La vista 3D no pudo iniciarse en este dispositivo. Revisa la consola si persiste.","error");
-      if(canvas){
-        const ctx=canvas.getContext && canvas.getContext("2d");
-        if(ctx){
-          ctx.fillStyle="#09111c";
-          ctx.fillRect(0,0,canvas.width||720,canvas.height||520);
-          ctx.fillStyle="#c8d9ff";
-          ctx.font="600 16px system-ui";
-          ctx.fillText("Oficina 3D no disponible",24,40);
-          ctx.font="13px system-ui";
-          ctx.fillStyle="#91a4be";
-          ctx.fillText("La interfaz conserva el estado real de agentes y tareas.",24,66);
-        }
-      }
-    }
-  };
-
-  window.addEventListener("beforeunload",()=>{
-    if(raf) cancelAnimationFrame(raf);
-    if(pollTimer) clearInterval(pollTimer);
-    if(resizeObserver) resizeObserver.disconnect();
-    if(renderer) renderer.dispose();
-  });
 })();
