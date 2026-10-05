@@ -552,18 +552,23 @@
       g.position.set(s[0],0,s[2]);
       g.rotation.y=deskFacing({name:key});
       g.userData.role=key;
-      g.userData.primitiveOfficeFurniture=true;
 
       const baseMat=makeMaterial(index%2?"#7b8792":"#687786",.64,.24,false,1);
       const desk=addBox(g,[2.4,0.18,1.25],[0,1.0,0],baseMat);
+      desk.userData.primitiveOfficeFurniture=true;
       desk.castShadow=!profile.mobile;
       desk.receiveShadow=!profile.mobile;
 
       const legMat=makeMaterial("#101722",.78,.42,false,1);
-      addBox(g,[0.12,1.0,0.12],[-1.0,.5,-.45],legMat);
-      addBox(g,[0.12,1.0,0.12],[1.0,.5,-.45],legMat);
-      addBox(g,[0.12,1.0,0.12],[-1.0,.5,.45],legMat);
-      addBox(g,[0.12,1.0,0.12],[1.0,.5,.45],legMat);
+      [
+        [-1.0,.5,-.45],
+        [1.0,.5,-.45],
+        [-1.0,.5,.45],
+        [1.0,.5,.45]
+      ].forEach(pos=>{
+        const leg=addBox(g,[0.12,1.0,0.12],pos,legMat);
+        leg.userData.primitiveOfficeFurniture=true;
+      });
 
       const screen=new THREE.Mesh(
         new THREE.BoxGeometry(1.05,.62,.08),
