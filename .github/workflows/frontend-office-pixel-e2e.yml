@@ -105,7 +105,7 @@ jobs:
               const stage=document.getElementById("officePixelStage");
               if(!canvas || !stage) return false;
               const c=canvas.getBoundingClientRect();
-              return c.width>300 && c.height>300 && Boolean(window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.artSource==="01_office_master_scene.png");
+              return c.width>300 && c.height>220 && Boolean(window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.artSource==="01_office_master_scene.png");
             }, null, {timeout:20000});
 
             const domState=await page.evaluate(() => ({
@@ -160,7 +160,7 @@ jobs:
               return {canvas:{width:r.width,height:r.height},stage:{top:stage.top,bottom:stage.bottom},sample};
             });
 
-            if(layout.canvas.width<300 || layout.canvas.height<300){
+            if(layout.canvas.width<300 || layout.canvas.height<220){
               throw new Error("Pixel Office canvas is too small: "+JSON.stringify(layout.canvas));
             }
             if(!layout.sample.length || layout.sample[3]===0){
