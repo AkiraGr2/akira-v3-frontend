@@ -11,7 +11,7 @@
 
   const MIRROR_REPO = "yadneshSalvi/hearth-webmcp";
   const MIRROR_COMMIT = "617d6073a557cbc2f0f2ac917916e01b9c4b631b";
-  const RAW_BASE = "https://raw.githubusercontent.com/" + MIRROR_REPO + "/" + MIRROR_COMMIT + "/public/assets/glb/";
+  const CDN_BASE = "https://cdn.jsdelivr.net/gh/" + MIRROR_REPO + "@" + MIRROR_COMMIT + "/public/assets/glb/";
 
   const ASSETS = Object.freeze({
     desk: Object.freeze({
@@ -115,12 +115,13 @@
   const registry=Object.freeze({
     mirrorRepo:MIRROR_REPO,
     mirrorCommit:MIRROR_COMMIT,
-    rawBase:RAW_BASE,
+    cdnBase:CDN_BASE,
     licensePolicy:"Only integrate assets whose source/license is explicitly recorded.",
+    transport:"jsdelivr_github_commit_pinned",
     get(key){
       const item=ASSETS[key];
       if(!item) return null;
-      return Object.freeze(Object.assign({},item,{url:RAW_BASE+item.file}));
+      return Object.freeze(Object.assign({},item,{url:CDN_BASE+item.file}));
     },
     keys(){ return Object.keys(ASSETS); },
     all(){ return Object.keys(ASSETS).map(key=>this.get(key)); }
