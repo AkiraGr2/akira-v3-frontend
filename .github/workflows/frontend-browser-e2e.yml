@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 jobs:
-  brain-2d-3d:
+  brain-2d:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -29,7 +29,7 @@ jobs:
           echo $! > /tmp/akira-pages.pid
           sleep 2
 
-      - name: Smoke test checked-out Brain 2D/3D
+      - name: Smoke test checked-out Brain 2D
         run: |
           node <<'NODE'
           const { chromium } = require("playwright");
@@ -40,53 +40,65 @@ jobs:
             const errors = [];
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
 
+            await page.route("**/api/v8/graph/overview**", async route => {
+              await route.fulfill({
+                status: 200,
+                contentType: "application/json",
+                body: JSON.stringify({
+                  ok: true,
+                  nodes: [
+                    {id:"node_akira_e2e", label:"Akira", node_type:"project", weight:1, confidence:1, reuse_count:1},
+                    {id:"node_memory_e2e", label:"memory:e2e", node_type:"experience", weight:1, confidence:.8, reuse_count:1},
+                    {id:"node_agent_e2e", label:"agent:e2e", node_type:"agent", weight:.8, confidence:.8, reuse_count:1}
+                  ],
+                  edges: [
+                    {id:"edge_e2e_1", from_node:"node_akira_e2e", to_node:"node_memory_e2e", relation_type:"related_to", weight:1, frequency:1},
+                    {id:"edge_e2e_2", from_node:"node_akira_e2e", to_node:"node_agent_e2e", relation_type:"related_to", weight:.8, frequency:1}
+                  ],
+                  counts: {nodes:3, edges:2, by_type:{project:1,experience:1,agent:1}, by_relation:{related_to:2}}
+                })
+              });
+            });
+
             await page.goto("http://127.0.0.1:4173/", {
               waitUntil:"domcontentloaded",
               timeout:30000
             });
 
             await page.click("#btn-membrane");
-            await page.waitForSelector("#brainMode3d", {state:"visible", timeout:10000});
-            await page.click("#brainMode3d");
-
-            await page.waitForFunction(() => {
-              const view = document.querySelector("#brainView3d");
-              return view && !view.classList.contains("is-hidden");
-            }, null, {timeout:10000});
-
-            await page.waitForSelector("#membrane3d canvas", {state:"visible", timeout:20000});
-
-            const mode3d = await page.$eval("#brainMode3d", el => ({
-              active: el.classList.contains("active"),
-              pressed: el.getAttribute("aria-pressed")
-            }));
-            if(!mode3d.active || mode3d.pressed !== "true"){
-              throw new Error("3D mode did not become active");
-            }
-
-            const orbit3d = await page.$eval("#brainOrbitBtn", el => ({
-              disabled: el.disabled,
-              title: el.title
-            }));
-            if(orbit3d.disabled) throw new Error("Orbit must be available in 3D");
-
-            await page.click("#brainMode2d");
             await page.waitForFunction(() => {
               const view = document.querySelector("#brainView2d");
               return view && !view.classList.contains("is-hidden");
             }, null, {timeout:10000});
 
-            const orbit2d = await page.$eval("#brainOrbitBtn", el => el.disabled);
-            if(!orbit2d) throw new Error("Orbit must be disabled in 2D");
+            if(await page.$("#brainMode3d")){
+              throw new Error("3D Brain button must not exist");
+            }
+            if(await page.$("#membrane3d")){
+              throw new Error("3D Brain container must not exist");
+            }
 
-            await page.click("#brainMode3d");
-            await page.waitForSelector("#membrane3d canvas", {state:"visible", timeout:10000});
+            await page.waitForSelector("#membraneCy canvas", {state:"visible", timeout:15000});
+
+            const graphState = await page.$eval("#membraneCy", el => ({
+              width: el.getBoundingClientRect().width,
+              height: el.getBoundingClientRect().height,
+              canvases: el.querySelectorAll("canvas").length
+            }));
+            if(graphState.width < 100 || graphState.height < 100 || graphState.canvases < 1){
+              throw new Error("2D Brain canvas did not render with usable dimensions");
+            }
+
+            await page.waitForFunction(() => {
+              const stats = document.getElementById("membraneStats");
+              return stats && stats.textContent.includes("3 nodos") && stats.textContent.includes("2 aristas");
+            }, null, {timeout:10000});
 
             if(errors.length){
               throw new Error("Unexpected page errors: " + errors.slice(0,5).join(" | "));
             }
 
-            console.log("BRAIN_2D_3D_SMOKE_PASS");
+            console.log("BRAIN_2D_SMOKE_PASS");
             await browser.close();
           })().catch(err => {
             console.error(err);
