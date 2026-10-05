@@ -582,6 +582,7 @@
         makeMaterial("#566372",.56,.22,false,1)
       );
       chair.position.set(0,.72,.96);
+      chair.userData.primitiveOfficeFurniture=true;
       g.add(chair);
 
       scene.add(g);
@@ -1319,6 +1320,8 @@
       get initialized(){return initialized;},
       get actorCount(){return actors.size;},
       get agentCount(){return agents.length;},
+      get officeAssetMode(){return officeAssetMode;},
+      get officeAssetCount(){return officeAssetInstances.length;},
       get states(){
         const out={};
         agents.forEach(a=>{out[String(a.name)]=agentState(a);});
