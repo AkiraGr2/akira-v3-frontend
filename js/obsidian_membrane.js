@@ -253,7 +253,7 @@ async async function _fetchPublicJson(url) {
   return await r.json();
 }
 
-function _fetchJson(url, handleAuthFailure = true) {
+async function _fetchJson(url, handleAuthFailure = true) {
   const full =
     url.indexOf("http") === 0
       ? url
