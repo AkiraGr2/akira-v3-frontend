@@ -502,100 +502,8 @@
   },
   "movement_edges": [
     [
-      "P01_ENTRADA",
-      "P02_CORREDOR_SUR"
-    ],
-    [
-      "P02_CORREDOR_SUR",
-      "P03_LOUNGE"
-    ],
-    [
-      "P02_CORREDOR_SUR",
-      "P16_ZERI_HOME_EXIT"
-    ],
-    [
-      "P16_ZERI_HOME_EXIT",
-      "P24_RIGHT_SOUTH"
-    ],
-    [
-      "P24_RIGHT_SOUTH",
-      "M04"
-    ],
-    [
-      "P23_RIGHT_MID",
+      "M07",
       "P05_CENTRO_NORTE"
-    ],
-    [
-      "P23_RIGHT_MID",
-      "P15_KAORI_HOME_EXIT"
-    ],
-    [
-      "P15_KAORI_HOME_EXIT",
-      "P17_LYRA_HOME_EXIT"
-    ],
-    [
-      "P23_RIGHT_MID",
-      "M07"
-    ],
-    [
-      "M07",
-      "M06"
-    ],
-    [
-      "M06",
-      "M05"
-    ],
-    [
-      "M05",
-      "M04"
-    ],
-    [
-      "M07",
-      "M08"
-    ],
-    [
-      "M08",
-      "P14_ORION_HOME_EXIT"
-    ],
-    [
-      "P14_ORION_HOME_EXIT",
-      "P10_REUNION_LEFT"
-    ],
-    [
-      "P10_REUNION_LEFT",
-      "M01"
-    ],
-    [
-      "P10_REUNION_LEFT",
-      "P04_CENTRO"
-    ],
-    [
-      "P04_CENTRO",
-      "P22_CENTER_SOUTH"
-    ],
-    [
-      "P22_CENTER_SOUTH",
-      "P09_IMPRESORA_STAND"
-    ],
-    [
-      "P22_CENTER_SOUTH",
-      "P12_NEXO_HOME_EXIT"
-    ],
-    [
-      "P12_NEXO_HOME_EXIT",
-      "P20_LEFT_MID"
-    ],
-    [
-      "P20_LEFT_MID",
-      "P11_LUNA_HOME_EXIT"
-    ],
-    [
-      "P20_LEFT_MID",
-      "P03_LOUNGE"
-    ],
-    [
-      "P22_CENTER_SOUTH",
-      "P13_NOVA_HOME_EXIT"
     ],
     [
       "P05_CENTRO_NORTE",
@@ -603,35 +511,15 @@
     ],
     [
       "P21_CENTER_WEST",
-      "P19_LEFT_UP"
+      "P22_CENTER_SOUTH"
     ],
     [
-      "P21_CENTER_WEST",
-      "P06_AKIRA_HOME_EXIT"
+      "P22_CENTER_SOUTH",
+      "M01"
     ],
     [
-      "P05_CENTRO_NORTE",
-      "P07_TABLERO_STAND"
-    ],
-    [
-      "P07_TABLERO_STAND",
-      "P25_TOP_RIGHT"
-    ],
-    [
-      "P03_LOUNGE",
-      "P18_DANTE_WAIT"
-    ],
-    [
-      "M04",
-      "P26_RIGHT_SIDE"
-    ],
-    [
-      "P26_RIGHT_SIDE",
-      "P25_TOP_RIGHT"
-    ],
-    [
-      "P26_RIGHT_SIDE",
-      "P23_RIGHT_MID"
+      "M01",
+      "M08"
     ]
   ],
   "homes": {
