@@ -44,6 +44,7 @@
   let agents=DESIGN.map((a)=>({...a,status:a.disabled?"disabled":"idle",task:null,pos:{x:a.home[0],y:a.home[1]},route:[],routeIndex:0,wait:Math.random()*3}));
   let tasks=[];
   let backend=localStorage.getItem("akira_backend_url")||BACKEND_FALLBACK;
+  let truthSummary={loaded:false,total:0,working:0,idle:0,error:0,disabled:0};
   let eventText="Oficina iniciada · movimiento ambiental activado";
   let eventUntil=0;
   let lastPoll=0;
@@ -106,11 +107,20 @@
         agents=merged;
         syncTruth();
         lastPoll=Date.now();
+        truthSummary.loaded=true;
       }
       if(tr.ok){
         const data=await tr.json();
         tasks=Array.isArray(data&&data.tasks)?data.tasks:[];
         syncTruth();
+      }
+      if(truthSummary.loaded){
+        const realAgents=agents.filter(a=>a.real===true);
+        truthSummary.total=realAgents.length;
+        truthSummary.working=realAgents.filter(a=>a.status==="working").length;
+        truthSummary.error=realAgents.filter(a=>a.status==="error").length;
+        truthSummary.disabled=realAgents.filter(a=>a.status==="disabled").length;
+        truthSummary.idle=realAgents.length-truthSummary.working-truthSummary.error-truthSummary.disabled;
       }
       renderHud();
     }catch(_){
@@ -341,12 +351,16 @@
   }
 
   function resize(){
-    if(!canvas||!stage)return;
-    const dpr=Math.min(window.devicePixelRatio||1,2);
+    if(!canvas||!stage||!ctx)return;
     const rect=stage.getBoundingClientRect();
-    canvas.style.width=rect.width+"px";canvas.style.height=rect.height+"px";
+    // The office section is hidden during initial DOMContentLoaded. Do not
+    // lock the canvas to a 0x0 CSS box; wait for the section to become visible.
+    if(rect.width<2 || rect.height<2) return;
+    canvas.style.width=rect.width+"px";
+    canvas.style.height=rect.height+"px";
     // Keep the logical buffer fixed for crisp nearest-neighbor pixels.
-    canvas.width=RENDER_W;canvas.height=RENDER_H;
+    canvas.width=RENDER_W;
+    canvas.height=RENDER_H;
     ctx.imageSmoothingEnabled=false;
   }
 
@@ -362,9 +376,15 @@
     const hud=el("officePixelHud");
     const ev=el("officePixelEvent");
     if(hud){
-      const active=agents.filter(a=>!a.disabled).length;
-      const working=agents.filter(a=>a.status==="working").length;
-      hud.innerHTML="<strong>AKIRA PROJECT</strong><br>"+active+" activos · 1 en espera · "+working+" trabajando";
+      if(truthSummary.loaded){
+        hud.innerHTML="<strong>AKIRA PROJECT</strong><br>"+truthSummary.total+
+          " registrados · "+truthSummary.working+" trabajando · "+truthSummary.idle+
+          " disponibles";
+      }else{
+        const previewActive=agents.filter(a=>!a.disabled).length;
+        hud.innerHTML="<strong>AKIRA PROJECT · PREVIEW</strong><br>"+previewActive+
+          " activos · 1 en espera · estado backend no confirmado";
+      }
     }
     if(ev) ev.textContent=eventText;
   }
@@ -413,14 +433,27 @@
   }
 
   window.initAkiraOfficePixel=async function(){
-    if(initialized)return;
+    if(initialized){
+      resize();
+      return;
+    }
     stage=el("officePixelStage");canvas=el("officePixelCanvas");
     if(!stage||!canvas)return;
     ctx=canvas.getContext("2d");
+    if(!ctx)return;
     ctx.imageSmoothingEnabled=false;
-    bind();resize();initialized=true;renderHud();
+    bind();
+    initialized=true;
+    resize();
+    renderHud();
     await poll();
-    last=performance.now();raf=requestAnimationFrame(loop);
+    resize();
+    last=performance.now();
+    raf=requestAnimationFrame(loop);
+  };
+
+  window.resizeAkiraOfficePixel=function(){
+    resize();
   };
 
   window.setAkiraOfficePixelPaused=function(v){
@@ -428,6 +461,9 @@
   };
 
   window.refreshAkiraOfficePixel=async function(){
-    await poll();say("Oficina Pixel sincronizada.");
+    resize();
+    await poll();
+    resize();
+    say("Oficina Pixel sincronizada.");
   };
 })();
