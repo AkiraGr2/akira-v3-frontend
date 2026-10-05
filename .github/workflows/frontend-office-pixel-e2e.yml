@@ -137,7 +137,7 @@ jobs:
             if(!domState.atlasLayout || domState.atlasLayout.rows!==9 || domState.atlasLayout.framesPerRow!==19){
               throw new Error("Clean4 atlas layout contract is wrong: "+JSON.stringify(domState.atlasLayout));
             }
-            if(domState.navigationMode!=="grid-a-star-stations-v5" || !(domState.walkSpeed>0 && domState.walkSpeed<120)){
+            if(domState.navigationMode!=="grid-a-star-semantic-v6" || !(domState.walkSpeed>0 && domState.walkSpeed<120)){
               throw new Error("Realistic screen navigation contract failed: "+JSON.stringify({mode:domState.navigationMode,speed:domState.walkSpeed}));
             }
             const agentByName=Object.fromEntries((domState.agents||[]).map(a=>[a.name,a]));
