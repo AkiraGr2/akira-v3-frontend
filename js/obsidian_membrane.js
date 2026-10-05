@@ -235,7 +235,25 @@ function _authHeaders() {
   return {};
 }
 
-async function _fetchJson(url) {
+async function _fetchPublicJson(url) {
+  const full =
+    url.indexOf("http") === 0
+      ? url
+      : (AKIRA_API_BASE + url);
+  const bust =
+    full +
+    (full.indexOf("?") >= 0 ? "&" : "?") +
+    "_=" +
+    Date.now();
+  const r = await fetch(bust, {
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store"
+  });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return await r.json();
+}
+
+async function _fetchJson(url, handleAuthFailure = true) {
   const full =
     url.indexOf("http") === 0
       ? url
@@ -256,7 +274,7 @@ async function _fetchJson(url) {
 
   if (!r.ok) {
     try {
-      if (r.status === 401 && typeof window.akiraHandleAuthFailure === "function") {
+      if (handleAuthFailure && r.status === 401 && typeof window.akiraHandleAuthFailure === "function") {
         window.akiraHandleAuthFailure(401);
       }
     } catch (_) {}
@@ -283,6 +301,7 @@ let membraneCounts = {
 };
 
 let membraneError = null;
+let membranePublicMode = false;
 let membraneLayoutRunning = false;
 let _communityState = null;
 let membraneBrainFilterGroup = "all";
@@ -3461,24 +3480,47 @@ async function refreshMembrane(
   try {
     const data =
       await _fetchJson(
-        "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now()
+        "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now(),
+        false
       );
 
     if (!data || data.ok !== true) {
       throw new Error("Respuesta del Cerebro 2D no válida");
     }
 
+    membranePublicMode = false;
     _applyGraphToCy(data);
     membraneError = null;
   } catch (e) {
-    membraneError =
-      String(
-        e &&
-        e.message
-          ? e.message
-          : e
-      );
-    _updateMembraneStats();
+    const message = String(
+      e && e.message
+        ? e.message
+        : e
+    );
+    if (message === "HTTP 401") {
+      try {
+        const publicData = await _fetchPublicJson(
+          "/api/v8/graph/public-overview"
+        );
+        if (!publicData || publicData.ok !== true || publicData.public !== true) {
+          throw new Error("Vista pública no disponible");
+        }
+        membranePublicMode = true;
+        _applyGraphToCy(publicData);
+        membraneError = null;
+        _updateMembraneStats();
+      } catch (publicError) {
+        membraneError = String(
+          publicError && publicError.message
+            ? publicError.message
+            : publicError
+        );
+        _updateMembraneStats();
+      }
+    } else {
+      membraneError = message;
+      _updateMembraneStats();
+    }
   } finally {
     membraneFetching =
       false;
@@ -4072,6 +4114,7 @@ function _updateMembraneStats() {
       " · reintento automático";
   } else {
     el.textContent =
+      (membranePublicMode ? "VISTA PÚBLICA · " : "") +
       nodesCount +
       " nodos · " +
       edgesCount +
@@ -4088,6 +4131,7 @@ function _updateMembraneStats() {
       const hud = document.getElementById("brainStats");
       if(hud){
         hud.innerHTML =
+          (membranePublicMode ? "<strong>VISTA PÚBLICA</strong> · " : "") +
           "<strong>" + nodesCount + "</strong> NODOS · <strong>" +
           edgesCount + "</strong> RELACIONES · <strong>" +
           clusterCount + "</strong> CLUSTERS";
