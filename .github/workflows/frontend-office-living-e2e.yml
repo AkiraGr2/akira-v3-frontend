@@ -188,16 +188,15 @@ jobs:
               throw new Error("Published-style local office assets were not used");
             }
 
-            await page.waitForFunction(() => {
-              const d = window.akiraOfficeLivingDebug;
-              return Boolean(d && d.syncStatus === "ok" && d.syncHttpStatus === 200 && d.syncError === "");
-            }, null, {timeout:30000});
-
             const refreshState = await page.evaluate(() => ({
               syncStatus: window.akiraOfficeLivingDebug.syncStatus,
               syncHttpStatus: window.akiraOfficeLivingDebug.syncHttpStatus,
               syncError: window.akiraOfficeLivingDebug.syncError
             }));
+
+            if(refreshState.syncStatus !== "ok" || refreshState.syncHttpStatus !== 200 || refreshState.syncError !== ""){
+              throw new Error("Office agent sync did not reach a clean success state after agents loaded: "+JSON.stringify(refreshState));
+            }
 
             const plantMaterialColors = await page.evaluate(() => window.akiraOfficeLivingDebug.plantMaterialColors);
             if(!Array.isArray(plantMaterialColors) || !plantMaterialColors.length || plantMaterialColors.every(v => ["#ffffff","#fefefe","#fff"].includes(String(v).toLowerCase()))){
