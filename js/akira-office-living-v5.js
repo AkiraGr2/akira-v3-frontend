@@ -28,6 +28,7 @@
   const STATE_BY_NAME=Object.fromEntries(STATES.map(x=>[x.name,x]));
 
   let stage=null,canvas=null,ctx=null,scene=null,atlas=null,directionalAtlas=null,config=null;
+  let directionalFrames=null;
   let initialized=false,raf=0,last=0,paused=false,pollTimer=0;
   let agents=[],tasks=[];
   let truth={loaded:false,total:0,working:0,idle:0,error:0,disabled:0};
@@ -761,8 +762,11 @@
           : a.direction==="left"
             ? config.directional_walk&&config.directional_walk.horizontal_left
             : config.directional_walk&&config.directional_walk.horizontal_right;
-      const walkCount=Number(layout&&layout.count||4);
-      a.frame=Math.floor(a.frameClock/Number(config.navigation.walk_frame_ms||125))%Math.max(1,walkCount);
+      const cycle=Array.isArray(layout&&layout.cycle)&&layout.cycle.length
+        ? layout.cycle.map(Number) : null;
+      const walkCount=cycle ? cycle.length : Number(layout&&layout.count||4);
+      a.frame=Math.floor(a.frameClock/Number(config.navigation.walk_frame_ms||125))
+        %Math.max(1,walkCount);
 
       if(dist<=0.75){
         a.screen=[...target.screen];
@@ -819,11 +823,94 @@
     a.frame=Math.floor(a.frameClock/frameMs)%st.count;
   }
 
-  function directionalFrameRect(a){
+  function prepareDirectionalFrames(){
     if(!directionalAtlas||!config||!config.directional_walk)return null;
+
+    const d=config.directional_walk;
+    const centersX=(d.frame_centers_x||[]).map(Number);
+    const centersY=(d.row_centers_y||[]).map(Number);
+    const rows=centersY.length;
+    const framesPerRow=Number(d.actual_poses_per_row||centersX.length||14);
+    if(rows!==9||centersX.length!==framesPerRow)return null;
+
+    const cropW=Math.max(1,Number(d.frame_crop_px&&d.frame_crop_px[0]||112));
+    const cropH=Math.max(1,Number(d.frame_crop_px&&d.frame_crop_px[1]||112));
+    const frameW=Number(d.frame_canvas_px&&d.frame_canvas_px[0]||112);
+    const frameH=Number(d.frame_canvas_px&&d.frame_canvas_px[1]||112);
+    const padX=Math.round((frameW-cropW)/2);
+    const padY=Math.round(Number(d.frame_canvas_offset_y||0));
+
+    const scratch=document.createElement("canvas");
+    scratch.width=directionalAtlas.naturalWidth;
+    scratch.height=directionalAtlas.naturalHeight;
+    const sctx=scratch.getContext("2d",{willReadFrequently:true});
+    if(!sctx)return null;
+    sctx.imageSmoothingEnabled=false;
+    sctx.drawImage(directionalAtlas,0,0);
+    const pixels=sctx.getImageData(0,0,scratch.width,scratch.height).data;
+
+    // Precompute the nearest real sprite center for every source column.
+    // This is the critical separation step: adjacent poses in V8 are not on
+    // the nominal 16-column grid and some hair touches neighboring poses.
+    const ownerByX=new Int16Array(scratch.width);
+    for(let sx=0;sx<scratch.width;sx++){
+      let best=0,bestDist=Infinity;
+      for(let i=0;i<centersX.length;i++){
+        const dist=Math.abs(sx-Math.round(centersX[i]));
+        if(dist<bestDist){bestDist=dist;best=i;}
+      }
+      ownerByX[sx]=best;
+    }
+
+    const result=Array.from({length:rows},()=>Array(framesPerRow).fill(null));
+
+    for(let row=0;row<rows;row++){
+      const cy=Math.round(centersY[row]);
+      const srcY0=Math.max(0,Math.min(scratch.height-cropH,Math.round(cy-cropH/2)));
+      const buffers=Array.from({length:framesPerRow},()=>new Uint8ClampedArray(frameW*frameH*4));
+      const centerRounded=centersX.map(Math.round);
+
+      for(let sy=srcY0;sy<srcY0+cropH && sy<scratch.height;sy++){
+        const rowBase=sy*scratch.width*4;
+        const localY=padY+(sy-srcY0);
+        if(localY<0||localY>=frameH)continue;
+
+        for(let sx=0;sx<scratch.width;sx++){
+          const frameIndex=ownerByX[sx];
+          const localX=padX+(sx-centerRounded[frameIndex]);
+          if(localX<0||localX>=frameW)continue;
+
+          const si=rowBase+sx*4;
+          if(pixels[si+3]===0)continue;
+
+          const di=(localY*frameW+localX)*4;
+          const out=buffers[frameIndex];
+          out[di]=pixels[si];
+          out[di+1]=pixels[si+1];
+          out[di+2]=pixels[si+2];
+          out[di+3]=pixels[si+3];
+        }
+      }
+
+      for(let i=0;i<framesPerRow;i++){
+        const fc=document.createElement("canvas");
+        fc.width=frameW;
+        fc.height=frameH;
+        const fctx=fc.getContext("2d");
+        if(!fctx)continue;
+        fctx.putImageData(new ImageData(buffers[i],frameW,frameH),0,0);
+        result[row][i]=fc;
+      }
+    }
+
+    return result;
+  }
+
+  function directionalFrameCanvas(a){
+    if(!directionalFrames||!config||!config.directional_walk)return null;
     const d=config.directional_walk;
     const row=(d.row_order||[]).indexOf(a.name);
-    if(row<0)return null;
+    if(row<0||!directionalFrames[row])return null;
 
     let layout=null;
     if(a.direction==="up") layout=d.vertical_back;
@@ -833,15 +920,12 @@
     if(!layout)return null;
 
     const count=Number(layout.count||1);
-    const start=Number(layout.start||0);
-    const fi=Math.max(0,Math.min(count-1,a.frame||0));
-    const col=start+fi;
-    const cols=Number(d.columns||16);
-    const x0=Math.floor(directionalAtlas.naturalWidth*(col/cols));
-    const x1=Math.floor(directionalAtlas.naturalWidth*((col+1)/cols));
-    const y0=Math.floor(directionalAtlas.naturalHeight*(row/Number(d.rows||9)));
-    const y1=Math.floor(directionalAtlas.naturalHeight*((row+1)/Number(d.rows||9)));
-    return [x0,y0,x1-x0,y1-y0];
+    const fi=Math.max(0,Math.min((Array.isArray(layout.cycle)&&layout.cycle.length
+      ? layout.cycle.length : count)-1,a.frame||0));
+    const slot=(Array.isArray(layout.cycle)&&layout.cycle.length)
+      ? Number(layout.cycle[fi]??0) : fi;
+    const frameIndex=layout.start+Math.max(0,Math.min(count-1,slot));
+    return directionalFrames[row][frameIndex]||null;
   }
 
   function frameRect(row,col){
@@ -877,28 +961,39 @@
 
   function drawSprite(a){
     const moving=a.machine==="walking"||a.machine==="returning";
-    const directionalSrc=moving?directionalFrameRect(a):null;
-    const src=directionalSrc||spriteFrame(a);
-    const sourceAtlas=directionalSrc?directionalAtlas:atlas;
-    if(!src||!sourceAtlas)return;
+    const directionalCanvas=moving?directionalFrameCanvas(a):null;
+    const src=directionalCanvas?null:spriteFrame(a);
+    const sourceAtlas=directionalCanvas||atlas;
+    if(!sourceAtlas)return;
     const p=a.screen;
     const idleBob=!moving?Math.sin(officeClock*2+(a.seed||0)*0.017)*0.8:0;
     const walkBob=moving?Math.round(Math.sin((a.frame+0.5)*Math.PI/2)):0;
     const scale=.82;
-    const dw=src[2]*scale,dh=src[3]*scale;
+    const baseW=directionalCanvas
+      ? Number(config.directional_walk&&config.directional_walk.frame_canvas_px&&config.directional_walk.frame_canvas_px[0]||112)
+      : (src&&src[2]||0);
+    const baseH=directionalCanvas
+      ? Number(config.directional_walk&&config.directional_walk.frame_canvas_px&&config.directional_walk.frame_canvas_px[1]||112)
+      : (src&&src[3]||0);
+    if(baseW<=0||baseH<=0)return;
+    const dw=baseW*scale,dh=baseH*scale;
     const left=Math.round(p[0]-dw/2);
     const top=Math.round(p[1]-dh+6+walkBob+idleBob);
 
     ctx.save();
     ctx.imageSmoothingEnabled=false;
     ctx.globalAlpha=a.status==="disabled"?.86:1;
-    // Directional locomotion atlas already contains separate left/right art.
-    // Only legacy non-directional states use the horizontal mirror.
-    if(!directionalSrc && a.facing<0){
+    // Directional frames are pre-isolated into their own canvases, so there is
+    // no neighboring-pose texture to sample at render time.
+    if(!directionalCanvas && a.facing<0){
       ctx.translate(Math.round(p[0]*2),0);
       ctx.scale(-1,1);
     }
-    ctx.drawImage(sourceAtlas,src[0],src[1],src[2],src[3],left,top,dw,dh);
+    if(directionalCanvas){
+      ctx.drawImage(sourceAtlas,left,top,dw,dh);
+    }else if(src){
+      ctx.drawImage(sourceAtlas,src[0],src[1],src[2],src[3],left,top,dw,dh);
+    }
     ctx.restore();
 
     ctx.save();
@@ -1221,6 +1316,8 @@
         loadImage(DIRECTIONAL_ATLAS_SRC).catch(()=>null)
       ]);
       navMap=buildNavMap();
+      directionalFrames=prepareDirectionalFrames();
+      if(!directionalFrames)console.warn("[OfficeFloor] directional atlas preprocessing unavailable; using direct frame fallback.");
       makeAgents();
       canvas.addEventListener("click",hitTest);
       initialized=true;
@@ -1274,6 +1371,19 @@
       states:STATES.map(x=>({...x})),
       directionalReady:Boolean(config&&config.directional_walk),
       directionalSource:config&&config.directional_walk ? {...config.directional_walk} : null,
+      directionalFrameModel:config&&config.directional_walk ? {
+        actualPosesPerRow:Number(config.directional_walk.actual_poses_per_row||0),
+        frameCentersX:Array.isArray(config.directional_walk.frame_centers_x)
+          ? [...config.directional_walk.frame_centers_x] : [],
+        rowCentersY:Array.isArray(config.directional_walk.row_centers_y)
+          ? [...config.directional_walk.row_centers_y] : [],
+        cropPx:Array.isArray(config.directional_walk.frame_crop_px)
+          ? [...config.directional_walk.frame_crop_px] : [],
+        canvasPx:Array.isArray(config.directional_walk.frame_canvas_px)
+          ? [...config.directional_walk.frame_canvas_px] : [],
+        preprocessing:config.directional_walk.preprocessing||"none",
+        framesPrepared:Boolean(directionalFrames)
+      } : null,
       characterAliases:(config&&config.atlas&&config.atlas.character_aliases)||{}
     };},
     get navigationMode(){return "grid-a-star-semantic-v6";},
