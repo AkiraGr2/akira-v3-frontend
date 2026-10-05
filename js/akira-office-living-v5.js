@@ -835,10 +835,10 @@
 
     const cropW=Math.max(1,Number(d.frame_crop_px&&d.frame_crop_px[0]||112));
     const cropH=Math.max(1,Number(d.frame_crop_px&&d.frame_crop_px[1]||112));
-    const frameW=Number(d.frame_canvas_px&&d.frame_canvas_px[0]||128);
-    const frameH=Number(d.frame_canvas_px&&d.frame_canvas_px[1]||128);
+    const frameW=Number(d.frame_canvas_px&&d.frame_canvas_px[0]||112);
+    const frameH=Number(d.frame_canvas_px&&d.frame_canvas_px[1]||112);
     const padX=Math.round((frameW-cropW)/2);
-    const padY=Math.round(Number(d.frame_canvas_offset_y||14));
+    const padY=Math.round(Number(d.frame_canvas_offset_y||0));
 
     const scratch=document.createElement("canvas");
     scratch.width=directionalAtlas.naturalWidth;
@@ -970,10 +970,10 @@
     const walkBob=moving?Math.round(Math.sin((a.frame+0.5)*Math.PI/2)):0;
     const scale=.82;
     const baseW=directionalCanvas
-      ? Number(config.directional_walk&&config.directional_walk.frame_canvas_px&&config.directional_walk.frame_canvas_px[0]||128)
+      ? Number(config.directional_walk&&config.directional_walk.frame_canvas_px&&config.directional_walk.frame_canvas_px[0]||112)
       : (src&&src[2]||0);
     const baseH=directionalCanvas
-      ? Number(config.directional_walk&&config.directional_walk.frame_canvas_px&&config.directional_walk.frame_canvas_px[1]||128)
+      ? Number(config.directional_walk&&config.directional_walk.frame_canvas_px&&config.directional_walk.frame_canvas_px[1]||112)
       : (src&&src[3]||0);
     if(baseW<=0||baseH<=0)return;
     const dw=baseW*scale,dh=baseH*scale;
