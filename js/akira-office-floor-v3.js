@@ -1466,6 +1466,17 @@
       get syncStatus(){return syncStatus;},
       get syncHttpStatus(){return syncHttpStatus;},
       get syncError(){return syncError;},
+      get plantMaterialColors(){
+        const colors=[];
+        officeAssetInstances.filter(root=>root && root.userData && root.userData.officeAssetKey==="plant").forEach(root=>{
+          root.traverse(obj=>{
+            if(!obj.isMesh || !obj.material) return;
+            const mats=Array.isArray(obj.material)?obj.material:[obj.material];
+            mats.forEach(m=>{if(m && m.color) colors.push("#"+m.color.getHexString());});
+          });
+        });
+        return colors;
+      },
       get states(){
         const out={};
         agents.forEach(a=>{out[String(a.name)]=agentState(a);});
