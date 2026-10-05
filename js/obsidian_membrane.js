@@ -253,7 +253,7 @@ async async function _fetchPublicJson(url) {
   return await r.json();
 }
 
-function _fetchJson(url) {
+function _fetchJson(url, handleAuthFailure = true) {
   const full =
     url.indexOf("http") === 0
       ? url
@@ -274,7 +274,7 @@ function _fetchJson(url) {
 
   if (!r.ok) {
     try {
-      if (r.status === 401 && typeof window.akiraHandleAuthFailure === "function") {
+      if (handleAuthFailure && r.status === 401 && typeof window.akiraHandleAuthFailure === "function") {
         window.akiraHandleAuthFailure(401);
       }
     } catch (_) {}
@@ -3480,7 +3480,8 @@ async function refreshMembrane(
   try {
     const data =
       await _fetchJson(
-        "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now()
+        "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now(),
+        false
       );
 
     if (!data || data.ok !== true) {
