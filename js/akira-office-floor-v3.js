@@ -102,6 +102,9 @@
   let pointer = null;
   let ambientObjects = [];
   let interactiveObjects = [];
+  let officeAssetTemplates = new Map();
+  let officeAssetInstances = [];
+  let officeAssetMode = false;
   let coreGroup = null;
   let coreMaterials = [];
   let reducedMotion = false;
@@ -209,9 +212,21 @@
     return new THREE.Vector3(s[0],0.20,s[2]);
   }
 
+  function deskFacing(agent){
+    const desk=deskFor(agent);
+    // The desk front always faces the room. Local +Z is the seating side.
+    if(Math.abs(desk.x)>=Math.abs(desk.z)){
+      return desk.x<0 ? Math.PI/2 : -Math.PI/2;
+    }
+    return desk.z<0 ? Math.PI : 0;
+  }
+
   function stationFor(agent){
     const desk=deskFor(agent);
-    return new THREE.Vector3(desk.x,0.20,desk.z+0.92);
+    const facing=deskFacing(agent);
+    const seatOffset=new THREE.Vector3(0,0.20,0.96);
+    seatOffset.applyAxisAngle(new THREE.Vector3(0,1,0),facing);
+    return desk.clone().add(seatOffset);
   }
 
   function workZoneFor(agent){
@@ -535,18 +550,25 @@
       const s=STATIONS[key];
       const g=new THREE.Group();
       g.position.set(s[0],0,s[2]);
+      g.rotation.y=deskFacing({name:key});
       g.userData.role=key;
 
       const baseMat=makeMaterial(index%2?"#7b8792":"#687786",.64,.24,false,1);
       const desk=addBox(g,[2.4,0.18,1.25],[0,1.0,0],baseMat);
+      desk.userData.primitiveOfficeFurniture=true;
       desk.castShadow=!profile.mobile;
       desk.receiveShadow=!profile.mobile;
 
       const legMat=makeMaterial("#101722",.78,.42,false,1);
-      addBox(g,[0.12,1.0,0.12],[-1.0,.5,-.45],legMat);
-      addBox(g,[0.12,1.0,0.12],[1.0,.5,-.45],legMat);
-      addBox(g,[0.12,1.0,0.12],[-1.0,.5,.45],legMat);
-      addBox(g,[0.12,1.0,0.12],[1.0,.5,.45],legMat);
+      [
+        [-1.0,.5,-.45],
+        [1.0,.5,-.45],
+        [-1.0,.5,.45],
+        [1.0,.5,.45]
+      ].forEach(pos=>{
+        const leg=addBox(g,[0.12,1.0,0.12],pos,legMat);
+        leg.userData.primitiveOfficeFurniture=true;
+      });
 
       const screen=new THREE.Mesh(
         new THREE.BoxGeometry(1.05,.62,.08),
@@ -564,7 +586,8 @@
         new THREE.BoxGeometry(.74,.12,.70),
         makeMaterial("#566372",.56,.22,false,1)
       );
-      chair.position.set(0,.72,.85);
+      chair.position.set(0,.72,.96);
+      chair.userData.primitiveOfficeFurniture=true;
       g.add(chair);
 
       scene.add(g);
@@ -604,6 +627,7 @@
     // Small meeting table with chairs.
     const meet=new THREE.Group();
     meet.position.set(0,0,-7.3);
+    meet.userData.primitiveOfficeFurniture=true;
     addBox(meet,[4.1,.18,1.35],[0,.93,0],softMat);
     for(const x of [-1.5,-.75,.75,1.5]){
       addBox(meet,[.55,.12,.55],[x,.63,.0],warmMat);
@@ -655,6 +679,162 @@
     points.userData.speeds=speeds;
     scene.add(points);
     ambientObjects.push({type:"air",mesh:points,phase:1});
+  }
+
+
+
+  function officeAssetUrl(key){
+    try{
+      const registry=window.AKIRA_OFFICE_ASSET_REGISTRY;
+      const item=registry && registry.get ? registry.get(key) : null;
+      return item && item.url ? item.url : null;
+    }catch(_){
+      return null;
+    }
+  }
+
+  function prepareOfficeAsset(gltf){
+    const root=gltf.scene;
+    root.traverse(obj=>{
+      if(!obj.isMesh) return;
+      obj.castShadow=!reducedMotion;
+      obj.receiveShadow=!reducedMotion;
+      if(obj.material && obj.material.map){
+        obj.material.map.anisotropy=1;
+      }
+    });
+    return root;
+  }
+
+  function cloneOfficeAsset(key){
+    const template=officeAssetTemplates.get(key);
+    if(!template) return null;
+    const clone=skeletonClone ? skeletonClone(template) : template.clone(true);
+    clone.traverse(obj=>{
+      if(obj.isMesh){
+        obj.castShadow=!reducedMotion;
+        obj.receiveShadow=!reducedMotion;
+      }
+    });
+    return clone;
+  }
+
+  function fitOfficeAsset(root,targetSize,position,rotationY){
+    if(!root) return null;
+    root.rotation.y=rotationY||0;
+    root.position.set(0,0,0);
+    root.scale.setScalar(1);
+    root.updateMatrixWorld(true);
+
+    const box=new THREE.Box3().setFromObject(root);
+    const size=box.getSize(new THREE.Vector3());
+    const sx=targetSize[0]/Math.max(size.x,0.001);
+    const sy=targetSize[1]/Math.max(size.y,0.001);
+    const sz=targetSize[2]/Math.max(size.z,0.001);
+    const factor=Math.min(sx,sy,sz);
+    root.scale.setScalar(factor);
+    root.updateMatrixWorld(true);
+
+    const fitted=new THREE.Box3().setFromObject(root);
+    root.position.x += position[0] - (fitted.min.x+fitted.max.x)/2;
+    root.position.y += position[1] - fitted.min.y;
+    root.position.z += position[2] - (fitted.min.z+fitted.max.z)/2;
+    return root;
+  }
+
+  async function loadOfficeAssets(){
+    const registry=window.AKIRA_OFFICE_ASSET_REGISTRY;
+    if(!registry || !registry.keys) return false;
+    const loader=new GLTFLoader();
+    const keys=registry.keys();
+    const loaded=await Promise.all(keys.map(async key=>{
+      const url=officeAssetUrl(key);
+      if(!url) return null;
+      try{
+        const gltf=await Promise.race([
+          new Promise((resolve,reject)=>{
+            loader.load(url,resolve,undefined,reject);
+          }),
+          new Promise((_,reject)=>{
+            window.setTimeout(()=>reject(new Error("asset_timeout")),6500);
+          })
+        ]);
+        officeAssetTemplates.set(key,prepareOfficeAsset(gltf));
+        return key;
+      }catch(err){
+        console.warn("[akira-office-assets] asset failed",key,err);
+        return null;
+      }
+    }));
+    return loaded.some(Boolean);
+  }
+
+  function addOfficeAsset(key,targetSize,position,rotationY){
+    const root=cloneOfficeAsset(key);
+    if(!root) return null;
+    fitOfficeAsset(root,targetSize,position,rotationY);
+    root.userData.officeAssetKey=key;
+    scene.add(root);
+    officeAssetInstances.push(root);
+    return root;
+  }
+
+  function hidePrimitiveOfficeFurniture(hidden){
+    scene.traverse(obj=>{
+      if(!obj.userData || !obj.userData.primitiveOfficeFurniture) return;
+      obj.visible=!hidden;
+    });
+  }
+
+  function addRealOfficeFurniture(profile){
+    const deskTemplate=officeAssetTemplates.has("desk");
+    const chairTemplate=officeAssetTemplates.has("chair");
+    if(!deskTemplate || !chairTemplate){
+      officeAssetMode=false;
+      return false;
+    }
+
+    Object.keys(STATIONS).forEach(key=>{
+      const desk=deskFor({name:key});
+      const facing=deskFacing({name:key});
+      addOfficeAsset("desk",[2.9,1.65,1.45],[desk.x,0,desk.z],facing);
+      const chair=stationFor({name:key});
+      addOfficeAsset("chair",[0.92,1.45,1.02],[chair.x,0,chair.z],facing);
+    });
+
+    if(officeAssetTemplates.has("meetingTable")){
+      addOfficeAsset("meetingTable",[4.4,1.25,1.65],[0,0,-7.25],0);
+    }
+
+    if(officeAssetTemplates.has("armchair")){
+      addOfficeAsset("armchair",[1.12,1.35,1.10],[-4.05,0,-7.2],Math.PI/2);
+      addOfficeAsset("armchair",[1.12,1.35,1.10],[4.05,0,-7.2],-Math.PI/2);
+    }
+
+    if(officeAssetTemplates.has("shelf")){
+      addOfficeAsset("shelf",[1.75,2.55,.55],[-9.8,0,-8.95],0);
+      addOfficeAsset("shelf",[1.75,2.55,.55],[9.8,0,-8.95],Math.PI);
+    }
+
+    if(officeAssetTemplates.has("lamp")){
+      addOfficeAsset("lamp",[.85,2.4,.85],[9.25,0,-6.2],0.35);
+      addOfficeAsset("lamp",[.85,2.4,.85],[-9.25,0,-6.2],-0.35);
+    }
+
+    if(officeAssetTemplates.has("plant")){
+      addOfficeAsset("plant",[1.05,2.25,1.05],[-9.25,0,-3.8],0);
+      addOfficeAsset("plant",[1.05,2.25,1.05],[9.25,0,-3.8],0);
+      addOfficeAsset("plant",[.9,1.95,.9],[-8.95,0,5.8],0);
+      addOfficeAsset("plant",[.9,1.95,.9],[8.95,0,5.8],0);
+    }
+
+    if(officeAssetTemplates.has("vase")){
+      addOfficeAsset("vase",[.36,.42,.36],[0,1.08,-7.25],0);
+    }
+
+    hidePrimitiveOfficeFurniture(true);
+    officeAssetMode=true;
+    return true;
   }
 
   function chooseAnimation(animations, patterns){
@@ -816,9 +996,14 @@
 
   function beginSit(actor,now){
     if(!actor || actor.seated || actor.transitionKind==="sit") return;
+    const seat=stationFor(actor.agent);
+    actor.root.position.copy(seat);
+    actor.root.position.y=.2;
+    orientToward(actor,deskFor(actor.agent),1);
     actor.transitionKind="sit";
-    actor.transitionUntil=now+900;
-    if(actor.clips.sitEnter) playActorClip(actor,"sitEnter",false,.12);
+    actor.transitionUntil=now+(actor.clips.sitEnter?850:280);
+    if(actor.clips.sitEnter) playActorClip(actor,"sitEnter",false,.22);
+    else playActorClip(actor,actor.clips.sitIdle?"sitIdle":"idle",true,.22);
   }
 
   function updateActorGoal(actor,now){
@@ -1145,6 +1330,9 @@
       get initialized(){return initialized;},
       get actorCount(){return actors.size;},
       get agentCount(){return agents.length;},
+      get officeAssetMode(){return officeAssetMode;},
+      get officeAssetCount(){return officeAssetInstances.length;},
+      assetsReady:false,
       get states(){
         const out={};
         agents.forEach(a=>{out[String(a.name)]=agentState(a);});
@@ -1210,6 +1398,16 @@
       currentSceneTime=performance.now();
       setOverlay("", "");
 
+      // Real furniture is progressive/optional: the office must become usable
+      // even if a third-party asset mirror is slow or unavailable.
+      loadOfficeAssets().then(loaded=>{
+        if(!loaded || !initialized) return;
+        addRealOfficeFurniture(profile);
+        if(window.akiraOfficeLivingDebug) window.akiraOfficeLivingDebug.assetsReady=true;
+      }).catch(err=>{
+        console.warn("[akira-office-assets] progressive load",err);
+      });
+
       if(!pollTimer){
         pollTimer=window.setInterval(()=>{
           const current=document.getElementById("officeSection");
@@ -1258,11 +1456,23 @@
 
     if(actor.transitionKind){
       if(nowMs<actor.transitionUntil){
-        playActorClip(actor,actor.transitionKind==="stand"?"sitExit":"sitEnter",false,.08);
+        const transitionClip=actor.transitionKind==="stand" ? "sitExit" : "sitEnter";
+        if(actor.clips[transitionClip]) playActorClip(actor,transitionClip,false,.18);
+        actor.root.position.y=.2;
         actor.mixer.update(delta);
         return;
       }
-      if(actor.transitionKind==="sit") actor.seated=true;
+      if(actor.transitionKind==="sit"){
+        actor.seated=true;
+        actor.root.position.copy(stationFor(actor.agent));
+        actor.root.position.y=.2;
+        orientToward(actor,deskFor(actor.agent),1);
+        playActorClip(actor,actor.clips.sitIdle?"sitIdle":"idle",true,.20);
+      }else if(actor.transitionKind==="stand"){
+        actor.seated=false;
+        actor.root.position.y=.2;
+        actor.root.rotation.z=0;
+      }
       actor.transitionKind="";
     }
 
@@ -1281,20 +1491,30 @@
         orientToward(actor,briefingPoint(),Math.min(1,delta*4));
         playActorClip(actor,actor.clips.talk?"talk":"idle",true,.22);
       }else if(s==="working"){
-        actor.seated=true;
         orientToward(actor,deskFor(actor.agent),Math.min(1,delta*4));
-        playActorClip(actor,actor.clips.sitIdle?"sitIdle":"work",true,.22);
+        if(!actor.seated){
+          beginSit(actor,nowMs);
+        }else{
+          actor.root.position.copy(stationFor(actor.agent));
+          actor.root.position.y=.2;
+          playActorClip(actor,actor.clips.sitIdle?"sitIdle":"work",true,.24);
+        }
       }else if(actor.targetMode==="ambient"){
         playActorClip(actor,"idle",true,.32);
       }else{
-        actor.seated=true;
         orientToward(actor,deskFor(actor.agent),Math.min(1,delta*4));
-        playActorClip(actor,actor.clips.sitIdle?"sitIdle":"idle",true,.25);
+        if(!actor.seated){
+          beginSit(actor,nowMs);
+        }else{
+          actor.root.position.copy(stationFor(actor.agent));
+          actor.root.position.y=.2;
+          playActorClip(actor,actor.clips.sitIdle?"sitIdle":"idle",true,.22);
+        }
       }
     }
 
     actor.root.position.y=.2;
-    const sway=reducedMotion?0:Math.sin(nowMs*.0011+agents.indexOf(actor.agent)*.71)*.008;
+    const sway=(reducedMotion || !actor.seated || actor.transitionKind) ? 0 : Math.sin(nowMs*.0011+agents.indexOf(actor.agent)*.71)*.004;
     actor.model.rotation.z=sway;
     if(actor.root.userData.selected){
       actor.root.scale.setScalar(actor.baseScale*(1+(.025+Math.sin(nowMs*.004)*.012)));
