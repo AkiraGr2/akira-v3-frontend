@@ -39,6 +39,26 @@ jobs:
             curl --fail --location --retry 3 --retry-all-errors --connect-timeout 10 --max-time 60 "$base2/$f" -o "assets/characters/$f"
             test -s "assets/characters/$f"
           done
+      - name: Stamp deployment marker
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$GITHUB_SHA" > __akira_deploy_commit.txt
+          python3 - <<'PY'
+          import json, os
+          p = "build-version.json"
+          data = {}
+          try:
+              with open(p, "r", encoding="utf-8") as f:
+                  data = json.load(f)
+          except Exception:
+              data = {}
+          data["version"] = os.environ["GITHUB_SHA"]
+          data["generated_at"] = os.environ.get("GITHUB_RUN_STARTED_AT", "")
+          with open(p, "w", encoding="utf-8") as f:
+              json.dump(data, f, ensure_ascii=False, indent=2)
+              f.write("\n")
+          PY
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -46,3 +66,24 @@ jobs:
       - name: Deploy to Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Verify live Pages deployment
+        run: |
+          set -euo pipefail
+          url="${{ steps.deployment.outputs.page_url }}__akira_deploy_commit.txt?verify=${GITHUB_SHA}"
+          for attempt in 1 2 3 4 5 6 7 8; do
+            if curl --fail --silent --show-error --location --connect-timeout 10 --max-time 30 "$url" -o /tmp/akira-live-marker.txt; then
+              live="$(tr -d '\r\n' < /tmp/akira-live-marker.txt)"
+              if [ "$live" = "$GITHUB_SHA" ]; then
+                echo "PAGES_LIVE_VERIFY_PASS $live"
+                exit 0
+              fi
+              echo "Live Pages marker mismatch: expected $GITHUB_SHA got $live (attempt $attempt)"
+            else
+              echo "Live Pages marker not available yet (attempt $attempt)"
+            fi
+            sleep 5
+          done
+          echo "GitHub Pages did not expose the deployed commit marker after retries." >&2
+          exit 1
+
