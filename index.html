@@ -4,6 +4,36 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Akira</title>
+<script>
+/* AKIRA CACHE GUARD
+ * GitHub Pages may serve an older index from browser/CDN cache. The guard asks
+ * for a cache-busted build manifest before the app boots; on mismatch it moves
+ * to a versioned URL so the browser must fetch the current index and assets.
+ */
+(function(){
+  var BUILD="akira-cache-v20261005-2335";
+  var PARAM="akira_build";
+  try{
+    var u=new URL(window.location.href);
+    if(u.searchParams.get(PARAM)===BUILD) return;
+  }catch(_){}
+
+  fetch("./build-version.json?t="+Date.now(),{
+    cache:"no-store",
+    credentials:"same-origin"
+  }).then(function(r){
+    if(!r.ok) throw new Error("manifest "+r.status);
+    return r.json();
+  }).then(function(m){
+    var latest=String(m&&m.version||"").trim();
+    if(!latest || latest===BUILD) return;
+    var u=new URL(window.location.href);
+    u.searchParams.set(PARAM,latest);
+    window.location.replace(u.toString());
+  }).catch(function(){});
+})();
+</script>
+
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
