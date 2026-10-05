@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 jobs:
-  brain-2d:
+  browser-smoke:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -60,22 +60,16 @@ jobs:
               });
             });
 
-            await page.goto("http://127.0.0.1:4173/", {
-              waitUntil:"domcontentloaded",
-              timeout:30000
-            });
-
+            await page.goto("http://127.0.0.1:4173/", {waitUntil:"domcontentloaded", timeout:30000});
             await page.click("#btn-membrane");
+
             await page.waitForFunction(() => {
               const view = document.querySelector("#brainView2d");
               return view && !view.classList.contains("is-hidden");
             }, null, {timeout:10000});
 
-            if(await page.$("#brainMode3d")){
-              throw new Error("3D Brain button must not exist");
-            }
-            if(await page.$("#membrane3d")){
-              throw new Error("3D Brain container must not exist");
+            if(await page.$("#brainMode3d") || await page.$("#membrane3d")){
+              throw new Error("3D Brain surface must not exist");
             }
 
             await page.waitForSelector("#membraneCy canvas", {state:"visible", timeout:15000});
@@ -99,6 +93,12 @@ jobs:
             }
 
             console.log("BRAIN_2D_SMOKE_PASS");
+            await browser.close();
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          NODE
 
       - name: Smoke test anonymous Brain public fallback
         run: |
@@ -118,6 +118,7 @@ jobs:
                 body: JSON.stringify({ok:false,reason:"auth_required"})
               });
             });
+
             await page.route("**/api/v8/graph/public-overview**", async route => {
               await route.fulfill({
                 status: 200,
@@ -153,23 +154,22 @@ jobs:
               });
             });
 
-            await page.goto("http://127.0.0.1:4173/", {
-              waitUntil:"domcontentloaded",
-              timeout:30000
-            });
-
+            await page.goto("http://127.0.0.1:4173/", {waitUntil:"domcontentloaded", timeout:30000});
             await page.click("#btn-membrane");
             await page.waitForSelector("#membraneCy canvas", {state:"visible", timeout:15000});
+
             await page.waitForFunction(() => {
               const stats = document.getElementById("membraneStats");
-              return stats && stats.textContent.includes("VISTA PÚBLICA") &&
-                     stats.textContent.includes("9 nodos") &&
-                     stats.textContent.includes("8 aristas");
+              return stats &&
+                stats.textContent.includes("VISTA PÚBLICA") &&
+                stats.textContent.includes("9 nodos") &&
+                stats.textContent.includes("8 aristas");
             }, null, {timeout:10000});
 
             if(await page.$("#brainMode3d") || await page.$("#membrane3d")){
               throw new Error("3D Brain surface must not exist");
             }
+
             if(errors.length){
               throw new Error("Unexpected anonymous Brain errors: " + errors.slice(0,5).join(" | "));
             }
@@ -181,6 +181,77 @@ jobs:
             process.exit(1);
           });
           NODE
+
+      - name: Smoke test Office 2D route commands
+        run: |
+          node <<'NODE'
+          const { chromium } = require("playwright");
+
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+            const page = await browser.newPage({viewport:{width:1440,height:900}, deviceScaleFactor:1});
+            const errors = [];
+            page.on("pageerror", err => errors.push(String(err && err.message || err)));
+
+            await page.route("**/api/v8/agents**", async route => {
+              const names = ["Akira","Luna","Nexo","Nova","Orion","Kaori","Zeri","Lyra","Dante"];
+              await route.fulfill({
+                status: 200,
+                contentType: "application/json",
+                body: JSON.stringify({
+                  ok:true,
+                  agents:names.map(name => ({name,status:name==="Dante"?"disabled":"idle"}))
+                })
+              });
+            });
+
+            await page.route("**/api/v8/tasks**", async route => {
+              await route.fulfill({
+                status:200,
+                contentType:"application/json",
+                body:JSON.stringify({ok:true,tasks:[]})
+              });
+            });
+
+            await page.goto("http://127.0.0.1:4173/", {waitUntil:"domcontentloaded", timeout:30000});
+            await page.click("#btn-office");
+
+            await page.waitForFunction(() =>
+              Boolean(window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.initialized),
+              null, {timeout:15000}
+            );
+
+            await page.click("#officePixelMission");
+            await page.waitForFunction(() => {
+              const agents=window.akiraOfficePixelDebug.agents||[];
+              const akira=agents.find(a=>a.name==="Akira");
+              return !!akira && ["walking","station"].includes(akira.machine);
+            }, null, {timeout:10000});
+
+            await page.click("#officePixelCoffee");
+            await page.waitForFunction(() => {
+              const agents=window.akiraOfficePixelDebug.agents||[];
+              return agents.filter(a=>["walking","station"].includes(a.machine)).length >= 1;
+            }, null, {timeout:10000});
+
+            await page.click("#officePixelPrint");
+            await page.waitForFunction(() => {
+              const agents=window.akiraOfficePixelDebug.agents||[];
+              const nexo=agents.find(a=>a.name==="Nexo");
+              return !!nexo && ["walking","station"].includes(nexo.machine);
+            }, null, {timeout:10000});
+
+            await page.click("#officePixelMeeting");
+            await page.waitForFunction(() => {
+              const agents=window.akiraOfficePixelDebug.agents||[];
+              return agents.filter(a=>a.machine==="walking").length >= 1;
+            }, null, {timeout:10000});
+
+            if(errors.length){
+              throw new Error("Unexpected Office page errors: " + errors.slice(0,5).join(" | "));
+            }
+
+            console.log("OFFICE_ROUTE_COMMANDS_SMOKE_PASS");
             await browser.close();
           })().catch(err => {
             console.error(err);
