@@ -1,0 +1,133 @@
+name: Frontend living office E2E
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+jobs:
+  office-living:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Playwright
+        run: npm install --no-save --no-package-lock playwright@1.55.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Serve checked-out frontend
+        run: |
+          python3 -m http.server 4173 --directory . > /tmp/akira-office-pages.log 2>&1 &
+          echo $! > /tmp/akira-office-pages.pid
+          sleep 2
+
+      - name: Smoke test living Office
+        run: |
+          node <<'NODE'
+          const { chromium } = require("playwright");
+
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+            const page = await browser.newPage({
+              viewport:{width:1440,height:900},
+              deviceScaleFactor:1
+            });
+
+            const errors = [];
+            page.on("pageerror", err => errors.push(String(err && err.message || err)));
+
+            await page.route("https://akira-empresa.onrender.com/api/v8/agents", route => {
+              route.fulfill({
+                status:200,
+                contentType:"application/json",
+                body:JSON.stringify({
+                  agents:[
+                    {name:"researcher",role:"Investigación",status:"idle",allowed_tools:["web_search","memory_search"]},
+                    {name:"developer",role:"Desarrollo",status:"idle",allowed_tools:["github_repo_read","developer_propose"]},
+                    {name:"reviewer",role:"Revisión",status:"idle",allowed_tools:["github_repo_read","python_test","code_review"]},
+                    {name:"learner",role:"Aprendizaje",status:"idle",allowed_tools:["learning_save","memory_save"]}
+                  ]
+                })
+              });
+            });
+
+            await page.route("https://akira-empresa.onrender.com/api/v8/tasks?limit=100", route => {
+              route.fulfill({
+                status:200,
+                contentType:"application/json",
+                body:JSON.stringify({
+                  tasks:[
+                    {agent_name:"researcher",status:"running",tool_name:"web_search",mission_id:"mission-e2e",created_at:"2026-10-04T23:00:00Z"},
+                    {agent_name:"developer",status:"running",tool_name:"developer_propose",mission_id:"mission-e2e",created_at:"2026-10-04T23:01:00Z"},
+                    {agent_name:"reviewer",status:"idle",tool_name:"code_review",created_at:"2026-10-04T22:59:00Z"}
+                  ]
+                })
+              });
+            });
+
+            await page.goto("http://127.0.0.1:4173/", {
+              waitUntil:"domcontentloaded",
+              timeout:30000
+            });
+
+            await page.click("#btn-office");
+            await page.waitForSelector("#officeCanvas", {state:"visible",timeout:10000});
+
+            await page.waitForFunction(() => {
+              return Boolean(
+                window.akiraOfficeLivingDebug &&
+                window.akiraOfficeLivingDebug.initialized &&
+                window.akiraOfficeLivingDebug.actorCount >= 4
+              );
+            }, null, {timeout:30000});
+
+            const states = await page.evaluate(() => window.akiraOfficeLivingDebug.states);
+            if(states.researcher !== "briefing") throw new Error("Researcher should enter a real-task briefing state");
+            if(states.developer !== "briefing") throw new Error("Developer should enter a real-task briefing state");
+
+            const canvasBox = await page.$eval("#officeCanvas", el => {
+              const r = el.getBoundingClientRect();
+              return {width:r.width,height:r.height};
+            });
+            if(canvasBox.width < 300 || canvasBox.height < 300){
+              throw new Error("Living Office canvas is too small");
+            }
+
+            await page.click("#officePause");
+            const paused = await page.$eval("#officePause", el => ({
+              text:el.textContent,
+              pressed:el.getAttribute("aria-pressed")
+            }));
+            if(paused.pressed !== "true" || paused.text !== "Reanudar"){
+              throw new Error("Office pause control did not enter paused state");
+            }
+
+            await page.click("#officePause");
+            const resumed = await page.$eval("#officePause", el => ({
+              text:el.textContent,
+              pressed:el.getAttribute("aria-pressed")
+            }));
+            if(resumed.pressed !== "false" || resumed.text !== "Pausar"){
+              throw new Error("Office pause control did not resume");
+            }
+
+            if(errors.length){
+              throw new Error("Unexpected page errors: " + errors.slice(0,5).join(" | "));
+            }
+
+            console.log("OFFICE_LIVING_E2E_PASS");
+            await browser.close();
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          NODE
