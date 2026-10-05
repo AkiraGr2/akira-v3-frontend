@@ -24,6 +24,7 @@
 <link rel="stylesheet" href="./css/akira-brain-space.css?v=akira-brain-space-v1">
 <link rel="stylesheet" href="./css/akira-cognitive-workspace-v2.css?v=akira-cognitive-workspace-v2">
 <link rel="stylesheet" href="./css/akira-office-living-v1.css?v=akira-office-living-v1">
+<link rel="stylesheet" href="./css/akira-office-pixel-v1.css?v=akira-office-pixel-v1">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0b0b0e;--sidebar:rgba(18,18,22,0.95);--border:#2a2a36;--text:#ececf1;--muted:#8a8a93;--accent:#6366f1;--coral:#FF6B6B;--mint:#6BCF7F;--sky:#4ECDC4;--lemon:#FFD93D;--lilac:#a78bfa;--peach:#FFA07A;}
@@ -425,12 +426,25 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
         <div class="office-v2-toolbar">
           <span class="office-v2-live">Observabilidad en vivo</span>
           <div class="office-v2-actions">
+            <button id="officePixelMode" class="office-v2-btn" type="button">Pixel Art</button>
+            <button id="office3dMode" class="office-v2-btn" type="button">3D</button>
             <button id="officeRefresh" class="office-v2-btn" type="button">Actualizar</button>
             <button id="officePause" class="office-v2-btn" type="button">Pausar</button>
           </div>
         </div>
-        <div class="office-v2-stage">
-          <canvas id="officeCanvas" aria-label="Oficina Cognitiva de Akira"></canvas>
+        <div class="office-pixel-toolbar" aria-label="Controles de la oficina Pixel">
+          <button id="officePixelMission" class="office-view-btn" type="button">MISIÓN</button>
+          <button id="officePixelCoffee" class="office-view-btn" type="button">CAFÉ</button>
+          <button id="officePixelMeeting" class="office-view-btn" type="button">REUNIÓN</button>
+          <button id="officePixelPet" class="office-view-btn" type="button">MASCOTA</button>
+        </div>
+        <div id="officePixelStage" class="office-pixel-stage">
+          <canvas id="officePixelCanvas" width="512" height="384" aria-label="Oficina Pixel interactiva de Akira"></canvas>
+          <div id="officePixelHud" class="office-pixel-hud">AKIRA PROJECT</div>
+          <div id="officePixelEvent" class="office-pixel-event">Cargando oficina…</div>
+        </div>
+        <div id="office3dStage" class="office-v2-stage" hidden>
+          <canvas id="officeCanvas" aria-label="Oficina Cognitiva 3D de Akira"></canvas>
         </div>
       </div>
 
@@ -865,7 +879,11 @@ function showSection(name){
   if(btn)btn.classList.add('active');
   closeSidebar();
   if(name==='membrane'){window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"membrane"}}));}
-  else if(name==='office'){if(window.initOfficeFloor)initOfficeFloor();window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"office"}}));}
+  else if(name==='office'){
+    if(window.initAkiraOfficePixel) initAkiraOfficePixel();
+    if(window.initOfficeFloor) initOfficeFloor();
+    window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"office"}});
+  }
   else if(name==='missions'){if(window.missionPanelLoad)window.missionPanelLoad();}
   else if(name==='levels'){renderLevels();}
   else if(name==='admin'){document.getElementById("adminLogin").style.display="block";document.getElementById("adminPanel").style.display="none";adminCheckSession();}
@@ -1075,6 +1093,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 <script src="./js/akira_missions_panel.js?v=akira-missions-v5"></script>
 <script src="./js/akira-office-assets-v1.js?v=akira-office-assets-v4-20261005"></script>
 <script src="./js/akira-office-floor-v3.js?v=akira-office-living-v7-20261005"></script>
+<script src="./js/akira-office-pixel-v1.js?v=akira-office-pixel-v1"></script>
 <script>
 async function fetchRuntimeCapabilities(){
   const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
@@ -1160,6 +1179,38 @@ async function renderLevels(){
     listEl.innerHTML = '<div style="color:#ef4444;text-align:center;padding:20px;">Error al cargar niveles: '+e.message+'</div>';
   }
 }
+</script>
+<script>
+(function(){
+  function setOfficeView(mode){
+    const pixel=document.getElementById("officePixelStage");
+    const three=document.getElementById("office3dStage");
+    const p=document.getElementById("officePixelMode");
+    const t=document.getElementById("office3dMode");
+    const isPixel=mode!=="3d";
+    if(pixel) pixel.hidden=!isPixel;
+    if(three) three.hidden=isPixel;
+    if(p) p.classList.toggle("is-active",isPixel);
+    if(t) t.classList.toggle("is-active",!isPixel);
+    if(isPixel && window.initAkiraOfficePixel) initAkiraOfficePixel();
+  }
+  document.addEventListener("DOMContentLoaded",function(){
+    const p=document.getElementById("officePixelMode");
+    const t=document.getElementById("office3dMode");
+    if(p) p.addEventListener("click",()=>setOfficeView("pixel"));
+    if(t) t.addEventListener("click",()=>setOfficeView("3d"));
+    const refresh=document.getElementById("officeRefresh");
+    if(refresh) refresh.addEventListener("click",()=>window.refreshAkiraOfficePixel&&refreshAkiraOfficePixel());
+    const pause=document.getElementById("officePause");
+    if(pause) pause.addEventListener("click",()=>{
+      const next=pause.getAttribute("aria-pressed")!=="true";
+      pause.setAttribute("aria-pressed",String(next));
+      pause.textContent=next?"Reanudar":"Pausar";
+      if(window.setAkiraOfficePixelPaused) setAkiraOfficePixelPaused(next);
+    });
+    setOfficeView("pixel");
+  });
+})();
 </script>
 </body>
 </html>
