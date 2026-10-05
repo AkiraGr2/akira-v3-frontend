@@ -751,9 +751,14 @@
       const url=officeAssetUrl(key);
       if(!url) return null;
       try{
-        const gltf=await new Promise((resolve,reject)=>{
-          loader.load(url,resolve,undefined,reject);
-        });
+        const gltf=await Promise.race([
+          new Promise((resolve,reject)=>{
+            loader.load(url,resolve,undefined,reject);
+          }),
+          new Promise((_,reject)=>{
+            window.setTimeout(()=>reject(new Error("asset_timeout")),6500);
+          })
+        ]);
         officeAssetTemplates.set(key,prepareOfficeAsset(gltf));
         return key;
       }catch(err){
@@ -1327,6 +1332,7 @@
       get agentCount(){return agents.length;},
       get officeAssetMode(){return officeAssetMode;},
       get officeAssetCount(){return officeAssetInstances.length;},
+      assetsReady:false,
       get states(){
         const out={};
         agents.forEach(a=>{out[String(a.name)]=agentState(a);});
@@ -1380,12 +1386,8 @@
       installResize();
       rendererSize();
 
-      setOverlay("Cargando oficina…","loading");
-      await Promise.all([
-        loadModels(),
-        loadOfficeAssets()
-      ]);
-      addRealOfficeFurniture(profile);
+      setOverlay("Cargando personajes…","loading");
+      await loadModels();
 
       agents.forEach(a=>makeActor(a));
       updateStats();
@@ -1395,6 +1397,16 @@
       initialized=true;
       currentSceneTime=performance.now();
       setOverlay("", "");
+
+      // Real furniture is progressive/optional: the office must become usable
+      // even if a third-party asset mirror is slow or unavailable.
+      loadOfficeAssets().then(loaded=>{
+        if(!loaded || !initialized) return;
+        addRealOfficeFurniture(profile);
+        if(window.akiraOfficeLivingDebug) window.akiraOfficeLivingDebug.assetsReady=true;
+      }).catch(err=>{
+        console.warn("[akira-office-assets] progressive load",err);
+      });
 
       if(!pollTimer){
         pollTimer=window.setInterval(()=>{
