@@ -77,10 +77,22 @@
     return false;
   }
 
+  function segmentTouchesScreenBlock(a,b,block){
+    const steps=Math.max(16,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])*0.08));
+    for(let i=0;i<=steps;i++){
+      const t=i/steps;
+      const p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+      if(p[0]>=block.x && p[0]<block.x+block.w && p[1]>=block.y && p[1]<block.y+block.h)return true;
+    }
+    return false;
+  }
+
   function edgeAllowed(a,b){
     const A=config.waypoints[a]?.world,B=config.waypoints[b]?.world;
-    if(!A||!B)return false;
-    return !(config.collision_blocks||[]).some(block=>segmentTouchesBlock(A,B,block));
+    const SA=config.waypoints[a]?.screen,SB=config.waypoints[b]?.screen;
+    if(!A||!B||!SA||!SB)return false;
+    if((config.collision_blocks||[]).some(block=>segmentTouchesBlock(A,B,block)))return false;
+    return !(config.screen_collision_blocks||[]).some(block=>segmentTouchesScreenBlock(SA,SB,block));
   }
 
   function buildGraph(){
@@ -144,7 +156,7 @@
         frame:0,
         frameClock:0,
         backendState:"unknown",
-        nextAmbient:performance.now()/1000+5+Math.random()*7
+        nextAmbient:Infinity
       };
     });
   }
@@ -153,7 +165,7 @@
     const s=String(a&&a.status||"").toLowerCase();
     if(s==="disabled")return"disabled";
     if(["error","failed","failure"].includes(s))return"error";
-    if(["working","running","busy","executing","active"].includes(s))return"working";
+    if(["working","running","busy","executing"].includes(s))return"working";
     const n=String(a&&a.name||"").toLowerCase();
     return tasks.some(t=>
       String(t&&t.agent_name||"").toLowerCase()===n &&
@@ -345,11 +357,11 @@
       const tx=target.world[0],ty=target.world[1];
       const dx=tx-a.world[0],dy=ty-a.world[1];
       const dist=Math.hypot(dx,dy);
-      const step=Math.min(dist,dt*3.1);
+      const step=Math.min(dist,dt*(config.navigation?.walk_speed_tiles_per_second||0.72));
 
       a.state="walk";
       a.frameClock+=dt;
-      a.frame=Math.floor(a.frameClock/0.14)%3;
+      a.frame=Math.floor(a.frameClock/0.24)%3;
 
       if(dist<0.045){
         a.world=[tx,ty];
