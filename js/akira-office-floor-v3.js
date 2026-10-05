@@ -67,6 +67,16 @@
     selftest_agent:[0.0,0.2, 5.9]
   });
 
+  // Purposeful ambient destinations: only one idle agent may make a short trip
+  // at a time, so the office reads as a workplace instead of a flock.
+  const AMBIENT_POINTS = Object.freeze([
+    {name:"coffee", point:[-8.2,0.2,-1.0]},
+    {name:"printer", point:[8.0,0.2,-1.1]},
+    {name:"window", point:[0.0,0.2,-8.1]}
+  ]);
+  const IDLE_AMBIENT_GAP_MS = 28000;
+  const IDLE_AMBIENT_HOLD_MS = 2200;
+
   let THREE = null;
   let GLTFLoader = null;
   let OrbitControls = null;
@@ -209,14 +219,19 @@
     return new THREE.Vector3(0,0.25,0.9);
   }
 
-  function randomIdleTarget(actor){
-    const base=stationFor(actor.agent);
-    const radius=1.1;
-    return new THREE.Vector3(
-      base.x + (Math.random()*2-1)*radius,
-      0.2,
-      base.z + (Math.random()*2-1)*radius
-    );
+  function ambientMoverCount(){
+    let count=0;
+    actors.forEach(actor=>{
+      if(actor && (actor.targetMode==="ambient" || actor.targetMode==="ambient-return")) count++;
+    });
+    return count;
+  }
+
+  function ambientPointFor(actor){
+    const idx=agents.indexOf(actor.agent);
+    const trip=actor.ambientTripCount||0;
+    const entry=AMBIENT_POINTS[(Math.max(idx,0)+trip)%AMBIENT_POINTS.length];
+    return new THREE.Vector3(entry.point[0],entry.point[1],entry.point[2]);
   }
 
   function distance(a,b){
@@ -299,7 +314,7 @@
       '</div>'+
       '<div class="office-detail-block"><span>Tarea reciente</span><b>'+esc(taskText)+'</b></div>'+
       '<div class="office-detail-block"><span>Herramientas autorizadas</span><b>'+esc(tools)+'</b></div>'+
-      '<div class="office-detail-block"><span>Movimiento</span><b>'+esc(s==="working"||s==="briefing"?"Actividad sincronizada con tarea":"Movimiento ambiental de presencia")+'</b></div>';
+      '<div class="office-detail-block"><span>Movimiento</span><b>'+esc(s==="working"||s==="briefing"?"Actividad sincronizada con tarea":"Presencia en estación + desplazamientos ambientales puntuales")+'</b></div>';
   }
 
   function selectAgent(name){
@@ -358,11 +373,11 @@
     }
     scene.add(key);
 
-    const rim=new THREE.PointLight("#7c9cff",7,26,2);
+    const rim=new THREE.PointLight("#7c9cff",5.2,26,2);
     rim.position.set(0,6,-5);
     scene.add(rim);
 
-    const warm=new THREE.PointLight("#ffb36b",6,18,2);
+    const warm=new THREE.PointLight("#ffb36b",4.4,18,2);
     warm.position.set(-7,4,4);
     scene.add(warm);
 
@@ -376,7 +391,7 @@
 
     const floorGlow=new THREE.Mesh(
       new THREE.CircleGeometry(6.2,64),
-      new THREE.MeshBasicMaterial({color:"#2b225d",transparent:true,opacity:.18})
+      new THREE.MeshBasicMaterial({color:"#2b225d",transparent:true,opacity:.12})
     );
     floorGlow.rotation.x=-Math.PI/2;
     floorGlow.position.y=0.012;
@@ -441,6 +456,7 @@
 
     createCore(profile);
     createStations(profile);
+    createOfficeLife(profile);
     createAmbientParticles(profile);
   }
 
@@ -519,6 +535,73 @@
 
       scene.add(g);
     });
+  }
+
+  function createOfficeLife(profile){
+    // Small office infrastructure makes the room read as a place where people
+    // actually spend time: meeting area, coffee point, printer, glass wall and lights.
+    const warmMat=makeMaterial("#2a2430",.62,.28,false,1);
+    const metalMat=makeMaterial("#182633",.48,.46,false,1);
+    const softMat=makeMaterial("#30415a",.72,.18,false,1);
+
+    // Coffee / break corner.
+    const coffee=new THREE.Group();
+    coffee.position.set(-8.2,0,-1.0);
+    addBox(coffee,[1.9,1.05,.78],[0,.53,0],warmMat);
+    addBox(coffee,[1.35,.10,.62],[0,1.12,0],metalMat);
+    addBox(coffee,[.22,.65,.22],[-.62,1.42,-.12],metalMat);
+    addBox(coffee,[.22,.65,.22],[.58,1.42,-.12],metalMat);
+    const cupMat=makeMaterial("#c9d3e8",.58,.05,false,1);
+    for(let i=0;i<3;i++){
+      const cup=new THREE.Mesh(new THREE.CylinderGeometry(.07,.08,.14,10),cupMat);
+      cup.position.set(-.4+i*.35,1.19,.05);
+      coffee.add(cup);
+    }
+    scene.add(coffee);
+
+    // Printer / operations station.
+    const printer=new THREE.Group();
+    printer.position.set(8.0,0,-1.1);
+    addBox(printer,[1.25,.78,.88],[0,.40,0],softMat);
+    addBox(printer,[.95,.10,.54],[0,.84,0],metalMat);
+    addBox(printer,[.60,.05,.35],[0,.90,.04],cupMat);
+    scene.add(printer);
+
+    // Small meeting table with chairs.
+    const meet=new THREE.Group();
+    meet.position.set(0,0,-7.3);
+    addBox(meet,[4.1,.18,1.35],[0,.93,0],softMat);
+    for(const x of [-1.5,-.75,.75,1.5]){
+      addBox(meet,[.55,.12,.55],[x,.63,.0],warmMat);
+    }
+    scene.add(meet);
+
+    // Soft wall panels + glass meeting room feel.
+    const panelMat=new THREE.MeshStandardMaterial({
+      color:new THREE.Color("#24354b"),
+      roughness:.48,metalness:.18,transparent:true,opacity:.32,depthWrite:false
+    });
+    for(let i=0;i<4;i++){
+      addBox(scene,[2.8,.08,.08],[-4.8+i*3.2,5.0,-10.48],panelMat);
+    }
+    const glassDoorMat=new THREE.MeshStandardMaterial({
+      color:new THREE.Color("#7c9cff"),
+      roughness:.22,metalness:.38,transparent:true,opacity:.09,depthWrite:false
+    });
+    addBox(scene,[5.2,4.0,.08],[0,3.0,-10.3],glassDoorMat);
+
+    // Ceiling fixtures give a readable office ceiling and softer pools of light.
+    for(let i=0;i<3;i++){
+      const fixture=new THREE.Mesh(
+        new THREE.BoxGeometry(3.0,.08,1.05),
+        new THREE.MeshBasicMaterial({color:"#eef5ff",transparent:true,opacity:.24})
+      );
+      fixture.position.set(-5+i*5,6.0,-1.5);
+      scene.add(fixture);
+      const point=new THREE.PointLight("#e8f3ff",1.15,9,2);
+      point.position.set(-5+i*5,5.7,-1.5);
+      scene.add(point);
+    }
   }
 
   function createAmbientParticles(profile){
@@ -625,9 +708,12 @@
       target:stationFor(agent),
       targetMode:"station",
       desiredState:agentState(agent),
-      speed:1.9+(agents.indexOf(agent)%3)*.18,
-      roamAt:0,
+      speed:1.15+(agents.indexOf(agent)%3)*.10,
       lastState:null,
+      ambientTripCount:0,
+      ambientStage:"station",
+      ambientHoldUntil:0,
+      ambientNextAt:performance.now()+18000+agents.indexOf(agent)*2600,
       baseScale:.92
     };
 
@@ -687,10 +773,34 @@
       return;
     }
 
-    actor.targetMode="roam";
-    if(!actor.target || actor.roamAt<now || distance(actor.root.position,actor.target)<.45){
-      actor.target=randomIdleTarget(actor);
-      actor.roamAt=now+5500+Math.random()*6000;
+    // Idle presence is primarily anchored to the assigned workstation.
+    // A single agent at a time can take a short, purposeful ambient trip.
+    if(actor.targetMode==="ambient"){
+      if(distance(actor.root.position,actor.target)<.42 && now>=actor.ambientHoldUntil){
+        actor.targetMode="ambient-return";
+        actor.ambientStage="return";
+        actor.target=stationFor(actor.agent);
+      }
+      return;
+    }
+    if(actor.targetMode==="ambient-return"){
+      actor.target=stationFor(actor.agent);
+      if(distance(actor.root.position,actor.target)<.42){
+        actor.targetMode="station";
+        actor.ambientStage="station";
+        actor.ambientNextAt=now+IDLE_AMBIENT_GAP_MS+(agents.indexOf(actor.agent)%3)*5000;
+      }
+      return;
+    }
+
+    actor.targetMode="station";
+    actor.target=stationFor(actor.agent);
+    if(now>=actor.ambientNextAt && ambientMoverCount()===0 && !reducedMotion){
+      actor.ambientTripCount=(actor.ambientTripCount||0)+1;
+      actor.target=ambientPointFor(actor);
+      actor.targetMode="ambient";
+      actor.ambientStage="outbound";
+      actor.ambientHoldUntil=now+IDLE_AMBIENT_HOLD_MS;
     }
   }
 
@@ -707,7 +817,9 @@
     if(target){
       const dist=distance(actor.root.position,target);
       if(dist>.38){
-        const step=Math.min(dist,actor.speed*delta);
+        const speedBoost=s==="working"?1.20:(s==="briefing"?1.05:1.0);
+        const ambientSpeed=actor.targetMode==="ambient" || actor.targetMode==="ambient-return" ? .78 : speedBoost;
+        const step=Math.min(dist,actor.speed*ambientSpeed*delta);
         actor.root.position.lerp(target,step/Math.max(dist,.0001));
         orientToward(actor,target,Math.min(1,delta*7));
         playActorClip(actor,"walk",true,.18);
@@ -1033,7 +1145,7 @@
       renderer.setPixelRatio(profile.pixelRatio);
       renderer.outputColorSpace=THREE.SRGBColorSpace;
       renderer.toneMapping=THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure=1.08;
+      renderer.toneMappingExposure=1.22;
 
       scene=new THREE.Scene();
       camera=new THREE.PerspectiveCamera(42,1,.1,80);
