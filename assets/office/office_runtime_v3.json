@@ -1,0 +1,496 @@
+{
+  "version": "3.1",
+  "scene": "assets/office/01_office_scene_clean_v3.png",
+  "scene_px": [
+    1536,
+    1024
+  ],
+  "grid": {
+    "width": 32,
+    "height": 24,
+    "tile_px": 32,
+    "origin": "top-left"
+  },
+  "atlas": {
+    "path": "assets/office/02_office_agents_atlas_v3_clean3.png",
+    "cell_px": 48,
+    "frames_per_state": 3,
+    "states": [
+      "idle",
+      "walk",
+      "work",
+      "talk",
+      "think",
+      "use",
+      "reaction"
+    ]
+  },
+  "agents": [
+    {
+      "id": "C01",
+      "name": "Akira",
+      "backend": "internal",
+      "role": "Supervisor",
+      "status": "active",
+      "anchor": [
+        13,
+        7
+      ],
+      "screen": [
+        660,
+        330
+      ]
+    },
+    {
+      "id": "C02",
+      "name": "Luna",
+      "backend": "researcher",
+      "role": "Investigación",
+      "status": "active",
+      "anchor": [
+        5,
+        7
+      ],
+      "screen": [
+        220,
+        430
+      ]
+    },
+    {
+      "id": "C03",
+      "name": "Nexo",
+      "backend": "developer",
+      "role": "Desarrollo",
+      "status": "active",
+      "anchor": [
+        9,
+        11
+      ],
+      "screen": [
+        500,
+        615
+      ]
+    },
+    {
+      "id": "C04",
+      "name": "Nova",
+      "backend": "graph_builder",
+      "role": "Creatividad",
+      "status": "active",
+      "anchor": [
+        17,
+        11
+      ],
+      "screen": [
+        800,
+        455
+      ]
+    },
+    {
+      "id": "C05",
+      "name": "Orion",
+      "backend": "reviewer",
+      "role": "Análisis",
+      "status": "active",
+      "anchor": [
+        18,
+        13
+      ],
+      "screen": [
+        930,
+        585
+      ]
+    },
+    {
+      "id": "C06",
+      "name": "Kaori",
+      "backend": "memorizer",
+      "role": "Organización",
+      "status": "active",
+      "anchor": [
+        23,
+        12
+      ],
+      "screen": [
+        1135,
+        470
+      ]
+    },
+    {
+      "id": "C07",
+      "name": "Zeri",
+      "backend": "tester",
+      "role": "Soporte",
+      "status": "active",
+      "anchor": [
+        21,
+        16
+      ],
+      "screen": [
+        1195,
+        635
+      ]
+    },
+    {
+      "id": "C08",
+      "name": "Lyra",
+      "backend": "learner",
+      "role": "Estrategia",
+      "status": "active",
+      "anchor": [
+        25,
+        9
+      ],
+      "screen": [
+        1240,
+        385
+      ]
+    },
+    {
+      "id": "C09",
+      "name": "Dante",
+      "backend": "selftest_agent",
+      "role": "Desactivado",
+      "status": "disabled",
+      "anchor": [
+        6,
+        17
+      ],
+      "screen": [
+        510,
+        805
+      ]
+    }
+  ],
+  "waypoints": {
+    "P01_ENTRADA": {
+      "world": [
+        27,
+        18
+      ],
+      "screen": [
+        1315,
+        855
+      ]
+    },
+    "P02_CORREDOR_SUR": {
+      "world": [
+        22,
+        17
+      ],
+      "screen": [
+        1090,
+        760
+      ]
+    },
+    "P03_LOUNGE": {
+      "world": [
+        10,
+        17
+      ],
+      "screen": [
+        520,
+        805
+      ]
+    },
+    "P04_CENTRO": {
+      "world": [
+        16,
+        13
+      ],
+      "screen": [
+        820,
+        630
+      ]
+    },
+    "P05_CENTRO_NORTE": {
+      "world": [
+        16,
+        9
+      ],
+      "screen": [
+        760,
+        450
+      ]
+    },
+    "P06_AKIRA": {
+      "world": [
+        13,
+        7
+      ],
+      "screen": [
+        660,
+        330
+      ]
+    },
+    "P07_TABLERO": {
+      "world": [
+        21,
+        7
+      ],
+      "screen": [
+        950,
+        255
+      ]
+    },
+    "P08_CAFE": {
+      "world": [
+        27,
+        7
+      ],
+      "screen": [
+        1305,
+        300
+      ]
+    },
+    "P09_IMPRESORA": {
+      "world": [
+        15,
+        11
+      ],
+      "screen": [
+        750,
+        540
+      ]
+    },
+    "P10_REUNIONES": {
+      "world": [
+        21,
+        12
+      ],
+      "screen": [
+        1045,
+        555
+      ]
+    },
+    "P11_LUNA": {
+      "world": [
+        5,
+        7
+      ],
+      "screen": [
+        220,
+        430
+      ]
+    },
+    "P12_NEXO": {
+      "world": [
+        9,
+        11
+      ],
+      "screen": [
+        500,
+        615
+      ]
+    },
+    "P13_NOVA": {
+      "world": [
+        17,
+        11
+      ],
+      "screen": [
+        800,
+        455
+      ]
+    },
+    "P14_ORION": {
+      "world": [
+        18,
+        13
+      ],
+      "screen": [
+        930,
+        585
+      ]
+    },
+    "P15_KAORI": {
+      "world": [
+        23,
+        12
+      ],
+      "screen": [
+        1135,
+        470
+      ]
+    },
+    "P16_ZERI": {
+      "world": [
+        21,
+        16
+      ],
+      "screen": [
+        1195,
+        635
+      ]
+    },
+    "P17_LYRA": {
+      "world": [
+        25,
+        9
+      ],
+      "screen": [
+        1240,
+        385
+      ]
+    },
+    "P18_DANTE_WAIT": {
+      "world": [
+        6,
+        17
+      ],
+      "screen": [
+        510,
+        805
+      ]
+    }
+  },
+  "movement_edges": [
+    [
+      "P01_ENTRADA",
+      "P02_CORREDOR_SUR"
+    ],
+    [
+      "P02_CORREDOR_SUR",
+      "P03_LOUNGE"
+    ],
+    [
+      "P02_CORREDOR_SUR",
+      "P16_ZERI"
+    ],
+    [
+      "P16_ZERI",
+      "P10_REUNIONES"
+    ],
+    [
+      "P10_REUNIONES",
+      "P14_ORION"
+    ],
+    [
+      "P10_REUNIONES",
+      "P05_CENTRO_NORTE"
+    ],
+    [
+      "P05_CENTRO_NORTE",
+      "P06_AKIRA"
+    ],
+    [
+      "P05_CENTRO_NORTE",
+      "P07_TABLERO"
+    ],
+    [
+      "P07_TABLERO",
+      "P08_CAFE"
+    ],
+    [
+      "P05_CENTRO_NORTE",
+      "P09_IMPRESORA"
+    ],
+    [
+      "P09_IMPRESORA",
+      "P12_NEXO"
+    ],
+    [
+      "P12_NEXO",
+      "P11_LUNA"
+    ],
+    [
+      "P12_NEXO",
+      "P13_NOVA"
+    ],
+    [
+      "P05_CENTRO_NORTE",
+      "P15_KAORI"
+    ],
+    [
+      "P15_KAORI",
+      "P17_LYRA"
+    ],
+    [
+      "P03_LOUNGE",
+      "P18_DANTE_WAIT"
+    ]
+  ],
+  "interactions": [
+    {
+      "id": "I01",
+      "action": "usar_escritorio",
+      "world": [
+        13,
+        8
+      ],
+      "target": "P06_AKIRA"
+    },
+    {
+      "id": "I02",
+      "action": "ver_misiones",
+      "world": [
+        20,
+        7
+      ],
+      "target": "P07_TABLERO"
+    },
+    {
+      "id": "I03",
+      "action": "imprimir",
+      "world": [
+        15,
+        12
+      ],
+      "target": "P09_IMPRESORA"
+    },
+    {
+      "id": "I04",
+      "action": "cafe",
+      "world": [
+        26,
+        7
+      ],
+      "target": "P08_CAFE"
+    },
+    {
+      "id": "I05",
+      "action": "reunion",
+      "world": [
+        21,
+        13
+      ],
+      "target": "P10_REUNIONES"
+    },
+    {
+      "id": "I06",
+      "action": "descansar",
+      "world": [
+        10,
+        18
+      ],
+      "target": "P03_LOUNGE"
+    },
+    {
+      "id": "I07",
+      "action": "entrar_salir",
+      "world": [
+        27,
+        19
+      ],
+      "target": "P01_ENTRADA"
+    },
+    {
+      "id": "I08",
+      "action": "mascota",
+      "world": [
+        14,
+        17
+      ],
+      "target": "P03_LOUNGE"
+    },
+    {
+      "id": "I09",
+      "action": "espera",
+      "world": [
+        6,
+        17
+      ],
+      "target": "P18_DANTE_WAIT"
+    }
+  ]
+}
