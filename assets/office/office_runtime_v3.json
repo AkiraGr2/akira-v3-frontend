@@ -295,8 +295,8 @@
         14
       ],
       "screen": [
-        930,
-        650
+        330,
+        540
       ]
     },
     "P15_KAORI_HOME_EXIT": {
@@ -305,8 +305,8 @@
         10
       ],
       "screen": [
-        1135,
-        530
+        880,
+        430
       ]
     },
     "P16_ZERI_HOME_EXIT": {
@@ -315,8 +315,8 @@
         15
       ],
       "screen": [
-        1195,
-        700
+        1230,
+        420
       ]
     },
     "P17_LYRA_HOME_EXIT": {
@@ -325,8 +325,8 @@
         10
       ],
       "screen": [
-        1240,
-        455
+        1030,
+        600
       ]
     },
     "P18_DANTE_WAIT": {
@@ -651,29 +651,29 @@
     },
     "Orion": {
       "visual": [
-        930,
-        585
+        330,
+        540
       ],
       "nav": "P14_ORION_HOME_EXIT"
     },
     "Kaori": {
       "visual": [
-        1135,
-        470
+        880,
+        430
       ],
       "nav": "P15_KAORI_HOME_EXIT"
     },
     "Zeri": {
       "visual": [
-        1195,
-        635
+        1230,
+        420
       ],
       "nav": "P16_ZERI_HOME_EXIT"
     },
     "Lyra": {
       "visual": [
-        1240,
-        385
+        1030,
+        600
       ],
       "nav": "P17_LYRA_HOME_EXIT"
     },
