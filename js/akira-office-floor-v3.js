@@ -1245,7 +1245,8 @@
     if(resizeObserver) resizeObserver.disconnect();
     if(renderer) renderer.dispose();
   });
-})();  function updateActor(actor,delta,now){
+
+  function updateActor(actor,delta,now){
     const nowMs=performance.now();
     updateActorGoal(actor,nowMs);
     const s=actor.desiredState;
