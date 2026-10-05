@@ -990,6 +990,7 @@
       width:fitted.width,
       depth:fitted.depth,
       orientation:best.label,
+      rotation:best.rotation.slice(),
       scale:model.scale.x
     };
   }
@@ -1574,6 +1575,12 @@
             seated:actor.seated,
             calibration:actor.calibration,
             clipNames:actor.clipNames,
+            poseSafe:Boolean(actor.clips.idle || actor.clips.sitIdle),
+            locomotionSafe:Boolean(actor.clips.walk),
+            workSafe:Boolean(actor.clips.work || actor.clips.sitIdle),
+            activeClip:String(actor.action && actor.action.getClip ? actor.action.getClip().name || "" : ""),
+            activeClipBlocked:/fall|death|die|sleep|lying/i.test(String(actor.action && actor.action.getClip ? actor.action.getClip().name || "" : ""))
+
             activeClip:String(actor.action && actor.action.getClip ? actor.action.getClip().name || "" : "")
           }
         ]));
@@ -1802,7 +1809,14 @@
 
     actor.root.position.y=.2;
     const sway=(reducedMotion || !actor.seated || actor.transitionKind) ? 0 : Math.sin(nowMs*.0011+agents.indexOf(actor.agent)*.71)*.004;
-    actor.model.rotation.z=sway;
+    const baseRotation=Array.isArray(actor.calibration && actor.calibration.rotation)
+      ? actor.calibration.rotation
+      : [0,0,0];
+    actor.model.rotation.set(
+      baseRotation[0],
+      baseRotation[1],
+      baseRotation[2]+sway
+    );
     if(actor.root.userData.selected){
       actor.root.scale.setScalar(actor.baseScale*(1+(.025+Math.sin(nowMs*.004)*.012)));
     }else{
