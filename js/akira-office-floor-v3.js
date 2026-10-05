@@ -916,54 +916,35 @@
     return true;
   }
 
-  function normalizeClipName(value){
-    return String(value||"")
-      .toLowerCase()
-      .trim()
-      .replace(/[\s-]+/g,"_")
-      .replace(/_+/g,"_");
+  const MODEL_TARGET_HEIGHTS=Object.freeze({
+    business:1.80,
+    woman:1.70,
+    hoodie:1.78,
+    worker:1.76
+  });
+
+  function resolveClip(clips, canonical){
+    if(!Array.isArray(clips) || !clips.length) return null;
+    const exact="CharacterArmature|"+canonical;
+    const wanted=String(canonical).toLowerCase();
+    return clips.find(c=>String(c && c.name || "")===exact)
+      || clips.find(c=>String(c && c.name || "").endsWith("|"+canonical))
+      || clips.find(c=>String(c && c.name || "").toLowerCase()===wanted)
+      || null;
   }
 
-  function chooseAnimation(animations, patterns, blockedPatterns){
-    if(!Array.isArray(animations) || !animations.length) return null;
-    const normalized=animations.map(clip=>({
-      clip,
-      name:normalizeClipName(clip && clip.name)
-    }));
-    const blocked=(Array.isArray(blockedPatterns)?blockedPatterns:[]).map(normalizeClipName);
-    const usable=normalized.filter(x=>!blocked.some(b=>b && (x.name===b || x.name.includes(b))));
-    for(const pattern of (Array.isArray(patterns)?patterns:[])){
-      const p=normalizeClipName(pattern);
-      const hit=usable.find(x=>x.name===p || x.name.includes(p));
-      if(hit) return hit.clip;
-    }
-    return null;
-  }
-
-  function sanitizeInPlaceClip(clip){
-    if(!clip || !Array.isArray(clip.tracks)) return null;
-    const cloneTracks=clip.tracks.map(track=>{
-      const cloned=typeof track.clone==="function" ? track.clone() : track;
-      const name=String(track.name||"").toLowerCase();
-      const rootMotionTrack=/\.(position|translation)$/.test(name) && /(root|hips|hip|pelvis|armature)/.test(name);
-      if(rootMotionTrack && cloned.values && cloned.values.length>=3){
-        const size=Number(cloned.getValueSize ? cloned.getValueSize() : 3);
-        if(size===3){
-          const baseX=cloned.values[0];
-          const baseZ=cloned.values[2];
-          for(let i=0;i+2<cloned.values.length;i+=3){
-            cloned.values[i]=baseX;
-            cloned.values[i+2]=baseZ;
-          }
-        }
-      }
-      return cloned;
+  function updateSkinnedBounds(root){
+    root.updateMatrixWorld(true);
+    root.traverse(obj=>{
+      if(!obj.isSkinnedMesh) return;
+      try{ obj.skeleton.update(); }catch(_){}
+      try{ obj.boundingBox=null; }catch(_){}
+      obj.frustumCulled=false;
     });
-    return new THREE.AnimationClip(clip.name,clip.duration,cloneTracks);
   }
 
   function measureObject(root){
-    root.updateMatrixWorld(true);
+    updateSkinnedBounds(root);
     const box=new THREE.Box3().setFromObject(root);
     const size=box.getSize(new THREE.Vector3());
     return {
@@ -975,45 +956,27 @@
     };
   }
 
-  function calibrateCharacterModel(model, targetHeight=1.72){
-    if(!model) return {height:0,width:0,depth:0,orientation:"unknown",scale:1};
+  function calibrateCharacterModel(model,targetHeight){
+    const metrics=measureObject(model);
+    const scale=metrics.height>0 ? targetHeight/metrics.height : 1;
+    model.scale.setScalar(scale);
     model.position.set(0,0,0);
-    model.rotation.set(0,0,0);
-    model.scale.setScalar(1);
     model.updateMatrixWorld(true);
+    updateSkinnedBounds(model);
 
-    const candidates=[
-      {label:"native",rotation:[0,0,0]},
-      {label:"rot_x_pos_90",rotation:[Math.PI/2,0,0]},
-      {label:"rot_x_neg_90",rotation:[-Math.PI/2,0,0]},
-      {label:"rot_z_pos_90",rotation:[0,0,Math.PI/2]},
-      {label:"rot_z_neg_90",rotation:[0,0,-Math.PI/2]}
-    ];
-    let best=null;
-    candidates.forEach(candidate=>{
-      model.rotation.set(candidate.rotation[0],candidate.rotation[1],candidate.rotation[2]);
-      const metrics=measureObject(model);
-      const score=metrics.height - (Math.max(metrics.width,metrics.depth)*.08);
-      if(!best || score>best.score) best=Object.assign({score},candidate,metrics);
-    });
-
-    model.rotation.set(best.rotation[0],best.rotation[1],best.rotation[2]);
-    model.scale.setScalar(targetHeight/Math.max(best.height,.001));
-    model.updateMatrixWorld(true);
-
-    const fitted=measureObject(model);
-    model.position.y -= fitted.box.min.y;
-    model.position.x -= (fitted.box.min.x+fitted.box.max.x)/2;
-    model.position.z -= (fitted.box.min.z+fitted.box.max.z)/2;
+    const fitted=new THREE.Box3().setFromObject(model);
+    model.position.y += -fitted.min.y;
     model.updateMatrixWorld(true);
 
     return {
-      height:fitted.height,
-      width:fitted.width,
-      depth:fitted.depth,
-      orientation:best.label,
-      rotation:best.rotation.slice(),
-      scale:model.scale.x
+      height:fitted.max.y-fitted.min.y,
+      width:fitted.max.x-fitted.min.x,
+      depth:fitted.max.z-fitted.min.z,
+      orientation:"native",
+      rotation:[0,0,0],
+      scale,
+      targetHeight,
+      footY:-fitted.min.y
     };
   }
 
@@ -1023,6 +986,7 @@
       if(obj.isMesh){
         obj.castShadow=true;
         obj.receiveShadow=true;
+        if(obj.isSkinnedMesh) obj.frustumCulled=false;
       }
     });
     const metrics=measureObject(root);
@@ -1066,7 +1030,8 @@
     root.scale.setScalar(.92);
 
     const model=skeletonClone(template.scene);
-    const characterCalibration=calibrateCharacterModel(model,1.72);
+    const characterTargetHeight=MODEL_TARGET_HEIGHTS[key] || 1.75;
+    const characterCalibration=calibrateCharacterModel(model,characterTargetHeight);
     const tint=AGENT_COLORS[agents.indexOf(agent)%AGENT_COLORS.length];
     model.traverse(obj=>{
       if(!obj.isMesh) return;
@@ -1081,62 +1046,22 @@
     root.add(model);
 
     const mixer=new THREE.AnimationMixer(model);
-    const idle=chooseAnimation(
-      template.animations,
-      ["idle_loop","idle","idle_1","idle_2","standing","breathe","breath"],
-      ["fall","death","die","sleep","sit","lying","knock","hit","attack","jump","walk","run","talk","wave","yes","no"]
-    );
-    const walk=chooseAnimation(
-      template.animations,
-      ["walk_loop","walking","walk","walk_fwd","walk_forward"],
-      ["fall","death","die","sleep","sit","lying","jump","attack","hit","talk","run_back","walk_back"]
-    );
-    const work=chooseAnimation(
-      template.animations,
-      ["work_loop","work","typing","computer","interact","use"],
-      ["fall","death","die","sleep","sit","lying","jump","attack","hit"]
-    );
-    const sitEnter=chooseAnimation(
-      template.animations,
-      ["sitting_enter","sitdown","sit_down","sitting_down"],
-      ["fall","death","die","sleep","lying"]
-    );
-    const sitIdle=chooseAnimation(
-      template.animations,
-      ["sitting_idle","sit_idle","sitting","sit"],
-      ["fall","death","die","sleep","lying"]
-    );
-    const sitTalk=chooseAnimation(
-      template.animations,
-      ["sitting_talking","sit_talk","talk_sit"],
-      ["fall","death","die","sleep","lying"]
-    );
-    const sitExit=chooseAnimation(
-      template.animations,
-      ["sitting_exit","situp","stand_up","standing_up"],
-      ["fall","death","die","sleep","lying"]
-    );
-    const talk=chooseAnimation(
-      template.animations,
-      ["talking","talk","conversation","speaking"],
-      ["fall","death","die","sleep","sit","lying","walk","run","jump","attack","hit"]
-    );
+    const idle=resolveClip(template.animations,"Idle");
+    const walk=resolveClip(template.animations,"Walk");
+    const run=resolveClip(template.animations,"Run");
+    const sitEnter=resolveClip(template.animations,"SitDown");
+    const sitIdle=resolveClip(template.animations,"Sitting");
+    const sitTalk=resolveClip(template.animations,"SittingTalking");
+    const sitExit=resolveClip(template.animations,"StandUp");
+    const talk=resolveClip(template.animations,"Talk");
+    const work=resolveClip(template.animations,"Working") || resolveClip(template.animations,"Typing");
 
     const actor={
       agent,
       root,
       model,
       mixer,
-      clips:{
-        idle:sanitizeInPlaceClip(idle),
-        walk:sanitizeInPlaceClip(walk),
-        work:sanitizeInPlaceClip(work),
-        sitEnter:sanitizeInPlaceClip(sitEnter),
-        sitIdle:sanitizeInPlaceClip(sitIdle),
-        sitTalk:sanitizeInPlaceClip(sitTalk),
-        sitExit:sanitizeInPlaceClip(sitExit),
-        talk:sanitizeInPlaceClip(talk)
-      },
+      clips:{idle,walk,run,work,sitEnter,sitIdle,sitTalk,sitExit,talk},
       clipNames:template.animations.map(clip=>String(clip && clip.name || "")).filter(Boolean),
       calibration:characterCalibration,
       action:null,
