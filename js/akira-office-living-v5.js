@@ -274,6 +274,27 @@
         // silently reintroducing diagonal movement even with diagonal=false.
         const out=nodes.slice(1).map(p=>[...p]);
 
+        // The real avatar position can be a few pixels off the nearest grid
+        // center. Bridge that offset cardinally too; otherwise the first tick
+        // after a route starts could still contain a tiny diagonal segment.
+        const startCenter=nodes[0];
+        if(startPx[0]!==startCenter[0] && startPx[1]!==startCenter[1]){
+          const horizontal=[startCenter[0],startPx[1]];
+          const vertical=[startPx[0],startCenter[1]];
+          if(segmentClear(startPx,horizontal) && segmentClear(horizontal,startCenter)){
+            out.unshift([...startCenter]);
+            out.unshift(horizontal);
+          }else if(segmentClear(startPx,vertical) && segmentClear(vertical,startCenter)){
+            out.unshift([...startCenter]);
+            out.unshift(vertical);
+          }else{
+            return null;
+          }
+        }else if(startPx[0]!==startCenter[0] || startPx[1]!==startCenter[1]){
+          if(!segmentClear(startPx,startCenter))return null;
+          out.unshift([...startCenter]);
+        }
+
         if(!out.length){
           if(segmentClear(startPx,targetPx))return [targetPx];
           return null;
