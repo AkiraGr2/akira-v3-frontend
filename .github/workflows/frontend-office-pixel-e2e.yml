@@ -166,6 +166,7 @@ jobs:
             const assets=await page.evaluate(async () => {
               const paths=[
                 "assets/office/01_akira_office_floor_v5_doors.png",
+                "assets/office/02_akira_office_assets_v5.png",
                 "assets/office/02_office_agents_atlas_v3_clean4.png",
                 "assets/office/02_office_ui_reference.png",
                 "assets/office/03_office_production_map.png",
