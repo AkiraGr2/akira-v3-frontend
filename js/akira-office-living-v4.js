@@ -317,7 +317,7 @@
     return p;
   }
 
-  function startRoute(agent,targetId,kind,returnState="working",duration=0){
+  function startRoute(agent,targetId,kind,returnState="working",duration=0,holdAtStation=false){
     if(!agent||agent.status!=="active"||!targetId)return false;
     const target=nodeScreen(targetId);
     const points=routePoints(agent,targetId);
@@ -404,7 +404,7 @@
         const key=target+"|backend";
         const atTarget=agent.node===target && Math.hypot(agent.screen[0]-nodeScreen(target)[0],agent.screen[1]-nodeScreen(target)[1])<18;
         if(!atTarget && agent.intentKey!==key && agent.machine!=="walking"){
-          if(startRoute(agent,target,"think","working",0)){
+          if(startRoute(agent,target,"think","working",0,true)){
             agent.intentKey=key;
           }
         }
@@ -511,7 +511,7 @@
 
   function beginExplicitRoute(agent,targetId,state,duration,message){
     agent.durationMs=duration||0;
-    if(startRoute(agent,targetId,state,"working",duration||0)){
+    if(startRoute(agent,targetId,state,"working",duration||0,false)){
       if(message)say(message);
       return true;
     }
