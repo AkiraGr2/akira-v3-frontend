@@ -52,7 +52,17 @@
       }catch(e){
         parseError = String((e && e.message) || e);
       }
-      if(r.status === 401 && typeof window.akiraHandleAuthFailure === "function") window.akiraHandleAuthFailure(401);
+      // No invalidamos la sesión global por un 401 aislado de Learning.
+      // Primero verificamos /api/v8/me; así un fallo de permisos de este módulo
+      // no expulsa al propietario ni rompe Brain/Office.
+      if(r.status === 401 && typeof window.akiraVerifySession === "function"){
+        try{
+          const sessionCheck = await window.akiraVerifySession();
+          if(!sessionCheck || !sessionCheck.ok){
+            if(typeof window.akiraHandleAuthFailure === "function") window.akiraHandleAuthFailure(401);
+          }
+        }catch(_){ }
+      }
       return {ok:r.ok, status:r.status, data:data, rawText:rawText, parseError:parseError,
         contentType:(r.headers && r.headers.get) ? (r.headers.get("content-type") || "") : ""};
     }catch(e){
