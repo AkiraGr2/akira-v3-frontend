@@ -835,13 +835,29 @@
     const count=Number(layout.count||1);
     const start=Number(layout.start||0);
     const fi=Math.max(0,Math.min(count-1,a.frame||0));
-    const col=start+fi;
-    const cols=Number(d.columns||16);
-    const x0=Math.floor(directionalAtlas.naturalWidth*(col/cols));
-    const x1=Math.floor(directionalAtlas.naturalWidth*((col+1)/cols));
-    const y0=Math.floor(directionalAtlas.naturalHeight*(row/Number(d.rows||9)));
-    const y1=Math.floor(directionalAtlas.naturalHeight*((row+1)/Number(d.rows||9)));
-    return [x0,y0,x1-x0,y1-y0];
+    const frameIndex=start+fi;
+
+    // V8 is not a uniform 16-column grid. Pixel audit of the published PNG
+    // found 14 actual poses per row: 4 front + 4 back + 3 left + 3 right.
+    // The artwork is placed by calibrated centers with transparent breathing
+    // room around each pose. Never derive these rectangles by dividing the
+    // 1536px atlas width into 16 equal columns; doing so cuts characters.
+    const centersX=Array.isArray(d.frame_centers_x)&&d.frame_centers_x.length
+      ? d.frame_centers_x.map(Number) : [];
+    const centersY=Array.isArray(d.row_centers_y)&&d.row_centers_y.length
+      ? d.row_centers_y.map(Number) : [];
+    const cropW=Math.max(1,Number(d.frame_crop_px&&d.frame_crop_px[0]||108));
+    const cropH=Math.max(1,Number(d.frame_crop_px&&d.frame_crop_px[1]||112));
+    if(frameIndex<0||frameIndex>=centersX.length||row>=centersY.length)return null;
+
+    const x0=Math.round(centersX[frameIndex]-cropW/2);
+    const y0=Math.round(centersY[row]-cropH/2);
+    return [
+      Math.max(0,Math.min(directionalAtlas.naturalWidth-cropW,x0)),
+      Math.max(0,Math.min(directionalAtlas.naturalHeight-cropH,y0)),
+      Math.min(cropW,directionalAtlas.naturalWidth),
+      Math.min(cropH,directionalAtlas.naturalHeight)
+    ];
   }
 
   function frameRect(row,col){
@@ -1274,6 +1290,15 @@
       states:STATES.map(x=>({...x})),
       directionalReady:Boolean(config&&config.directional_walk),
       directionalSource:config&&config.directional_walk ? {...config.directional_walk} : null,
+      directionalFrameModel:config&&config.directional_walk ? {
+        actualPosesPerRow:Number(config.directional_walk.actual_poses_per_row||0),
+        frameCentersX:Array.isArray(config.directional_walk.frame_centers_x)
+          ? [...config.directional_walk.frame_centers_x] : [],
+        rowCentersY:Array.isArray(config.directional_walk.row_centers_y)
+          ? [...config.directional_walk.row_centers_y] : [],
+        cropPx:Array.isArray(config.directional_walk.frame_crop_px)
+          ? [...config.directional_walk.frame_crop_px] : []
+      } : null,
       characterAliases:(config&&config.atlas&&config.atlas.character_aliases)||{}
     };},
     get navigationMode(){return "grid-a-star-semantic-v6";},
