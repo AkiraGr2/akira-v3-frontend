@@ -145,7 +145,7 @@ jobs:
               throw new Error("Pixel Office roster contract failed: "+JSON.stringify(domState.agents));
             }
 
-            if(domState.navigationMode!=="grid-a-star-stations-v5"){
+            if(domState.navigationMode!=="grid-a-star-semantic-v6"){
               throw new Error("Grid/station navigation is not active: "+JSON.stringify(domState.navigationMode));
             }
             if(!domState.grid || domState.grid.width!==48 || domState.grid.height!==32 || domState.grid.tile!==32){
