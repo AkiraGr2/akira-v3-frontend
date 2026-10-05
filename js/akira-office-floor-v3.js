@@ -203,10 +203,15 @@
     return "idle";
   }
 
-  function stationFor(agent){
+  function deskFor(agent){
     const key=normalizedName(agent);
     const s=STATIONS[key] || [0,0.2,0];
-    return new THREE.Vector3(s[0],s[1],s[2]);
+    return new THREE.Vector3(s[0],0.20,s[2]);
+  }
+
+  function stationFor(agent){
+    const desk=deskFor(agent);
+    return new THREE.Vector3(desk.x,0.20,desk.z+0.92);
   }
 
   function workZoneFor(agent){
@@ -359,13 +364,13 @@
   }
 
   function createRoom(profile){
-    scene.background=new THREE.Color("#071018");
-    scene.fog=new THREE.Fog("#071018",22,44);
+    scene.background=new THREE.Color("#dce5ec");
+    scene.fog=new THREE.Fog("#dce5ec",24,48);
 
-    const ambient=new THREE.HemisphereLight("#d8e8ff","#0a0e16",1.75);
+    const ambient=new THREE.HemisphereLight("#f7fbff","#68727d",3.0);
     scene.add(ambient);
 
-    const key=new THREE.DirectionalLight("#fff5df",2.5);
+    const key=new THREE.DirectionalLight("#fffaf0",3.8);
     key.position.set(7,13,8);
     if(!profile.mobile){
       key.castShadow=true;
@@ -373,17 +378,17 @@
     }
     scene.add(key);
 
-    const rim=new THREE.PointLight("#7c9cff",5.2,26,2);
+    const rim=new THREE.PointLight("#9aaeff",3.2,26,2);
     rim.position.set(0,6,-5);
     scene.add(rim);
 
-    const warm=new THREE.PointLight("#ffb36b",4.4,18,2);
+    const warm=new THREE.PointLight("#ffd29a",3.8,20,2);
     warm.position.set(-7,4,4);
     scene.add(warm);
 
     const floor=new THREE.Mesh(
       new THREE.PlaneGeometry(28,24),
-      makeMaterial("#0b1420",0.82,0.18,false,1)
+      makeMaterial("#59636e",0.82,0.08,false,1)
     );
     floor.rotation.x=-Math.PI/2;
     floor.receiveShadow=!profile.mobile;
@@ -391,13 +396,13 @@
 
     const floorGlow=new THREE.Mesh(
       new THREE.CircleGeometry(6.2,64),
-      new THREE.MeshBasicMaterial({color:"#2b225d",transparent:true,opacity:.12})
+      new THREE.MeshBasicMaterial({color:"#9aa7b6",transparent:true,opacity:.07})
     );
     floorGlow.rotation.x=-Math.PI/2;
     floorGlow.position.y=0.012;
     scene.add(floorGlow);
 
-    const backWall=addBox(scene,[26,9,0.35],[0,4.5,-10.7],makeMaterial("#101b2a",.72,.16,false,1));
+    const backWall=addBox(scene,[26,9,0.35],[0,4.5,-10.7],makeMaterial("#e6ebef",.74,.06,false,1));
     backWall.receiveShadow=!profile.mobile;
 
     // Glass-like side structures.
@@ -407,6 +412,22 @@
     });
     addBox(scene,[0.16,7,22],[-11.8,3.5,0],glassMat);
     addBox(scene,[0.16,7,22],[11.8,3.5,0],glassMat);
+
+    // A bright, recognizable office interior instead of a dark technical stage.
+    addBox(scene,[25.6,3.0,.18],[0,1.65,-10.46],makeMaterial("#c8d1d8",.76,.04,false,1));
+    addBox(scene,[25.6,2.1,.20],[0,4.25,-10.46],makeMaterial("#dfe5e9",.76,.03,false,1));
+    addBox(scene,[25.6,.14,.22],[0,3.18,-10.32],makeMaterial("#7f91a6",.52,.12,false,1));
+
+    const windowFrame=makeMaterial("#778695",.52,.32,false,1);
+    const windowGlass=new THREE.MeshStandardMaterial({color:new THREE.Color("#b9d9e9"),roughness:.18,metalness:.12,transparent:true,opacity:.34,depthWrite:false});
+    for(let i=0;i<5;i++){
+      const x=-9.8+i*4.9;
+      addBox(scene,[4.35,3.7,.05],[x,5.25,-10.42],windowGlass);
+      addBox(scene,[.08,3.85,.12],[x-2.2,5.25,-10.34],windowFrame);
+      addBox(scene,[.08,3.85,.12],[x+2.2,5.25,-10.34],windowFrame);
+    }
+
+    addBox(scene,[26,.16,22],[0,7.0,0],makeMaterial("#f1f3f5",.9,.02,false,1));
 
     // City silhouette.
     for(let i=0;i<24;i++){
@@ -427,9 +448,9 @@
     for(let i=0;i<5;i++){
       const line=new THREE.Mesh(
         new THREE.BoxGeometry(3.4,0.045,0.10),
-        new THREE.MeshBasicMaterial({color:i%2?"#6e7cff":"#63e6be",transparent:true,opacity:.75})
+        new THREE.MeshBasicMaterial({color:i%2?"#ffffff":"#dff4ff",transparent:true,opacity:.9})
       );
-      line.position.set(-7+i*3.5,6.2,0.5);
+      line.position.set(-7+i*3.5,6.82,0.5);
       line.userData.phase=i*.8;
       scene.add(line);
       ambientObjects.push({type:"ceiling",mesh:line,phase:i*.8});
@@ -503,7 +524,7 @@
       g.position.set(s[0],0,s[2]);
       g.userData.role=key;
 
-      const baseMat=makeMaterial(index%2?"#17243a":"#1a2031",.64,.35,false,1);
+      const baseMat=makeMaterial(index%2?"#7b8792":"#687786",.64,.24,false,1);
       const desk=addBox(g,[2.4,0.18,1.25],[0,1.0,0],baseMat);
       desk.castShadow=!profile.mobile;
       desk.receiveShadow=!profile.mobile;
@@ -517,7 +538,7 @@
       const screen=new THREE.Mesh(
         new THREE.BoxGeometry(1.05,.62,.08),
         new THREE.MeshStandardMaterial({
-          color:"#101b2a",emissive:"#3d64f3",emissiveIntensity:1.0,
+          color:"#eef4f8",emissive:"#6f9dff",emissiveIntensity:.65,
           roughness:.38,metalness:.55
         })
       );
@@ -528,7 +549,7 @@
 
       const chair=new THREE.Mesh(
         new THREE.BoxGeometry(.74,.12,.70),
-        makeMaterial("#2b3146",.56,.30,false,1)
+        makeMaterial("#566372",.56,.22,false,1)
       );
       chair.position.set(0,.72,.85);
       g.add(chair);
@@ -540,9 +561,9 @@
   function createOfficeLife(profile){
     // Small office infrastructure makes the room read as a place where people
     // actually spend time: meeting area, coffee point, printer, glass wall and lights.
-    const warmMat=makeMaterial("#2a2430",.62,.28,false,1);
-    const metalMat=makeMaterial("#182633",.48,.46,false,1);
-    const softMat=makeMaterial("#30415a",.72,.18,false,1);
+    const warmMat=makeMaterial("#7b8793",.62,.18,false,1);
+    const metalMat=makeMaterial("#d7dde4",.42,.28,false,1);
+    const softMat=makeMaterial("#6f7f91",.68,.14,false,1);
 
     // Coffee / break corner.
     const coffee=new THREE.Group();
@@ -693,9 +714,13 @@
     root.add(model);
 
     const mixer=new THREE.AnimationMixer(model);
-    const idle=chooseAnimation(template.animations,["idle","idle_2"]);
-    const walk=chooseAnimation(template.animations,["walk","run"]);
-    const work=chooseAnimation(template.animations,["work","typing","interact","use","talk","idle_2","idle"]);
+    const idle=chooseAnimation(template.animations,["idle_loop","idle","idle_2"]);
+    const walk=chooseAnimation(template.animations,["walk_loop","walk","run"]);
+    const work=chooseAnimation(template.animations,["work","typing","interact","use","talk"]);
+    const sitEnter=chooseAnimation(template.animations,["sitting_enter","sitdown","sit_down"]);
+    const sitIdle=chooseAnimation(template.animations,["sitting_idle","sit_idle","sitting"]);
+    const sitTalk=chooseAnimation(template.animations,["sitting_talking","sit_talk","talking"]);
+    const sitExit=chooseAnimation(template.animations,["sitting_exit","situp","stand_up"]);
     const talk=chooseAnimation(template.animations,["talk","talking","idle_2","idle"]);
 
     const actor={
@@ -703,7 +728,7 @@
       root,
       model,
       mixer,
-      clips:{idle,walk,work,talk},
+      clips:{idle,walk,work,sitEnter,sitIdle,sitTalk,sitExit,talk},
       action:null,
       target:stationFor(agent),
       targetMode:"station",
@@ -714,7 +739,12 @@
       ambientStage:"station",
       ambientHoldUntil:0,
       ambientNextAt:performance.now()+18000+agents.indexOf(agent)*2600,
-      baseScale:.92
+      baseScale:.92,
+      seated:true,
+      transitionUntil:0,
+      transitionKind:"",
+      ambientPath:[],
+      ambientPathIndex:0
     };
 
     root.userData.actor=actor;
