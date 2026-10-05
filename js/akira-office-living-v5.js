@@ -10,6 +10,7 @@
   const CONFIG_SRC="./assets/office/office_runtime_v5.json";
   const SCENE_SRC="./assets/office/01_akira_office_floor_v5_doors.png";
   const ATLAS_SRC="./assets/office/02_office_agents_atlas_v3_clean4.png";
+  const DIRECTIONAL_ATLAS_SRC="./assets/office/02_akira_agents_walk_directional_v7.png";
   const ASSET_SHEET_SRC="./assets/office/02_akira_office_assets_v5.png";
   const BACKEND_FALLBACK="https://akira-empresa.onrender.com";
 
@@ -26,7 +27,7 @@
   ];
   const STATE_BY_NAME=Object.fromEntries(STATES.map(x=>[x.name,x]));
 
-  let stage=null,canvas=null,ctx=null,scene=null,atlas=null,config=null;
+  let stage=null,canvas=null,ctx=null,scene=null,atlas=null,directionalAtlas=null,config=null;
   let initialized=false,raf=0,last=0,paused=false,pollTimer=0;
   let agents=[],tasks=[];
   let truth={loaded:false,total:0,working:0,idle:0,error:0,disabled:0};
@@ -675,7 +676,11 @@
 
       a.visualState="walk";
       a.frameClock+=dt*1000;
-      a.frame=Math.floor(a.frameClock/Number(config.navigation.walk_frame_ms||125))%3;
+      const movingHoriz=a.direction==="left"||a.direction==="right";
+      const walkCount=movingHoriz
+        ? Number(config.directional_walk&&config.directional_walk.horizontal&&config.directional_walk.horizontal.count||8)
+        : Number(config.directional_walk&&config.directional_walk.vertical&&config.directional_walk.vertical.count||4);
+      a.frame=Math.floor(a.frameClock/Number(config.navigation.walk_frame_ms||125))%Math.max(1,walkCount);
 
       if(dist<=0.75){
         a.screen=[...target.screen];
@@ -732,6 +737,30 @@
     a.frame=Math.floor(a.frameClock/frameMs)%st.count;
   }
 
+  function directionalFrameRect(a){
+    if(!directionalAtlas||!config||!config.directional_walk)return null;
+    const d=config.directional_walk;
+    const row=(d.row_order||[]).indexOf(a.name);
+    if(row<0)return null;
+
+    let layout=null;
+    if(a.direction==="up") layout=d.vertical_back;
+    else if(a.direction==="down") layout=d.vertical_front;
+    else layout=d.horizontal_side;
+    if(!layout)return null;
+
+    const count=Number(layout.count||1);
+    const start=Number(layout.start||0);
+    const fi=Math.max(0,Math.min(count-1,a.frame||0));
+    const col=start+fi;
+    const cols=Number(d.columns||16);
+    const x0=Math.floor(directionalAtlas.naturalWidth*(col/cols));
+    const x1=Math.floor(directionalAtlas.naturalWidth*((col+1)/cols));
+    const y0=Math.floor(directionalAtlas.naturalHeight*(row/Number(d.rows||9)));
+    const y1=Math.floor(directionalAtlas.naturalHeight*((row+1)/Number(d.rows||9)));
+    return [x0,y0,x1-x0,y1-y0];
+  }
+
   function frameRect(row,col){
     const xCenters=FRAME_X,yCenters=FRAME_Y;
     const x0=col===0?0:Math.round((xCenters[col-1]+xCenters[col])/2);
@@ -745,7 +774,8 @@
     const row=(config.atlas.row_order||[]).indexOf(a.name);
     if(row<0)return null;
 
-    const directional=config.atlas.directional_rows&&config.atlas.directional_rows[a.name];
+    const moving=a.machine==="walking"||a.machine==="returning";
+    const directional= moving ? null : (config.atlas.directional_rows&&config.atlas.directional_rows[a.name]);
     if(directional){
       const dir=directional[a.direction]||directional.down||directional.front;
       if(dir){
@@ -763,8 +793,11 @@
   }
 
   function drawSprite(a){
-    const src=spriteFrame(a);
-    if(!src||!atlas)return;
+    const moving=a.machine==="walking"||a.machine==="returning";
+    const directionalSrc=moving?directionalFrameRect(a):null;
+    const src=directionalSrc||spriteFrame(a);
+    const sourceAtlas=directionalSrc?directionalAtlas:atlas;
+    if(!src||!sourceAtlas)return;
     const p=a.screen;
     const moving=a.machine==="walking"||a.machine==="returning";
     const idleBob=!moving?Math.sin(officeClock*2+(a.seed||0)*0.017)*0.8:0;
@@ -781,7 +814,7 @@
       ctx.translate(Math.round(p[0]*2),0);
       ctx.scale(-1,1);
     }
-    ctx.drawImage(atlas,src[0],src[1],src[2],src[3],left,top,dw,dh);
+    ctx.drawImage(sourceAtlas,src[0],src[1],src[2],src[3],left,top,dw,dh);
     ctx.restore();
 
     ctx.save();
@@ -1092,11 +1125,12 @@
     if(!ctx)return;
 
     try{
-      [config,scene,atlas,assetSheet]=await Promise.all([
+      [config,scene,atlas,assetSheet,directionalAtlas]=await Promise.all([
         loadJson(CONFIG_SRC),
         loadImage(SCENE_SRC),
         loadImage(ATLAS_SRC),
-        loadImage(ASSET_SHEET_SRC)
+        loadImage(ASSET_SHEET_SRC),
+        loadImage(DIRECTIONAL_ATLAS_SRC).catch(()=>null)
       ]);
       navMap=buildNavMap();
       makeAgents();
@@ -1143,6 +1177,8 @@
     get initialized(){return initialized;},
     get sceneSource(){return SCENE_SRC;},
     get atlasSource(){return ATLAS_SRC;},
+    get directionalAtlasSource(){return DIRECTIONAL_ATLAS_SRC;},
+    get directionalAtlasLoaded(){return Boolean(directionalAtlas);},
     get assetSheetSource(){return ASSET_SHEET_SRC;},
     get doors(){return (config&&config.doors||[]).map(d=>({...d}));},
     get atlasLayout(){return {
