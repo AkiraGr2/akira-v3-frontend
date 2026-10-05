@@ -296,7 +296,9 @@
         frame:0,
         frameClock:0,
         backendState:"unknown",
-        task:null
+        task:null,
+        holdAtStation:false,
+        durationMs:0
       };
     });
   }
@@ -337,6 +339,8 @@
     agent.actionState=kind||"use";
     agent.returnState=returnState;
     agent.actionUntil=duration?performance.now()/1000+duration/1000:0;
+    agent.holdAtStation=Boolean(holdAtStation);
+    agent.durationMs=Number(duration)||0;
     agent.intentKey=targetId+"|"+(kind||"use");
     agent.frame=0;
     agent.frameClock=0;
@@ -744,6 +748,7 @@
       ]);
       navMap=buildNavMap();
       makeAgents();
+      canvas.addEventListener("click",hitTest);
       initialized=true;
       resize();
       await pollTruth();
@@ -805,7 +810,6 @@
         const b=el(id);
         if(b)b.addEventListener("click",()=>executeCommand(kind));
       });
-    if(canvas)canvas.addEventListener("click",hitTest);
     init();
   });
 })();
