@@ -21,11 +21,15 @@
   const OFFICE_ASSET_LOAD_TIMEOUT_MS = 6500;
   const THREE_VERSION = "0.180.0";
   const MODULE_BASE = "https://cdn.jsdelivr.net/npm/three@" + THREE_VERSION;
+  const CHARACTER_REPO = "techdou/lumen-gallery";
+  const CHARACTER_COMMIT = "1c8a694c5669171b3b6a0f4bffc6f75d0772630a";
+  const CHARACTER_CDN_BASE = "https://cdn.jsdelivr.net/gh/" + CHARACTER_REPO + "@" + CHARACTER_COMMIT + "/public/assets/characters/";
+  const CHARACTER_RAW_BASE = "https://raw.githubusercontent.com/" + CHARACTER_REPO + "/" + CHARACTER_COMMIT + "/public/assets/characters/";
   const MODEL_SOURCES = Object.freeze({
-    business: "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/business-man.glb",
-    woman: "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/casual-woman.glb",
-    hoodie: "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/casual-man.glb",
-    worker: "https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/worker.glb"
+    business: Object.freeze([CHARACTER_CDN_BASE+"business-man.glb",CHARACTER_RAW_BASE+"business-man.glb"]),
+    woman: Object.freeze([CHARACTER_CDN_BASE+"casual-woman.glb",CHARACTER_RAW_BASE+"casual-woman.glb"]),
+    hoodie: Object.freeze([CHARACTER_CDN_BASE+"casual-man.glb",CHARACTER_RAW_BASE+"casual-man.glb"]),
+    worker: Object.freeze([CHARACTER_CDN_BASE+"worker.glb",CHARACTER_RAW_BASE+"worker.glb"])
   });
 
   const AGENT_COLORS = [
@@ -107,7 +111,9 @@
   let officeAssetTemplates = new Map();
   let officeAssetInstances = [];
   let officeAssetErrors = new Map();
+  let officeAssetTransports = new Map();
   let modelLoadErrors = new Map();
+  let modelLoadTransports = new Map();
   let officeAssetMode = false;
   let coreGroup = null;
   let coreMaterials = [];
@@ -687,14 +693,49 @@
 
 
 
-  function officeAssetUrl(key){
+  function officeAssetUrls(key){
     try{
       const registry=window.AKIRA_OFFICE_ASSET_REGISTRY;
       const item=registry && registry.get ? registry.get(key) : null;
-      return item && item.url ? item.url : null;
+      if(!item) return [];
+      if(Array.isArray(item.urls) && item.urls.length) return item.urls.slice();
+      return item.url ? [item.url] : [];
     }catch(_){
-      return null;
+      return [];
     }
+  }
+
+  function loadGltfWithFallback(loader,urls,timeoutMs){
+    let lastError=null;
+    const candidates=Array.isArray(urls)?urls.filter(Boolean):[];
+    for(let index=0;index<candidates.length;index++){
+      const url=candidates[index];
+      try{
+        const gltf=await new Promise((resolve,reject)=>{
+          let settled=false;
+          const timer=window.setTimeout(()=>{
+            if(settled) return;
+            settled=true;
+            reject(new Error("asset_timeout"));
+          },timeoutMs);
+          loader.load(url,(value)=>{
+            if(settled) return;
+            settled=true;
+            window.clearTimeout(timer);
+            resolve(value);
+          },undefined,(err)=>{
+            if(settled) return;
+            settled=true;
+            window.clearTimeout(timer);
+            reject(err);
+          });
+        });
+        return {gltf,transport:index===0?"jsdelivr":"rawgithub",url};
+      }catch(err){
+        lastError=err;
+      }
+    }
+    throw lastError || new Error("asset_load_failed");
   }
 
   function prepareOfficeAsset(gltf){
@@ -752,18 +793,12 @@
     const loader=new GLTFLoader();
     const keys=registry.keys();
     const loaded=await Promise.all(keys.map(async key=>{
-      const url=officeAssetUrl(key);
-      if(!url) return null;
+      const urls=officeAssetUrls(key);
+      if(!urls.length) return null;
       try{
-        const gltf=await Promise.race([
-          new Promise((resolve,reject)=>{
-            loader.load(url,resolve,undefined,reject);
-          }),
-          new Promise((_,reject)=>{
-            window.setTimeout(()=>reject(new Error("asset_timeout")),OFFICE_ASSET_LOAD_TIMEOUT_MS);
-          })
-        ]);
-        officeAssetTemplates.set(key,prepareOfficeAsset(gltf));
+        const result=await loadGltfWithFallback(loader,urls,OFFICE_ASSET_LOAD_TIMEOUT_MS);
+        officeAssetTemplates.set(key,prepareOfficeAsset(result.gltf));
+        officeAssetTransports.set(key,result.transport);
         officeAssetErrors.delete(key);
         return key;
       }catch(err){
@@ -873,15 +908,9 @@
     const entries=Object.entries(MODEL_SOURCES);
     await Promise.all(entries.map(async ([key,url])=>{
       try{
-        const gltf=await Promise.race([
-          new Promise((resolve,reject)=>{
-            loader.load(url,resolve,undefined,reject);
-          }),
-          new Promise((_,reject)=>{
-            window.setTimeout(()=>reject(new Error("model_timeout")),MODEL_LOAD_TIMEOUT_MS);
-          })
-        ]);
-        modelTemplates.set(key,prepareTemplate(gltf));
+        const result=await loadGltfWithFallback(loader,url,MODEL_LOAD_TIMEOUT_MS);
+        modelTemplates.set(key,prepareTemplate(result.gltf));
+        modelLoadTransports.set(key,result.transport);
         modelLoadErrors.delete(key);
       }catch(err){
         modelLoadErrors.set(key,String(err && err.message || err || "model_load_failed"));
@@ -1347,10 +1376,12 @@
       get modelCount(){return modelTemplates.size;},
       get modelKeys(){return Array.from(modelTemplates.keys());},
       get modelErrors(){return Object.fromEntries(modelLoadErrors);},
+      get modelTransports(){return Object.fromEntries(modelLoadTransports);},
       get officeAssetMode(){return officeAssetMode;},
       get officeAssetCount(){return officeAssetInstances.length;},
       get officeAssetKeys(){return Array.from(officeAssetTemplates.keys());},
       get officeAssetErrors(){return Object.fromEntries(officeAssetErrors);},
+      get officeAssetTransports(){return Object.fromEntries(officeAssetTransports);},
       get assetsReady(){return officeAssetMode && officeAssetInstances.length>0;},
       get states(){
         const out={};
