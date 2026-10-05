@@ -864,7 +864,22 @@ function showSection(name){
   if(sec)sec.classList.add('active');
   if(btn)btn.classList.add('active');
   closeSidebar();
-  if(name==='membrane'){window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"membrane"}}));}
+  if(name==='membrane'){
+  window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"membrane"}}));
+  const bootBrain=()=>{
+    try{
+      if(window.AkiraMembrane && typeof window.AkiraMembrane.initMembraneGraph==="function"){
+        window.AkiraMembrane.initMembraneGraph();
+      }
+      if(window.AkiraMembrane && typeof window.AkiraMembrane.resizeMembrane==="function"){
+        window.AkiraMembrane.resizeMembrane();
+      }
+    }catch(_){}
+  };
+  requestAnimationFrame(()=>setTimeout(bootBrain,50));
+  setTimeout(bootBrain,300);
+  setTimeout(bootBrain,1000);
+}
   else if(name==='office'){
     if(window.initAkiraOfficePixel) initAkiraOfficePixel();
     window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"office"}}));
@@ -1071,11 +1086,11 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 });
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
-<script src="./js/obsidian_membrane.js?v=akira-membrane-v47-hud-sync"></script>
-<script src="./js/akira_brain.js?v=akira-final-v6"></script>
+<script src="./js/obsidian_membrane.js?v=akira-membrane-v48-rootfix"></script>
+<script src="./js/akira_brain.js?v=akira-brain-v7-stream-root"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
 <script src="./js/akira_conversations.js?v=akira-conv-v5"></script>
-<script src="./js/akira_learning.js?v=akira-learning-v12-e2e-diagnostics"></script>
+<script src="./js/akira-learning-v13-root-auth"></script>
 <script src="./js/akira_admin.js?v=akira-admin-v1-7-reinforce-timeout"></script>
 <script src="./js/akira_missions_panel.js?v=akira-missions-v5"></script>
 <script src="./js/akira-office-living-v5.js?v=akira-office-living-v5"></script>
