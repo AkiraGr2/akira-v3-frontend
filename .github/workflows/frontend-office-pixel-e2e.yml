@@ -210,12 +210,12 @@ jobs:
               return a ? {world:[...a.world],screen:[...a.screen],state:a.state} : null;
             });
             await page.evaluate(() => window.akiraOfficePixelCommand("mission"));
-            await page.waitForFunction((beforeWorld) => {
+            await page.waitForFunction((beforeScreen) => {
               const a=(window.akiraOfficePixelDebug.agents||[]).find(x=>x.name==="Akira");
               if(!a)return false;
-              const moved=Math.abs(a.world[0]-beforeWorld[0])>0.01 || Math.abs(a.world[1]-beforeWorld[1])>0.01;
+              const moved=Math.hypot(a.screen[0]-beforeScreen[0],a.screen[1]-beforeScreen[1])>8;
               return moved && (a.state==="walk" || a.state==="use" || a.state==="idle");
-            }, before.world, {timeout:12000});
+            }, before.screen, {timeout:12000});
 
             const after=await page.evaluate(() => {
               const a=(window.akiraOfficePixelDebug.agents||[]).find(x=>x.name==="Akira");
@@ -226,8 +226,8 @@ jobs:
               throw new Error("Akira moved implausibly fast/far: "+pixelTravel);
             }
             if(!before || !after) throw new Error("Akira debug state missing");
-            if(before.world[0]===after.world[0] && before.world[1]===after.world[1]){
-              throw new Error("Akira did not move after Mission command");
+            if(Math.hypot(after.screen[0]-before.screen[0],after.screen[1]-before.screen[1])<=8){
+              throw new Error("Akira did not move after Mission command: "+JSON.stringify({before,after}));
             }
 
             await page.click("#officeRefresh");
