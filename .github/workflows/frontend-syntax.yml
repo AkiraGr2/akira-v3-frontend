@@ -237,6 +237,10 @@ jobs:
           if (!office.includes('current.classList.contains("active")')) throw new Error("office polling must respect section visibility");
           if (!office.includes("paused")) throw new Error("office pause state missing");
           if (!office.includes("requestAnimationFrame(animate)")) throw new Error("living office animation loop missing");
+          if (!office.includes("function beginSit(actor,now)")) throw new Error("seated workstation transition missing");
+          if (!office.includes("Sitting_Idle") && !office.includes("sitting_idle")) throw new Error("seated animation selection missing");
+          if (!office.includes("function buildAmbientPath(actor,target)")) throw new Error("safe ambient route missing");
+          if (!office.includes("Human-scale wall decor")) throw new Error("real office environment decor missing");
           if (!office.includes("if(ar.ok || tr.ok) lastPoll=Date.now()")) throw new Error("office sync timestamp must represent a successful read");
           if (!office.includes("const IDLE_AMBIENT_GAP_MS = 28000")) throw new Error("idle ambient cadence must be explicit");
           if (!office.includes("function ambientMoverCount()")) throw new Error("idle ambient concurrency guard missing");
