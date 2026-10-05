@@ -160,7 +160,7 @@
       sourcePack:"Furniture Kit 2.0",
       sourceUrl:"https://kenney.nl/assets/furniture-kit",
       license:"CC0-1.0",
-      licenseUrl:"https://kenney.nl/assets/furniture-kit",
+      licenseUrl:"https://creativecommons.org/publicdomain/zero/1.0/",
       format:"glb",
       mobileSafe:true,
       priority:"decor"
