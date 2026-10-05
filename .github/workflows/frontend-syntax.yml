@@ -231,7 +231,7 @@ jobs:
 
           if (!office.includes("const POLL_MS = 8000")) throw new Error("office polling interval missing");
           if (!office.includes("THREE_VERSION = \"0.180.0\"")) throw new Error("living office must pin Three.js version");
-          if (!office.includes("static.poly.pizza")) throw new Error("living office must declare external CC0 asset source");
+          if (!office.includes("cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a")) throw new Error("living office must use pinned free character transport");
           if (!office.includes("window.akiraOfficeLivingDebug")) throw new Error("living office debug contract missing");
           if (!office.includes("window.setInterval")) throw new Error("office live polling is not scheduled");
           if (!office.includes('current.classList.contains("active")')) throw new Error("office polling must respect section visibility");
