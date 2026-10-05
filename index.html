@@ -882,7 +882,7 @@ function showSection(name){
   else if(name==='office'){
     if(window.initAkiraOfficePixel) initAkiraOfficePixel();
     if(window.initOfficeFloor) initOfficeFloor();
-    window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"office"}});
+    window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"office"}}));
   }
   else if(name==='missions'){if(window.missionPanelLoad)window.missionPanelLoad();}
   else if(name==='levels'){renderLevels();}
