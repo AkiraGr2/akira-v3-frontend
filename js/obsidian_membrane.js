@@ -235,7 +235,25 @@ function _authHeaders() {
   return {};
 }
 
-async function _fetchJson(url) {
+async async function _fetchPublicJson(url) {
+  const full =
+    url.indexOf("http") === 0
+      ? url
+      : (AKIRA_API_BASE + url);
+  const bust =
+    full +
+    (full.indexOf("?") >= 0 ? "&" : "?") +
+    "_=" +
+    Date.now();
+  const r = await fetch(bust, {
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store"
+  });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return await r.json();
+}
+
+function _fetchJson(url) {
   const full =
     url.indexOf("http") === 0
       ? url
@@ -283,6 +301,7 @@ let membraneCounts = {
 };
 
 let membraneError = null;
+let membranePublicMode = false;
 let membraneLayoutRunning = false;
 let _communityState = null;
 let membraneBrainFilterGroup = "all";
@@ -3468,17 +3487,39 @@ async function refreshMembrane(
       throw new Error("Respuesta del Cerebro 2D no válida");
     }
 
+    membranePublicMode = false;
     _applyGraphToCy(data);
     membraneError = null;
   } catch (e) {
-    membraneError =
-      String(
-        e &&
-        e.message
-          ? e.message
-          : e
-      );
-    _updateMembraneStats();
+    const message = String(
+      e && e.message
+        ? e.message
+        : e
+    );
+    if (message === "HTTP 401") {
+      try {
+        const publicData = await _fetchPublicJson(
+          "/api/v8/graph/public-overview"
+        );
+        if (!publicData || publicData.ok !== true || publicData.public !== true) {
+          throw new Error("Vista pública no disponible");
+        }
+        membranePublicMode = true;
+        _applyGraphToCy(publicData);
+        membraneError = null;
+        _updateMembraneStats();
+      } catch (publicError) {
+        membraneError = String(
+          publicError && publicError.message
+            ? publicError.message
+            : publicError
+        );
+        _updateMembraneStats();
+      }
+    } else {
+      membraneError = message;
+      _updateMembraneStats();
+    }
   } finally {
     membraneFetching =
       false;
@@ -4072,6 +4113,7 @@ function _updateMembraneStats() {
       " · reintento automático";
   } else {
     el.textContent =
+      (membranePublicMode ? "VISTA PÚBLICA · " : "") +
       nodesCount +
       " nodos · " +
       edgesCount +
@@ -4088,6 +4130,7 @@ function _updateMembraneStats() {
       const hud = document.getElementById("brainStats");
       if(hud){
         hud.innerHTML =
+          (membranePublicMode ? "<strong>VISTA PÚBLICA</strong> · " : "") +
           "<strong>" + nodesCount + "</strong> NODOS · <strong>" +
           edgesCount + "</strong> RELACIONES · <strong>" +
           clusterCount + "</strong> CLUSTERS";
