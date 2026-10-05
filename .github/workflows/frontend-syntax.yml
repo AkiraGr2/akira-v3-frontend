@@ -298,11 +298,12 @@ jobs:
           const office = fs.readFileSync("js/akira-office-floor-v3.js", "utf8");
 
           if (!index.includes("https://cdn.jsdelivr.net")) throw new Error("CSP must allow the office asset CDN");
+          if (!index.includes("https://raw.githubusercontent.com")) throw new Error("CSP must allow the raw GitHub fallback");
           if (!registry.includes("https://cdn.jsdelivr.net/gh/")) throw new Error("office assets must use jsDelivr GitHub transport");
           if (!registry.includes("yadneshSalvi/hearth-webmcp") || !registry.includes("617d6073a557cbc2f0f2ac917916e01b9c4b631b")) {
             throw new Error("office assets must use the pinned jsDelivr GitHub transport");
           }
-          if (registry.includes("raw.githubusercontent.com")) throw new Error("office asset registry must not use the CSP-blocked raw GitHub transport");
+          if (!registry.includes("const RAW_BASE = \"https://raw.githubusercontent.com/\"")) throw new Error("office asset registry must declare raw GitHub fallback");
           if (!office.includes("MODEL_LOAD_TIMEOUT_MS = 12000")) throw new Error("character load timeout missing");
           if (!office.includes("OFFICE_ASSET_LOAD_TIMEOUT_MS = 6500")) throw new Error("office asset load timeout missing");
           if (!office.includes("const modelLoadPromise=loadModels()")) throw new Error("character loading must start independently");
