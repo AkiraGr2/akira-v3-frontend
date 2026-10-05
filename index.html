@@ -426,7 +426,11 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
         <div class="office-v2-toolbar">
           <span class="office-v2-live">Observabilidad en vivo</span>
           <div class="office-v2-actions">
-            <span class="office-v2-live">Oficina Pixel · arte original</span>
+            <span class="office-v2-live">Oficina Pixel · V3</span>
+            <button id="officePixelMission" class="office-v2-btn" type="button">Misión</button>
+            <button id="officePixelCoffee" class="office-v2-btn" type="button">Café</button>
+            <button id="officePixelMeeting" class="office-v2-btn" type="button">Reunión</button>
+            <button id="officePixelPrint" class="office-v2-btn" type="button">Impresora</button>
             <button id="officeRefresh" class="office-v2-btn" type="button">Actualizar</button>
             <button id="officePause" class="office-v2-btn" type="button">Pausar</button>
           </div>
@@ -1081,7 +1085,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 <script src="./js/akira_learning.js?v=akira-learning-v12-e2e-diagnostics"></script>
 <script src="./js/akira_admin.js?v=akira-admin-v1-7-reinforce-timeout"></script>
 <script src="./js/akira_missions_panel.js?v=akira-missions-v5"></script>
-<script src="./js/akira-office-canonical-v3.js?v=akira-office-canonical-v3"></script>
+<script src="./js/akira-office-living-v3.js?v=akira-office-living-v3"></script>
 <script>
 async function fetchRuntimeCapabilities(){
   const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
