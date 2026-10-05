@@ -3471,13 +3471,30 @@ async function refreshMembrane(
     _applyGraphToCy(data);
     membraneError = null;
   } catch (e) {
-    membraneError =
-      String(
-        e &&
-        e.message
-          ? e.message
-          : e
-      );
+    const errorText = String(
+      e &&
+      e.message
+        ? e.message
+        : e
+    );
+
+    // El grafo persistente es propietario: una sesión ausente/expirada no
+    // debe verse como un cerebro vacío. Exponemos el motivo real.
+    if (errorText === "HTTP 401") {
+      membraneCounts = {
+        nodes: 0,
+        edges: 0,
+        by_type: {},
+        by_relation: {}
+      };
+      if (cyMembrane) {
+        try { cyMembrane.elements().remove(); } catch (_) {}
+      }
+      membraneError = "Sesión requerida para cargar el Cerebro 2D";
+    } else {
+      membraneError = errorText;
+    }
+
     _updateMembraneStats();
   } finally {
     membraneFetching =
@@ -4359,6 +4376,17 @@ window.addEventListener(
       )
     ) {
       initOfficeFloor();
+    }
+  }
+);
+
+window.addEventListener(
+  "akira:session-valid",
+  function () {
+    if (document.getElementById("membraneCy")) {
+      membraneError = null;
+      membraneLastFetch = 0;
+      setTimeout(() => refreshMembrane(true), 80);
     }
   }
 );
