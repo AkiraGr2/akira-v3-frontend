@@ -874,6 +874,48 @@
     return root;
   }
 
+  function addDeferredOfficeDecor(){
+    if(officeAssetTemplates.has("sofa")){
+      addOfficeAsset("sofa",[3.6,1.25,1.45],[0,0,-8.15],0);
+    }
+    if(officeAssetTemplates.has("wardrobe")){
+      addOfficeAsset("wardrobe",[1.55,2.55,.75],[-9.75,0,-5.95],0);
+      addOfficeAsset("wardrobe",[1.55,2.55,.75],[9.75,0,-5.95],Math.PI);
+    }
+    if(officeAssetTemplates.has("rug")){
+      addOfficeAsset("rug",[4.6,.08,2.8],[0,.01,-7.25],0);
+      addOfficeAsset("rug",[3.1,.08,2.1],[-4.1,.01,-7.2],0);
+      addOfficeAsset("rug",[3.1,.08,2.1],[4.1,.01,-7.2],0);
+    }
+    if(officeAssetTemplates.has("tableLamp")){
+      addOfficeAsset("tableLamp",[.42,.58,.42],[-2.6,1.1,-7.25],0);
+      addOfficeAsset("tableLamp",[.42,.58,.42],[2.6,1.1,-7.25],0);
+    }
+    if(officeAssetTemplates.has("plantFig")){
+      addOfficeAsset("plantFig",[.9,1.85,.9],[-7.8,0,-7.9],0);
+      addOfficeAsset("plantFig",[.9,1.85,.9],[7.8,0,-7.9],Math.PI);
+    }
+    if(officeAssetTemplates.has("plantPalm")){
+      addOfficeAsset("plantPalm",[1.25,2.65,1.25],[-9.2,0,1.7],0);
+      addOfficeAsset("plantPalm",[1.25,2.65,1.25],[9.2,0,1.7],Math.PI);
+    }
+    if(officeAssetTemplates.has("sideTable")){
+      addOfficeAsset("sideTable",[1.15,.85,.85],[-4.0,0,-7.15],0);
+      addOfficeAsset("sideTable",[1.15,.85,.85],[4.0,0,-7.15],Math.PI);
+    }
+    if(officeAssetTemplates.has("loungeChair")){
+      addOfficeAsset("loungeChair",[1.0,1.35,1.0],[-5.15,0,-7.15],Math.PI/2);
+      addOfficeAsset("loungeChair",[1.0,1.35,1.0],[5.15,0,-7.15],-Math.PI/2);
+    }
+    if(officeAssetTemplates.has("decorBowl")){
+      addOfficeAsset("decorBowl",[.45,.25,.45],[0,1.32,-7.25],0);
+    }
+    if(officeAssetTemplates.has("decorSculpture")){
+      addOfficeAsset("decorSculpture",[.42,.55,.42],[-9.0,1.05,-5.95],0);
+      addOfficeAsset("decorSculpture",[.42,.55,.42],[9.0,1.05,-5.95],0);
+    }
+  }
+
   function hidePrimitiveOfficeFurniture(hidden){
     scene.traverse(obj=>{
       if(!obj.userData || !obj.userData.primitiveOfficeFurniture) return;
@@ -926,46 +968,6 @@
     if(officeAssetTemplates.has("vase")){
       addOfficeAsset("vase",[.36,.42,.36],[0,1.08,-7.25],0);
     }
-    if(officeAssetTemplates.has("sofa")){
-      addOfficeAsset("sofa",[3.6,1.25,1.45],[0,0,-8.15],0);
-    }
-    if(officeAssetTemplates.has("wardrobe")){
-      addOfficeAsset("wardrobe",[1.55,2.55,.75],[-9.75,0,-5.95],0);
-      addOfficeAsset("wardrobe",[1.55,2.55,.75],[9.75,0,-5.95],Math.PI);
-    }
-    if(officeAssetTemplates.has("rug")){
-      addOfficeAsset("rug",[4.6,.08,2.8],[0,.01,-7.25],0);
-      addOfficeAsset("rug",[3.1,.08,2.1],[-4.1,.01,-7.2],0);
-      addOfficeAsset("rug",[3.1,.08,2.1],[4.1,.01,-7.2],0);
-    }
-    if(officeAssetTemplates.has("tableLamp")){
-      addOfficeAsset("tableLamp",[.42,.58,.42],[-2.6,1.1,-7.25],0);
-      addOfficeAsset("tableLamp",[.42,.58,.42],[2.6,1.1,-7.25],0);
-    }
-    if(officeAssetTemplates.has("plantFig")){
-      addOfficeAsset("plantFig",[.9,1.85,.9],[-7.8,0,-7.9],0);
-      addOfficeAsset("plantFig",[.9,1.85,.9],[7.8,0,-7.9],Math.PI);
-    }
-    if(officeAssetTemplates.has("plantPalm")){
-      addOfficeAsset("plantPalm",[1.25,2.65,1.25],[-9.2,0,1.7],0);
-      addOfficeAsset("plantPalm",[1.25,2.65,1.25],[9.2,0,1.7],Math.PI);
-    }
-    if(officeAssetTemplates.has("sideTable")){
-      addOfficeAsset("sideTable",[1.15,.85,.85],[-4.0,0,-7.15],0);
-      addOfficeAsset("sideTable",[1.15,.85,.85],[4.0,0,-7.15],Math.PI);
-    }
-    if(officeAssetTemplates.has("loungeChair")){
-      addOfficeAsset("loungeChair",[1.0,1.35,1.0],[-5.15,0,-7.15],Math.PI/2);
-      addOfficeAsset("loungeChair",[1.0,1.35,1.0],[5.15,0,-7.15],-Math.PI/2);
-    }
-    if(officeAssetTemplates.has("decorBowl")){
-      addOfficeAsset("decorBowl",[.45,.25,.45],[0,1.32,-7.25],0);
-    }
-    if(officeAssetTemplates.has("decorSculpture")){
-      addOfficeAsset("decorSculpture",[.42,.55,.42],[-9.0,1.05,-5.95],0);
-      addOfficeAsset("decorSculpture",[.42,.55,.42],[9.0,1.05,-5.95],0);
-    }
-
     hidePrimitiveOfficeFurniture(true);
     officeAssetMode=true;
     return true;
@@ -1689,6 +1691,13 @@
       const modelLoadPromise=loadModels();
       const officeAssetLoadPromise=loadOfficeAssets();
 
+      window.addEventListener("akira:office-assets-essential",()=>{
+        if(initialized && !officeAssetMode) addRealOfficeFurniture(profile);
+      },{once:true});
+      window.addEventListener("akira:office-assets-decor",()=>{
+        if(initialized) addDeferredOfficeDecor();
+      },{once:true});
+
       modelLoadPromise.then(()=>{
         agents.forEach(a=>{
           const key=String(a && a.name || "");
@@ -1709,9 +1718,7 @@
 
       officeAssetLoadPromise.then(loaded=>{
         if(!loaded || !initialized) return;
-        if(addRealOfficeFurniture(profile)){
-          setOverlay("", "");
-        }
+        if(!officeAssetMode && addRealOfficeFurniture(profile)) setOverlay("", "");
       }).catch(err=>{
         console.warn("[akira-office-assets] progressive load",err);
       });
