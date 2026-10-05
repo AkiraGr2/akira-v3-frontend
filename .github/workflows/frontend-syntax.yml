@@ -231,7 +231,10 @@ jobs:
 
           if (!office.includes("const POLL_MS = 8000")) throw new Error("office polling interval missing");
           if (!office.includes("THREE_VERSION = \"0.180.0\"")) throw new Error("living office must pin Three.js version");
-          if (!office.includes("cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a")) throw new Error("living office must use pinned free character transport");
+          if (!office.includes("CHARACTER_REPO = \"techdou/lumen-gallery\"")) throw new Error("living office must declare pinned character repo");
+          if (!office.includes("CHARACTER_COMMIT = \"1c8a694c5669171b3b6a0f4bffc6f75d0772630a\"")) throw new Error("living office must pin character commit");
+          if (!office.includes("CHARACTER_CDN_BASE")) throw new Error("living office CDN transport missing");
+          if (!office.includes("CHARACTER_RAW_BASE")) throw new Error("living office raw fallback transport missing");
           if (!office.includes("window.akiraOfficeLivingDebug")) throw new Error("living office debug contract missing");
           if (!office.includes("window.setInterval")) throw new Error("office live polling is not scheduled");
           if (!office.includes('current.classList.contains("active")')) throw new Error("office polling must respect section visibility");
@@ -255,7 +258,8 @@ jobs:
           if (!office.includes("function addRealOfficeFurniture(profile)")) throw new Error("real office furniture integration missing");
           if (!office.includes("function fitOfficeAsset(root,targetSize,position,rotationY)")) throw new Error("office asset fit helper missing");
           if (!office.includes("officeAssetMode")) throw new Error("office asset mode debug state missing");
-          if (!office.includes("Promise.race")) throw new Error("office asset loading must be bounded");
+          if (!office.includes("async function loadGltfWithFallback")) throw new Error("office asset loading fallback helper missing");
+          if (!office.includes("window.setTimeout")) throw new Error("office asset loading must be bounded");
           if (!office.includes("const officeAssetLoadPromise=loadOfficeAssets()")) throw new Error("office asset loading must be progressive/non-blocking");
           if (!office.includes("get assetsReady(){")) throw new Error("office asset readiness debug state missing");
 
