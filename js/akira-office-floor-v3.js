@@ -1516,6 +1516,7 @@
       get agentCount(){return agents.length;},
       get modelCount(){return modelTemplates.size;},
       get modelKeys(){return Array.from(modelTemplates.keys());},
+      get modelTargetHeights(){return Object.assign({},MODEL_TARGET_HEIGHTS);},
       get modelAnimations(){
         return Object.fromEntries(Array.from(modelTemplates.entries()).map(([key,t])=>[
           key,
