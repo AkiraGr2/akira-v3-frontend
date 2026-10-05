@@ -161,7 +161,7 @@
   "waypoints": {
     "P01_ENTRADA": {
       "world": [
-        27,
+        25,
         18
       ],
       "screen": [
@@ -401,12 +401,12 @@
     },
     "P25_TOP_RIGHT": {
       "world": [
-        24,
+        25,
         6
       ],
       "screen": [
-        1140,
-        275
+        1180,
+        280
       ]
     },
     "M01": {
@@ -488,6 +488,16 @@
         950,
         570
       ]
+    },
+    "P26_RIGHT_SIDE": {
+      "world": [
+        25,
+        10
+      ],
+      "screen": [
+        1230,
+        500
+      ]
     }
   },
   "movement_edges": [
@@ -510,14 +520,6 @@
     [
       "P24_RIGHT_SOUTH",
       "M04"
-    ],
-    [
-      "M04",
-      "P25_TOP_RIGHT"
-    ],
-    [
-      "P25_TOP_RIGHT",
-      "P23_RIGHT_MID"
     ],
     [
       "P23_RIGHT_MID",
@@ -618,6 +620,18 @@
     [
       "P03_LOUNGE",
       "P18_DANTE_WAIT"
+    ],
+    [
+      "M04",
+      "P26_RIGHT_SIDE"
+    ],
+    [
+      "P26_RIGHT_SIDE",
+      "P25_TOP_RIGHT"
+    ],
+    [
+      "P26_RIGHT_SIDE",
+      "P23_RIGHT_MID"
     ]
   ],
   "homes": {
