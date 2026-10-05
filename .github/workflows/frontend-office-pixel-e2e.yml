@@ -23,10 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -105,7 +105,7 @@ jobs:
               const stage=document.getElementById("officePixelStage");
               if(!canvas || !stage) return false;
               const c=canvas.getBoundingClientRect();
-              return c.width>300 && c.height>220 && Boolean(window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.sceneSource.endsWith("01_office_scene_clean_v3.png"));
+              return c.width>300 && c.height>220 && Boolean(window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.sceneSource.endsWith("01_akira_office_floor_v5_doors.png"));
             }, null, {timeout:20000});
 
             const domState=await page.evaluate(() => ({
@@ -113,7 +113,7 @@ jobs:
               office3dMode:document.getElementById("office3dMode"),
               officeCanvas:document.getElementById("officeCanvas"),
               legacyFloor3dScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-floor")),
-              pixelScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-living-v4")),
+              pixelScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-living-v5")),
               sceneSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.sceneSource,
               atlasSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.atlasSource,
               atlasLayout:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.atlasLayout,
@@ -127,9 +127,9 @@ jobs:
             if(domState.office3dStage || domState.office3dMode || domState.officeCanvas || domState.legacyFloor3dScript){
               throw new Error("3D Office elements/scripts are still present: "+JSON.stringify(domState));
             }
-            if(!domState.pixelScript) throw new Error("Living Pixel Office V4 script is not loaded");
-            if(!String(domState.sceneSource||"").endsWith("01_office_scene_clean_v3.png")){
-              throw new Error("Clean V3 Office scene was not loaded: "+JSON.stringify(domState.sceneSource));
+            if(!domState.pixelScript) throw new Error("Living Pixel Office V5 script is not loaded");
+            if(!String(domState.sceneSource||"").endsWith("01_akira_office_floor_v5_doors.png")){
+              throw new Error("Clean V3 Akira V5 office floor was not loaded: "+JSON.stringify(domState.sceneSource));
             }
             if(!String(domState.atlasSource||"").endsWith("02_office_agents_atlas_v3_clean4.png")){
               throw new Error("V3 clean4 agent atlas was not loaded: "+JSON.stringify(domState.atlasSource));
@@ -137,7 +137,7 @@ jobs:
             if(!domState.atlasLayout || domState.atlasLayout.rows!==9 || domState.atlasLayout.framesPerRow!==19){
               throw new Error("Clean4 atlas layout contract is wrong: "+JSON.stringify(domState.atlasLayout));
             }
-            if(domState.navigationMode!=="grid-a-star-stations" || !(domState.walkSpeed>0 && domState.walkSpeed<120)){
+            if(domState.navigationMode!=="grid-a-star-stations-v5" || !(domState.walkSpeed>0 && domState.walkSpeed<120)){
               throw new Error("Realistic screen navigation contract failed: "+JSON.stringify({mode:domState.navigationMode,speed:domState.walkSpeed}));
             }
             const agentByName=Object.fromEntries((domState.agents||[]).map(a=>[a.name,a]));
@@ -145,11 +145,11 @@ jobs:
               throw new Error("Pixel Office roster contract failed: "+JSON.stringify(domState.agents));
             }
 
-            if(domState.navigationMode!=="grid-a-star-stations"){
+            if(domState.navigationMode!=="grid-a-star-stations-v5"){
               throw new Error("Grid/station navigation is not active: "+JSON.stringify(domState.navigationMode));
             }
             if(!domState.grid || domState.grid.width!==48 || domState.grid.height!==32 || domState.grid.tile!==32){
-              throw new Error("V4 navigation grid contract failed: "+JSON.stringify(domState.grid));
+              throw new Error("V5 navigation grid contract failed: "+JSON.stringify(domState.grid));
             }
 
             const allHomes=(domState.agents||[]).map(a=>a.name);
@@ -159,7 +159,8 @@ jobs:
 
             const assets=await page.evaluate(async () => {
               const paths=[
-                "assets/office/01_office_scene_clean_v3.png",
+                "assets/office/01_akira_office_floor_v5_doors.png",
+                "assets/office/02_akira_office_assets_v5.png",
                 "assets/office/02_office_agents_atlas_v3_clean4.png",
                 "assets/office/02_office_ui_reference.png",
                 "assets/office/03_office_production_map.png",
@@ -175,6 +176,16 @@ jobs:
 
             if(assets.some(x=>!x.ok || x.size<100 || x.signature[0]!==137 || x.signature[1]!==80 || x.signature[2]!==78 || x.signature[3]!==71)){
               throw new Error("Authored Pixel Office asset delivery failed: "+JSON.stringify(assets));
+            }
+            if(!assets.find(x=>x.path==="assets/office/02_akira_office_assets_v5.png" && x.ok && x.size>100)){
+              throw new Error("Akira V5 supplemental asset sheet delivery failed: "+JSON.stringify(assets));
+            }
+            const runtimeConfig=await page.evaluate(async () => {
+              const r=await fetch("assets/office/office_runtime_v5.json",{cache:"no-store"});
+              return {ok:r.ok,data:r.ok?await r.json():null};
+            });
+            if(!runtimeConfig.ok || !runtimeConfig.data || !Array.isArray(runtimeConfig.data.doors) || runtimeConfig.data.doors.length < 8){
+              throw new Error("V5 runtime door contract failed: "+JSON.stringify(runtimeConfig));
             }
 
             const layout=await page.$eval("#officePixelCanvas",el=>{

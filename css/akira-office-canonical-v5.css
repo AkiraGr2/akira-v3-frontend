@@ -1,0 +1,46 @@
+/* AKIRA OFFICE — Canonical Pixel V5
+ * Presentation layer for the grid / station office renderer.
+ */
+#officeSection .office-pixel-stage{
+  position:relative;
+  width:100%;
+  aspect-ratio:1536 / 1024;
+  overflow:hidden;
+  background:#080b12;
+  border:2px solid #263247;
+  border-radius:10px;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.04),0 10px 30px rgba(0,0,0,.18);
+}
+#officeSection #officePixelCanvas{
+  display:block;
+  width:100%;
+  height:100%;
+  image-rendering:auto;
+  cursor:crosshair;
+}
+#officeSection .office-pixel-stage::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.05);
+}
+#officeSection .office-v2-live{
+  user-select:none;
+}
+@media(max-width:650px){
+  #officeSection .office-pixel-stage{
+    border-radius:8px;
+  }
+}
+
+/* V5 live-office affordances */
+#officeSection .office-v2-live{
+  letter-spacing:.02em;
+}
+#officeSection .office-pixel-stage{
+  background:#07101c;
+}
+@media(max-width:900px){
+  #officeSection .office-v2-side{max-height:46dvh;overflow:auto}
+}
