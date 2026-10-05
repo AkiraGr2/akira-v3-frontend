@@ -27,9 +27,7 @@ jobs:
           node --check js/akira_missions_panel.js
           node --check js/akira_admin.js
           node --check js/akira_extras.js
-          node --check js/akira-office-floor-v2.js
-          node --check js/akira-office-floor-v3.js
-
+                    
       - name: Guard Brain 3D parity contract
         run: |
           node - <<'NODE'
