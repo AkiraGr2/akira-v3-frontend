@@ -303,6 +303,7 @@
         holdAtStation:false,
         durationMs:0,
         facing:1,
+        direction:"down",
         seed:(String(c.name||"").split("").reduce((n,ch)=>n+ch.charCodeAt(0),0)%997)
       };
     });
@@ -312,26 +313,55 @@
     const target=nodeScreen(targetId);
     if(!target)return null;
 
-    // Always leave the visual home through its authored exit using A*.
-    // This prevents the first leg from cutting straight through desks/walls.
     const exit=nodeScreen(agent.homeNav);
-    const start=[...agent.screen];
     const legs=[];
-    if(exit && Math.hypot(start[0]-exit[0],start[1]-exit[1])>8){
-      const toExit=aStar(start,exit);
+    let cursor=[...agent.screen];
+
+    // Home -> authored exit.
+    if(exit && Math.hypot(cursor[0]-exit[0],cursor[1]-exit[1])>8){
+      const toExit=aStar(cursor,exit);
       if(!toExit)return null;
       legs.push(...toExit);
+      cursor=[...toExit[toExit.length-1]];
     }
-    const from=legs.length?legs[legs.length-1]:start;
-    const toTarget=aStar(from,target);
+
+    // Rooms have an explicit doorway approach. This keeps agents in the visible
+    // corridors instead of letting the grid choose visually awkward shortcuts.
+    const accessMap=(config.station_access||{});
+    let accessId=accessMap[targetId];
+    if(!accessId && /^M\\d+$/.test(targetId))accessId=config.meeting_access;
+    const access=accessId?nodeScreen(accessId):null;
+
+    if(access && Math.hypot(cursor[0]-access[0],cursor[1]-access[1])>8){
+      const toDoor=aStar(cursor,access);
+      if(!toDoor)return null;
+      legs.push(...toDoor);
+      cursor=[...toDoor[toDoor.length-1]];
+    }
+
+    const toTarget=aStar(cursor,target);
     if(!toTarget)return null;
     legs.push(...toTarget);
 
+    // Collapse collinear/grid micro-segments for natural walking.
     const out=[];
     for(const p of legs){
-      if(!out.length || Math.hypot(out[out.length-1][0]-p[0],out[out.length-1][1]-p[1])>3){
+      if(!out.length){
         out.push([...p]);
+        continue;
       }
+      const q=out[out.length-1];
+      if(Math.hypot(q[0]-p[0],q[1]-p[1])<=3)continue;
+      if(out.length>=2){
+        const prev=out[out.length-2];
+        const ax=Math.sign(q[0]-prev[0]), ay=Math.sign(q[1]-prev[1]);
+        const bx=Math.sign(p[0]-q[0]), by=Math.sign(p[1]-q[1]);
+        if(ax===bx && ay===by){
+          out[out.length-1]=[...p];
+          continue;
+        }
+      }
+      out.push([...p]);
     }
     return out;
   }
@@ -346,6 +376,7 @@
       return false;
     }
 
+    agent.routeTargetId=targetId;
     agent.route=points.map((p,i)=>({
       screen:[...p],
       id:i===points.length-1?targetId:null
@@ -382,6 +413,7 @@
     agent.world=[...nodeWorld(agent.homeNav)];
     agent.screen=[...agent.homeVisual];
     agent.route=[];
+    agent.routeTargetId=null;
     agent.routeIndex=0;
     agent.machine=agent.backendState==="working"?"working":"idle";
     agent.visualState=agent.backendState==="working"?"work":agent.backendState==="error"?"reaction":"idle";
@@ -391,6 +423,7 @@
 
   function finishStation(agent,now){
     agent.route=[];
+    agent.routeTargetId=null;
     agent.routeIndex=0;
     agent.machine="station";
     agent.visualState=(agent.actionState==="talk"?"talk":agent.actionState==="use"?"use":"work");
@@ -533,6 +566,8 @@
   }
 
   function beginExplicitRoute(agent,targetId,state,duration,message){
+    if(!agent||agent.status!=="active")return false;
+    if(agent.machine==="walking" && agent.routeTargetId===targetId)return true;
     agent.durationMs=duration||0;
     if(startRoute(agent,targetId,state,"working",duration||0,false)){
       if(message)say(message);
@@ -587,6 +622,11 @@
       const dx=target.screen[0]-a.screen[0];
       const dy=target.screen[1]-a.screen[1];
       if(Math.abs(dx)>1)a.facing=dx<0?-1:1;
+      if(Math.abs(dy)>=Math.abs(dx)*0.72){
+        a.direction=dy<0?"up":"down";
+      }else{
+        a.direction=dx<0?"left":"right";
+      }
       const dist=Math.hypot(dx,dy);
       const step=Math.min(dist,dt*Number(config.navigation.speed_px_per_second||80));
 
@@ -660,6 +700,19 @@
   function spriteFrame(a){
     const row=(config.atlas.row_order||[]).indexOf(a.name);
     if(row<0)return null;
+
+    const directional=config.atlas.directional_rows&&config.atlas.directional_rows[a.name];
+    if(directional){
+      const dir=directional[a.direction]||directional.down||directional.front;
+      if(dir){
+        const state=dir[a.visualState]||dir.idle;
+        if(state){
+          const fi=Math.max(0,Math.min((state.count||1)-1,a.frame||0));
+          return frameRect(Number(state.row),Number(state.start||0)+fi);
+        }
+      }
+    }
+
     const state=STATE_BY_NAME[a.visualState]||STATE_BY_NAME.idle;
     const fi=Math.max(0,Math.min(state.count-1,a.frame||0));
     return frameRect(row,state.start+fi);
@@ -714,6 +767,7 @@
   }
 
   function drawRoutes(){
+    if(!(config.debug&&config.debug.show_routes))return;
     agents.forEach(a=>{
       if(!a.route.length)return;
       ctx.save();

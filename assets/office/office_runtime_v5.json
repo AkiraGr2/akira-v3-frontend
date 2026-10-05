@@ -50,7 +50,8 @@
       "think": 2,
       "use": 3,
       "reaction": 2
-    }
+    },
+    "directional_rows": null
   },
   "calibration": {
     "x_centers": [
@@ -1002,8 +1003,8 @@
       "h": 928
     },
     "agent_clearance_px": 10,
-    "speed_px_per_second": 86,
-    "walk_frame_ms": 115,
+    "speed_px_per_second": 74,
+    "walk_frame_ms": 130,
     "note": "No ambient random roaming. Agents move only from backend truth or explicit office commands; routes must cross physical doors and remain inside walkable corridors."
   },
   "station_resolution": {
@@ -1135,5 +1136,16 @@
       180,
       145
     ]
-  }
+  },
+  "debug": {
+    "show_routes": false
+  },
+  "station_access": {
+    "P22_CAFE": "P18_CAFE_DOOR",
+    "P23_PRINTER": "P19_PRINTER_DOOR",
+    "P24_MEMORY": "P14_MEMORY_DOOR",
+    "P25_DEVELOPMENT": "P20_DEV_DOOR",
+    "P21_MISSION": "P16_REUNION_DOOR"
+  },
+  "meeting_access": "P16_REUNION_DOOR"
 }
