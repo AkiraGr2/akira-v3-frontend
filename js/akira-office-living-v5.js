@@ -10,7 +10,7 @@
   const CONFIG_SRC="./assets/office/office_runtime_v5.json";
   const SCENE_SRC="./assets/office/01_akira_office_floor_v5_doors.png";
   const ATLAS_SRC="./assets/office/02_office_agents_atlas_v3_clean4.png";
-  const DIRECTIONAL_ATLAS_SRC="./assets/office/02_akira_agents_walk_directional_v7.png";
+  const DIRECTIONAL_ATLAS_SRC="./assets/office/02_akira_agents_walk_directional_v8_transparent.png";
   const ASSET_SHEET_SRC="./assets/office/02_akira_office_assets_v5.png";
   const BACKEND_FALLBACK="https://akira-empresa.onrender.com";
 
@@ -752,7 +752,8 @@
     let layout=null;
     if(a.direction==="up") layout=d.vertical_back;
     else if(a.direction==="down") layout=d.vertical_front;
-    else layout=d.horizontal_side;
+    else if(a.direction==="left") layout=d.horizontal_left;
+    else layout=d.horizontal_right;
     if(!layout)return null;
 
     const count=Number(layout.count||1);
@@ -815,7 +816,9 @@
     ctx.save();
     ctx.imageSmoothingEnabled=false;
     ctx.globalAlpha=a.status==="disabled"?.86:1;
-    if(a.facing<0){
+    // Directional locomotion atlas already contains separate left/right art.
+    // Only legacy non-directional states use the horizontal mirror.
+    if(!directionalSrc && a.facing<0){
       ctx.translate(Math.round(p[0]*2),0);
       ctx.scale(-1,1);
     }
@@ -1189,7 +1192,8 @@
     get atlasLayout(){return {
       rows:9,framesPerRow:19,
       states:STATES.map(x=>({...x})),
-      directionalReady:Boolean(config&&config.atlas&&config.atlas.directional_rows),
+      directionalReady:Boolean(config&&config.directional_walk),
+      directionalSource:config&&config.directional_walk ? {...config.directional_walk} : null,
       characterAliases:(config&&config.atlas&&config.atlas.character_aliases)||{}
     };},
     get navigationMode(){return "grid-a-star-semantic-v6";},
