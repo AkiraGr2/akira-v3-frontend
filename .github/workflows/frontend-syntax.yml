@@ -238,6 +238,10 @@ jobs:
           if (!office.includes("paused")) throw new Error("office pause state missing");
           if (!office.includes("requestAnimationFrame(animate)")) throw new Error("living office animation loop missing");
           if (!office.includes("if(ar.ok || tr.ok) lastPoll=Date.now()")) throw new Error("office sync timestamp must represent a successful read");
+          if (!office.includes("const IDLE_AMBIENT_GAP_MS = 28000")) throw new Error("idle ambient cadence must be explicit");
+          if (!office.includes("function ambientMoverCount()")) throw new Error("idle ambient concurrency guard missing");
+          if (office.includes("function randomIdleTarget")) throw new Error("random idle wandering must not return");
+          if (!office.includes("function createOfficeLife(profile)")) throw new Error("office-life environment layer missing");
 
           if (!missions.includes('setMissionActionBusy(id, "execute")')) throw new Error("mission execution lock missing");
           if (!missions.includes('actionBusyFor(id, "execute") ? "disabled" : ""')) throw new Error("mission execute button must disable while busy");
