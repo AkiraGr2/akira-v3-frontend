@@ -4067,7 +4067,7 @@ function _updateMembraneStats() {
   if (membraneError) {
     el.textContent =
       "⚠ CEREBRO 2D · " + String(membraneError).slice(0, 140) +
-      " · toca ACTUALIZAR para reintentar";
+      " · reintento automático";
   } else {
     el.textContent =
       nodesCount +
