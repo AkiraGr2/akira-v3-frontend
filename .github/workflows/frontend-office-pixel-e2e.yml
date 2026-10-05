@@ -131,12 +131,6 @@ jobs:
             if(!String(domState.sceneSource||"").endsWith("01_akira_office_floor_v5_doors.png")){
               throw new Error("Clean V3 Akira V5 office floor was not loaded: "+JSON.stringify(domState.sceneSource));
             }
-            if(!String(domState.assetSheetSource||"").endsWith("02_akira_office_assets_v5.png")){
-              throw new Error("Akira V5 supplemental asset sheet was not loaded: "+JSON.stringify(domState.assetSheetSource));
-            }
-            if(!Array.isArray(domState.doors) || domState.doors.length < 8){
-              throw new Error("V5 physical door contract is missing: "+JSON.stringify(domState.doors));
-            }
             if(!String(domState.atlasSource||"").endsWith("02_office_agents_atlas_v3_clean4.png")){
               throw new Error("V3 clean4 agent atlas was not loaded: "+JSON.stringify(domState.atlasSource));
             }
@@ -182,6 +176,16 @@ jobs:
 
             if(assets.some(x=>!x.ok || x.size<100 || x.signature[0]!==137 || x.signature[1]!==80 || x.signature[2]!==78 || x.signature[3]!==71)){
               throw new Error("Authored Pixel Office asset delivery failed: "+JSON.stringify(assets));
+            }
+            if(!assets.find(x=>x.path==="assets/office/02_akira_office_assets_v5.png" && x.ok && x.size>100)){
+              throw new Error("Akira V5 supplemental asset sheet delivery failed: "+JSON.stringify(assets));
+            }
+            const runtimeConfig=await page.evaluate(async () => {
+              const r=await fetch("assets/office/office_runtime_v5.json",{cache:"no-store"});
+              return {ok:r.ok,data:r.ok?await r.json():null};
+            });
+            if(!runtimeConfig.ok || !runtimeConfig.data || !Array.isArray(runtimeConfig.data.doors) || runtimeConfig.data.doors.length < 8){
+              throw new Error("V5 runtime door contract failed: "+JSON.stringify(runtimeConfig));
             }
 
             const layout=await page.$eval("#officePixelCanvas",el=>{
