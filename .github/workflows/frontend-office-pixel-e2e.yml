@@ -126,7 +126,7 @@ jobs:
             if(domState.artSource!=="LargePixelOffice.png" && domState.artSource!=="PixelOffice.png"){
               throw new Error("Authored Pixel Office artwork was not loaded: "+JSON.stringify(domState.artSource));
             }
-            if(!domState.states || domState.states.researcher!=="working" || domState.states.developer!=="working" || domState.states.selftest_agent!=="disabled"){
+            if(!domState.states || domState.states.Luna!=="working" || domState.states.Nexo!=="working" || domState.states.Dante!=="disabled"){
               throw new Error("Pixel Office state synchronization failed: "+JSON.stringify(domState.states));
             }
 
