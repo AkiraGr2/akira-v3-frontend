@@ -5,6 +5,35 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Akira</title>
 <script>
+/* AKIRA EARLY CACHE RECOVERY
+ * Retire any legacy service worker/cache before the application modules boot.
+ * sw.js is intentionally kept in the repository as a kill-switch target so
+ * old registrations can update and unregister themselves.
+ */
+(function(){
+  try{
+    if("serviceWorker" in navigator && navigator.serviceWorker.getRegistrations){
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        return Promise.all(regs.map(function(r){
+          try{return r.unregister();}catch(_){return false;}
+        }));
+      }).then(function(){
+        if(window.caches && caches.keys){
+          return caches.keys().then(function(keys){
+            return Promise.all(keys.map(function(k){return caches.delete(k);}));
+          });
+        }
+      }).catch(function(){});
+    } else if(window.caches && caches.keys){
+      caches.keys().then(function(keys){
+        return Promise.all(keys.map(function(k){return caches.delete(k);}));
+      }).catch(function(){});
+    }
+  }catch(_){}
+})();
+</script>
+
+<script>
 /* AKIRA CACHE GUARD
  * GitHub Pages may serve an older index from browser/CDN cache. The guard asks
  * for a cache-busted build manifest before the app boots; on mismatch it moves
@@ -12,9 +41,10 @@
  */
 (function(){
   var PARAM="akira_build";
+  var current="";
   try{
     var u=new URL(window.location.href);
-    if(u.searchParams.has(PARAM)) return;
+    current=u.searchParams.get(PARAM)||"";
   }catch(_){}
 
   fetch("./build-version.json?t="+Date.now(),{
@@ -25,7 +55,7 @@
     return r.json();
   }).then(function(m){
     var latest=String(m&&m.version||"").trim();
-    if(!latest) return;
+    if(!latest || latest===current) return;
     var u=new URL(window.location.href);
     u.searchParams.set(PARAM,latest);
     window.location.replace(u.toString());
