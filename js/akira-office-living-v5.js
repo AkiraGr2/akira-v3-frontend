@@ -877,7 +877,8 @@
 
         for(let sx=0;sx<scratch.width;sx++){
           const frameIndex=ownerByX[sx];
-          const localX=padX+(sx-centerRounded[frameIndex]);
+          const sourceX0=Math.round(centerRounded[frameIndex]-cropW/2);
+          const localX=padX+(sx-sourceX0);
           if(localX<0||localX>=frameW)continue;
 
           const si=rowBase+sx*4;
