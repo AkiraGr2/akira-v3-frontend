@@ -31,6 +31,22 @@
     {name:"Dante",role:"Desactivado",color:"#6d7185",home:[4,16],disabled:true}
   ];
 
+  /* Explicit visual-persona <-> backend-agent identity map. */
+  const BACKEND_FOR_DESIGN=Object.freeze({
+    Akira:"internal",
+    Luna:"researcher",
+    Nexo:"developer",
+    Nova:"graph_builder",
+    Orion:"reviewer",
+    Kaori:"memorizer",
+    Zeri:"tester",
+    Lyra:"learner",
+    Dante:"selftest_agent"
+  });
+  const DESIGN_FOR_BACKEND=Object.freeze(
+    Object.fromEntries(Object.entries(BACKEND_FOR_DESIGN).map(([visual,backend])=>[backend,visual]))
+  );
+
   /* Coordinates taken from the authored Office V3.0 design map. */
   const NODES={
     entrada:[28,16],
@@ -101,8 +117,9 @@
     const s=String(a&&a.status||"").toLowerCase();
     if(s==="disabled") return "disabled";
     if(["error","failed","failure"].includes(s)) return "error";
+    const name=String(a&&a.name||"").toLowerCase();
     const active=tasks.find(t=>
-      String(t&&t.agent_name||"").toLowerCase()===String(a&&a.name||"").toLowerCase() &&
+      String(t&&t.agent_name||"").toLowerCase()===name &&
       ["pending","queued","running","working","executing","in_progress","started","active"].includes(String(t&&t.status||"").toLowerCase())
     );
     if(active || ["working","running","busy","executing"].includes(s)) return "working";
@@ -110,12 +127,12 @@
   }
 
   function syncTruth(){
-    const byName=new Map(agents.map(a=>[a.name.toLowerCase(),a]));
     agents=agents.map(a=>{
-      const real=byName.get(a.name.toLowerCase());
-      if(!real) return a;
-      return {...a,status:truthState(real),real:true,
-        task:tasks.find(t=>String(t&&t.agent_name||"").toLowerCase()===a.name.toLowerCase())||null};
+      const backendName=String(a.backendName||BACKEND_FOR_DESIGN[a.name]||a.name).toLowerCase();
+      const backendAgent=backendName ? {name:backendName,status:a.status} : null;
+      const task=tasks.find(t=>String(t&&t.agent_name||"").toLowerCase()===backendName)||null;
+      if(!a.real && !a.disabled) return {...a,task:null};
+      return {...a,status:backendAgent?truthState(backendAgent):a.status,real:a.real,task};
     });
   }
 
@@ -132,9 +149,11 @@
         const real=Array.isArray(data&&data.agents)?data.agents:[];
         const realByName=new Map(real.map(r=>[String(r.name||"").toLowerCase(),r]));
         agents=DESIGN.map(d=>{
-          const r=realByName.get(d.name.toLowerCase());
+          const backendName=BACKEND_FOR_DESIGN[d.name];
+          const r=realByName.get(String(backendName||"").toLowerCase());
           return {
             ...d,
+            backendName:backendName||d.name,
             status:r?truthState(r):(d.disabled?"disabled":"idle"),
             real:Boolean(r),
             task:null,
@@ -441,6 +460,7 @@
     get agentCount(){return agents.filter(a=>a.real).length;},
     get designCount(){return DESIGN.length;},
     get states(){return Object.fromEntries(agents.map(a=>[a.name,a.status]));},
+    get identityMap(){return {...BACKEND_FOR_DESIGN};},
     get truthSummary(){return {...truthSummary};}
   };
 })();
