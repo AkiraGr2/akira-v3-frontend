@@ -916,15 +916,68 @@
     return true;
   }
 
-  function chooseAnimation(animations, patterns){
-    if(!Array.isArray(animations) || !animations.length) return null;
-    const normalized=animations.map(a=>({clip:a,name:String(a.name||"").toLowerCase()}));
-    for(const pattern of patterns){
-      const p=String(pattern).toLowerCase();
-      const hit=normalized.find(x=>x.name===p || x.name.includes(p));
-      if(hit) return hit.clip;
-    }
-    return animations[0];
+  const MODEL_TARGET_HEIGHTS=Object.freeze({
+    business:1.80,
+    woman:1.70,
+    hoodie:1.78,
+    worker:1.76
+  });
+
+  function resolveClip(clips, canonical){
+    if(!Array.isArray(clips) || !clips.length) return null;
+    const exact="CharacterArmature|"+canonical;
+    const wanted=String(canonical).toLowerCase();
+    return clips.find(c=>String(c && c.name || "")===exact)
+      || clips.find(c=>String(c && c.name || "").endsWith("|"+canonical))
+      || clips.find(c=>String(c && c.name || "").toLowerCase()===wanted)
+      || null;
+  }
+
+  function updateSkinnedBounds(root){
+    root.updateMatrixWorld(true);
+    root.traverse(obj=>{
+      if(!obj.isSkinnedMesh) return;
+      try{ obj.skeleton.update(); }catch(_){}
+      try{ obj.boundingBox=null; }catch(_){}
+      obj.frustumCulled=false;
+    });
+  }
+
+  function measureObject(root){
+    updateSkinnedBounds(root);
+    const box=new THREE.Box3().setFromObject(root);
+    const size=box.getSize(new THREE.Vector3());
+    return {
+      box,
+      size,
+      height:Math.max(0,size.y),
+      width:Math.max(0,size.x),
+      depth:Math.max(0,size.z)
+    };
+  }
+
+  function calibrateCharacterModel(model,targetHeight){
+    const metrics=measureObject(model);
+    const scale=metrics.height>0 ? targetHeight/metrics.height : 1;
+    model.scale.setScalar(scale);
+    model.position.set(0,0,0);
+    model.updateMatrixWorld(true);
+    updateSkinnedBounds(model);
+
+    const fitted=new THREE.Box3().setFromObject(model);
+    model.position.y += -fitted.min.y;
+    model.updateMatrixWorld(true);
+
+    return {
+      height:fitted.max.y-fitted.min.y,
+      width:fitted.max.x-fitted.min.x,
+      depth:fitted.max.z-fitted.min.z,
+      orientation:"native",
+      rotation:[0,0,0],
+      scale,
+      targetHeight,
+      footY:-fitted.min.y
+    };
   }
 
   function prepareTemplate(gltf){
@@ -933,11 +986,14 @@
       if(obj.isMesh){
         obj.castShadow=true;
         obj.receiveShadow=true;
+        if(obj.isSkinnedMesh) obj.frustumCulled=false;
       }
     });
+    const metrics=measureObject(root);
     return {
       scene:root,
-      animations:Array.isArray(gltf.animations)?gltf.animations:[]
+      animations:Array.isArray(gltf.animations)?gltf.animations:[],
+      sourceMetrics:metrics
     };
   }
 
@@ -974,6 +1030,8 @@
     root.scale.setScalar(.92);
 
     const model=skeletonClone(template.scene);
+    const characterTargetHeight=MODEL_TARGET_HEIGHTS[key] || 1.75;
+    const characterCalibration=calibrateCharacterModel(model,characterTargetHeight);
     const tint=AGENT_COLORS[agents.indexOf(agent)%AGENT_COLORS.length];
     model.traverse(obj=>{
       if(!obj.isMesh) return;
@@ -988,23 +1046,30 @@
     root.add(model);
 
     const mixer=new THREE.AnimationMixer(model);
-    const idle=chooseAnimation(template.animations,["idle_loop","idle","idle_2"]);
-    const walk=chooseAnimation(template.animations,["walk_loop","walk","run"]);
-    const work=chooseAnimation(template.animations,["work","typing","interact","use","talk"]);
-    const sitEnter=chooseAnimation(template.animations,["sitting_enter","sitdown","sit_down"]);
-    const sitIdle=chooseAnimation(template.animations,["sitting_idle","sit_idle","sitting"]);
-    const sitTalk=chooseAnimation(template.animations,["sitting_talking","sit_talk","talking"]);
-    const sitExit=chooseAnimation(template.animations,["sitting_exit","situp","stand_up"]);
-    const talk=chooseAnimation(template.animations,["talk","talking","idle_2","idle"]);
+    const idle=resolveClip(template.animations,"Idle");
+    const walk=resolveClip(template.animations,"Walk");
+    const run=resolveClip(template.animations,"Run");
+    const sitEnter=resolveClip(template.animations,"SitDown");
+    const sitIdle=resolveClip(template.animations,"Sitting_Idle") || resolveClip(template.animations,"Sitting");
+    const sitTalk=resolveClip(template.animations,"SittingTalking");
+    const sitExit=resolveClip(template.animations,"StandUp");
+    const talk=resolveClip(template.animations,"Talk");
+    const work=resolveClip(template.animations,"Interact")
+      || resolveClip(template.animations,"Working")
+      || resolveClip(template.animations,"Typing");
 
     const actor={
       agent,
       root,
       model,
       mixer,
-      clips:{idle,walk,work,sitEnter,sitIdle,sitTalk,sitExit,talk},
+      clips:{idle,walk,run,work,sitEnter,sitIdle,sitTalk,sitExit,talk},
+      clipNames:template.animations.map(clip=>String(clip && clip.name || "")).filter(Boolean),
+      calibration:characterCalibration,
       action:null,
-      target:stationFor(agent),
+      canSit:Boolean(sitEnter || sitIdle),
+      actionRole:work ? "activity" : "idle_only",
+      target:(sitEnter || sitIdle) ? stationFor(agent) : workZoneFor(agent),
       targetMode:"station",
       desiredState:agentState(agent),
       speed:1.15+(agents.indexOf(agent)%3)*.10,
@@ -1014,7 +1079,7 @@
       ambientHoldUntil:0,
       ambientNextAt:performance.now()+18000+agents.indexOf(agent)*2600,
       baseScale:.92,
-      seated:true,
+      seated:false,
       transitionUntil:0,
       transitionKind:"",
       ambientPath:[],
@@ -1076,7 +1141,7 @@
   }
 
   function beginSit(actor,now){
-    if(!actor || actor.seated || actor.transitionKind==="sit") return;
+    if(!actor || !actor.canSit || actor.seated || actor.transitionKind==="sit") return;
     const seat=stationFor(actor.agent);
     actor.root.position.copy(seat);
     actor.root.position.y=.2;
@@ -1108,7 +1173,7 @@
       return;
     }
     if(s==="working"){
-      actor.target=stationFor(actor.agent);
+      actor.target=actor.canSit ? stationFor(actor.agent) : workZoneFor(actor.agent);
       actor.targetMode="work";
       actor.ambientPath=[];
       return;
@@ -1122,14 +1187,14 @@
       if(distance(actor.root.position,actor.target)<.42 && actor.ambientPathIndex>=actor.ambientPath.length-1){
         actor.targetMode="ambient-return";
         actor.ambientStage="return";
-        actor.target=stationFor(actor.agent);
+        actor.target=actor.canSit ? stationFor(actor.agent) : workZoneFor(actor.agent);
         actor.ambientPath=[];
       }
       return;
     }
 
     if(actor.targetMode==="ambient-return"){
-      actor.target=stationFor(actor.agent);
+      actor.target=actor.canSit ? stationFor(actor.agent) : workZoneFor(actor.agent);
       if(distance(actor.root.position,actor.target)<.42){
         actor.targetMode="station";
         actor.ambientStage="station";
@@ -1140,10 +1205,10 @@
     }
 
     actor.targetMode="station";
-    actor.target=stationFor(actor.agent);
-    if(distance(actor.root.position,actor.target)<.42) beginSit(actor,now);
+    actor.target=actor.canSit ? stationFor(actor.agent) : workZoneFor(actor.agent);
+    if(actor.canSit && distance(actor.root.position,actor.target)<.42) beginSit(actor,now);
 
-    if(now>=actor.ambientNextAt && ambientMoverCount()===0 && !reducedMotion && actor.seated){
+    if(now>=actor.ambientNextAt && ambientMoverCount()===0 && !reducedMotion && (actor.seated || !actor.canSit)){
       actor.ambientTripCount=(actor.ambientTripCount||0)+1;
       const destination=ambientPointFor(actor);
       actor.ambientPath=buildAmbientPath(actor,destination);
@@ -1396,13 +1461,13 @@
     }
   }
 
-  function installControls(){
+  function installControls(profile){
     controls=new OrbitControls(camera,renderer.domElement);
     controls.enableDamping=true;
     controls.dampingFactor=.06;
-    controls.minDistance=11;
-    controls.maxDistance=24;
-    controls.target.set(0,1.4,0);
+    controls.minDistance=profile.mobile?8.5:11;
+    controls.maxDistance=profile.mobile?19:24;
+    controls.target.set(0,profile.mobile?1.05:1.4,0);
     controls.enablePan=false;
     controls.autoRotate=false;
     controls.touchAction="pan-y";
@@ -1455,6 +1520,32 @@
       get agentCount(){return agents.length;},
       get modelCount(){return modelTemplates.size;},
       get modelKeys(){return Array.from(modelTemplates.keys());},
+      get modelTargetHeights(){return Object.assign({},MODEL_TARGET_HEIGHTS);},
+      get modelAnimations(){
+        return Object.fromEntries(Array.from(modelTemplates.entries()).map(([key,t])=>[
+          key,
+          Array.isArray(t.animations)?t.animations.map(clip=>String(clip && clip.name || "")):[]
+        ]));
+      },
+      get actorDiagnostics(){
+        return Object.fromEntries(Array.from(actors.entries()).map(([name,actor])=>[
+          name,
+          {
+            desiredState:actor.desiredState,
+            targetMode:actor.targetMode,
+            seated:actor.seated,
+            canSit:actor.canSit,
+            actionRole:actor.actionRole,
+            calibration:actor.calibration,
+            clipNames:actor.clipNames,
+            poseSafe:Boolean(actor.clips.idle || actor.clips.sitIdle),
+            locomotionSafe:Boolean(actor.clips.walk),
+            workSafe:Boolean(actor.clips.work || actor.clips.sitIdle),
+            activeClip:String(actor.action && actor.action.getClip ? actor.action.getClip().name || "" : ""),
+            activeClipBlocked:/fall|death|die|sleep|lying/i.test(String(actor.action && actor.action.getClip ? actor.action.getClip().name || "" : ""))
+          }
+        ]));
+      },
       get modelErrors(){return Object.fromEntries(modelLoadErrors);},
       get modelTransports(){return Object.fromEntries(modelLoadTransports);},
       get officeAssetMode(){return officeAssetMode;},
@@ -1520,10 +1611,10 @@
       renderer.toneMappingExposure=1.22;
 
       scene=new THREE.Scene();
-      camera=new THREE.PerspectiveCamera(42,1,.1,80);
-      camera.position.set(0,9.6,17.8);
+      camera=new THREE.PerspectiveCamera(profile.mobile?40:42,1,.1,80);
+      camera.position.set(0,profile.mobile?8.0:9.6,profile.mobile?15.2:17.8);
 
-      installControls();
+      installControls(profile);
       createRoom(profile);
       installEvents();
       applyReducedMotion();
@@ -1607,6 +1698,12 @@
     updateActorGoal(actor,nowMs);
     const s=actor.desiredState;
 
+    // Never allow an arbitrary GLB clip to become a fake idle state. If the
+    // asset has no safe idle clip, its calibrated rest pose is used instead.
+    if(!actor.action && actor.clips.idle){
+      playActorClip(actor,"idle",true,.18);
+    }
+
     if(s==="disabled"){
       actor.mixer.stopAllAction();
       return;
@@ -1650,30 +1747,45 @@
         playActorClip(actor,actor.clips.talk?"talk":"idle",true,.22);
       }else if(s==="working"){
         orientToward(actor,deskFor(actor.agent),Math.min(1,delta*4));
-        if(!actor.seated){
-          beginSit(actor,nowMs);
+        if(actor.canSit){
+          if(!actor.seated){
+            beginSit(actor,nowMs);
+          }else{
+            actor.root.position.copy(stationFor(actor.agent));
+            actor.root.position.y=.2;
+            playActorClip(actor,actor.clips.sitIdle?"sitIdle":(actor.clips.work?"work":"idle"),true,.24);
+          }
         }else{
-          actor.root.position.copy(stationFor(actor.agent));
-          actor.root.position.y=.2;
-          playActorClip(actor,actor.clips.sitIdle?"sitIdle":"work",true,.24);
+          playActorClip(actor,actor.clips.work?"work":"idle",true,.24);
         }
       }else if(actor.targetMode==="ambient"){
         playActorClip(actor,"idle",true,.32);
       }else{
         orientToward(actor,deskFor(actor.agent),Math.min(1,delta*4));
-        if(!actor.seated){
-          beginSit(actor,nowMs);
+        if(actor.canSit){
+          if(!actor.seated){
+            beginSit(actor,nowMs);
+          }else{
+            actor.root.position.copy(stationFor(actor.agent));
+            actor.root.position.y=.2;
+            playActorClip(actor,actor.clips.sitIdle?"sitIdle":(actor.clips.work?"work":"idle"),true,.22);
+          }
         }else{
-          actor.root.position.copy(stationFor(actor.agent));
-          actor.root.position.y=.2;
-          playActorClip(actor,actor.clips.sitIdle?"sitIdle":"idle",true,.22);
+          playActorClip(actor,actor.clips.work?"work":"idle",true,.22);
         }
       }
     }
 
     actor.root.position.y=.2;
     const sway=(reducedMotion || !actor.seated || actor.transitionKind) ? 0 : Math.sin(nowMs*.0011+agents.indexOf(actor.agent)*.71)*.004;
-    actor.model.rotation.z=sway;
+    const baseRotation=Array.isArray(actor.calibration && actor.calibration.rotation)
+      ? actor.calibration.rotation
+      : [0,0,0];
+    actor.model.rotation.set(
+      baseRotation[0],
+      baseRotation[1],
+      baseRotation[2]+sway
+    );
     if(actor.root.userData.selected){
       actor.root.scale.setScalar(actor.baseScale*(1+(.025+Math.sin(nowMs*.004)*.012)));
     }else{
