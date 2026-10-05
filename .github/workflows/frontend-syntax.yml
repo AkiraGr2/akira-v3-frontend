@@ -301,6 +301,7 @@ jobs:
 
           if (!index.includes("https://cdn.jsdelivr.net")) throw new Error("CSP must allow the office asset CDN");
           if (!index.includes("https://raw.githubusercontent.com")) throw new Error("CSP must allow the raw GitHub fallback");
+          if (!index.includes("'wasm-unsafe-eval'")) throw new Error("CSP must allow WebAssembly required by the 3D decoder/runtime");
           if (!registry.includes("https://cdn.jsdelivr.net/gh/")) throw new Error("office assets must use jsDelivr GitHub transport");
           if (!registry.includes("yadneshSalvi/hearth-webmcp") || !registry.includes("617d6073a557cbc2f0f2ac917916e01b9c4b631b")) {
             throw new Error("office assets must use the pinned jsDelivr GitHub transport");
