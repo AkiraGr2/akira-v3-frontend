@@ -208,9 +208,33 @@ jobs:
             if(actorEntries.length !== 9){
               throw new Error("Expected diagnostics for all 9 persisted agents: "+JSON.stringify(actorDiagnostics));
             }
+
+            const modelContract = await page.evaluate(() => ({
+              heights: window.akiraOfficeLivingDebug.modelTargetHeights,
+              animations: window.akiraOfficeLivingDebug.modelAnimations
+            }));
+            const expectedHeights = {business:1.80,woman:1.70,hoodie:1.78,worker:1.76};
+            for(const key of Object.keys(expectedHeights)){
+              const actual=Number(modelContract.heights && modelContract.heights[key]);
+              if(Math.abs(actual-expectedHeights[key])>.001){
+                throw new Error("Unexpected target height for "+key+": "+JSON.stringify(modelContract.heights));
+              }
+              const names=Array.isArray(modelContract.animations && modelContract.animations[key])
+                ? modelContract.animations[key].map(v=>String(v).toLowerCase())
+                : [];
+              for(const canonical of ["idle","walk","run"]){
+                const found=names.some(n=>n==="characterarmature|"+canonical || n.endsWith("|"+canonical) || n===canonical);
+                if(!found){
+                  throw new Error("Missing required "+canonical+" clip for "+key+": "+JSON.stringify(names));
+                }
+              }
+            }
+
+            const activeClips = {};
             for(const [name,diag] of actorEntries){
               const calibration=diag && diag.calibration || {};
-              if(!Number.isFinite(calibration.height) || calibration.height < 1.35 || calibration.height > 2.05){
+              const expected=expectedHeights[({researcher:"business",developer:"hoodie",tester:"worker",reviewer:"business",memorizer:"woman",graph_builder:"hoodie",learner:"woman",internal:"business",selftest_agent:"worker"})[name]];
+              if(!Number.isFinite(calibration.height) || Math.abs(calibration.height-expected)>.08){
                 throw new Error("Character calibration height out of bounds for "+name+": "+JSON.stringify(diag));
               }
               if(diag.activeClipBlocked){
@@ -219,7 +243,9 @@ jobs:
               if(!Array.isArray(diag.clipNames)){
                 throw new Error("Character clip diagnostics missing for "+name);
               }
+              activeClips[name]=diag.activeClip;
             }
+            console.log("OFFICE_CHARACTER_DIAGNOSTICS="+JSON.stringify({modelContract,actorDiagnostics,activeClips}));
 
             const states = await page.evaluate(() => window.akiraOfficeLivingDebug.states);
             if(states.researcher !== "briefing") throw new Error("Researcher should enter a real-task briefing state");
