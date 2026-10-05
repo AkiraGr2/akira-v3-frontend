@@ -100,6 +100,57 @@ jobs:
             });
 
             await page.click("#btn-office");
+
+            // The production default is Pixel. Verify the mobile layout first:
+            // the Pixel canvas must be laid out and the state panel must sit
+            // below it rather than overlapping the visual stage.
+            await page.setViewportSize({width:390,height:844});
+            await page.waitForSelector("#officePixelCanvas", {state:"visible",timeout:10000});
+            await page.waitForFunction(() => {
+              const canvas=document.getElementById("officePixelCanvas");
+              const stage=document.getElementById("officePixelStage");
+              const side=document.querySelector("#officeSection .office-v2-side");
+              if(!canvas || !stage || !side) return false;
+              const c=canvas.getBoundingClientRect();
+              const s=stage.getBoundingClientRect();
+              const p=side.getBoundingClientRect();
+              let painted=false;
+              try{
+                const gl=canvas.getContext("2d");
+                const px=gl && gl.getImageData(32,32,1,1).data;
+                painted=Boolean(px && px[3]>0);
+              }catch(_){}
+              return c.width>300 && c.height>300 && p.top >= s.bottom-1 && painted;
+            }, null, {timeout:15000});
+
+            const pixelLayout = await page.$eval("#officePixelCanvas", el => {
+              const c=el.getBoundingClientRect();
+              const stage=document.getElementById("officePixelStage").getBoundingClientRect();
+              const side=document.querySelector("#officeSection .office-v2-side").getBoundingClientRect();
+              const ctx=el.getContext("2d");
+              const px=ctx ? Array.from(ctx.getImageData(32,32,1,1).data) : [];
+              return {
+                canvas:{width:c.width,height:c.height},
+                stage:{top:stage.top,bottom:stage.bottom},
+                side:{top:side.top,bottom:side.bottom},
+                sample:px
+              };
+            });
+            console.log("PIXEL_OFFICE_MOBILE_LAYOUT="+JSON.stringify(pixelLayout));
+            if(pixelLayout.canvas.width<300 || pixelLayout.canvas.height<300){
+              throw new Error("Pixel Office canvas is too small on mobile");
+            }
+            if(pixelLayout.side.top < pixelLayout.stage.bottom-1){
+              throw new Error("Pixel Office state panel overlaps the visual stage on mobile");
+            }
+            if(!pixelLayout.sample.length || pixelLayout.sample[3]===0){
+              throw new Error("Pixel Office canvas did not paint after reveal");
+            }
+
+            // The living 3D office remains available as the alternate view and
+            // is the target of the existing asset/animation contract checks.
+            await page.setViewportSize({width:1440,height:900});
+            await page.click("#office3dMode");
             await page.waitForSelector("#officeCanvas", {state:"visible",timeout:10000});
 
             await page.waitForFunction(() => {
