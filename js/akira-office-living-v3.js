@@ -62,6 +62,91 @@
     });
   }
 
+  function backendStateFor(a){
+    const s=String(a&&a.status||"").toLowerCase();
+    if(s==="disabled")return"disabled";
+    if(["error","failed","failure"].includes(s))return"error";
+    if(["working","running","busy","executing","active"].includes(s))return"working";
+    const n=String(a&&a.name||"").toLowerCase();
+    return tasks.some(t=>
+      String(t&&t.agent_name||"").toLowerCase()===n &&
+      ["pending","queued","running","working","executing","in_progress","started","active"].includes(String(t&&t.status||"").toLowerCase())
+    )?"working":"idle";
+  }
+
+  async function pollTruth(){
+    try{
+      const backend=backendUrl();
+      const [ar,tr]=await Promise.all([
+        fetch(backend+"/api/v8/agents",{headers:authHeaders(),cache:"no-store"}),
+        fetch(backend+"/api/v8/tasks?limit=100",{headers:authHeaders(),cache:"no-store"})
+      ]);
+
+      if(tr.ok){
+        const td=await tr.json();
+        tasks=Array.isArray(td&&td.tasks)?td.tasks:[];
+      }
+      if(ar.ok){
+        const ad=await ar.json();
+        const real=Array.isArray(ad&&ad.agents)?ad.agents:[];
+        const byName=new Map(real.map(a=>[String(a.name||"").toLowerCase(),a]));
+        agents.forEach(a=>{
+          const live=byName.get(String(a.backend||"").toLowerCase());
+          a.backendState=live?backendStateFor(live):"unknown";
+          if(a.actionPhase==="home"){
+            a.state=a.backendState==="working"?"work":a.backendState==="error"?"reaction":"idle";
+          }
+        });
+        truth.loaded=true;
+        truth.total=real.length;
+        truth.working=real.filter(a=>backendStateFor(a)==="working").length;
+        truth.error=real.filter(a=>backendStateFor(a)==="error").length;
+        truth.disabled=real.filter(a=>backendStateFor(a)==="disabled").length;
+        truth.idle=truth.total-truth.working-truth.error-truth.disabled;
+      }
+      renderSidePanel();
+      renderHud();
+    }catch(_){renderHud();}
+  }
+
+  function renderHud(){
+    const hud=el("officePixelHud");
+    if(hud){
+      hud.innerHTML=truth.loaded
+        ? "<strong>AKIRA PROJECT</strong><br>"+truth.total+" registrados · "+truth.working+" trabajando · "+truth.idle+" disponibles"
+        : "<strong>AKIRA PROJECT · V3</strong><br>Estado backend pendiente";
+    }
+    const ev=el("officePixelEvent");
+    if(ev)ev.textContent=eventText;
+  }
+
+  function renderSidePanel(){
+    const total=el("officeTotal"),working=el("officeWorking"),idle=el("officeIdle"),errors=el("officeErrors"),sync=el("officeSync"),list=el("officeAgentList");
+    if(total)total.textContent=truth.loaded?String(truth.total):"—";
+    if(working)working.textContent=truth.loaded?String(truth.working):"—";
+    if(idle)idle.textContent=truth.loaded?String(truth.idle):"—";
+    if(errors)errors.textContent=truth.loaded?String(truth.error):"—";
+    if(sync)sync.textContent=truth.loaded?new Date().toLocaleTimeString():"—";
+    if(!list)return;
+    list.innerHTML=agents.map(a=>{
+      const status=a.backendState==="working"?"Trabajando":a.backendState==="error"?"Error":a.status==="disabled"?"Desactivado":a.backendState==="idle"?"Disponible":"Sin confirmar";
+      return '<button type="button" class="office-agent-row" data-office-agent="'+a.name+'">'+
+        '<span class="office-agent-dot '+(a.backendState||"idle")+'"></span>'+
+        '<span>'+a.name+'</span><small>'+status+'</small></button>';
+    }).join("");
+    list.querySelectorAll("[data-office-agent]").forEach(b=>{
+      b.addEventListener("click",()=>{
+        selectedName=b.dataset.officeAgent||"";
+        const a=agents.find(x=>x.name===selectedName);
+        if(a){
+          say(a.name+" · "+a.role+" · ("+a.world[0].toFixed(1)+", "+a.world[1].toFixed(1)+")");
+          const detail=el("officeAgentDetail");
+          if(detail)detail.innerHTML="<strong>"+a.name+"</strong><br>"+a.role+"<br>Coordenada actual: ("+a.world[0].toFixed(1)+", "+a.world[1].toFixed(1)+")";
+        }
+      });
+    });
+  }
+
   const WALK_PX_PER_SEC=74;
   const WALK_FRAME_MS=0.24;
   const PATH_CELL=24;
