@@ -31,7 +31,7 @@ jobs:
           mkdir -p assets/office assets/characters
           base1="https://raw.githubusercontent.com/yadneshSalvi/hearth-webmcp/617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb"
           base2="https://raw.githubusercontent.com/techdou/lumen-gallery/1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters"
-          for f in desk-kari.glb chair-olve.glb shelf-kant.glb floor-lamp-arc.glb plant-fern.glb armchair-kyst.glb table-rove.glb decor-vase.glb; do
+          for f in desk-kari.glb chair-olve.glb shelf-kant.glb floor-lamp-arc.glb plant-fern.glb armchair-kyst.glb table-rove.glb decor-vase.glb sofa-liva.glb wardrobe-hald.glb rug-loop.glb table-lamp-alva.glb plant-fig.glb plant-palm.glb decor-bowl.glb decor-sculpture.glb table-ake.glb chair-finn.glb; do
             curl --fail --location --retry 3 --retry-all-errors --connect-timeout 10 --max-time 60 "$base1/$f" -o "assets/office/$f"
             test -s "assets/office/$f"
           done
