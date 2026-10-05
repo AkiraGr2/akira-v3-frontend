@@ -940,6 +940,28 @@
     return null;
   }
 
+  function sanitizeInPlaceClip(clip){
+    if(!clip || !Array.isArray(clip.tracks)) return null;
+    const cloneTracks=clip.tracks.map(track=>{
+      const cloned=typeof track.clone==="function" ? track.clone() : track;
+      const name=String(track.name||"").toLowerCase();
+      const rootMotionTrack=/\.(position|translation)$/.test(name) && /(root|hips|hip|pelvis|armature)/.test(name);
+      if(rootMotionTrack && cloned.values && cloned.values.length>=3){
+        const size=Number(cloned.getValueSize ? cloned.getValueSize() : 3);
+        if(size===3){
+          const baseX=cloned.values[0];
+          const baseZ=cloned.values[2];
+          for(let i=0;i+2<cloned.values.length;i+=3){
+            cloned.values[i]=baseX;
+            cloned.values[i+2]=baseZ;
+          }
+        }
+      }
+      return cloned;
+    });
+    return new THREE.AnimationClip(clip.name,clip.duration,cloneTracks);
+  }
+
   function measureObject(root){
     root.updateMatrixWorld(true);
     const box=new THREE.Box3().setFromObject(root);
@@ -1105,7 +1127,16 @@
       root,
       model,
       mixer,
-      clips:{idle,walk,work,sitEnter,sitIdle,sitTalk,sitExit,talk},
+      clips:{
+        idle:sanitizeInPlaceClip(idle),
+        walk:sanitizeInPlaceClip(walk),
+        work:sanitizeInPlaceClip(work),
+        sitEnter:sanitizeInPlaceClip(sitEnter),
+        sitIdle:sanitizeInPlaceClip(sitIdle),
+        sitTalk:sanitizeInPlaceClip(sitTalk),
+        sitExit:sanitizeInPlaceClip(sitExit),
+        talk:sanitizeInPlaceClip(talk)
+      },
       clipNames:template.animations.map(clip=>String(clip && clip.name || "")).filter(Boolean),
       calibration:characterCalibration,
       action:null,
@@ -1792,7 +1823,7 @@
         }else{
           actor.root.position.copy(stationFor(actor.agent));
           actor.root.position.y=.2;
-          playActorClip(actor,actor.clips.sitIdle?"sitIdle":"work",true,.24);
+          playActorClip(actor,actor.clips.work?"work":(actor.clips.sitIdle?"sitIdle":"idle"),true,.24);
         }
       }else if(actor.targetMode==="ambient"){
         playActorClip(actor,"idle",true,.32);
@@ -1803,7 +1834,7 @@
         }else{
           actor.root.position.copy(stationFor(actor.agent));
           actor.root.position.y=.2;
-          playActorClip(actor,actor.clips.sitIdle?"sitIdle":"idle",true,.22);
+          playActorClip(actor,actor.clips.sitIdle?"sitIdle":(actor.clips.work?"work":"idle"),true,.22);
         }
       }
     }
