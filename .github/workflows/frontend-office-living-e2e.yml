@@ -66,10 +66,15 @@ jobs:
                 contentType:"application/json",
                 body:JSON.stringify({
                   agents:[
-                    {name:"researcher",role:"Investigación",status:"idle",allowed_tools:["web_search","memory_search"]},
-                    {name:"developer",role:"Desarrollo",status:"idle",allowed_tools:["github_repo_read","developer_propose"]},
-                    {name:"reviewer",role:"Revisión",status:"idle",allowed_tools:["github_repo_read","python_test","code_review"]},
-                    {name:"learner",role:"Aprendizaje",status:"idle",allowed_tools:["learning_save","memory_save"]}
+                    {name:"researcher",role:"researcher",status:"idle",allowed_tools:["web_search","memory_search","github_repo_read"]},
+                    {name:"developer",role:"developer",status:"idle",allowed_tools:["github_repo_read","developer_propose"]},
+                    {name:"tester",role:"tester",status:"idle",allowed_tools:["github_repo_read","python_test"]},
+                    {name:"reviewer",role:"reviewer",status:"idle",allowed_tools:["github_repo_read","python_test","code_review"]},
+                    {name:"memorizer",role:"memorizer",status:"idle",allowed_tools:["memory_save","memory_search"]},
+                    {name:"graph_builder",role:"graph_builder",status:"idle",allowed_tools:["graph_create_node","graph_create_edge","graph_related"]},
+                    {name:"learner",role:"learner",status:"idle",allowed_tools:["learning_save","memory_save"]},
+                    {name:"internal",role:"internal",status:"idle",allowed_tools:["self_model_read","cognitive_cycle"]},
+                    {name:"selftest_agent",role:"generic",status:"disabled",allowed_tools:["memory_save","memory_search"]}
                   ]
                 })
               });
@@ -101,7 +106,8 @@ jobs:
               return Boolean(
                 window.akiraOfficeLivingDebug &&
                 window.akiraOfficeLivingDebug.initialized &&
-                window.akiraOfficeLivingDebug.actorCount >= 4
+                window.akiraOfficeLivingDebug.agentCount === 9 &&
+                window.akiraOfficeLivingDebug.actorCount === 9
               );
             }, null, {timeout:30000});
 
@@ -136,6 +142,8 @@ jobs:
                 const d = window.akiraOfficeLivingDebug;
                 return Boolean(
                   d &&
+                  d.agentCount === 9 &&
+                  d.actorCount === 9 &&
                   d.modelCount >= 4 &&
                   d.officeAssetCount > 0 &&
                   d.officeAssetMode === true &&
@@ -144,7 +152,8 @@ jobs:
                   d.modelKeys.includes("hoodie") &&
                   d.modelKeys.includes("worker") &&
                   d.officeAssetKeys.includes("desk") &&
-                  d.officeAssetKeys.includes("chair")
+                  d.officeAssetKeys.includes("chair") &&
+                  d.states.selftest_agent === "disabled"
                 );
               }, null, {timeout:60000});
             }catch(err){
