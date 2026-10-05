@@ -326,6 +326,7 @@
         durationMs:0,
         facing:1,
         direction:"down",
+        lastDirection:null,
         seed:(String(c.name||"").split("").reduce((n,ch)=>n+ch.charCodeAt(0),0)%997)
       };
     });
@@ -672,6 +673,11 @@
         a.facing=dx<0?-1:1;
       }
       const dist=Math.hypot(dx,dy);
+      if(a.lastDirection!==a.direction){
+        a.lastDirection=a.direction;
+        a.frameClock=0;
+        a.frame=0;
+      }
       const step=Math.min(dist,dt*Number(config.navigation.speed_px_per_second||80));
 
       a.visualState="walk";
