@@ -31,7 +31,7 @@
   let agents=[],tasks=[];
   let truth={loaded:false,total:0,working:0,idle:0,error:0,disabled:0};
   let selectedName="";
-  let eventText="Cargando Oficina V5…";
+  let eventText="Cargando Oficina V6…";
   let navMap=null,assetSheet=null,officeClock=0;
   const doorPulse=Object.create(null);
 
@@ -62,7 +62,7 @@
       const img=new Image();
       img.onload=()=>resolve(img);
       img.onerror=()=>reject(new Error("No se pudo cargar "+src));
-      img.src=src+"?v=office-v5-runtime";
+      img.src=src+"?v=office-v6-runtime";
     });
   }
 
@@ -1050,7 +1050,7 @@
       resize();
       await pollTruth();
       render();
-      say("Oficina V5 · puertas + rutas A* + estaciones vivas + estados reales.");
+      say("Oficina V6 · estaciones semánticas + puertas + rutas seguras + estados reales.");
       last=performance.now();
       cancelAnimationFrame(raf);
       raf=requestAnimationFrame(loop);
@@ -1096,7 +1096,7 @@
       directionalReady:Boolean(config&&config.atlas&&config.atlas.directional_rows),
       characterAliases:(config&&config.atlas&&config.atlas.character_aliases)||{}
     };},
-    get navigationMode(){return "grid-a-star-stations-v5";},
+    get navigationMode(){return "grid-a-star-semantic-v6";},
     get walkSpeed(){return Number(config&&config.navigation&&config.navigation.speed_px_per_second||80);},
     get grid(){
       return navMap?{width:navMap.width,height:navMap.height,tile:navMap.tile,blocked:navMap.blocked.size}:null;
