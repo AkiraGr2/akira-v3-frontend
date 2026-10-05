@@ -173,6 +173,27 @@ jobs:
               return canvas && canvas.getBoundingClientRect().width>500;
             }, null, {timeout:10000});
 
+            const before=await page.evaluate(() => {
+              const a=(window.akiraOfficePixelDebug.agents||[]).find(x=>x.name==="Akira");
+              return a ? {world:[...a.world],state:a.state} : null;
+            });
+            await page.evaluate(() => window.akiraOfficePixelCommand("mission"));
+            await page.waitForFunction((beforeWorld) => {
+              const a=(window.akiraOfficePixelDebug.agents||[]).find(x=>x.name==="Akira");
+              if(!a)return false;
+              const moved=Math.abs(a.world[0]-beforeWorld[0])>0.01 || Math.abs(a.world[1]-beforeWorld[1])>0.01;
+              return moved && (a.state==="walk" || a.state==="use" || a.state==="idle");
+            }, before.world, {timeout:12000});
+
+            const after=await page.evaluate(() => {
+              const a=(window.akiraOfficePixelDebug.agents||[]).find(x=>x.name==="Akira");
+              return a ? {world:[...a.world],state:a.state} : null;
+            });
+            if(!before || !after) throw new Error("Akira debug state missing");
+            if(before.world[0]===after.world[0] && before.world[1]===after.world[1]){
+              throw new Error("Akira did not move after Mission command");
+            }
+
             await page.click("#officeRefresh");
             await page.click("#officePause");
             const paused=await page.$eval("#officePause",el=>({text:el.textContent,pressed:el.getAttribute("aria-pressed")}));
