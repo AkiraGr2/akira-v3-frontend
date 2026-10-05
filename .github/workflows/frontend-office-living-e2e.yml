@@ -24,6 +24,21 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Prepare local Office assets
+        run: |
+          set -euo pipefail
+          mkdir -p assets/office assets/characters
+          base1="https://raw.githubusercontent.com/yadneshSalvi/hearth-webmcp/617d6073a557cbc2f0f2ac917916e01b9c4b631b/public/assets/glb"
+          base2="https://raw.githubusercontent.com/techdou/lumen-gallery/1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters"
+          for f in desk-kari.glb chair-olve.glb shelf-kant.glb floor-lamp-arc.glb plant-fern.glb armchair-kyst.glb table-rove.glb decor-vase.glb; do
+            curl --fail --location --retry 3 --retry-all-errors --connect-timeout 10 --max-time 60 "$base1/$f" -o "assets/office/$f"
+            test -s "assets/office/$f"
+          done
+          for f in business-man.glb casual-woman.glb casual-man.glb worker.glb; do
+            curl --fail --location --retry 3 --retry-all-errors --connect-timeout 10 --max-time 60 "$base2/$f" -o "assets/characters/$f"
+            test -s "assets/characters/$f"
+          done
+
       - name: Serve checked-out frontend
         run: |
           python3 -m http.server 4173 --directory . > /tmp/akira-office-pages.log 2>&1 &
@@ -44,8 +59,6 @@ jobs:
 
             const errors = [];
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
-
-            await page.route("https://cdn.jsdelivr.net/**/*.glb", route => route.abort());
 
             await page.route("https://akira-empresa.onrender.com/api/v8/agents", route => {
               route.fulfill({
@@ -106,17 +119,17 @@ jobs:
                 d.officeAssetKeys.includes("desk") &&
                 d.officeAssetKeys.includes("chair")
               );
-            }, null, {timeout:60000});
+            }, null, {timeout:45000});
 
             const transports = await page.evaluate(() => ({
               model: window.akiraOfficeLivingDebug.modelTransports,
               office: window.akiraOfficeLivingDebug.officeAssetTransports
             }));
-            if(Object.values(transports.model).some(v => v !== "rawgithub")){
-              throw new Error("Character fallback transport was not exercised");
+            if(Object.values(transports.model).some(v => v !== "local")){
+              throw new Error("Published-style local character assets were not used");
             }
-            if(Object.values(transports.office).some(v => v !== "rawgithub")){
-              throw new Error("Office fallback transport was not exercised");
+            if(Object.values(transports.office).some(v => v !== "local")){
+              throw new Error("Published-style local office assets were not used");
             }
 
             const states = await page.evaluate(() => window.akiraOfficeLivingDebug.states);
@@ -153,7 +166,7 @@ jobs:
               throw new Error("Unexpected page errors: " + errors.slice(0,5).join(" | "));
             }
 
-            console.log("OFFICE_LIVING_E2E_PASS asset_fallback=rawgithub");
+            console.log("OFFICE_LIVING_E2E_PASS local_assets=true");
             await browser.close();
           })().catch(err => {
             console.error(err);
