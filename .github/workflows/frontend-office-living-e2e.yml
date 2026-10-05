@@ -45,6 +45,8 @@ jobs:
             const errors = [];
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
 
+            await page.route("https://cdn.jsdelivr.net/**/*.glb", route => route.abort());
+
             await page.route("https://akira-empresa.onrender.com/api/v8/agents", route => {
               route.fulfill({
                 status:200,
@@ -90,6 +92,33 @@ jobs:
               );
             }, null, {timeout:30000});
 
+            await page.waitForFunction(() => {
+              const d = window.akiraOfficeLivingDebug;
+              return Boolean(
+                d &&
+                d.modelCount >= 4 &&
+                d.officeAssetCount > 0 &&
+                d.officeAssetMode === true &&
+                d.modelKeys.includes("business") &&
+                d.modelKeys.includes("woman") &&
+                d.modelKeys.includes("hoodie") &&
+                d.modelKeys.includes("worker") &&
+                d.officeAssetKeys.includes("desk") &&
+                d.officeAssetKeys.includes("chair")
+              );
+            }, null, {timeout:60000});
+
+            const transports = await page.evaluate(() => ({
+              model: window.akiraOfficeLivingDebug.modelTransports,
+              office: window.akiraOfficeLivingDebug.officeAssetTransports
+            }));
+            if(Object.values(transports.model).some(v => v !== "rawgithub")){
+              throw new Error("Character fallback transport was not exercised");
+            }
+            if(Object.values(transports.office).some(v => v !== "rawgithub")){
+              throw new Error("Office fallback transport was not exercised");
+            }
+
             const states = await page.evaluate(() => window.akiraOfficeLivingDebug.states);
             if(states.researcher !== "briefing") throw new Error("Researcher should enter a real-task briefing state");
             if(states.developer !== "briefing") throw new Error("Developer should enter a real-task briefing state");
@@ -124,7 +153,7 @@ jobs:
               throw new Error("Unexpected page errors: " + errors.slice(0,5).join(" | "));
             }
 
-            console.log("OFFICE_LIVING_E2E_PASS");
+            console.log("OFFICE_LIVING_E2E_PASS asset_fallback=rawgithub");
             await browser.close();
           })().catch(err => {
             console.error(err);
