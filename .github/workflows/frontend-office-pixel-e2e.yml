@@ -52,7 +52,7 @@ jobs:
 
             const errors = [];
             const page = await browser.newPage({
-              viewport:{width:390,height:844},
+              viewport:{width:1440,height:900},
               deviceScaleFactor:1
             });
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
@@ -98,6 +98,8 @@ jobs:
             await page.click("#btn-office");
             await page.waitForSelector("#officePixelCanvas", {state:"visible",timeout:10000});
 
+            // Now exercise the actual mobile layout after the section is open.
+            await page.setViewportSize({width:390,height:844});
             await page.waitForFunction(() => {
               const canvas=document.getElementById("officePixelCanvas");
               const stage=document.getElementById("officePixelStage");
