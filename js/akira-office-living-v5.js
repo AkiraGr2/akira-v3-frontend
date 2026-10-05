@@ -402,6 +402,23 @@
     });
   }
 
+  function findReachableRoute(start, target, maxRadius=128){
+    if(!Array.isArray(start)||!Array.isArray(target))return null;
+    const direct=aStar(start,target);
+    if(direct&&direct.length)return {points:direct,target:[...target]};
+    const radii=[16,32,48,64,80,96,112,128];
+    const offsets=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+    for(const radius of radii){
+      if(radius>maxRadius)break;
+      for(const [ox,oy] of offsets){
+        const candidate=[target[0]+ox*radius,target[1]+oy*radius];
+        const path=aStar(start,candidate);
+        if(path&&path.length)return {points:path,target:candidate};
+      }
+    }
+    return null;
+  }
+
   function routePoints(agent,targetId){
     const target=interactionPoint(targetId);
     if(!target)return null;
@@ -410,31 +427,33 @@
     const legs=[];
     let cursor=[...agent.screen];
 
-    // Home -> authored exit.
+    // Home -> authored exit. If a calibrated point is obstructed by
+    // clearance, search a small deterministic ring for the nearest safe
+    // approach instead of silently cancelling the button action.
     if(exit && Math.hypot(cursor[0]-exit[0],cursor[1]-exit[1])>8){
-      const toExit=aStar(cursor,exit);
+      const toExit=findReachableRoute(cursor,exit,96);
       if(!toExit)return null;
-      legs.push(...toExit);
-      cursor=[...toExit[toExit.length-1]];
+      legs.push(...toExit.points);
+      cursor=[...toExit.points[toExit.points.length-1]];
     }
 
     // Rooms have an explicit doorway approach. This keeps agents in the visible
     // corridors instead of letting the grid choose visually awkward shortcuts.
     const accessMap=(config.station_access||{});
     let accessId=accessMap[targetId];
-    if(!accessId && /^M\\d+$/.test(targetId))accessId=config.meeting_access;
+    if(!accessId && /^M\d+$/.test(targetId))accessId=config.meeting_access;
     const access=accessId?nodeScreen(accessId):null;
 
     if(access && Math.hypot(cursor[0]-access[0],cursor[1]-access[1])>8){
-      const toDoor=aStar(cursor,access);
+      const toDoor=findReachableRoute(cursor,access,96);
       if(!toDoor)return null;
-      legs.push(...toDoor);
-      cursor=[...toDoor[toDoor.length-1]];
+      legs.push(...toDoor.points);
+      cursor=[...toDoor.points[toDoor.points.length-1]];
     }
 
-    const toTarget=aStar(cursor,target);
+    const toTarget=findReachableRoute(cursor,target,160);
     if(!toTarget)return null;
-    legs.push(...toTarget);
+    legs.push(...toTarget.points);
 
     // Collapse collinear/grid micro-segments for natural walking.
     const out=[];
@@ -493,23 +512,31 @@
 
   function beginReturn(agent){
     const exit=nodeScreen(agent.homeNav);
-    const points=exit?aStar(agent.screen,exit):null;
-    if(!points){finishHome(agent);return;}
+    const exitRoute=exit?findReachableRoute(agent.screen,exit,96):null;
+    let route=exitRoute
+      ? exitRoute.points.map((p,i)=>({screen:[...p],id:i===exitRoute.points.length-1?agent.homeNav:null}))
+      : [];
 
-    let route=points.map((p,i)=>({screen:[...p],id:i===points.length-1?agent.homeNav:null}));
     const seat=homeSeat(agent.name);
     if(seat){
       const from=route.length?route[route.length-1].screen:agent.screen;
-      const toSeat=aStar(from,seat);
-      if(toSeat) route=route.concat(toSeat.map((p,i)=>({screen:[...p],id:i===toSeat.length-1?agent.homeNav:null,seat:i===toSeat.length-1})));
-      else route.push({screen:[...seat],id:agent.homeNav,seat:true});
-    } else {
+      const toSeat=findReachableRoute(from,seat,128);
+      if(toSeat) route=route.concat(toSeat.points.map((p,i)=>({screen:[...p],id:i===toSeat.points.length-1?agent.homeNav:null,seat:i===toSeat.points.length-1})));
+      else if(route.length) route.push({screen:[...seat],id:agent.homeNav,seat:true});
+    } else if(route.length) {
       route.push({screen:[...agent.homeVisual],id:agent.homeNav,seat:true});
     }
+
+    if(!route.length){
+      finishHome(agent);
+      return;
+    }
+
     agent.route=route;
     agent.routeIndex=0;
     agent.machine="returning";
     agent.visualState="walk";
+    agent.returnFinalDirection=(config.home_directions&&config.home_directions[agent.name])||"down";
     agent.frame=0;
     agent.frameClock=0;
   }
@@ -704,13 +731,31 @@
     }
     if(kind==="meeting"){
       const slots=(config.stations.meeting&&config.stations.meeting.ids)||[];
+      const claimed=new Set();
+      let moved=0;
       live.forEach((a,i)=>{
-        if(!slots[i])return;
-        const seat= config.meeting_seats && config.meeting_seats[slots[i]];
-        if(seat) a.direction=seat.direction||"down";
-        beginExplicitRoute(a,slots[i],"talk",6500,"");
+        const preferred=slots[i]||null;
+        const candidates=preferred
+          ? [preferred,...slots.filter(id=>id!==preferred)]
+          : slots;
+        let selected=null;
+        for(const slot of candidates){
+          if(claimed.has(slot))continue;
+          if(routePoints(a,slot)){selected=slot;break;}
+        }
+        if(!selected){
+          for(const slot of slots){
+            if(routePoints(a,slot)){selected=slot;break;}
+          }
+        }
+        if(selected){
+          claimed.add(selected);
+          const seat=config.meeting_seats&&config.meeting_seats[selected];
+          if(seat) a.direction=seat.direction||"down";
+          if(beginExplicitRoute(a,selected,"talk",6500,""))moved++;
+        }
       });
-      say("Reunión de equipo · movimiento por pasillos.");
+      say("Reunión de equipo · "+moved+" agente(s) con ruta segura.");
     }
   }
 
@@ -741,6 +786,10 @@
       }else{
         a.direction=dx<0?"left":"right";
         a.facing=dx<0?-1:1;
+      }
+      if(a.machine==="returning" && a.returnFinalDirection && a.route.length-a.routeIndex<=2){
+        a.direction=a.returnFinalDirection;
+        a.facing=1;
       }
       const dist=Math.hypot(dx,dy);
       if(a.lastDirection!==a.direction){
