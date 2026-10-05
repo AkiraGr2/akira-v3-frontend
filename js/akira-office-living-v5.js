@@ -1343,6 +1343,42 @@
     if(hit)say(hit.name+" · "+hit.role+" · ("+Number(hit.world[0]).toFixed(1)+", "+Number(hit.world[1]).toFixed(1)+")");
   }
 
+  // Agentes no son obstáculos duros. A* nunca los añade al mapa bloqueado:
+  // pueden cruzarse y llegar a su destino. Esta separación blanda solo evita que
+  // dos sprites queden exactamente uno dentro de otro durante el cruce y nunca
+  // cancela ni reescribe una ruta.
+  const AGENT_SOFT_RADIUS_PX=28;
+  const AGENT_SOFT_PUSH_PX=5;
+
+  function resolveAgentOverlap(){
+    const moving=agents.filter(a=>
+      a.status==="active" &&
+      (a.machine==="walking" || a.machine==="returning") &&
+      Array.isArray(a.screen)
+    );
+    for(let i=0;i<moving.length;i++){
+      for(let j=i+1;j<moving.length;j++){
+        const a=moving[i], b=moving[j];
+        let dx=b.screen[0]-a.screen[0];
+        let dy=b.screen[1]-a.screen[1];
+        let dist=Math.hypot(dx,dy);
+        if(dist>=AGENT_SOFT_RADIUS_PX)continue;
+        if(dist<0.001){
+          const ha=(Number(a.seed)||1)%360;
+          const rad=ha*Math.PI/180;
+          dx=Math.cos(rad); dy=Math.sin(rad);
+          dist=1;
+        }
+        const push=(AGENT_SOFT_RADIUS_PX-dist)/AGENT_SOFT_RADIUS_PX*AGENT_SOFT_PUSH_PX;
+        const nx=dx/dist, ny=dy/dist;
+        a.screen[0]-=nx*push*0.5;
+        a.screen[1]-=ny*push*0.5;
+        b.screen[0]+=nx*push*0.5;
+        b.screen[1]+=ny*push*0.5;
+      }
+    }
+  }
+
   function render(){
     renderHud();
     renderSidePanel();
@@ -1391,7 +1427,10 @@
     const dt=Math.min(.05,(ts-last)/1000||0);
     const now=ts/1000;
     officeClock=now;
-    if(!paused)agents.forEach(a=>updateAgent(a,dt,now));
+    if(!paused){
+      agents.forEach(a=>updateAgent(a,dt,now));
+      resolveAgentOverlap();
+    }
     draw();
     last=ts;
     raf=requestAnimationFrame(loop);
