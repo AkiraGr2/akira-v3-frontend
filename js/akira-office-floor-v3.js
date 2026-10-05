@@ -808,7 +808,7 @@
     const loader=new GLTFLoader();
     if(MeshoptDecoder && loader.setMeshoptDecoder) loader.setMeshoptDecoder(MeshoptDecoder);
     const keys=registry.keys();
-    const loaded=await Promise.all(keys.map(async key=>{
+    const loadOne=async key=>{
       const urls=officeAssetUrls(key);
       if(!urls.length) return null;
       try{
@@ -822,8 +822,24 @@
         console.warn("[akira-office-assets] asset failed",key,err);
         return null;
       }
-    }));
-    return loaded.some(Boolean);
+    };
+    const essential=keys.filter(key=>{
+      const item=registry.get(key);
+      return !item || item.priority!=="decor";
+    });
+    const decor=keys.filter(key=>{
+      const item=registry.get(key);
+      return item && item.priority==="decor";
+    });
+    const essentialLoaded=await Promise.all(essential.map(loadOne));
+    window.dispatchEvent(new CustomEvent("akira:office-assets-essential",{detail:{
+      loaded:essentialLoaded.filter(Boolean).length,total:essential.length
+    }}));
+    const decorLoaded=await Promise.all(decor.map(loadOne));
+    window.dispatchEvent(new CustomEvent("akira:office-assets-decor",{detail:{
+      loaded:decorLoaded.filter(Boolean).length,total:decor.length
+    }}));
+    return essentialLoaded.some(Boolean)||decorLoaded.some(Boolean);
   }
 
   function normalizePlantAppearance(root){
@@ -851,7 +867,7 @@
     const root=cloneOfficeAsset(key);
     if(!root) return null;
     fitOfficeAsset(root,targetSize,position,rotationY);
-    if(key==="plant") normalizePlantAppearance(root);
+    if(key==="plant" || key==="plantFig" || key==="plantPalm") normalizePlantAppearance(root);
     root.userData.officeAssetKey=key;
     scene.add(root);
     officeAssetInstances.push(root);
@@ -909,6 +925,45 @@
 
     if(officeAssetTemplates.has("vase")){
       addOfficeAsset("vase",[.36,.42,.36],[0,1.08,-7.25],0);
+    }
+    if(officeAssetTemplates.has("sofa")){
+      addOfficeAsset("sofa",[3.6,1.25,1.45],[0,0,-8.15],0);
+    }
+    if(officeAssetTemplates.has("wardrobe")){
+      addOfficeAsset("wardrobe",[1.55,2.55,.75],[-9.75,0,-5.95],0);
+      addOfficeAsset("wardrobe",[1.55,2.55,.75],[9.75,0,-5.95],Math.PI);
+    }
+    if(officeAssetTemplates.has("rug")){
+      addOfficeAsset("rug",[4.6,.08,2.8],[0,.01,-7.25],0);
+      addOfficeAsset("rug",[3.1,.08,2.1],[-4.1,.01,-7.2],0);
+      addOfficeAsset("rug",[3.1,.08,2.1],[4.1,.01,-7.2],0);
+    }
+    if(officeAssetTemplates.has("tableLamp")){
+      addOfficeAsset("tableLamp",[.42,.58,.42],[-2.6,1.1,-7.25],0);
+      addOfficeAsset("tableLamp",[.42,.58,.42],[2.6,1.1,-7.25],0);
+    }
+    if(officeAssetTemplates.has("plantFig")){
+      addOfficeAsset("plantFig",[.9,1.85,.9],[-7.8,0,-7.9],0);
+      addOfficeAsset("plantFig",[.9,1.85,.9],[7.8,0,-7.9],Math.PI);
+    }
+    if(officeAssetTemplates.has("plantPalm")){
+      addOfficeAsset("plantPalm",[1.25,2.65,1.25],[-9.2,0,1.7],0);
+      addOfficeAsset("plantPalm",[1.25,2.65,1.25],[9.2,0,1.7],Math.PI);
+    }
+    if(officeAssetTemplates.has("sideTable")){
+      addOfficeAsset("sideTable",[1.15,.85,.85],[-4.0,0,-7.15],0);
+      addOfficeAsset("sideTable",[1.15,.85,.85],[4.0,0,-7.15],Math.PI);
+    }
+    if(officeAssetTemplates.has("loungeChair")){
+      addOfficeAsset("loungeChair",[1.0,1.35,1.0],[-5.15,0,-7.15],Math.PI/2);
+      addOfficeAsset("loungeChair",[1.0,1.35,1.0],[5.15,0,-7.15],-Math.PI/2);
+    }
+    if(officeAssetTemplates.has("decorBowl")){
+      addOfficeAsset("decorBowl",[.45,.25,.45],[0,1.32,-7.25],0);
+    }
+    if(officeAssetTemplates.has("decorSculpture")){
+      addOfficeAsset("decorSculpture",[.42,.55,.42],[-9.0,1.05,-5.95],0);
+      addOfficeAsset("decorSculpture",[.42,.55,.42],[9.0,1.05,-5.95],0);
     }
 
     hidePrimitiveOfficeFurniture(true);
@@ -1047,6 +1102,7 @@
 
     const mixer=new THREE.AnimationMixer(model);
     const idle=resolveClip(template.animations,"Idle");
+    const idleNeutral=resolveClip(template.animations,"Idle_Neutral");
     const walk=resolveClip(template.animations,"Walk");
     const run=resolveClip(template.animations,"Run");
     const sitEnter=resolveClip(template.animations,"SitDown");
@@ -1063,7 +1119,7 @@
       root,
       model,
       mixer,
-      clips:{idle,walk,run,work,sitEnter,sitIdle,sitTalk,sitExit,talk},
+      clips:{idle,idleNeutral,walk,run,work,sitEnter,sitIdle,sitTalk,sitExit,talk},
       clipNames:template.animations.map(clip=>String(clip && clip.name || "")).filter(Boolean),
       calibration:characterCalibration,
       action:null,
@@ -1089,7 +1145,7 @@
     root.userData.actor=actor;
     scene.add(root);
     actors.set(String(agent.name),actor);
-    playActorClip(actor,"idle",true,.25);
+    playActorClip(actor,actor.clips.idleNeutral && agents.indexOf(agent)%2 ? "idleNeutral":"idle",true,.25);
     return actor;
   }
 
@@ -1205,8 +1261,8 @@
     }
 
     actor.targetMode="station";
-    actor.target=actor.canSit ? stationFor(actor.agent) : workZoneFor(actor.agent);
-    if(actor.canSit && distance(actor.root.position,actor.target)<.42) beginSit(actor,now);
+    actor.target=actor.canSit ? stationFor(actor.agent) : null;
+    if(actor.canSit && actor.target && distance(actor.root.position,actor.target)<.42) beginSit(actor,now);
 
     if(now>=actor.ambientNextAt && ambientMoverCount()===0 && !reducedMotion && (actor.seated || !actor.canSit)){
       actor.ambientTripCount=(actor.ambientTripCount||0)+1;
@@ -1568,6 +1624,9 @@
         });
         return colors;
       },
+      get idleVariants(){
+        return Object.fromEntries(Array.from(actors.entries()).map(([name,actor])=>[name,actor.clips.idleNeutral && agents.indexOf(actor.agent)%2 ? "Idle_Neutral":"Idle"]));
+      },
       get states(){
         const out={};
         agents.forEach(a=>{out[String(a.name)]=agentState(a);});
@@ -1761,17 +1820,17 @@
       }else if(actor.targetMode==="ambient"){
         playActorClip(actor,"idle",true,.32);
       }else{
-        orientToward(actor,deskFor(actor.agent),Math.min(1,delta*4));
         if(actor.canSit){
+          orientToward(actor,deskFor(actor.agent),Math.min(1,delta*4));
           if(!actor.seated){
             beginSit(actor,nowMs);
           }else{
             actor.root.position.copy(stationFor(actor.agent));
             actor.root.position.y=.2;
-            playActorClip(actor,actor.clips.sitIdle?"sitIdle":(actor.clips.work?"work":"idle"),true,.22);
+            playActorClip(actor,"sitIdle",true,.22);
           }
         }else{
-          playActorClip(actor,actor.clips.work?"work":"idle",true,.22);
+          playActorClip(actor,"idleVariant",true,.22);
         }
       }
     }
