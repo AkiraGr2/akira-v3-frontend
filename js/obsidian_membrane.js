@@ -255,6 +255,11 @@ async function _fetchJson(url) {
   );
 
   if (!r.ok) {
+    try {
+      if (r.status === 401 && typeof window.akiraHandleAuthFailure === "function") {
+        window.akiraHandleAuthFailure(401);
+      }
+    } catch (_) {}
     throw new Error("HTTP " + r.status);
   }
 
@@ -3457,13 +3462,12 @@ async function refreshMembrane(
         "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now()
       );
 
-    if (
-      data &&
-      data.ok
-    ) {
-      _applyGraphToCy(data);
-      membraneError = null;
+    if (!data || data.ok !== true) {
+      throw new Error("Respuesta del Cerebro 2D no válida");
     }
+
+    _applyGraphToCy(data);
+    membraneError = null;
   } catch (e) {
     membraneError =
       String(
@@ -3472,6 +3476,7 @@ async function refreshMembrane(
           ? e.message
           : e
       );
+    _updateMembraneStats();
   } finally {
     membraneFetching =
       false;
