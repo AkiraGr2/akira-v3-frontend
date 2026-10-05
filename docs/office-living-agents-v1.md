@@ -1,48 +1,57 @@
-# AKIRA OFFICE — LIVING AGENTS V1
+# AKIRA OFFICE — PIXEL LIVING V2
 
 ## Decision gate
-Approved visual direction: cinematic cognitive workspace with a central Akira core, physical humanoid agents, warm/cool lighting, holographic work surfaces, and a living environment.
 
-## Implementation strategy
-- Three.js/WebGL for the scene.
-- Character transport uses a pinned public GitHub mirror of CC0 assets so CI/CD does not depend on a bot-protected asset CDN.
-- GLTF/GLB humanoid models with skeletal animation.
-- Read-only backend synchronization from /api/v8/agents and /api/v8/tasks.
-- No new backend contract and no database writes.
-- Agent state remains authoritative; animation is presentation.
-- Real task collaboration is shown only when multiple active tasks share an explicit mission/task grouping field.
-- Idle movement is environmental/personal-life animation, not fabricated work.
-- Pause control stops visual progression and polling.
-- Reduced-motion preference gets a calmer scene.
-- Mobile-first quality/performance profile.
+La Oficina de Akira es **exclusivamente 2D Pixel Art**. La vista 3D/WebGL queda eliminada del producto de Oficina.
 
-## Free/licensing strategy
-Use CC0/Public Domain Quaternius character assets from Poly Pizza. The selected assets are free for personal and commercial use and do not require attribution, but this project records provenance anyway. Runtime transport uses a pinned copy in a public GitHub repository served through jsDelivr.
+## Visual ground truth
 
-Selected sources:
-- Business Man — https://poly.pizza/m/JFrLIKqvCH
-- Animated Woman — https://poly.pizza/m/qJ2gsTUBHL
-- Hoodie Character — https://poly.pizza/m/gKLBoRsyKe
-- Worker — https://poly.pizza/m/Yg2bQZO6Hj
+El escenario visible debe utilizar el arte autoral que ya existe en:
 
-Known direct CDN resources:
-- Runtime mirror: https://github.com/techdou/lumen-gallery/tree/1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters
-- Runtime transport: https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/
+- `assets/office/LargePixelOffice.png` — escena principal.
+- `assets/office/PixelOffice.png` — fallback de resolución menor.
+- `assets/office/PixelOfficeAssets.png` — hoja de assets de referencia para futuras iteraciones de sprites.
 
-## Safety / truthfulness
-- The scene must not claim that an agent is doing work when its authoritative state is not active.
-- Visual choreography may enrich idle life, but labels and work states come from real agent/task data.
-- External asset load failure must degrade visibly and safely; no fabricated agents or hidden failure.
-- This branch must be tested before any merge/deploy.
+La escena ya no debe sustituirse por muebles, paredes o habitaciones dibujados proceduralmente.
 
-## Acceptance criteria for V1
-1. Real humanoid GLB characters render in the Office.
-2. Characters have idle/walk and, when available, work/talk animation clips.
-3. Active tasks drive working state and movement to a work station.
-4. Shared explicit task/mission grouping can trigger a briefing location.
-5. Idle agents have restrained local movement.
-6. Environment has continuous ambient motion.
-7. Tap/click selects an agent and updates the existing detail panel.
-8. Existing agent/task metrics remain functional.
-9. No database writes are introduced.
-10. Main branch is untouched until tests and review pass.
+## Coordenadas
+
+El mapa autoral está definido sobre una cuadrícula lógica de **32×24**. Las estaciones principales son:
+
+- Akira: (12,4)
+- Luna: (6,6)
+- Nexo: (10,8)
+- Nova: (16,6)
+- Orion: (6,12)
+- Kaori: (14,12)
+- Zeri: (20,12)
+- Lyra: (26,8)
+- Dante: (4,16)
+- Sala de Reuniones: (20,4)
+- Cocina / Café: (26,2)
+- Tablero de Misiones: (20,3)
+- Entrada: (28,16)
+
+## Runtime truth
+
+- `/api/v8/agents` y `/api/v8/tasks` son las únicas fuentes de estado de agentes.
+- La Oficina no escribe en el backend.
+- El arte no debe inventar estados de trabajo.
+- Cuando el backend no está confirmado, la interfaz debe decirlo.
+- Dante permanece representado como desactivado y no cuenta como agente activo.
+
+## Interacción
+
+La Oficina puede:
+
+- seleccionar agentes,
+- destacar estados reales,
+- mostrar rutas visuales,
+- enviar agentes por el grafo visual a reuniones/café/tablero,
+- pausar y reanudar la animación visual.
+
+Estas acciones no modifican por sí mismas el backend.
+
+## Regla visual
+
+La fidelidad al arte creado tiene prioridad sobre añadir efectos nuevos. Primero se conserva la composición, mobiliario, iluminación, personajes y zonas del diseño autoral; después se añaden capas dinámicas con discreción.
