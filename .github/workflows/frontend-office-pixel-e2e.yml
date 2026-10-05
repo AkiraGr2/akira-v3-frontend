@@ -113,7 +113,7 @@ jobs:
               office3dMode:document.getElementById("office3dMode"),
               officeCanvas:document.getElementById("officeCanvas"),
               legacyFloor3dScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-floor")),
-              pixelScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-living-v3")),
+              pixelScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-living-v4")),
               sceneSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.sceneSource,
               atlasSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.atlasSource,
               atlasLayout:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.atlasLayout,
@@ -136,7 +136,7 @@ jobs:
             if(!domState.atlasLayout || domState.atlasLayout.rows!==9 || domState.atlasLayout.framesPerRow!==19){
               throw new Error("Clean4 atlas layout contract is wrong: "+JSON.stringify(domState.atlasLayout));
             }
-            if(domState.navigationMode!=="screen-a-star" || !(domState.walkSpeed>0 && domState.walkSpeed<120)){
+            if(domState.navigationMode!=="grid-a-star-stations" || !(domState.walkSpeed>0 && domState.walkSpeed<120)){
               throw new Error("Realistic screen navigation contract failed: "+JSON.stringify({mode:domState.navigationMode,speed:domState.walkSpeed}));
             }
             const agentByName=Object.fromEntries((domState.agents||[]).map(a=>[a.name,a]));
@@ -144,8 +144,11 @@ jobs:
               throw new Error("Pixel Office roster contract failed: "+JSON.stringify(domState.agents));
             }
 
-            if(domState.navigationMode!=="screen-a-star"){
-              throw new Error("Screen A* navigation is not active: "+JSON.stringify(domState.navigationMode));
+            if(domState.navigationMode!=="grid-a-star-stations"){
+              throw new Error("Grid/station navigation is not active: "+JSON.stringify(domState.navigationMode));
+            }
+            if(!domState.grid || domState.grid.width!==48 || domState.grid.height!==32 || domState.grid.tile!==32){
+              throw new Error("V4 navigation grid contract failed: "+JSON.stringify(domState.grid));
             }
 
             const allHomes=(domState.agents||[]).map(a=>a.name);
