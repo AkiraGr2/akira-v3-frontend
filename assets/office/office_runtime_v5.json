@@ -698,11 +698,11 @@
     "P21_MISSION": {
       "world": [
         34,
-        3
+        7
       ],
       "screen": [
-        1100,
-        105
+        1065,
+        235
       ]
     },
     "P22_CAFE": {
@@ -1036,7 +1036,8 @@
       "tool": "P27_MCP",
       "meeting": "meeting",
       "talk": "meeting",
-      "chat": "meeting"
+      "chat": "meeting",
+      "mission": "P21_MISSION"
     },
     "default": "home"
   },
