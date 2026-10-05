@@ -312,16 +312,28 @@
     const target=nodeScreen(targetId);
     if(!target)return null;
 
+    // Always leave the visual home through its authored exit using A*.
+    // This prevents the first leg from cutting straight through desks/walls.
     const exit=nodeScreen(agent.homeNav);
-    const start=(agent.machine==="idle"||agent.machine==="working")?exit:agent.screen;
-    const p=aStar(start,target);
-    if(!p)return null;
-
-    const firstDist=Math.hypot(agent.screen[0]-start[0],agent.screen[1]-start[1]);
-    if(firstDist>2 && agent.machine!=="travelling" && agent.machine!=="action"){
-      return [[...start],...p];
+    const start=[...agent.screen];
+    const legs=[];
+    if(exit && Math.hypot(start[0]-exit[0],start[1]-exit[1])>8){
+      const toExit=aStar(start,exit);
+      if(!toExit)return null;
+      legs.push(...toExit);
     }
-    return p;
+    const from=legs.length?legs[legs.length-1]:start;
+    const toTarget=aStar(from,target);
+    if(!toTarget)return null;
+    legs.push(...toTarget);
+
+    const out=[];
+    for(const p of legs){
+      if(!out.length || Math.hypot(out[out.length-1][0]-p[0],out[out.length-1][1]-p[1])>3){
+        out.push([...p]);
+      }
+    }
+    return out;
   }
 
   function startRoute(agent,targetId,kind,returnState="working",duration=0,holdAtStation=false){
