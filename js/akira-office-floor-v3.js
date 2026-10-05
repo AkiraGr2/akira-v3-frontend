@@ -1830,7 +1830,7 @@
             playActorClip(actor,"sitIdle",true,.22);
           }
         }else{
-          playActorClip(actor,"idleVariant",true,.22);
+          playActorClip(actor,actor.clips.idleNeutral && agents.indexOf(actor.agent)%2 ? "idleNeutral":"idle",true,.22);
         }
       }
     }
