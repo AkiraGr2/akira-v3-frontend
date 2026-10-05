@@ -197,11 +197,10 @@ jobs:
               throw new Error("Office agent sync did not reach a clean success state: "+JSON.stringify(refreshState));
             }
 
-            const plantMaterialCheck = await page.evaluate(() => {
-              const scene = window.akiraOfficeLivingDebug && window.akiraOfficeLivingDebug.scene;
-              return scene ? null : "scene_not_exposed";
-            });
-            if(plantMaterialCheck === null) throw new Error("unexpected scene exposure contract");
+            const plantMaterialColors = await page.evaluate(() => window.akiraOfficeLivingDebug.plantMaterialColors);
+            if(!Array.isArray(plantMaterialColors) || !plantMaterialColors.length || plantMaterialColors.every(v => ["#ffffff","#fefefe","#fff"].includes(String(v).toLowerCase()))){
+              throw new Error("Plant asset materials remain effectively white: "+JSON.stringify(plantMaterialColors));
+            }
 
             const states = await page.evaluate(() => window.akiraOfficeLivingDebug.states);
             if(states.researcher !== "briefing") throw new Error("Researcher should enter a real-task briefing state");
