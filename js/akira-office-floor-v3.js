@@ -88,6 +88,7 @@
   let GLTFLoader = null;
   let OrbitControls = null;
   let skeletonClone = null;
+  let MeshoptDecoder = null;
   let canvas = null;
   let stage = null;
   let renderer = null;
@@ -363,12 +364,17 @@
       import(MODULE_BASE+"/build/three.module.js"),
       import(MODULE_BASE+"/examples/jsm/loaders/GLTFLoader.js"),
       import(MODULE_BASE+"/examples/jsm/controls/OrbitControls.js"),
-      import(MODULE_BASE+"/examples/jsm/utils/SkeletonUtils.js")
+      import(MODULE_BASE+"/examples/jsm/utils/SkeletonUtils.js"),
+      import(MODULE_BASE+"/examples/jsm/libs/meshopt_decoder.module.js")
     ]);
     THREE=results[0];
     GLTFLoader=results[1].GLTFLoader;
     OrbitControls=results[2].OrbitControls;
     skeletonClone=results[3].clone;
+    MeshoptDecoder=results[4].MeshoptDecoder;
+    if(MeshoptDecoder && MeshoptDecoder.ready){
+      await MeshoptDecoder.ready;
+    }
   }
 
   function makeMaterial(color, roughness, metalness, transparent, opacity){
@@ -792,6 +798,7 @@
     const registry=window.AKIRA_OFFICE_ASSET_REGISTRY;
     if(!registry || !registry.keys) return false;
     const loader=new GLTFLoader();
+    if(MeshoptDecoder && loader.setMeshoptDecoder) loader.setMeshoptDecoder(MeshoptDecoder);
     const keys=registry.keys();
     const loaded=await Promise.all(keys.map(async key=>{
       const urls=officeAssetUrls(key);
