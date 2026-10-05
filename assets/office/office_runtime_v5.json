@@ -1469,7 +1469,7 @@
     "static_scene_not_duplicated": true
   },
   "directional_walk": {
-    "path": "assets/office/02_akira_agents_walk_directional_v7.png",
+    "path": "assets/office/02_akira_agents_walk_directional_v8_transparent.png",
     "columns": 16,
     "rows": 9,
     "row_order": [
@@ -1491,11 +1491,14 @@
       "start": 4,
       "count": 4
     },
-    "horizontal_side": {
+    "horizontal_left": {
       "start": 8,
-      "count": 8
+      "count": 4
     },
-    "left_mode": "mirror_horizontal_side",
-    "note": "Generated directional locomotion atlas. Front=4 frames, back=4 frames, side=8 frames; left uses horizontal mirroring to ensure consistent pixel art."
+    "horizontal_right": {
+      "start": 12,
+      "count": 4
+    },
+    "note": "Transparent directional locomotion atlas. Front=4, back=4, left=4, right=4 frames per agent. No horizontal mirroring."
   }
 }
