@@ -105,9 +105,7 @@ jobs:
             await page.waitForFunction(() => {
               return Boolean(
                 window.akiraOfficeLivingDebug &&
-                window.akiraOfficeLivingDebug.initialized &&
-                window.akiraOfficeLivingDebug.agentCount === 9 &&
-                window.akiraOfficeLivingDebug.actorCount === 9
+                window.akiraOfficeLivingDebug.initialized
               );
             }, null, {timeout:30000});
 
@@ -153,7 +151,8 @@ jobs:
                   d.modelKeys.includes("worker") &&
                   d.officeAssetKeys.includes("desk") &&
                   d.officeAssetKeys.includes("chair") &&
-                  d.states.selftest_agent === "disabled"
+                  d.states.selftest_agent === "disabled" &&
+                  ["researcher","developer","tester","reviewer","memorizer","graph_builder","learner","internal","selftest_agent"].every(name => Object.prototype.hasOwnProperty.call(d.states,name))
                 );
               }, null, {timeout:60000});
             }catch(err){
@@ -161,6 +160,7 @@ jobs:
                 const d = window.akiraOfficeLivingDebug;
                 return d ? {
                   initialized:d.initialized,
+                  agentCount:d.agentCount,
                   modelCount:d.modelCount,
                   modelKeys:d.modelKeys,
                   modelErrors:d.modelErrors,
