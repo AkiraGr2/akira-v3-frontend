@@ -203,10 +203,15 @@
     return "idle";
   }
 
-  function stationFor(agent){
+  function deskFor(agent){
     const key=normalizedName(agent);
     const s=STATIONS[key] || [0,0.2,0];
-    return new THREE.Vector3(s[0],s[1],s[2]);
+    return new THREE.Vector3(s[0],0.20,s[2]);
+  }
+
+  function stationFor(agent){
+    const desk=deskFor(agent);
+    return new THREE.Vector3(desk.x,0.20,desk.z+0.92);
   }
 
   function workZoneFor(agent){
@@ -359,13 +364,13 @@
   }
 
   function createRoom(profile){
-    scene.background=new THREE.Color("#071018");
-    scene.fog=new THREE.Fog("#071018",22,44);
+    scene.background=new THREE.Color("#dce5ec");
+    scene.fog=new THREE.Fog("#dce5ec",24,48);
 
-    const ambient=new THREE.HemisphereLight("#d8e8ff","#0a0e16",1.75);
+    const ambient=new THREE.HemisphereLight("#f7fbff","#68727d",3.0);
     scene.add(ambient);
 
-    const key=new THREE.DirectionalLight("#fff5df",2.5);
+    const key=new THREE.DirectionalLight("#fffaf0",3.8);
     key.position.set(7,13,8);
     if(!profile.mobile){
       key.castShadow=true;
@@ -373,17 +378,17 @@
     }
     scene.add(key);
 
-    const rim=new THREE.PointLight("#7c9cff",5.2,26,2);
+    const rim=new THREE.PointLight("#9aaeff",3.2,26,2);
     rim.position.set(0,6,-5);
     scene.add(rim);
 
-    const warm=new THREE.PointLight("#ffb36b",4.4,18,2);
+    const warm=new THREE.PointLight("#ffd29a",3.8,20,2);
     warm.position.set(-7,4,4);
     scene.add(warm);
 
     const floor=new THREE.Mesh(
       new THREE.PlaneGeometry(28,24),
-      makeMaterial("#0b1420",0.82,0.18,false,1)
+      makeMaterial("#59636e",0.82,0.08,false,1)
     );
     floor.rotation.x=-Math.PI/2;
     floor.receiveShadow=!profile.mobile;
@@ -391,13 +396,13 @@
 
     const floorGlow=new THREE.Mesh(
       new THREE.CircleGeometry(6.2,64),
-      new THREE.MeshBasicMaterial({color:"#2b225d",transparent:true,opacity:.12})
+      new THREE.MeshBasicMaterial({color:"#9aa7b6",transparent:true,opacity:.07})
     );
     floorGlow.rotation.x=-Math.PI/2;
     floorGlow.position.y=0.012;
     scene.add(floorGlow);
 
-    const backWall=addBox(scene,[26,9,0.35],[0,4.5,-10.7],makeMaterial("#101b2a",.72,.16,false,1));
+    const backWall=addBox(scene,[26,9,0.35],[0,4.5,-10.7],makeMaterial("#e6ebef",.74,.06,false,1));
     backWall.receiveShadow=!profile.mobile;
 
     // Glass-like side structures.
@@ -407,6 +412,22 @@
     });
     addBox(scene,[0.16,7,22],[-11.8,3.5,0],glassMat);
     addBox(scene,[0.16,7,22],[11.8,3.5,0],glassMat);
+
+    // A bright, recognizable office interior instead of a dark technical stage.
+    addBox(scene,[25.6,3.0,.18],[0,1.65,-10.46],makeMaterial("#c8d1d8",.76,.04,false,1));
+    addBox(scene,[25.6,2.1,.20],[0,4.25,-10.46],makeMaterial("#dfe5e9",.76,.03,false,1));
+    addBox(scene,[25.6,.14,.22],[0,3.18,-10.32],makeMaterial("#7f91a6",.52,.12,false,1));
+
+    const windowFrame=makeMaterial("#778695",.52,.32,false,1);
+    const windowGlass=new THREE.MeshStandardMaterial({color:new THREE.Color("#b9d9e9"),roughness:.18,metalness:.12,transparent:true,opacity:.34,depthWrite:false});
+    for(let i=0;i<5;i++){
+      const x=-9.8+i*4.9;
+      addBox(scene,[4.35,3.7,.05],[x,5.25,-10.42],windowGlass);
+      addBox(scene,[.08,3.85,.12],[x-2.2,5.25,-10.34],windowFrame);
+      addBox(scene,[.08,3.85,.12],[x+2.2,5.25,-10.34],windowFrame);
+    }
+
+    addBox(scene,[26,.16,22],[0,7.0,0],makeMaterial("#f1f3f5",.9,.02,false,1));
 
     // City silhouette.
     for(let i=0;i<24;i++){
@@ -423,13 +444,26 @@
       }
     }
 
+    // Human-scale wall decor: whiteboards, framed panels and a warm accent strip.
+    const boardFrame=makeMaterial("#697786",.5,.18,false,1);
+    const board=makeMaterial("#f5f7f8",.86,.02,false,1);
+    for(let i=0;i<3;i++){
+      const x=-8.0+i*8.0;
+      addBox(scene,[3.1,1.65,.08],[x,4.65,-10.20],boardFrame);
+      addBox(scene,[2.82,1.37,.04],[x,4.65,-10.14],board);
+      for(let j=0;j<4;j++) addBox(scene,[.55,.035,.025],[x-1.0+j*.65,4.45+(j%2)*.24,-10.10],makeMaterial(j%2?"#8aa0b6":"#c59b6b",.7,.04,false,1));
+    }
+    const accent=makeMaterial("#a7b9c8",.58,.06,false,1);
+    addBox(scene,[5.2,1.9,.08],[-8.2,3.55,-10.12],accent);
+    addBox(scene,[5.2,1.9,.08],[8.2,3.55,-10.12],makeMaterial("#c9b9a5",.58,.05,false,1));
+
     // Ceiling light bands.
     for(let i=0;i<5;i++){
       const line=new THREE.Mesh(
         new THREE.BoxGeometry(3.4,0.045,0.10),
-        new THREE.MeshBasicMaterial({color:i%2?"#6e7cff":"#63e6be",transparent:true,opacity:.75})
+        new THREE.MeshBasicMaterial({color:i%2?"#ffffff":"#dff4ff",transparent:true,opacity:.9})
       );
-      line.position.set(-7+i*3.5,6.2,0.5);
+      line.position.set(-7+i*3.5,6.82,0.5);
       line.userData.phase=i*.8;
       scene.add(line);
       ambientObjects.push({type:"ceiling",mesh:line,phase:i*.8});
@@ -503,7 +537,7 @@
       g.position.set(s[0],0,s[2]);
       g.userData.role=key;
 
-      const baseMat=makeMaterial(index%2?"#17243a":"#1a2031",.64,.35,false,1);
+      const baseMat=makeMaterial(index%2?"#7b8792":"#687786",.64,.24,false,1);
       const desk=addBox(g,[2.4,0.18,1.25],[0,1.0,0],baseMat);
       desk.castShadow=!profile.mobile;
       desk.receiveShadow=!profile.mobile;
@@ -517,7 +551,7 @@
       const screen=new THREE.Mesh(
         new THREE.BoxGeometry(1.05,.62,.08),
         new THREE.MeshStandardMaterial({
-          color:"#101b2a",emissive:"#3d64f3",emissiveIntensity:1.0,
+          color:"#eef4f8",emissive:"#6f9dff",emissiveIntensity:.65,
           roughness:.38,metalness:.55
         })
       );
@@ -528,7 +562,7 @@
 
       const chair=new THREE.Mesh(
         new THREE.BoxGeometry(.74,.12,.70),
-        makeMaterial("#2b3146",.56,.30,false,1)
+        makeMaterial("#566372",.56,.22,false,1)
       );
       chair.position.set(0,.72,.85);
       g.add(chair);
@@ -540,9 +574,9 @@
   function createOfficeLife(profile){
     // Small office infrastructure makes the room read as a place where people
     // actually spend time: meeting area, coffee point, printer, glass wall and lights.
-    const warmMat=makeMaterial("#2a2430",.62,.28,false,1);
-    const metalMat=makeMaterial("#182633",.48,.46,false,1);
-    const softMat=makeMaterial("#30415a",.72,.18,false,1);
+    const warmMat=makeMaterial("#7b8793",.62,.18,false,1);
+    const metalMat=makeMaterial("#d7dde4",.42,.28,false,1);
+    const softMat=makeMaterial("#6f7f91",.68,.14,false,1);
 
     // Coffee / break corner.
     const coffee=new THREE.Group();
@@ -693,9 +727,13 @@
     root.add(model);
 
     const mixer=new THREE.AnimationMixer(model);
-    const idle=chooseAnimation(template.animations,["idle","idle_2"]);
-    const walk=chooseAnimation(template.animations,["walk","run"]);
-    const work=chooseAnimation(template.animations,["work","typing","interact","use","talk","idle_2","idle"]);
+    const idle=chooseAnimation(template.animations,["idle_loop","idle","idle_2"]);
+    const walk=chooseAnimation(template.animations,["walk_loop","walk","run"]);
+    const work=chooseAnimation(template.animations,["work","typing","interact","use","talk"]);
+    const sitEnter=chooseAnimation(template.animations,["sitting_enter","sitdown","sit_down"]);
+    const sitIdle=chooseAnimation(template.animations,["sitting_idle","sit_idle","sitting"]);
+    const sitTalk=chooseAnimation(template.animations,["sitting_talking","sit_talk","talking"]);
+    const sitExit=chooseAnimation(template.animations,["sitting_exit","situp","stand_up"]);
     const talk=chooseAnimation(template.animations,["talk","talking","idle_2","idle"]);
 
     const actor={
@@ -703,7 +741,7 @@
       root,
       model,
       mixer,
-      clips:{idle,walk,work,talk},
+      clips:{idle,walk,work,sitEnter,sitIdle,sitTalk,sitExit,talk},
       action:null,
       target:stationFor(agent),
       targetMode:"station",
@@ -714,7 +752,12 @@
       ambientStage:"station",
       ambientHoldUntil:0,
       ambientNextAt:performance.now()+18000+agents.indexOf(agent)*2600,
-      baseScale:.92
+      baseScale:.92,
+      seated:true,
+      transitionUntil:0,
+      transitionKind:"",
+      ambientPath:[],
+      ambientPathIndex:0
     };
 
     root.userData.actor=actor;
@@ -751,8 +794,36 @@
     actor.root.rotation.y+=d*Math.min(1,alpha);
   }
 
+  function buildAmbientPath(actor,target){
+    const p=actor.root.position;
+    const t=target;
+    const side=t.x>=0?8.9:-8.9;
+    const path=[
+      new THREE.Vector3(side,0.20,p.z),
+      new THREE.Vector3(side,0.20,t.z),
+      new THREE.Vector3(t.x,0.20,t.z)
+    ];
+    return path.filter((v,i)=>i===0 || distance(v,path[i-1])>.5);
+  }
+
+  function beginStand(actor,now){
+    if(!actor || actor.transitionKind==="stand") return;
+    actor.seated=false;
+    actor.transitionKind="stand";
+    actor.transitionUntil=now+900;
+    if(actor.clips.sitExit) playActorClip(actor,"sitExit",false,.12);
+  }
+
+  function beginSit(actor,now){
+    if(!actor || actor.seated || actor.transitionKind==="sit") return;
+    actor.transitionKind="sit";
+    actor.transitionUntil=now+900;
+    if(actor.clips.sitEnter) playActorClip(actor,"sitEnter",false,.12);
+  }
+
   function updateActorGoal(actor,now){
     const s=agentState(actor.agent);
+    const previous=actor.desiredState;
     actor.desiredState=s;
 
     if(s==="disabled"){
@@ -762,50 +833,422 @@
     }
     actor.root.visible=true;
 
+    if(s==="briefing" && previous==="idle") beginStand(actor,now);
+
     if(s==="briefing"){
       actor.target=briefingPoint();
       actor.targetMode="briefing";
+      actor.ambientPath=[];
       return;
     }
     if(s==="working"){
-      actor.target=workZoneFor(actor.agent);
+      actor.target=stationFor(actor.agent);
       actor.targetMode="work";
+      actor.ambientPath=[];
       return;
     }
 
-    // Idle presence is primarily anchored to the assigned workstation.
-    // A single agent at a time can take a short, purposeful ambient trip.
     if(actor.targetMode==="ambient"){
-      if(distance(actor.root.position,actor.target)<.42 && now>=actor.ambientHoldUntil){
+      if(actor.ambientPath.length && actor.ambientPathIndex<actor.ambientPath.length-1 && distance(actor.root.position,actor.ambientPath[actor.ambientPathIndex])<.42){
+        actor.ambientPathIndex++;
+      }
+      actor.target=actor.ambientPath[actor.ambientPathIndex] || ambientPointFor(actor);
+      if(distance(actor.root.position,actor.target)<.42 && actor.ambientPathIndex>=actor.ambientPath.length-1){
         actor.targetMode="ambient-return";
         actor.ambientStage="return";
         actor.target=stationFor(actor.agent);
+        actor.ambientPath=[];
       }
       return;
     }
+
     if(actor.targetMode==="ambient-return"){
       actor.target=stationFor(actor.agent);
       if(distance(actor.root.position,actor.target)<.42){
         actor.targetMode="station";
         actor.ambientStage="station";
         actor.ambientNextAt=now+IDLE_AMBIENT_GAP_MS+(agents.indexOf(actor.agent)%3)*5000;
+        beginSit(actor,now);
       }
       return;
     }
 
     actor.targetMode="station";
     actor.target=stationFor(actor.agent);
-    if(now>=actor.ambientNextAt && ambientMoverCount()===0 && !reducedMotion){
+    if(distance(actor.root.position,actor.target)<.42) beginSit(actor,now);
+
+    if(now>=actor.ambientNextAt && ambientMoverCount()===0 && !reducedMotion && actor.seated){
       actor.ambientTripCount=(actor.ambientTripCount||0)+1;
-      actor.target=ambientPointFor(actor);
+      const destination=ambientPointFor(actor);
+      actor.ambientPath=buildAmbientPath(actor,destination);
+      actor.ambientPathIndex=0;
+      actor.target=actor.ambientPath[0];
       actor.targetMode="ambient";
       actor.ambientStage="outbound";
       actor.ambientHoldUntil=now+IDLE_AMBIENT_HOLD_MS;
+      beginStand(actor,now);
     }
   }
 
+  function updateCore(now){
+    if(!coreGroup) return;
+    const pulse=.5+.5*Math.sin(now*.0015);
+    coreGroup.rotation.y+=(reducedMotion?0:.0022);
+    const scale=1+(.025*pulse);
+    coreGroup.scale.setScalar(scale);
+    coreMaterials.forEach((m,i)=>{
+      if(m.emissiveIntensity!==undefined) m.emissiveIntensity=(i===0?1.55:0.55)+pulse*(i===0?.35:.16);
+    });
+  }
+
+  function updateAmbient(now){
+    ambientObjects.forEach(item=>{
+      if(!item.mesh) return;
+      const phase=item.phase||0;
+      if(item.type==="leaf"){
+        item.mesh.rotation.z=reducedMotion?0:Math.sin(now*.0014+phase)*.08;
+      }else if(item.type==="screen"){
+        const m=item.mesh.material;
+        if(m && "emissiveIntensity" in m) m.emissiveIntensity=.8+(.45*(.5+.5*Math.sin(now*.003+phase)));
+      }else if(item.type==="ceiling"){
+        item.mesh.material.opacity=.58+.18*(.5+.5*Math.sin(now*.002+phase));
+      }else if(item.type==="coreRing"){
+        if(!reducedMotion) item.mesh.rotation.z+=.003*(1+phase);
+      }else if(item.type==="air"){
+        const pos=item.mesh.geometry.attributes.position;
+        const arr=pos.array;
+        for(let i=0;i<arr.length;i+=3){
+          const baseY=arr[i+1];
+          arr[i+1]=0.5+((baseY + now*.00012*(item.mesh.userData.speeds?item.mesh.userData.speeds[i/3]||.06:.06))-0.5)%6.4;
+          arr[i]+=reducedMotion?0:Math.sin(now*.0004+i)*.0005;
+        }
+        pos.needsUpdate=true;
+      }else if(item.type==="window"){
+        item.mesh.material.opacity=.15+.12*(.5+.5*Math.sin(now*.0017+phase));
+      }else if(item.type==="building"){
+        if(!reducedMotion) item.mesh.position.y += Math.sin(now*.00035+phase)*.00015;
+      }
+    });
+  }
+
+  function ensureCoreLinks(){
+    if(coreLinksGroup) return;
+    coreLinksGroup=new THREE.Group();
+    coreLinksGroup.name="officeCoreLinks";
+    scene.add(coreLinksGroup);
+  }
+
+  function removeCoreLink(name){
+    const entry=coreLinkLines.get(String(name));
+    if(!entry) return;
+    try{ entry.geometry.dispose(); }catch(_){}
+    try{ entry.material.dispose(); }catch(_){}
+    coreLinksGroup.remove(entry);
+    coreLinkLines.delete(String(name));
+  }
+
+  function updateCoreLinks(){
+    // Keep link objects stable and only update their tiny position buffer.
+    // Rebuilding geometry on every animation frame is deliberately avoided.
+    ensureCoreLinks();
+    const liveNames=new Set();
+
+    actors.forEach((actor,i)=>{
+      const name=String(actor.agent && actor.agent.name || "");
+      if(!name || !actor.root.visible) return;
+      liveNames.add(name);
+
+      let line=coreLinkLines.get(name);
+      if(!line){
+        const positions=new Float32Array(6);
+        const geometry=new THREE.BufferGeometry();
+        geometry.setAttribute("position",new THREE.BufferAttribute(positions,3));
+        const material=new THREE.LineBasicMaterial({
+          color:new THREE.Color(AGENT_COLORS[i%AGENT_COLORS.length]),
+          transparent:true,
+          opacity:.10
+        });
+        line=new THREE.Line(geometry,material);
+        coreLinkLines.set(name,line);
+        coreLinksGroup.add(line);
+      }
+
+      const attr=line.geometry.getAttribute("position");
+      const arr=attr.array;
+      arr[0]=0; arr[1]=1.25; arr[2]=0;
+      arr[3]=actor.root.position.x;
+      arr[4]=1.0;
+      arr[5]=actor.root.position.z;
+      attr.needsUpdate=true;
+
+      const active=actor.desiredState==="working"||actor.desiredState==="briefing";
+      line.material.opacity=active?.46:.10;
+      line.material.color.set(active?AGENT_COLORS[i%AGENT_COLORS.length]:"#2c3b58");
+    });
+
+    [...coreLinkLines.keys()].forEach(name=>{
+      if(!liveNames.has(name)) removeCoreLink(name);
+    });
+  }
+
+  function handleSelection(event){
+    if(!renderer || !camera || !scene) return;
+    const rect=canvas.getBoundingClientRect();
+    const x=((event.clientX-rect.left)/rect.width)*2-1;
+    const y=-((event.clientY-rect.top)/rect.height)*2+1;
+    pointer.set(x,y);
+    raycaster.setFromCamera(pointer,camera);
+    const objects=[];
+    actors.forEach(actor=>{
+      if(actor.root.visible) actor.root.traverse(o=>{if(o.isMesh) objects.push(o);});
+    });
+    const hits=raycaster.intersectObjects(objects,true);
+    if(!hits.length) return;
+    let obj=hits[0].object;
+    while(obj && !obj.userData.actor) obj=obj.parent;
+    if(obj && obj.userData.actor){
+      selectAgent(obj.userData.agentName);
+    }
+  }
+
+  async function poll(){
+    if(fetchBusy || paused) return;
+    fetchBusy=true;
+    try{
+      const headers=authHeaders();
+      const [ar,tr]=await Promise.all([
+        fetch(backend()+"/api/v8/agents",{headers,cache:"no-store"}),
+        fetch(backend()+"/api/v8/tasks?limit=100",{headers,cache:"no-store"})
+      ]);
+      if(ar.status===401 && typeof window.akiraHandleAuthFailure==="function") window.akiraHandleAuthFailure(401);
+      if(tr.status===401 && typeof window.akiraHandleAuthFailure==="function") window.akiraHandleAuthFailure(401);
+
+      if(ar.ok){
+        const data=await ar.json();
+        agents=Array.isArray(data && data.agents)?data.agents:[];
+      }
+      if(tr.ok){
+        const data=await tr.json();
+        tasks=Array.isArray(data && data.tasks)?data.tasks:[];
+      }
+
+      if(ar.ok || tr.ok) lastPoll=Date.now();
+      updateStats();
+      renderList();
+
+      // Add any new agent actor once modules/models are ready.
+      agents.forEach(a=>{
+        const key=String(a && a.name || "");
+        if(key && !actors.has(key)) makeActor(a);
+      });
+
+      setOverlay("", "");
+      window.dispatchEvent(new CustomEvent("akira:office-living-sync",{detail:{agents:agents.length,tasks:tasks.length,lastPoll}}));
+    }catch(err){
+      console.warn("[akira-office-living] poll",err);
+      if(!actors.size) setOverlay("La Oficina no pudo sincronizar agentes. La escena no inventará estados.","error");
+    }finally{
+      fetchBusy=false;
+    }
+  }
+
+  function rendererSize(){
+    if(!renderer || !camera || !stage) return;
+    const rect=stage.getBoundingClientRect();
+    const w=Math.max(320,Math.floor(rect.width));
+    const h=Math.max(420,Math.floor(rect.height));
+    renderer.setSize(w,h,false);
+    camera.aspect=w/h;
+    camera.updateProjectionMatrix();
+  }
+
+  function animate(ts){
+    raf=requestAnimationFrame(animate);
+    if(!initialized) return;
+    if(paused){
+      renderer.render(scene,camera);
+      return;
+    }
+    if(!currentSceneTime) currentSceneTime=ts;
+    const delta=Math.min(.05,(ts-currentSceneTime)/1000);
+    currentSceneTime=ts;
+
+    updateCore(ts);
+    updateAmbient(ts);
+    actors.forEach(actor=>updateActor(actor,delta,ts));
+    updateCoreLinks();
+
+    controls.update();
+    renderer.render(scene,camera);
+  }
+
+  function installResize(){
+    if(typeof ResizeObserver==="function"){
+      resizeObserver=new ResizeObserver(rendererSize);
+      resizeObserver.observe(stage);
+    }else{
+      window.addEventListener("resize",rendererSize,{passive:true});
+    }
+  }
+
+  function installControls(){
+    controls=new OrbitControls(camera,renderer.domElement);
+    controls.enableDamping=true;
+    controls.dampingFactor=.06;
+    controls.minDistance=11;
+    controls.maxDistance=24;
+    controls.target.set(0,1.4,0);
+    controls.enablePan=false;
+    controls.autoRotate=false;
+    controls.touchAction="pan-y";
+  }
+
+  function installEvents(){
+    raycaster=new THREE.Raycaster();
+    pointer=new THREE.Vector2();
+    canvas.addEventListener("pointerup",handleSelection,{passive:true});
+
+    const btn=document.getElementById("officePause");
+    const refresh=document.getElementById("officeRefresh");
+    if(btn){
+      btn.onclick=()=>{
+        paused=!paused;
+        btn.textContent=paused?"Reanudar":"Pausar";
+        btn.setAttribute("aria-pressed",paused?"true":"false");
+        if(!paused) currentSceneTime=performance.now();
+        if(!paused) poll();
+      };
+    }
+    if(refresh) refresh.onclick=()=>poll();
+
+    window.addEventListener("resize",rendererSize,{passive:true});
+  }
+
+  function applyReducedMotion(){
+    reducedMotion=!!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const mq=window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+    if(mq && mq.addEventListener) mq.addEventListener("change",ev=>{reducedMotion=ev.matches;});
+  }
+
+  function getProfile(){
+    const coarse=window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    const narrow=Math.min(window.innerWidth||9999,window.innerHeight||9999)<=900;
+    const mobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||"");
+    return {
+      mobile:!!(coarse && (narrow||mobile)),
+      pixelRatio:Math.min(window.devicePixelRatio||1,1.6)
+    };
+  }
+
+  function exposeDebug(){
+    window.akiraOfficeLivingDebug={
+      get initialized(){return initialized;},
+      get actorCount(){return actors.size;},
+      get agentCount(){return agents.length;},
+      get states(){
+        const out={};
+        agents.forEach(a=>{out[String(a.name)]=agentState(a);});
+        return out;
+      },
+      pause(){paused=true;},
+      resume(){paused=false;}
+    };
+  }
+
+  window.initOfficeFloor=async function(){
+    const sec=document.getElementById("officeSection");
+    stage=document.querySelector("#officeSection .office-v2-stage");
+    canvas=document.getElementById("officeCanvas");
+    if(!sec || !stage || !canvas) return;
+    if(initialized) return;
+
+    try{
+      await loadModules();
+
+      if(!document.getElementById("officeLivingStatusOverlay")){
+        const overlay=document.createElement("div");
+        overlay.id="officeLivingStatusOverlay";
+        overlay.className="office-living-overlay";
+        overlay.hidden=true;
+        stage.appendChild(overlay);
+      }
+
+      const profile=getProfile();
+      reducedMotion=!!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+      renderer=new THREE.WebGLRenderer({
+        canvas,
+        antialias:!profile.mobile,
+        alpha:false,
+        powerPreference:"high-performance"
+      });
+      renderer.setPixelRatio(profile.pixelRatio);
+      renderer.outputColorSpace=THREE.SRGBColorSpace;
+      renderer.toneMapping=THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure=1.22;
+
+      scene=new THREE.Scene();
+      camera=new THREE.PerspectiveCamera(42,1,.1,80);
+      camera.position.set(0,9.6,17.8);
+
+      installControls();
+      createRoom(profile);
+      installEvents();
+      applyReducedMotion();
+      installResize();
+      rendererSize();
+
+      setOverlay("Cargando personajes…","loading");
+      await loadModels();
+
+      agents.forEach(a=>makeActor(a));
+      updateStats();
+      renderList();
+      exposeDebug();
+
+      initialized=true;
+      currentSceneTime=performance.now();
+      setOverlay("", "");
+
+      if(!pollTimer){
+        pollTimer=window.setInterval(()=>{
+          const current=document.getElementById("officeSection");
+          if(current && current.classList.contains("active")) poll();
+        },POLL_MS);
+      }
+
+      poll();
+      if(!raf) raf=requestAnimationFrame(animate);
+
+    }catch(err){
+      console.error("[akira-office-living] init",err);
+      setOverlay("La vista 3D no pudo iniciarse en este dispositivo. Revisa la consola si persiste.","error");
+      if(canvas){
+        const ctx=canvas.getContext && canvas.getContext("2d");
+        if(ctx){
+          ctx.fillStyle="#09111c";
+          ctx.fillRect(0,0,canvas.width||720,canvas.height||520);
+          ctx.fillStyle="#c8d9ff";
+          ctx.font="600 16px system-ui";
+          ctx.fillText("Oficina 3D no disponible",24,40);
+          ctx.font="13px system-ui";
+          ctx.fillStyle="#91a4be";
+          ctx.fillText("La interfaz conserva el estado real de agentes y tareas.",24,66);
+        }
+      }
+    }
+  };
+
+  window.addEventListener("beforeunload",()=>{
+    if(raf) cancelAnimationFrame(raf);
+    if(pollTimer) clearInterval(pollTimer);
+    if(resizeObserver) resizeObserver.disconnect();
+    if(renderer) renderer.dispose();
+  });
+
   function updateActor(actor,delta,now){
-    updateActorGoal(actor,now);
+    const nowMs=performance.now();
+    updateActorGoal(actor,nowMs);
     const s=actor.desiredState;
 
     if(s==="disabled"){
@@ -813,40 +1256,51 @@
       return;
     }
 
+    if(actor.transitionKind){
+      if(nowMs<actor.transitionUntil){
+        playActorClip(actor,actor.transitionKind==="stand"?"sitExit":"sitEnter",false,.08);
+        actor.mixer.update(delta);
+        return;
+      }
+      if(actor.transitionKind==="sit") actor.seated=true;
+      actor.transitionKind="";
+    }
+
     const target=actor.target;
     if(target){
       const dist=distance(actor.root.position,target);
       if(dist>.38){
-        const speedBoost=s==="working"?1.20:(s==="briefing"?1.05:1.0);
-        const ambientSpeed=actor.targetMode==="ambient" || actor.targetMode==="ambient-return" ? .78 : speedBoost;
+        const speedBoost=s==="working"?1.12:(s==="briefing"?1.02:1.0);
+        const ambientSpeed=(actor.targetMode==="ambient"||actor.targetMode==="ambient-return") ? 0.70 : speedBoost;
         const step=Math.min(dist,actor.speed*ambientSpeed*delta);
         actor.root.position.lerp(target,step/Math.max(dist,.0001));
         orientToward(actor,target,Math.min(1,delta*7));
         playActorClip(actor,"walk",true,.18);
+      }else if(s==="briefing"){
+        actor.seated=false;
+        orientToward(actor,briefingPoint(),Math.min(1,delta*4));
+        playActorClip(actor,actor.clips.talk?"talk":"idle",true,.22);
+      }else if(s==="working"){
+        actor.seated=true;
+        orientToward(actor,deskFor(actor.agent),Math.min(1,delta*4));
+        playActorClip(actor,actor.clips.sitIdle?"sitIdle":"work",true,.22);
+      }else if(actor.targetMode==="ambient"){
+        playActorClip(actor,"idle",true,.32);
       }else{
-        orientToward(actor, s==="briefing"?briefingPoint():workZoneFor(actor.agent),Math.min(1,delta*4));
-        if(s==="working") playActorClip(actor,"work",true,.22);
-        else if(s==="briefing") playActorClip(actor,"talk",true,.22);
-        else playActorClip(actor,"idle",true,.32);
+        actor.seated=true;
+        orientToward(actor,deskFor(actor.agent),Math.min(1,delta*4));
+        playActorClip(actor,actor.clips.sitIdle?"sitIdle":"idle",true,.25);
       }
     }
 
-    if(s==="idle" && reducedMotion===false){
-      actor.root.position.y=.2+Math.sin(now*.0016+agents.indexOf(actor.agent))*.012;
-    }else{
-      actor.root.position.y=.2;
-    }
-
-    // Tiny natural body sway. It is presentation, never used as state.
-    const sway=reducedMotion?0:Math.sin(now*.0011+agents.indexOf(actor.agent)*.71)*.012;
+    actor.root.position.y=.2;
+    const sway=reducedMotion?0:Math.sin(nowMs*.0011+agents.indexOf(actor.agent)*.71)*.008;
     actor.model.rotation.z=sway;
-
     if(actor.root.userData.selected){
-      actor.root.scale.setScalar(actor.baseScale*(1+(.025+Math.sin(now*.004)*.012)));
+      actor.root.scale.setScalar(actor.baseScale*(1+(.025+Math.sin(nowMs*.004)*.012)));
     }else{
       actor.root.scale.setScalar(actor.baseScale);
     }
-
     actor.mixer.update(delta);
   }
 
