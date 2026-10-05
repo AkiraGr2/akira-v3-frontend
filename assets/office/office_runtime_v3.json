@@ -1,5 +1,5 @@
 {
-  "version": "3.2",
+  "version": "3.3",
   "scene": "assets/office/01_office_scene_clean_v3.png",
   "scene_px": [
     1536,
@@ -166,37 +166,37 @@
       ],
       "screen": [
         1340,
-        860
+        870
       ]
     },
     "P02_CORREDOR_SUR": {
       "world": [
         22,
-        17
+        18
       ],
       "screen": [
-        1120,
+        1160,
         760
       ]
     },
     "P03_LOUNGE": {
       "world": [
         10,
-        17
+        18
       ],
       "screen": [
-        520,
-        810
+        540,
+        850
       ]
     },
     "P04_CENTRO": {
       "world": [
         16,
-        13
+        15
       ],
       "screen": [
-        820,
-        650
+        760,
+        700
       ]
     },
     "P05_CENTRO_NORTE": {
@@ -205,7 +205,7 @@
         9
       ],
       "screen": [
-        760,
+        740,
         430
       ]
     },
@@ -216,7 +216,7 @@
       ],
       "screen": [
         660,
-        380
+        440
       ]
     },
     "P07_TABLERO_STAND": {
@@ -226,7 +226,7 @@
       ],
       "screen": [
         990,
-        275
+        315
       ]
     },
     "P08_CAFE_STAND": {
@@ -235,18 +235,18 @@
         8
       ],
       "screen": [
-        1270,
-        360
+        1320,
+        445
       ]
     },
     "P09_IMPRESORA_STAND": {
       "world": [
-        13,
-        12
+        14,
+        13
       ],
       "screen": [
         720,
-        590
+        610
       ]
     },
     "P10_REUNION_LEFT": {
@@ -255,8 +255,8 @@
         12
       ],
       "screen": [
-        950,
-        570
+        830,
+        490
       ]
     },
     "P11_LUNA_HOME_EXIT": {
@@ -265,18 +265,18 @@
         8
       ],
       "screen": [
-        220,
+        250,
         470
       ]
     },
     "P12_NEXO_HOME_EXIT": {
       "world": [
         9,
-        12
+        13
       ],
       "screen": [
         500,
-        665
+        690
       ]
     },
     "P13_NOVA_HOME_EXIT": {
@@ -285,48 +285,48 @@
         12
       ],
       "screen": [
-        800,
-        525
+        790,
+        500
       ]
     },
     "P14_ORION_HOME_EXIT": {
       "world": [
-        18,
-        14
+        6,
+        13
       ],
       "screen": [
-        330,
+        320,
         540
       ]
     },
     "P15_KAORI_HOME_EXIT": {
       "world": [
         23,
-        10
+        11
       ],
       "screen": [
-        880,
-        430
+        900,
+        470
       ]
     },
     "P16_ZERI_HOME_EXIT": {
       "world": [
-        21,
-        15
+        22,
+        14
       ],
       "screen": [
-        1230,
-        420
+        1180,
+        540
       ]
     },
     "P17_LYRA_HOME_EXIT": {
       "world": [
-        25,
-        10
+        24,
+        11
       ],
       "screen": [
-        1030,
-        600
+        1080,
+        470
       ]
     },
     "P18_DANTE_WAIT": {
@@ -336,7 +336,7 @@
       ],
       "screen": [
         510,
-        805
+        820
       ]
     },
     "P19_LEFT_UP": {
@@ -345,18 +345,18 @@
         9
       ],
       "screen": [
-        340,
-        500
+        380,
+        450
       ]
     },
     "P20_LEFT_MID": {
       "world": [
         7,
-        13
+        14
       ],
       "screen": [
-        360,
-        660
+        400,
+        620
       ]
     },
     "P21_CENTER_WEST": {
@@ -365,18 +365,18 @@
         9
       ],
       "screen": [
-        650,
-        430
+        600,
+        440
       ]
     },
     "P22_CENTER_SOUTH": {
       "world": [
         13,
-        13
+        15
       ],
       "screen": [
-        650,
-        650
+        700,
+        700
       ]
     },
     "P23_RIGHT_MID": {
@@ -385,118 +385,118 @@
         10
       ],
       "screen": [
-        1060,
-        500
+        1040,
+        450
       ]
     },
     "P24_RIGHT_SOUTH": {
       "world": [
         24,
-        14
+        16
       ],
       "screen": [
-        1180,
-        650
+        1160,
+        700
       ]
     },
     "P25_TOP_RIGHT": {
       "world": [
-        25,
+        24,
         6
       ],
       "screen": [
-        1180,
-        280
+        1100,
+        320
       ]
     },
     "M01": {
       "world": [
-        19,
-        14
+        17,
+        10
       ],
       "screen": [
-        950,
-        650
+        830,
+        490
       ]
     },
     "M02": {
       "world": [
-        20,
-        14
+        22,
+        10
       ],
       "screen": [
-        995,
-        680
+        1080,
+        490
       ]
     },
     "M03": {
       "world": [
-        21,
-        14
+        17,
+        16
       ],
       "screen": [
-        1045,
-        705
+        830,
+        710
       ]
     },
     "M04": {
       "world": [
-        24,
-        14
+        22,
+        16
       ],
       "screen": [
-        1180,
-        650
+        1080,
+        710
       ]
     },
     "M05": {
       "world": [
         24,
-        12
+        14
       ],
       "screen": [
-        1170,
-        570
+        1180,
+        600
       ]
     },
     "M06": {
       "world": [
         24,
-        10
+        11
       ],
       "screen": [
-        1170,
+        1180,
         500
       ]
     },
     "M07": {
       "world": [
-        21,
-        10
+        14,
+        11
       ],
       "screen": [
-        1060,
-        500
+        700,
+        520
       ]
     },
     "M08": {
       "world": [
-        19,
-        12
+        14,
+        14
       ],
       "screen": [
-        950,
-        570
+        700,
+        650
       ]
     },
     "P26_RIGHT_SIDE": {
       "world": [
         25,
-        10
+        12
       ],
       "screen": [
-        1230,
-        500
+        1220,
+        520
       ]
     }
   },
@@ -507,111 +507,59 @@
     ],
     [
       "P02_CORREDOR_SUR",
-      "P03_LOUNGE"
+      "P24_RIGHT_SOUTH"
     ],
     [
       "P02_CORREDOR_SUR",
-      "P16_ZERI_HOME_EXIT"
-    ],
-    [
-      "P16_ZERI_HOME_EXIT",
-      "P24_RIGHT_SOUTH"
+      "P03_LOUNGE"
     ],
     [
       "P24_RIGHT_SOUTH",
       "M04"
     ],
     [
+      "P24_RIGHT_SOUTH",
+      "M05"
+    ],
+    [
       "M04",
       "P26_RIGHT_SIDE"
     ],
     [
-      "P26_RIGHT_SIDE",
-      "P25_TOP_RIGHT"
+      "M05",
+      "M06"
+    ],
+    [
+      "M06",
+      "P26_RIGHT_SIDE"
     ],
     [
       "P26_RIGHT_SIDE",
       "P23_RIGHT_MID"
     ],
     [
+      "P26_RIGHT_SIDE",
+      "P08_CAFE_STAND"
+    ],
+    [
       "P23_RIGHT_MID",
-      "P05_CENTRO_NORTE"
+      "P25_TOP_RIGHT"
+    ],
+    [
+      "P25_TOP_RIGHT",
+      "P07_TABLERO_STAND"
+    ],
+    [
+      "P23_RIGHT_MID",
+      "P17_LYRA_HOME_EXIT"
     ],
     [
       "P23_RIGHT_MID",
       "P15_KAORI_HOME_EXIT"
     ],
     [
-      "P15_KAORI_HOME_EXIT",
-      "P17_LYRA_HOME_EXIT"
-    ],
-    [
       "P23_RIGHT_MID",
-      "M07"
-    ],
-    [
-      "M07",
-      "M06"
-    ],
-    [
-      "M06",
-      "M05"
-    ],
-    [
-      "M05",
-      "M04"
-    ],
-    [
-      "M07",
       "P05_CENTRO_NORTE"
-    ],
-    [
-      "M08",
-      "P14_ORION_HOME_EXIT"
-    ],
-    [
-      "P10_REUNION_LEFT",
-      "M08"
-    ],
-    [
-      "M08",
-      "M01"
-    ],
-    [
-      "M01",
-      "P22_CENTER_SOUTH"
-    ],
-    [
-      "P10_REUNION_LEFT",
-      "P14_ORION_HOME_EXIT"
-    ],
-    [
-      "P04_CENTRO",
-      "P22_CENTER_SOUTH"
-    ],
-    [
-      "P22_CENTER_SOUTH",
-      "P09_IMPRESORA_STAND"
-    ],
-    [
-      "P22_CENTER_SOUTH",
-      "P12_NEXO_HOME_EXIT"
-    ],
-    [
-      "P12_NEXO_HOME_EXIT",
-      "P20_LEFT_MID"
-    ],
-    [
-      "P20_LEFT_MID",
-      "P11_LUNA_HOME_EXIT"
-    ],
-    [
-      "P20_LEFT_MID",
-      "P03_LOUNGE"
-    ],
-    [
-      "P22_CENTER_SOUTH",
-      "P13_NOVA_HOME_EXIT"
     ],
     [
       "P05_CENTRO_NORTE",
@@ -622,36 +570,88 @@
       "P19_LEFT_UP"
     ],
     [
+      "P19_LEFT_UP",
+      "P14_ORION_HOME_EXIT"
+    ],
+    [
       "P21_CENTER_WEST",
       "P06_AKIRA_HOME_EXIT"
     ],
     [
-      "P05_CENTRO_NORTE",
-      "P07_TABLERO_STAND"
+      "P21_CENTER_WEST",
+      "P05_CENTRO_NORTE"
     ],
     [
-      "P07_TABLERO_STAND",
-      "P25_TOP_RIGHT"
+      "P21_CENTER_WEST",
+      "P20_LEFT_MID"
+    ],
+    [
+      "P20_LEFT_MID",
+      "P11_LUNA_HOME_EXIT"
+    ],
+    [
+      "P20_LEFT_MID",
+      "P12_NEXO_HOME_EXIT"
+    ],
+    [
+      "P12_NEXO_HOME_EXIT",
+      "P22_CENTER_SOUTH"
+    ],
+    [
+      "P22_CENTER_SOUTH",
+      "P09_IMPRESORA_STAND"
+    ],
+    [
+      "P22_CENTER_SOUTH",
+      "P13_NOVA_HOME_EXIT"
+    ],
+    [
+      "P22_CENTER_SOUTH",
+      "P04_CENTRO"
+    ],
+    [
+      "P22_CENTER_SOUTH",
+      "M03"
+    ],
+    [
+      "M03",
+      "P04_CENTRO"
+    ],
+    [
+      "P04_CENTRO",
+      "P09_IMPRESORA_STAND"
+    ],
+    [
+      "P05_CENTRO_NORTE",
+      "P04_CENTRO"
+    ],
+    [
+      "P05_CENTRO_NORTE",
+      "M07"
+    ],
+    [
+      "M07",
+      "M08"
+    ],
+    [
+      "M08",
+      "P22_CENTER_SOUTH"
     ],
     [
       "P03_LOUNGE",
       "P18_DANTE_WAIT"
     ],
     [
-      "P26_RIGHT_SIDE",
-      "P08_CAFE_STAND"
+      "P03_LOUNGE",
+      "P20_LEFT_MID"
     ],
     [
-      "M01",
+      "P04_CENTRO",
+      "M01"
+    ],
+    [
+      "P23_RIGHT_MID",
       "M02"
-    ],
-    [
-      "M02",
-      "M03"
-    ],
-    [
-      "M03",
-      "M04"
     ]
   ],
   "homes": {
@@ -664,57 +664,57 @@
     },
     "Luna": {
       "visual": [
-        220,
-        430
+        230,
+        415
       ],
       "nav": "P11_LUNA_HOME_EXIT"
     },
     "Nexo": {
       "visual": [
         500,
-        615
+        610
       ],
       "nav": "P12_NEXO_HOME_EXIT"
     },
     "Nova": {
       "visual": [
-        800,
-        455
+        790,
+        445
       ],
       "nav": "P13_NOVA_HOME_EXIT"
     },
     "Orion": {
       "visual": [
-        330,
-        540
+        300,
+        520
       ],
       "nav": "P14_ORION_HOME_EXIT"
     },
     "Kaori": {
       "visual": [
-        880,
+        900,
         430
       ],
       "nav": "P15_KAORI_HOME_EXIT"
     },
     "Zeri": {
       "visual": [
-        1230,
-        420
+        1140,
+        470
       ],
       "nav": "P16_ZERI_HOME_EXIT"
     },
     "Lyra": {
       "visual": [
-        1030,
-        600
+        1040,
+        430
       ],
       "nav": "P17_LYRA_HOME_EXIT"
     },
     "Dante": {
       "visual": [
         510,
-        805
+        820
       ],
       "nav": "P18_DANTE_WAIT"
     }
@@ -724,96 +724,55 @@
       "name": "Akira",
       "backend": "internal",
       "role": "Supervisor",
-      "status": "active",
-      "ambient": [
-        "P07_TABLERO_STAND",
-        "P10_REUNION_LEFT",
-        "P08_CAFE_STAND"
-      ]
+      "status": "active"
     },
     {
       "name": "Luna",
       "backend": "researcher",
       "role": "Investigación",
-      "status": "active",
-      "ambient": [
-        "P07_TABLERO_STAND",
-        "P10_REUNION_LEFT",
-        "P11_LUNA_HOME_EXIT"
-      ]
+      "status": "active"
     },
     {
       "name": "Nexo",
       "backend": "developer",
       "role": "Desarrollo",
-      "status": "active",
-      "ambient": [
-        "P09_IMPRESORA_STAND",
-        "P10_REUNION_LEFT",
-        "P12_NEXO_HOME_EXIT"
-      ]
+      "status": "active"
     },
     {
       "name": "Nova",
       "backend": "graph_builder",
       "role": "Creatividad",
-      "status": "active",
-      "ambient": [
-        "P03_LOUNGE",
-        "P10_REUNION_LEFT",
-        "P13_NOVA_HOME_EXIT"
-      ]
+      "status": "active"
     },
     {
       "name": "Orion",
       "backend": "reviewer",
       "role": "Análisis",
-      "status": "active",
-      "ambient": [
-        "P07_TABLERO_STAND",
-        "P09_IMPRESORA_STAND",
-        "P10_REUNION_LEFT"
-      ]
+      "status": "active"
     },
     {
       "name": "Kaori",
       "backend": "memorizer",
       "role": "Organización",
-      "status": "active",
-      "ambient": [
-        "P09_IMPRESORA_STAND",
-        "P10_REUNION_LEFT",
-        "P07_TABLERO_STAND"
-      ]
+      "status": "active"
     },
     {
       "name": "Zeri",
       "backend": "tester",
       "role": "Soporte",
-      "status": "active",
-      "ambient": [
-        "P03_LOUNGE",
-        "P10_REUNION_LEFT",
-        "P16_ZERI_HOME_EXIT"
-      ]
+      "status": "active"
     },
     {
       "name": "Lyra",
       "backend": "learner",
       "role": "Estrategia",
-      "status": "active",
-      "ambient": [
-        "P07_TABLERO_STAND",
-        "P10_REUNION_LEFT",
-        "P03_LOUNGE"
-      ]
+      "status": "active"
     },
     {
       "name": "Dante",
       "backend": "selftest_agent",
       "role": "Desactivado",
-      "status": "disabled",
-      "ambient": []
+      "status": "disabled"
     }
   ],
   "interactions": {
@@ -830,5 +789,89 @@
       "M07",
       "M08"
     ]
-  }
+  },
+  "navigation": {
+    "mode": "screen-calibrated-corridor",
+    "walk_speed_tiles_per_second": 0.72,
+    "note": "Agents remain at their workstations unless a real/explicit action requests movement."
+  },
+  "screen_collision_blocks": [
+    {
+      "id": "AKIRA_DESK",
+      "x": 485,
+      "y": 190,
+      "w": 380,
+      "h": 225
+    },
+    {
+      "id": "LUNA_DESK",
+      "x": 15,
+      "y": 325,
+      "w": 335,
+      "h": 215
+    },
+    {
+      "id": "ORION_LEFT_DESK",
+      "x": 80,
+      "y": 460,
+      "w": 300,
+      "h": 220
+    },
+    {
+      "id": "NEXO_DESK",
+      "x": 340,
+      "y": 510,
+      "w": 360,
+      "h": 215
+    },
+    {
+      "id": "NOVA_DESK",
+      "x": 665,
+      "y": 380,
+      "w": 270,
+      "h": 185
+    },
+    {
+      "id": "KAORI_DESK",
+      "x": 805,
+      "y": 385,
+      "w": 250,
+      "h": 185
+    },
+    {
+      "id": "MEETING_TABLE",
+      "x": 800,
+      "y": 505,
+      "w": 420,
+      "h": 220
+    },
+    {
+      "id": "RIGHT_WORKSTATION",
+      "x": 1090,
+      "y": 380,
+      "w": 230,
+      "h": 180
+    },
+    {
+      "id": "KITCHEN",
+      "x": 1180,
+      "y": 145,
+      "w": 345,
+      "h": 270
+    },
+    {
+      "id": "LOUNGE",
+      "x": 335,
+      "y": 735,
+      "w": 365,
+      "h": 220
+    },
+    {
+      "id": "ENTRY_STRUCTURE",
+      "x": 1280,
+      "y": 700,
+      "w": 240,
+      "h": 240
+    }
+  ]
 }
