@@ -407,6 +407,9 @@
     agent.visualState="walk";
     agent.actionState=kind||"use";
     agent.returnState=returnState;
+    const finalDir = (config.meeting_seats&&config.meeting_seats[targetId]&&config.meeting_seats[targetId].direction)
+      || (config.interaction_directions&&config.interaction_directions[targetId]);
+    agent.routeFinalDirection=finalDir||null;
     agent.actionUntil=duration?performance.now()/1000+duration/1000:0;
     agent.holdAtStation=Boolean(holdAtStation);
     agent.durationMs=Number(duration)||0;
@@ -450,6 +453,7 @@
     agent.visualState=agent.backendState==="working"?"work":agent.backendState==="error"?"reaction":"idle";
     agent.intentKey="";
     agent.actionState=null;
+    agent.routeFinalDirection=null;
   }
 
   function finishStation(agent,now){
@@ -457,6 +461,7 @@
     agent.routeTargetId=null;
     agent.routeIndex=0;
     agent.machine="station";
+    if(agent.routeFinalDirection) agent.direction=agent.routeFinalDirection;
     agent.visualState=(agent.actionState==="talk"?"talk":agent.actionState==="use"?"use":"work");
     agent.actionUntil=now+(Number(agent.durationMs)||0)/1000;
   }
@@ -678,6 +683,7 @@
           a.node=target.id;
           a.world=[...nodeWorld(target.id)];
         }
+        if(target.seat && a.routeFinalDirection) a.direction=a.routeFinalDirection;
         if(target.seat){
           finishHome(a);
           return;
@@ -933,6 +939,54 @@
     });
   }
 
+  function objectSpriteRect(kind){
+    const r=config.object_sprites&&config.object_sprites[kind];
+    return Array.isArray(r)&&r.length===4?r:null;
+  }
+
+  function drawObjectInteractionBadges(){
+    if(!assetSheet)return;
+    const oc=config.object_interaction||{};
+    if(oc.station_badges===false)return;
+
+    const maxDist=Number(oc.active_distance_px||92);
+    agents.forEach(a=>{
+      if(a.status==="disabled")return;
+
+      let kind=null, active=false;
+      if(a.machine==="station"){
+        kind=stationKindForAgent(a);
+        active=true;
+      }else if(a.machine==="working" && oc.working_home_monitor && a.node===a.homeNav){
+        kind="workstation_monitor";
+        active=true;
+      }
+      if(!active||!kind)return;
+
+      const src=objectSpriteRect(kind);
+      if(!src)return;
+
+      const pulse=.84+.16*Math.sin(officeClock*4+(a.seed||0)*.01);
+      const bw=68,bh=52;
+      const x=Math.max(6,Math.min(1536-bw-6,a.screen[0]+24));
+      const y=Math.max(8,a.screen[1]-64);
+
+      ctx.save();
+      ctx.globalAlpha=.92;
+      ctx.fillStyle="rgba(8,16,29,.88)";
+      ctx.strokeStyle="#39D4C6";
+      ctx.lineWidth=1;
+      ctx.fillRect(Math.round(x),Math.round(y),bw,bh);
+      ctx.strokeRect(Math.round(x),Math.round(y),bw,bh);
+
+      ctx.globalAlpha=pulse;
+      ctx.imageSmoothingEnabled=false;
+      ctx.drawImage(assetSheet,src[0],src[1],src[2],src[3],
+        Math.round(x+6),Math.round(y+6),56,36);
+      ctx.restore();
+    });
+  }
+
   function drawActiveObjectCue(){
     if(!selectedName||!assetSheet)return;
     const a=agents.find(x=>x.name===selectedName);
@@ -994,6 +1048,7 @@
     drawDoorEffects(officeClock);
     drawRoutes();
     [...agents].sort((a,b)=>a.screen[1]-b.screen[1]).forEach(drawSprite);
+    drawObjectInteractionBadges();
     drawActiveObjectCue();
     drawSelectedAssetPreview();
   }
@@ -1108,6 +1163,7 @@
       route:a.route.map(p=>[...p.screen])
     }));},
     get objectCatalog(){return {...((config&&config.object_catalog)||{})};},
+    get objectSprites(){return {...((config&&config.object_sprites)||{})};},
     get truth(){return {...truth};}
   };
 

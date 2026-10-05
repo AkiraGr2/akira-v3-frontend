@@ -1185,7 +1185,9 @@
     "P23_PRINTER": "P19_PRINTER_DOOR",
     "P24_MEMORY": "P14_MEMORY_DOOR",
     "P25_DEVELOPMENT": "P20_DEV_DOOR",
-    "P21_MISSION": "P16_REUNION_DOOR"
+    "P21_MISSION": "P16_REUNION_DOOR",
+    "P26_WEB": "P05_CENTRO_NORTE",
+    "P27_MCP": "P20_DEV_DOOR"
   },
   "meeting_access": "P16_REUNION_DOOR",
   "role_profiles": {
@@ -1373,5 +1375,97 @@
     "random_roaming": false,
     "object_interaction": "station_specific",
     "route_debug_visible": false
+  },
+  "interaction_directions": {
+    "P21_MISSION": "up",
+    "P22_CAFE": "left",
+    "P23_PRINTER": "left",
+    "P24_MEMORY": "right",
+    "P25_DEVELOPMENT": "left",
+    "P26_WEB": "down",
+    "P27_MCP": "left"
+  },
+  "object_sprites": {
+    "workstation_monitor": [
+      366,
+      910,
+      70,
+      48
+    ],
+    "development": [
+      8,
+      575,
+      175,
+      110
+    ],
+    "web": [
+      183,
+      575,
+      140,
+      110
+    ],
+    "memory": [
+      330,
+      575,
+      140,
+      110
+    ],
+    "printer": [
+      475,
+      575,
+      90,
+      110
+    ],
+    "coffee": [
+      575,
+      575,
+      90,
+      110
+    ],
+    "meeting": [
+      680,
+      575,
+      170,
+      110
+    ],
+    "mission": [
+      855,
+      575,
+      155,
+      110
+    ],
+    "mcp": [
+      1015,
+      575,
+      200,
+      110
+    ],
+    "chairs": [
+      595,
+      300,
+      120,
+      205
+    ],
+    "lighting": [
+      730,
+      900,
+      175,
+      115
+    ],
+    "props": [
+      10,
+      905,
+      345,
+      110
+    ]
+  },
+  "object_interaction": {
+    "render_mode": "thumbnail_badge",
+    "source": "asset_sheet",
+    "active_distance_px": 92,
+    "fade_seconds": 0.35,
+    "working_home_monitor": true,
+    "station_badges": true,
+    "static_scene_not_duplicated": true
   }
 }
