@@ -219,6 +219,7 @@ jobs:
           node - <<'NODE'
           const fs = require("fs");
           const index = fs.readFileSync("index.html", "utf8");
+          const missions = fs.readFileSync("js/akira_missions_panel.js", "utf8");
           if (!missions.includes('setMissionActionBusy(id, "execute")')) throw new Error("mission execution lock missing");
           if (!missions.includes('actionBusyFor(id, "execute") ? "disabled" : ""')) throw new Error("mission execute button must disable while busy");
           if (!missions.includes('updated?.status !== "running"')) throw new Error("mission execution lock must be released at terminal state");
