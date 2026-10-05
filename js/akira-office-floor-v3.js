@@ -1581,7 +1581,8 @@
             activeClip:String(actor.action && actor.action.getClip ? actor.action.getClip().name || "" : ""),
             activeClipBlocked:/fall|death|die|sleep|lying/i.test(String(actor.action && actor.action.getClip ? actor.action.getClip().name || "" : ""))
 
-            activeClip:String(actor.action && actor.action.getClip ? actor.action.getClip().name || "" : "")
+            activeClip:String(actor.action && actor.action.getClip ? actor.action.getClip().name || "" : ""),
+            activeClipBlocked:/fall|death|die|sleep|lying/i.test(String(actor.action && actor.action.getClip ? actor.action.getClip().name || "" : ""))
           }
         ]));
       },
