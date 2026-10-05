@@ -444,8 +444,20 @@
       }
     }
 
-    // Ceiling light bands.
-    for(let i=0;i<5;i++){
+    // Human-scale wall decor: whiteboards, framed panels and a warm accent strip.
+    const boardFrame=makeMaterial("#697786",.5,.18,false,1);
+    const board=makeMaterial("#f5f7f8",.86,.02,false,1);
+    for(let i=0;i<3;i++){
+      const x=-8.0+i*8.0;
+      addBox(scene,[3.1,1.65,.08],[x,4.65,-10.20],boardFrame);
+      addBox(scene,[2.82,1.37,.04],[x,4.65,-10.14],board);
+      for(let j=0;j<4;j++) addBox(scene,[.55,.035,.025],[x-1.0+j*.65,4.45+(j%2)*.24,-10.10],makeMaterial(j%2?"#8aa0b6":"#c59b6b",.7,.04,false,1));
+    }
+    const accent=makeMaterial("#a7b9c8",.58,.06,false,1);
+    addBox(scene,[5.2,1.9,.08],[-8.2,3.55,-10.12],accent);
+    addBox(scene,[5.2,1.9,.08],[8.2,3.55,-10.12],makeMaterial("#c9b9a5",.58,.05,false,1));
+
+    // Ceiling light bands.    for(let i=0;i<5;i++){
       const line=new THREE.Mesh(
         new THREE.BoxGeometry(3.4,0.045,0.10),
         new THREE.MeshBasicMaterial({color:i%2?"#ffffff":"#dff4ff",transparent:true,opacity:.9})
@@ -785,10 +797,8 @@
     const p=actor.root.position;
     const t=target;
     const side=t.x>=0?8.9:-8.9;
-    const top=8.55;
     const path=[
-      new THREE.Vector3(p.x,0.20,top),
-      new THREE.Vector3(side,0.20,top),
+      new THREE.Vector3(side,0.20,p.z),
       new THREE.Vector3(side,0.20,t.z),
       new THREE.Vector3(t.x,0.20,t.z)
     ];
@@ -822,7 +832,7 @@
     }
     actor.root.visible=true;
 
-    if(s!=="idle" && previous==="idle") beginStand(actor,now);
+    if(s==="briefing" && previous==="idle") beginStand(actor,now);
 
     if(s==="briefing"){
       actor.target=briefingPoint();
