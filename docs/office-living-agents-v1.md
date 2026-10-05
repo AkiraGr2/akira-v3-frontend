@@ -5,6 +5,7 @@ Approved visual direction: cinematic cognitive workspace with a central Akira co
 
 ## Implementation strategy
 - Three.js/WebGL for the scene.
+- Character transport uses a pinned public GitHub mirror of CC0 assets so CI/CD does not depend on a bot-protected asset CDN.
 - GLTF/GLB humanoid models with skeletal animation.
 - Read-only backend synchronization from /api/v8/agents and /api/v8/tasks.
 - No new backend contract and no database writes.
@@ -16,7 +17,7 @@ Approved visual direction: cinematic cognitive workspace with a central Akira co
 - Mobile-first quality/performance profile.
 
 ## Free/licensing strategy
-Use CC0/Public Domain Quaternius character assets served by Poly Pizza's static CDN. The selected assets are free for personal and commercial use and do not require attribution, but this project records provenance anyway.
+Use CC0/Public Domain Quaternius character assets from Poly Pizza. The selected assets are free for personal and commercial use and do not require attribution, but this project records provenance anyway. Runtime transport uses a pinned copy in a public GitHub repository served through jsDelivr.
 
 Selected sources:
 - Business Man — https://poly.pizza/m/JFrLIKqvCH
@@ -25,10 +26,8 @@ Selected sources:
 - Worker — https://poly.pizza/m/Yg2bQZO6Hj
 
 Known direct CDN resources:
-- Business Man: https://static.poly.pizza/e599abbe-7d73-488c-9d7e-3ead281e705c.glb
-- Animated Woman: https://static.poly.pizza/ba7a1955-ea51-4cb9-a561-188bdef0a6c7.glb
-- Hoodie Character: https://static.poly.pizza/bcd66ec5-5e81-4901-a222-47abc875fe2a.glb
-- Worker: https://static.poly.pizza/3a5f3056-ffe6-42eb-bd52-122afcbd22b2.glb
+- Runtime mirror: https://github.com/techdou/lumen-gallery/tree/1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters
+- Runtime transport: https://cdn.jsdelivr.net/gh/techdou/lumen-gallery@1c8a694c5669171b3b6a0f4bffc6f75d0772630a/public/assets/characters/
 
 ## Safety / truthfulness
 - The scene must not claim that an agent is doing work when its authoritative state is not active.
