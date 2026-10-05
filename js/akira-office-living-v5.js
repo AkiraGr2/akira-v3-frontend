@@ -682,10 +682,17 @@
 
       a.visualState="walk";
       a.frameClock+=dt*1000;
-      const movingHoriz=a.direction==="left"||a.direction==="right";
-      const walkCount=movingHoriz
-        ? Number(config.directional_walk&&config.directional_walk.horizontal&&config.directional_walk.horizontal.count||8)
-        : Number(config.directional_walk&&config.directional_walk.vertical&&config.directional_walk.vertical.count||4);
+      // The directional atlas has four frames for each of the four directions.
+      // Resolve the frame count from the same directional layout used by the
+      // renderer so the animation cannot address non-existent horizontal frames.
+      const layout=a.direction==="up"
+        ? config.directional_walk&&config.directional_walk.vertical_back
+        : a.direction==="down"
+          ? config.directional_walk&&config.directional_walk.vertical_front
+          : a.direction==="left"
+            ? config.directional_walk&&config.directional_walk.horizontal_left
+            : config.directional_walk&&config.directional_walk.horizontal_right;
+      const walkCount=Number(layout&&layout.count||4);
       a.frame=Math.floor(a.frameClock/Number(config.navigation.walk_frame_ms||125))%Math.max(1,walkCount);
 
       if(dist<=0.75){
