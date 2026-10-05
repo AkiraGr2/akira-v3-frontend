@@ -144,8 +144,8 @@ jobs:
               throw new Error("Pixel Office roster contract failed: "+JSON.stringify(domState.agents));
             }
 
-            if(Array.isArray(domState.invalidEdges) && domState.invalidEdges.length){
-              throw new Error("Collision guard rejected movement edges: "+JSON.stringify(domState.invalidEdges));
+            if(domState.navigationMode!=="screen-a-star"){
+              throw new Error("Screen A* navigation is not active: "+JSON.stringify(domState.navigationMode));
             }
 
             const allHomes=(domState.agents||[]).map(a=>a.name);
