@@ -20,7 +20,6 @@ jobs:
 
       - name: Check Brain and Learning JavaScript
         run: |
-          node --check js/akira_brain_3d.js
           node --check js/obsidian_membrane.js
           node --check js/akira_learning.js
           node --check js/akira_brain.js
@@ -28,47 +27,22 @@ jobs:
           node --check js/akira_admin.js
           node --check js/akira_extras.js
                     
-      - name: Guard Brain 3D parity contract
+      - name: Guard Brain 2D-only contract
         run: |
           node - <<'NODE'
           const fs = require("fs");
-          const brain3d = fs.readFileSync("js/akira_brain_3d.js", "utf8");
           const index = fs.readFileSync("index.html", "utf8");
-
-          for (const required of [
-            "window.akiraBrainSetTypeFilter",
-            "window.akiraBrainSetRelationFilter",
-            "window.akiraBrainSetCombinedFilters",
-            "window.akiraBrainNavigateBack",
-            "window.akiraBrainNavigateForward",
-            "window.akiraBrainExploreDepth",
-            "window.akiraBrainExploreAll",
-            "window.akiraBrainFocus",
-            "window.akiraBrainClearSelection3D",
-            "nodeVisibility",
-            "linkVisibility",
-            "onNodeClick",
-            "onNodeHover"
-          ]) {
-            if (!brain3d.includes(required)) throw new Error("3D parity contract missing: " + required);
-          }
-
-          if (!brain3d.includes('setInterval')) throw new Error("3D graph refresh scheduler missing");
-          if (!brain3d.includes('currentMode === "3d"')) throw new Error("3D refresh must be limited to active 3D mode");
-          if (!brain3d.includes('classList.contains("active")')) throw new Error("3D refresh must be limited to visible Brain section");
-          if (!brain3d.includes("stopGraphRefresh()")) throw new Error("3D refresh must stop when leaving 3D");
-          if (!brain3d.includes("pauseAnimation")) throw new Error("3D animation must pause when leaving 3D");
-          if (!brain3d.includes("resumeAnimation")) throw new Error("3D animation must resume when returning to 3D");
-
-          const selectStart = brain3d.indexOf('window.addEventListener("akira:brain-select"');
-          const selectEnd = brain3d.indexOf('window.akiraBrainFocus =', selectStart);
-          if (selectStart < 0 || selectEnd < 0) throw new Error("3D selection bridge block missing");
-          const selectBlock = brain3d.slice(selectStart, selectEnd);
-          if (selectBlock.includes("focusSemanticRoute")) throw new Error("3D selection must not auto-focus the camera");
-          if (selectBlock.includes("cameraPosition(")) throw new Error("3D selection must not move the camera implicitly");
-
-          if (!index.includes("akiraBrainSetMode('3d')")) throw new Error("UI must expose the 3D mode control");
-          console.log("Brain 3D parity contract OK");
+          const membrane = fs.readFileSync("js/obsidian_membrane.js", "utf8");
+          if (!index.includes('id="brainMode2d"')) throw new Error("2D Brain control missing");
+          if (!index.includes('id="membraneCy"')) throw new Error("2D Brain container missing");
+          if (index.includes('id="brainMode3d"')) throw new Error("3D Brain button must not return");
+          if (index.includes('id="membrane3d"')) throw new Error("3D Brain container must not return");
+          if (index.includes("akira_brain_3d.js")) throw new Error("3D Brain runtime must not be loaded");
+          if (index.includes("akiraBrainSetMode('3d')")) throw new Error("3D Brain mode action must not return");
+          if (!membrane.includes("window.cytoscape")) throw new Error("Cytoscape 2D renderer missing");
+          if (!membrane.includes("refreshMembrane(true)")) throw new Error("2D Brain refresh path missing");
+          if (!membrane.includes("membraneError")) throw new Error("2D Brain error state missing");
+          console.log("Brain 2D-only contract OK");
           NODE
 
       - name: Guard verified learning evaluation action
@@ -235,14 +209,11 @@ jobs:
           if (legacyCounter.length !== 0) throw new Error("duplicate legacy countNeuronas must not return to index.html");
           if (!missions.includes("window.missionPanelRenderList")) throw new Error("mission search render handler must be public to the HTML");
           if (missions.includes("getToken()")) throw new Error("missions must not call removed getToken helper");
-          const brain3d = fs.readFileSync("js/akira_brain_3d.js", "utf8");
           const membrane = fs.readFileSync("js/obsidian_membrane.js", "utf8");
-          if (!brain3d.includes("window.akiraBrainClearSelection3D")) throw new Error("3D selection clear hook missing");
-          if (!membrane.includes("window.akiraBrainClearSelection3D()")) throw new Error("2D/3D selection clear bridge missing");
-          if (!brain3d.includes("window.akiraBrainSetMode")) throw new Error("brain mode control missing");
-          if (!index.includes('id="brainMode3d" class="brain-mode"')) throw new Error("3D brain button missing");
-          if (!index.includes("akiraBrainSetMode('3d')")) throw new Error("3D brain button must invoke the 3D mode");
-          if (index.includes('id="brainMode3d" class="brain-mode" type="button" style="display:none"')) throw new Error("3D brain button must not remain hidden");
+          if (!membrane.includes("window.akiraBrainClearSelection")) throw new Error("2D selection clear hook missing");
+          if (!index.includes('id="brainMode2d" class="brain-mode active"')) throw new Error("2D brain button must remain the canonical mode");
+          if (index.includes('id="brainMode3d"')) throw new Error("3D brain button must not exist");
+          if (index.includes('id="membrane3d"')) throw new Error("3D brain container must not exist");
           console.log("interactive UI integrity guard OK");
           NODE
 
