@@ -40,6 +40,47 @@
     }catch(_){ return {}; }
   }
 
+  function renderOfficePanel(){
+    const total=el("officeTotal");
+    const working=el("officeWorking");
+    const idle=el("officeIdle");
+    const errors=el("officeErrors");
+    const sync=el("officeSync");
+    const list=el("officeAgentList");
+    if(total) total.textContent=truth.loaded?String(truth.total):"—";
+    if(working) working.textContent=truth.loaded?String(truth.working):"—";
+    if(idle) idle.textContent=truth.loaded?String(truth.idle):"—";
+    if(errors) errors.textContent=truth.loaded?String(truth.error):"—";
+    if(sync) sync.textContent=truth.loaded?new Date().toLocaleTimeString():"Pendiente";
+
+    if(list){
+      if(!truth.loaded){
+        list.innerHTML='<div class="office-empty">Esperando confirmación del estado de los agentes…</div>';
+      }else{
+        list.innerHTML=agents.map(a=>{
+          const visual=a.visualName||a.name;
+          const label=a.state==="working"?"Trabajando":a.state==="error"?"Error":a.state==="disabled"?"Desactivado":"Disponible";
+          const cls=a.state||"idle";
+          return '<button type="button" class="office-agent-row" data-office-agent="'+
+            visual.replace(/"/g,"&quot;")+'"><span class="office-agent-dot '+cls+'"></span><span>'+
+            visual+'</span><small>'+label+'</small></button>';
+        }).join("");
+        list.querySelectorAll("[data-office-agent]").forEach(b=>{
+          b.addEventListener("click",()=>{
+            const name=b.getAttribute("data-office-agent");
+            const detail=el("officeAgentDetail");
+            const a=agents.find(x=>x.visualName===name);
+            if(detail&&a){
+              detail.innerHTML='<strong>'+name+'</strong><br><span>'+a.name+
+                ' · '+(a.state==="working"?"Trabajando":a.state==="error"?"Error":a.state==="disabled"?"Desactivado":"Disponible")+
+                '</span>';
+            }
+          });
+        });
+      }
+    }
+  }
+
   function backendUrl(){
     try{return localStorage.getItem("akira_backend_url")||BACKEND_FALLBACK;}
     catch(_){return BACKEND_FALLBACK;}
@@ -90,8 +131,10 @@
         truth.disabled=agents.filter(a=>a.state==="disabled").length;
         truth.idle=truth.total-truth.working-truth.error-truth.disabled;
       }
+      renderOfficePanel();
       return true;
     }catch(_){
+      renderOfficePanel();
       return false;
     }
   }
@@ -175,6 +218,7 @@
     initialized=true;
     resize();
     await Promise.all([loadArtwork(),pollTruth()]);
+    renderOfficePanel();
     resize();
     draw(performance.now());
     last=performance.now();
@@ -201,6 +245,7 @@
   window.refreshAkiraOfficePixel=async function(){
     await loadArtwork();
     await pollTruth();
+    renderOfficePanel();
     resize();
     draw(performance.now());
   };
