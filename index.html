@@ -11,11 +11,10 @@
  * to a versioned URL so the browser must fetch the current index and assets.
  */
 (function(){
-  var BUILD="akira-cache-v20261005-2335";
   var PARAM="akira_build";
   try{
     var u=new URL(window.location.href);
-    if(u.searchParams.get(PARAM)===BUILD) return;
+    if(u.searchParams.has(PARAM)) return;
   }catch(_){}
 
   fetch("./build-version.json?t="+Date.now(),{
@@ -26,7 +25,7 @@
     return r.json();
   }).then(function(m){
     var latest=String(m&&m.version||"").trim();
-    if(!latest || latest===BUILD) return;
+    if(!latest) return;
     var u=new URL(window.location.href);
     u.searchParams.set(PARAM,latest);
     window.location.replace(u.toString());
