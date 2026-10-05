@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
 
@@ -102,7 +102,7 @@ jobs:
           if (!css.includes("@media(max-width:768px)")) throw new Error("mobile-first rules missing");
           if (!contract.includes("Akira Cognitive Workspace")) throw new Error("UI contract missing");
           if (!contract.includes("Este rediseño es visual; no debe cambiar APIs, persistencia, permisos ni comportamiento de negocio.")) throw new Error("UI contract must protect backend contracts");
-          if (!index.includes("js/akira-office-living-v4.js")) throw new Error("Living Pixel Office V4 script must be loaded");
+          if (!index.includes("js/akira-office-living-v5.js")) throw new Error("Living Pixel Office V5 script must be loaded");
           if (!index.includes("Oficina Cognitiva")) throw new Error("cognitive office surface missing");
           if (index.includes("akira-office-floor-v3.js") || index.includes("office3dStage") || index.includes("office3dMode")) {
             throw new Error("Office 3D surface must not return");
