@@ -207,13 +207,8 @@ jobs:
               return {left:r.left, top:r.top};
             });
 
-            if(!await page.evaluate(() => window.__akiraBrain2dPausePhysics && window.__akiraBrain2dPausePhysics())){
-              throw new Error("Unable to pause D3 physics for deterministic drag instrumentation");
-            }
-
-            // The validated pre-pause snapshot is already stable enough for
-            // pointer coordinates; avoid a second debug snapshot during a
-            // ResizeObserver/physics boundary.
+            // The production "grab" handler stops D3 itself, so the E2E
+            // exercises the real pointer path without an artificial pause.
             const pageX = stageBox.left + candidate.renderedX;
             const pageY = stageBox.top + candidate.renderedY;
 
@@ -261,9 +256,7 @@ jobs:
               throw new Error("Elastic drag did not affect a real graph neighbor");
             }
 
-            await page.evaluate(() => window.__akiraBrain2dResumePhysics && window.__akiraBrain2dResumePhysics());
-
-            const corePoint = duringDrag.core;
+            const corePoint = (await page.evaluate(() => window.__akiraBrain2dDebug())).core;
             await page.mouse.up();
             await page.mouse.click(stageBox.left + corePoint.renderedX, stageBox.top + corePoint.renderedY);
 
