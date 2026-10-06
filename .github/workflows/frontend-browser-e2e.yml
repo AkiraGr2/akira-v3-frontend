@@ -187,8 +187,18 @@ jobs:
               return {left:r.left, top:r.top};
             });
 
-            const pageX = stageBox.left + candidate.renderedX;
-            const pageY = stageBox.top + candidate.renderedY;
+            if(!await page.evaluate(() => window.__akiraBrain2dPausePhysics && window.__akiraBrain2dPausePhysics())){
+              throw new Error("Unable to pause D3 physics for deterministic drag instrumentation");
+            }
+
+            const stableCandidate = await page.evaluate((id) => {
+              const d = window.__akiraBrain2dDebug();
+              return d.nodes.find(n => n.id === id);
+            }, "node_a");
+            if(!stableCandidate) throw new Error("Stable drag candidate missing");
+
+            const pageX = stageBox.left + stableCandidate.renderedX;
+            const pageY = stageBox.top + stableCandidate.renderedY;
 
             await page.mouse.move(pageX,pageY);
             await page.mouse.down();
@@ -228,6 +238,8 @@ jobs:
             if(!neighborMovedDuringDrag){
               throw new Error("Elastic drag did not affect a real graph neighbor");
             }
+
+            await page.evaluate(() => window.__akiraBrain2dResumePhysics && window.__akiraBrain2dResumePhysics());
 
             const corePoint = duringDrag.core;
             await page.mouse.up();
