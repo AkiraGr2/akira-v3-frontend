@@ -40,6 +40,11 @@ jobs:
             const errors = [];
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
 
+            await page.addInitScript(() => {
+              localStorage.setItem("akira_session_token", "e2e-owner-token");
+              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now()/1000) + 3600));
+            });
+
             await page.route("**/api/v8/graph/overview**", async route => {
               await route.fulfill({
                 status: 200,
