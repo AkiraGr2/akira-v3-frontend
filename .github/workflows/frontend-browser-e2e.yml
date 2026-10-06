@@ -228,9 +228,8 @@ jobs:
               throw new Error("Elastic drag did not affect a real graph neighbor");
             }
 
+            const corePoint = duringDrag.core;
             await page.mouse.up();
-
-            const corePoint = afterDrag.core;
             await page.mouse.click(stageBox.left + corePoint.renderedX, stageBox.top + corePoint.renderedY);
 
             await page.waitForFunction(() => {
