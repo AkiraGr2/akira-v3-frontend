@@ -206,6 +206,7 @@ jobs:
             });
 
             await page.mouse.move(pageX + 90,pageY + 20,{steps:8});
+            await page.waitForTimeout(60);
 
             const duringDrag = await page.evaluate(() => window.__akiraBrain2dDebug());
             const draggedDuring = duringDrag.nodes.find(n => n.id === "node_a");
