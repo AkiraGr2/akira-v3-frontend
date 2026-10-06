@@ -463,8 +463,8 @@
   document.addEventListener("DOMContentLoaded", function(){
     injectStyles();
     window.addEventListener("akira:section-shown", function(ev){
-      if(ev && ev.detail && ev.detail.section === "membrane") api.load();
+      if(!ev || !ev.detail) return;
+      if(ev.detail.section === "membrane" || ev.detail.section === "admin") api.load();
     });
-    setTimeout(api.load, 700);
   });
 })();
