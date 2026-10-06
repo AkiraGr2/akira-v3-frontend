@@ -45,6 +45,20 @@ jobs:
               localStorage.setItem("akira_session_exp", String(Math.floor(Date.now()/1000) + 3600));
             });
 
+            await page.route("**/api/v8/me**", async route => {
+              await route.fulfill({
+                status:200,
+                contentType:"application/json",
+                body:JSON.stringify({
+                  authenticated:true,
+                  email:"owner@example.com",
+                  is_owner:true,
+                  owner_scope:"owner",
+                  expires_at:Math.floor(Date.now()/1000)+3600
+                })
+              });
+            });
+
             await page.route("**/api/v8/graph/overview**", async route => {
               await route.fulfill({
                 status: 200,
@@ -297,6 +311,20 @@ jobs:
             await page.addInitScript(() => {
               localStorage.setItem("akira_session_token", "e2e-owner-token");
               localStorage.setItem("akira_session_exp", String(Math.floor(Date.now()/1000) + 3600));
+            });
+
+            await page.route("**/api/v8/me**", async route => {
+              await route.fulfill({
+                status:200,
+                contentType:"application/json",
+                body:JSON.stringify({
+                  authenticated:true,
+                  email:"owner@example.com",
+                  is_owner:true,
+                  owner_scope:"owner",
+                  expires_at:Math.floor(Date.now()/1000)+3600
+                })
+              });
             });
 
             await page.route("**/api/v8/graph/overview**", async route => {
