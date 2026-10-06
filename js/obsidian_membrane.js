@@ -245,8 +245,9 @@ async function _fetchPublicJson(url) {
     (full.indexOf("?") >= 0 ? "&" : "?") +
     "_=" +
     Date.now();
+  // Keep the public graph request a simple GET: no custom headers means
+  // browsers can avoid an unnecessary CORS preflight on the public fallback.
   const r = await fetch(bust, {
-    headers: { "Content-Type": "application/json" },
     cache: "no-store"
   });
   if (!r.ok) throw new Error("HTTP " + r.status);
@@ -1550,6 +1551,22 @@ function _installBrain2dE2EDebug() {
           : 0,
         publicMode: membranePublicMode,
       };
+    };
+
+    window.__akiraBrain2dNodePosition = function(id) {
+      try {
+        if(!cyMembrane) return null;
+        const node = cyMembrane.getElementById(String(id));
+        if(!node || node.empty()) return null;
+        const p = node.position();
+        return {
+          id:String(node.id()),
+          x:Number(p && p.x),
+          y:Number(p && p.y)
+        };
+      } catch(_) {
+        return null;
+      }
     };
 
     window.__akiraBrain2dPausePhysics = function() {
@@ -3267,8 +3284,12 @@ function initMembraneGraph() {
   }
 
   if (cyMembrane) {
-    cyMembrane.resize();
-    refreshMembrane(true);
+    // Repeated section boot calls are expected on navigation/resizing.
+    // Do not refetch/rebuild the graph just because the existing Cytoscape
+    // instance was asked to initialize again; callers that need fresh data
+    // invoke refreshMembrane(true) explicitly. This prevents lifecycle races
+    // from replacing a stable graph while the user is interacting with it.
+    try { cyMembrane.resize(); } catch(_) {}
     return;
   }
 
@@ -3687,6 +3708,13 @@ function _bindElasticNodeInteraction(){
       if(_obsidianForceSimulation && typeof _obsidianForceSimulation.stop === "function"){
         try { _obsidianForceSimulation.stop(); } catch(_) {}
       }
+      // A D3 tick can already have queued one Cytoscape sync frame. Cancel it
+      // before pointer ownership begins so stale physics cannot overwrite the
+      // user's drag coordinate.
+      if(_obsidianSyncRaf){
+        try { cancelAnimationFrame(_obsidianSyncRaf); } catch(_) {}
+        _obsidianSyncRaf=null;
+      }
       _radialPhysicsRun++;
       if(_radialPhysicsTimer){
         try { cancelAnimationFrame(_radialPhysicsTimer); } catch(_){}
@@ -3761,6 +3789,34 @@ window.reorganizeMembrane =
     refreshMembrane(true);
   };
 
+function _hasValidLocalSession() {
+  try {
+    const token = String(localStorage.getItem("akira_session_token") || "").trim();
+    const exp = Number(localStorage.getItem("akira_session_exp") || 0);
+    return Boolean(
+      token &&
+      Number.isFinite(exp) &&
+      exp > Math.floor(Date.now() / 1000)
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+async function _loadPublicMembrane() {
+  const publicData = await _fetchPublicJson(
+    "/api/v8/graph/public-overview"
+  );
+  if (
+    !publicData ||
+    publicData.ok !== true ||
+    publicData.public !== true
+  ) {
+    throw new Error("Vista pública no disponible");
+  }
+  return publicData;
+}
+
 async function refreshMembrane(
   force
 ) {
@@ -3784,18 +3840,20 @@ async function refreshMembrane(
   membraneLastFetch =
     Date.now();
 
+  const hasSession = _hasValidLocalSession();
+
   try {
-    const data =
-      await _fetchJson(
-        "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now(),
-        false
-      );
+    // Anonymous users should never preflight the private graph route.
+    // Owners use the private route; if transport/authentication fails, the
+    // safe public topology remains available instead of leaving a blank Brain.
+    const data = hasSession
+      ? await _fetchJson(
+          "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now(),
+          false
+        )
+      : await _loadPublicMembrane();
 
-    if (!data || data.ok !== true) {
-      throw new Error("Respuesta del Cerebro 2D no válida");
-    }
-
-    membranePublicMode = false;
+    membranePublicMode = !hasSession;
     _applyGraphToCy(data);
     membraneError = null;
   } catch (e) {
@@ -3804,30 +3862,22 @@ async function refreshMembrane(
         ? e.message
         : e
     );
-    // Un fallo de autenticación/autorización no debe dejar el Brain completamente vacío.
-    // Si la vista privada no está disponible, usamos la topología pública segura.
-    if (message === "HTTP 401" || message === "HTTP 403") {
-      try {
-        const publicData = await _fetchPublicJson(
-          "/api/v8/graph/public-overview"
-        );
-        if (!publicData || publicData.ok !== true || publicData.public !== true) {
-          throw new Error("Vista pública no disponible");
-        }
-        membranePublicMode = true;
-        _applyGraphToCy(publicData);
-        membraneError = null;
-        _updateMembraneStats();
-      } catch (publicError) {
-        membraneError = String(
-          publicError && publicError.message
-            ? publicError.message
-            : publicError
-        );
-        _updateMembraneStats();
-      }
-    } else {
-      membraneError = message;
+
+    try {
+      // Public topology is deliberately static and contains no private graph
+      // records, so it is a safe availability fallback for CORS/network/auth
+      // failures on the private route.
+      const publicData = await _loadPublicMembrane();
+      membranePublicMode = true;
+      _applyGraphToCy(publicData);
+      membraneError = null;
+      _updateMembraneStats();
+    } catch (publicError) {
+      membraneError = String(
+        publicError && publicError.message
+          ? publicError.message
+          : (hasSession ? message : publicError)
+      );
       _updateMembraneStats();
     }
   } finally {
@@ -4676,26 +4726,18 @@ window.addEventListener(
       if (!cyMembrane) {
         initMembraneGraph();
       } else {
-        setTimeout(
-          () => {
-            if (cyMembrane) {
-              cyMembrane.resize();
-              refreshMembrane(true);
-            }
-          },
-          100
-        );
+        try { cyMembrane.resize(); } catch(_) {}
       }
 
       // The Brain section can become visible after auth/session startup. Give
-      // the layout one frame to acquire its real mobile dimensions, then retry
-      // the 2D graph once so a startup race cannot leave a permanently blank view.
+      // the layout one frame to acquire its real mobile dimensions, but do not
+      // refetch the graph here: initialization already owns the data fetch.
+      // This prevents duplicate refreshes from racing with the active 2D layout.
       requestAnimationFrame(() => {
         setTimeout(() => {
           if (!cyMembrane) initMembraneGraph();
           if (cyMembrane) {
             try { cyMembrane.resize(); } catch(_) {}
-            refreshMembrane(true);
           }
         }, 250);
       });
