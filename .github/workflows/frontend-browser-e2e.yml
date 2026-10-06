@@ -29,6 +29,22 @@ jobs:
           echo $! > /tmp/akira-pages.pid
           sleep 2
 
+      - name: Structural integrity of Brain markup
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const html = fs.readFileSync("index.html", "utf8");
+          for (const fragment of ["\niv>\n", "\n</d\n"]) {
+            if (html.includes(fragment)) {
+              throw new Error("Malformed Brain/Admin HTML fragment found: " + JSON.stringify(fragment));
+            }
+          }
+          if (!html.includes('id="membraneCy"')) {
+            throw new Error("Brain 2D container missing");
+          }
+          console.log("BRAIN_HTML_INTEGRITY_PASS");
+          NODE
+
       - name: Smoke test checked-out Brain 2D
         run: |
           node <<'NODE'
@@ -285,9 +301,12 @@ jobs:
             const browser = await chromium.launch({headless:true});
             const page = await browser.newPage({viewport:{width:390,height:844}, deviceScaleFactor:1});
             const errors = [];
+            let privateHits = 0;
+            let publicHits = 0;
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
 
             await page.route("**/api/v8/graph/overview**", async route => {
+              privateHits++;
               await route.fulfill({
                 status: 401,
                 contentType: "application/json",
@@ -296,6 +315,7 @@ jobs:
             });
 
             await page.route("**/api/v8/graph/public-overview**", async route => {
+              publicHits++;
               await route.fulfill({
                 status: 200,
                 contentType: "application/json",
@@ -341,6 +361,13 @@ jobs:
                 stats.textContent.includes("9 nodos") &&
                 stats.textContent.includes("8 aristas");
             }, null, {timeout:10000});
+
+            if(privateHits !== 0){
+              throw new Error("Anonymous Brain must not request the private graph route");
+            }
+            if(publicHits < 1){
+              throw new Error("Anonymous Brain did not request the public graph route");
+            }
 
             if(await page.$("#brainMode3d") || await page.$("#membrane3d")){
               throw new Error("3D Brain surface must not exist");
