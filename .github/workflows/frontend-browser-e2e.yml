@@ -139,6 +139,24 @@ jobs:
               });
             });
 
+            await page.route("**/api/v8/graph/public-overview**", async route => {
+              await route.fulfill({
+                status:200,
+                contentType:"application/json",
+                body:JSON.stringify({
+                  ok:true,
+                  public:true,
+                  scope:"public_architecture",
+                  version:"public-e2e",
+                  nodes:[
+                    {id:"public:only",label:"Public fallback",node_type:"skill",weight:1,confidence:1}
+                  ],
+                  edges:[],
+                  counts:{nodes:1,edges:0}
+                })
+              });
+            });
+
             await page.route("**/api/v8/graph/overview**", async route => {
               await route.fulfill({
                 status:200,
@@ -184,6 +202,8 @@ jobs:
               return d &&
                 d.engine === "d3-force" &&
                 d.nodes.length === 7 &&
+                d.nodes.some(n => n.id === "node_a") &&
+                d.publicMode === false &&
                 d.core &&
                 d.stageWidth > 100 &&
                 d.stageHeight > 100;
