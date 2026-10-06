@@ -75,21 +75,22 @@
     const r = await _fetch("/api/v8/self");
     if (!r.ok || !r.data || !r.data.ok) return _out("smOutput", _errText(r), true);
     const sm = r.data.self_model;
-    const caps = sm.capabilities || [];
+    const caps = Array.isArray(sm.capabilities) ? sm.capabilities : [];
+    const effectiveCapStatus = (cap) => cap && (cap.effective_state || cap.status || "");
     _out("smOutput", {
       version: sm.version,
       updated_at: sm.updated_at,
       identity: sm.identity,
-      capabilities_verificadas: caps.filter(c => c.status === "verified").length,
+      capabilities_verificadas: caps.filter(c => effectiveCapStatus(c) === "verified").length,
       capabilities_total: caps.length,
-      no_implementadas: caps.filter(c => c.status === "not_implemented").map(c => c.name),
+      no_implementadas: caps.filter(c => effectiveCapStatus(c) === "not_implemented").map(c => c.name),
       current_state: sm.current_state,
       uncertainties: sm.uncertainties,
     }, false);
   };
 
   window.smPatch = async function(){
-    const raw = prompt('JSON de cambios. Ej: {"uncertainties":["nota desde panel"]}');
+    const raw = prompt('Introduce un objeto JSON con cambios permitidos del self-model. Los campos derivados como capabilities, tools y models no son editables.');
     if (!raw) return;
     let changes;
     try { changes = JSON.parse(raw); }
