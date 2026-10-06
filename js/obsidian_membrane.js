@@ -1553,6 +1553,22 @@ function _installBrain2dE2EDebug() {
       };
     };
 
+    window.__akiraBrain2dNodePosition = function(id) {
+      try {
+        if(!cyMembrane) return null;
+        const node = cyMembrane.getElementById(String(id));
+        if(!node || node.empty()) return null;
+        const p = node.position();
+        return {
+          id:String(node.id()),
+          x:Number(p && p.x),
+          y:Number(p && p.y)
+        };
+      } catch(_) {
+        return null;
+      }
+    };
+
     window.__akiraBrain2dPausePhysics = function() {
       try {
         if(_obsidianForceSimulation && typeof _obsidianForceSimulation.stop === "function"){
