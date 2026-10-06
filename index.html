@@ -455,21 +455,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
       </div>
       <div id="membraneStats" style="padding:8px 0 0;font-size:11px;color:var(--muted);font-family:'Press Start 2P', monospace;text-align:center"></div>
     </div>
-    <div class="learning-review" id="learningReviewPanel">
-      <div class="learning-review-head">
-        <div>
-          <span class="learning-review-title">🧠 CONOCIMIENTO EN REVISIÓN</span>
-          <span id="learningReviewCount" class="learning-review-count">0 candidatos</span>
-        </div>
-        <div class="learning-review-head-actions">
-          <button type="button" class="learning-review-refresh" onclick="window.akiraLearningReview && akiraLearningReview.load()">↻ ACTUALIZAR</button>
-          <button type="button" class="learning-review-refresh" onclick="window.akiraLearningRunSelfTest && akiraLearningRunSelfTest()">🧬 SELFTEST E2E</button>
-          <button type="button" class="learning-review-refresh" onclick="window.akiraLearningRunSemanticSelfTest && akiraLearningRunSemanticSelfTest()">🧠 SEMÁNTICO</button>
-        </div>
-      </div>
-      <div class="learning-review-note">Las enseñanzas explícitas llegan como candidatas. Verificar las convierte en conocimiento confiable; consolidar permite que Akira las use como conocimiento normal.</div>
-      <div id="learningReviewList"></div>
-    </div>
+iv>
   </div>
 
   <div id="officeSection" class="section">
@@ -647,6 +633,22 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           <div class="admin-v2-summary-card"><span>📚 Conocimiento</span><b id="knowledgeCount">—</b></div>
         </div>
 
+
+        <div class="learning-review" id="learningReviewPanel">
+          <div class="learning-review-head">
+            <div>
+              <span class="learning-review-title">🧠 CONOCIMIENTO EN REVISIÓN</span>
+              <span id="learningReviewCount" class="learning-review-count">0 candidatos</span>
+            </div>
+            <div class="learning-review-head-actions">
+              <button type="button" class="learning-review-refresh" onclick="window.akiraLearningReview && akiraLearningReview.load()">↻ ACTUALIZAR</button>
+              <button type="button" class="learning-review-refresh" onclick="window.akiraLearningRunSelfTest && akiraLearningRunSelfTest()">🧬 SELFTEST E2E</button>
+              <button type="button" class="learning-review-refresh" onclick="window.akiraLearningRunSemanticSelfTest && akiraLearningRunSemanticSelfTest()">🧠 SEMÁNTICO</button>
+            </div>
+          </div>
+          <div class="learning-review-note">Las enseñanzas explícitas llegan como candidatas. Verificar las convierte en conocimiento confiable; consolidar permite que Akira las use como conocimiento normal.</div>
+          <div id="learningReviewList"></div>
+        </d
         <div class="admin-v2-section">
           <div class="admin-v2-section-head">
             <h4>🟢 ¿Cómo está Akira ahora?</h4>
@@ -992,6 +994,7 @@ function showSection(name){
   requestAnimationFrame(()=>setTimeout(bootBrain,50));
   setTimeout(bootBrain,300);
   setTimeout(bootBrain,1000);
+  setTimeout(()=>{try{window.akiraBootBrain2d && window.akiraBootBrain2d();}catch(_){}},1200);
 }
   else if(name==='office'){
     if(window.initAkiraOfficePixel) initAkiraOfficePixel();
@@ -1509,6 +1512,76 @@ document.addEventListener("DOMContentLoaded",function(){
   }
   if(window.initAkiraOfficePixel) initAkiraOfficePixel();
 });
+</script>
+<script>
+/* BRAIN 2D HARD BOOT
+ * Keeps Brain startup observable and self-healing when a static asset is stale,
+ * missing, or fails before AkiraMembrane can register itself.
+ */
+(function(){
+  function brainBootStatus(text){
+    try{
+      var el=document.getElementById("membraneStats");
+      if(el && (!el.textContent || /^(0 NODOS|BRAIN 2D)/.test(el.textContent))){
+        el.textContent=text;
+      }
+    }catch(_){}
+  }
+
+  function hasBrainCanvas(){
+    try{return !!document.querySelector("#membraneCy canvas");}catch(_){return false;}
+  }
+
+  function bootBrain(){
+    var attempts=0;
+    function attempt(){
+      attempts++;
+      try{
+        if(window.AkiraMembrane &&
+           typeof window.AkiraMembrane.initMembraneGraph==="function"){
+          window.AkiraMembrane.initMembraneGraph();
+          if(typeof window.AkiraMembrane.resizeMembrane==="function"){
+            window.AkiraMembrane.resizeMembrane();
+          }
+          setTimeout(function(){
+            if(hasBrainCanvas()){
+              brainBootStatus("BRAIN 2D · motor inicializado · esperando datos…");
+            }else if(attempts<4){
+              setTimeout(attempt,400);
+            }else{
+              brainBootStatus("⚠ BRAIN 2D · módulo cargado, pero no creó el lienzo");
+            }
+          },300);
+          return;
+        }
+
+        if(attempts===1) brainBootStatus("BRAIN 2D · cargando motor…");
+
+        if(attempts<4){
+          setTimeout(attempt,350);
+          return;
+        }
+
+        var s=document.createElement("script");
+        s.src="./js/obsidian_membrane.js?v=akira-membrane-v50-hardboot&t="+Date.now();
+        s.async=false;
+        s.onload=function(){
+          setTimeout(attempt,50);
+        };
+        s.onerror=function(){
+          brainBootStatus("⚠ BRAIN 2D · no se pudo cargar obsidian_membrane.js");
+        };
+        document.body.appendChild(s);
+      }catch(e){
+        if(attempts<4) setTimeout(attempt,350);
+        else brainBootStatus("⚠ BRAIN 2D · arranque fallido: "+String((e&&e.message)||e).slice(0,100));
+      }
+    }
+    attempt();
+  }
+
+  window.akiraBootBrain2d=bootBrain;
+})();
 </script>
 </body>
 </html>
