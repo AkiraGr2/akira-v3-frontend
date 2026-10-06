@@ -3284,8 +3284,12 @@ function initMembraneGraph() {
   }
 
   if (cyMembrane) {
-    cyMembrane.resize();
-    refreshMembrane(true);
+    // Repeated section boot calls are expected on navigation/resizing.
+    // Do not refetch/rebuild the graph just because the existing Cytoscape
+    // instance was asked to initialize again; callers that need fresh data
+    // invoke refreshMembrane(true) explicitly. This prevents lifecycle races
+    // from replacing a stable graph while the user is interacting with it.
+    try { cyMembrane.resize(); } catch(_) {}
     return;
   }
 
