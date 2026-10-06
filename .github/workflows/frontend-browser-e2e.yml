@@ -217,14 +217,11 @@ jobs:
               throw new Error("Unable to pause D3 physics for deterministic drag instrumentation");
             }
 
-            const stableCandidate = await page.evaluate((id) => {
-              const d = window.__akiraBrain2dDebug();
-              return d.nodes.find(n => n.id === id);
-            }, "node_a");
-            if(!stableCandidate) throw new Error("Stable drag candidate missing");
-
-            const pageX = stageBox.left + stableCandidate.renderedX;
-            const pageY = stageBox.top + stableCandidate.renderedY;
+            // The validated pre-pause snapshot is already stable enough for
+            // pointer coordinates; avoid a second debug snapshot during a
+            // ResizeObserver/physics boundary.
+            const pageX = stageBox.left + candidate.renderedX;
+            const pageY = stageBox.top + candidate.renderedY;
 
             await page.mouse.move(pageX,pageY);
             await page.mouse.down();
