@@ -819,6 +819,57 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           </div>
         </div>
 
+        <div class="admin-v2-section" id="f14Section">
+          <div class="admin-v2-section-head">
+            <h4>🛡️ F14 — Autonomía controlada</h4>
+            <p>Prueba canónica de producción para cerrar F14. Esta ejecución está limitada al archivo de evidencia indicado, no toca <code>main</code>, exige aprobación humana y termina creando un Draft PR en una rama aislada.</p>
+          </div>
+          <div style="background:#0e0e12;border:3px solid var(--border);padding:14px;">
+            <div style="display:grid;gap:10px;">
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">OBJETIVO</div>
+                <div style="font-size:13px;">Verificación de producción F14: crear únicamente un pequeño archivo Markdown de evidencia para demostrar el ciclo completo de autonomía controlada.</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">ALCANCE EXACTO</div>
+                <code style="font-size:12px;word-break:break-word;">AkiraGr2/akira-empresa → main → docs/F14_PRODUCTION_VERIFICATION.md</code>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">PRUEBAS</div>
+                <code style="font-size:12px;word-break:break-word;">test_controlled_autonomy_contract · test_route_security_contract · test_authorization_contract</code>
+              </div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.6;">
+                Seguridad: sin merge, sin force-push, sin escritura de <code>main</code>, sin workflows, sin secretos y con aprobación explícita del propietario antes de la acción externa.
+              </div>
+            </div>
+          </div>
+          <div class="admin-v2-actions" style="margin-top:12px;">
+            <button class="admin-v2-action" onclick="f14Start()">
+              <strong>▶️ Iniciar verificación F14</strong>
+              <small>Ejecuta la fase hasta la compuerta de aprobación humana.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f14Refresh()">
+              <strong>🔄 Revisar última ejecución F14</strong>
+              <small>Consulta el resultado persistente de la última prueba conocida en este navegador.</small>
+            </button>
+          </div>
+          <div id="f14ApprovalActions" class="admin-v2-actions" style="margin-top:12px;display:none;">
+            <button id="f14ApproveBtn" class="admin-v2-action" onclick="f14Approve()">
+              <strong>✅ Aprobar como propietario</strong>
+              <small>Autoriza únicamente la acción externa de esta ejecución.</small>
+            </button>
+            <button id="f14ActBtn" class="admin-v2-action" onclick="f14Act()" style="display:none;">
+              <strong>🚀 Ejecutar acción controlada</strong>
+              <small>Crea la rama aislada y el Draft PR después de la aprobación.</small>
+            </button>
+            <button class="admin-v2-action danger" onclick="f14Reject()">
+              <strong>⛔ Rechazar ejecución</strong>
+              <small>Cierra la ejecución sin realizar la acción externa.</small>
+            </button>
+          </div>
+          <pre id="f14Output" class="admin-v2-output" style="margin-top:12px;">La verificación F14 todavía no se ha ejecutado en esta sesión.</pre>
+        </div>
+
         <div class="admin-v2-section">
           <div class="admin-v2-section-head">
             <h4>🧹 Cuidar y guardar los datos</h4>
@@ -1079,6 +1130,196 @@ async function adminCheckSession(){
 }
 
 function adminLogout(){document.getElementById("adminLogin").style.display="block";document.getElementById("adminPanel").style.display="none";}
+
+async function f14Request(path, options={}){
+  const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
+  const cfg=Object.assign({headers:akiraAuthHeaders(),cache:"no-store"},options||{});
+  try{
+    const r=await fetch(b+path,cfg);
+    let d=null;
+    try{d=await r.json();}catch(e){}
+    if(r.status===401 && typeof akiraHandleAuthFailure==="function") akiraHandleAuthFailure(401);
+    if(r.status===403){ throw new Error("No autorizado: la operación F14 requiere sesión de propietario."); }
+    if(!r.ok){
+      const detail=d && (d.detail||d.reason);
+      throw new Error(detail || ("HTTP "+r.status));
+    }
+    return d||{};
+  }catch(e){
+    throw new Error(String((e&&e.message)||e));
+  }
+}
+
+function f14SetOutput(text){
+  const el=document.getElementById("f14Output");
+  if(el) el.textContent=String(text||"");
+}
+
+function f14StoreRunId(run){
+  try{
+    if(run && run.id) localStorage.setItem("akira_f14_run_id",String(run.id));
+  }catch(e){}
+}
+
+function f14ShowActions(status){
+  const wrap=document.getElementById("f14ApprovalActions");
+  const approve=document.getElementById("f14ApproveBtn");
+  const act=document.getElementById("f14ActBtn");
+  if(!wrap) return;
+  const approval=status==="awaiting_approval";
+  const acting=status==="acting";
+  const visible=approval||acting;
+  wrap.style.display=visible?"flex":"none";
+  if(approve) approve.style.display=approval?"block":"none";
+  if(act) act.style.display=acting?"block":"none";
+}
+
+function f14RenderRun(run){
+  if(!run){
+    f14SetOutput("No hay una ejecución F14 persistida para mostrar.");
+    f14ShowActions("");
+    return;
+  }
+  f14StoreRunId(run);
+  const status=String(run.status||"unknown");
+  const summary={
+    id:run.id,
+    status,
+    goal:run.goal,
+    repository:run.repository,
+    base_branch:run.base_branch,
+    base_commit_sha:run.base_commit_sha,
+    branch_name:run.branch_name,
+    paths:run.paths,
+    decision:run.decision,
+    proposal:run.proposal,
+    sandbox:run.sandbox,
+    tests:run.tests,
+    evaluation:run.evaluation,
+    action:run.action,
+    learning_reference:run.learning_reference,
+    failure_reason:run.failure_reason,
+    created_at:run.created_at,
+    started_at:run.started_at,
+    completed_at:run.completed_at
+  };
+  const lines=[
+    "F14 · estado: "+status,
+    "ID: "+String(run.id||"—"),
+    "",
+    JSON.stringify(summary,null,2)
+  ];
+  f14SetOutput(lines.join("\n"));
+  f14ShowActions(status);
+}
+
+async function f14Start(){
+  const btns=document.querySelectorAll("#f14Section button");
+  btns.forEach(b=>b.disabled=true);
+  f14SetOutput("⏳ Ejecutando F14: observación → propuesta → sandbox → pruebas → revisión → compuerta de aprobación...");
+  f14ShowActions("");
+  try{
+    const payload={
+      goal:"Verificación de producción F14: crear únicamente un pequeño archivo Markdown de evidencia.",
+      repository:"AkiraGr2/akira-empresa",
+      base_branch:"main",
+      paths:["docs/F14_PRODUCTION_VERIFICATION.md"],
+      instruction:"Crea únicamente el archivo docs/F14_PRODUCTION_VERIFICATION.md. Debe ser un documento Markdown muy pequeño, con un título y una breve nota que indique que esta ejecución es una verificación de Controlled Autonomy v1 y que requirió aprobación humana. No modifiques ningún otro archivo. No introduzcas código, dependencias, secretos, workflows ni cambios funcionales.",
+      queries:["docs/F14_PRODUCTION_VERIFICATION.md"],
+      tests:["test_controlled_autonomy_contract","test_route_security_contract","test_authorization_contract"],
+      idempotency_key:"f14-production-ui-"+Date.now()
+    };
+    const d=await f14Request("/api/v8/autonomy",{
+      method:"POST",
+      body:JSON.stringify(payload)
+    });
+    const run=d.autonomy;
+    f14RenderRun(run);
+    if(run && run.status==="awaiting_approval"){
+      f14SetOutput("✅ La F14 llegó correctamente a la compuerta de aprobación humana.\n\n"+JSON.stringify(run,null,2));
+    }
+  }catch(e){
+    f14SetOutput("❌ No se pudo iniciar F14.\n\n"+String(e.message||e));
+  }finally{
+    btns.forEach(b=>b.disabled=false);
+  }
+}
+
+async function f14Refresh(){
+  try{
+    const id=localStorage.getItem("akira_f14_run_id");
+    if(id){
+      const d=await f14Request("/api/v8/autonomy/"+encodeURIComponent(id));
+      f14RenderRun(d.autonomy);
+      return;
+    }
+    const d=await f14Request("/api/v8/autonomy?limit=1");
+    const rows=Array.isArray(d.autonomy)?d.autonomy:[];
+    f14RenderRun(rows[0]||null);
+  }catch(e){
+    f14SetOutput("❌ No se pudo consultar F14.\n\n"+String(e.message||e));
+  }
+}
+
+async function f14Approve(){
+  const id=localStorage.getItem("akira_f14_run_id");
+  if(!id){f14SetOutput("❌ No hay una ejecución F14 conocida.");return;}
+  if(!confirm("¿Confirmas como propietario la aprobación de esta ejecución F14? La siguiente etapa podrá crear una rama aislada y un Draft PR, nunca escribir main ni hacer merge.")) return;
+  f14SetOutput("⏳ Registrando tu aprobación como propietario...");
+  try{
+    const d=await f14Request("/api/v8/autonomy/"+encodeURIComponent(id)+"/approve",{method:"POST"});
+    f14RenderRun(d.autonomy);
+    if(d.autonomy && d.autonomy.status==="acting"){
+      f14SetOutput("✅ Aprobación registrada. La acción externa está habilitada para esta ejecución y sigue limitada al contrato F14.\n\n"+JSON.stringify(d.autonomy,null,2));
+    }
+  }catch(e){
+    f14SetOutput("❌ No se pudo aprobar la ejecución.\n\n"+String(e.message||e));
+  }
+}
+
+async function f14Act(){
+  const id=localStorage.getItem("akira_f14_run_id");
+  if(!id){f14SetOutput("❌ No hay una ejecución F14 conocida.");return;}
+  if(!confirm("¿Ejecutar ahora la acción externa controlada de esta F14? Creará una rama aislada y un Draft PR; no hará merge ni escribirá main.")) return;
+  f14SetOutput("⏳ Ejecutando la acción externa controlada...");
+  try{
+    const d=await f14Request("/api/v8/autonomy/"+encodeURIComponent(id)+"/act",{method:"POST"});
+    f14RenderRun(d.autonomy);
+    if(d.autonomy){
+      const a=d.autonomy.action||{};
+      const verified=d.autonomy.evaluation||{};
+      f14SetOutput(
+        "✅ Acción F14 completada y devuelta por el backend.\n\n"+
+        "Estado: "+String(d.autonomy.status||"—")+"\n"+
+        "Rama: "+String(a.branch_name||"—")+"\n"+
+        "Draft PR: "+String(a.pr_url||"—")+"\n"+
+        "Merge: "+String(a.merged===false?"NO":"REVISAR")+"\n"+
+        "Verificación externa: "+String(verified.external_action_verified===true?"✅":"REVISAR")+"\n\n"+
+        JSON.stringify(d.autonomy,null,2)
+      );
+    }
+  }catch(e){
+    f14SetOutput("❌ Falló la acción externa F14.\n\n"+String(e.message||e));
+  }
+}
+
+async function f14Reject(){
+  const id=localStorage.getItem("akira_f14_run_id");
+  if(!id){f14SetOutput("❌ No hay una ejecución F14 conocida.");return;}
+  const reason=prompt("Motivo del rechazo (opcional):","rejected_from_f14_panel");
+  if(reason===null) return;
+  try{
+    const d=await f14Request("/api/v8/autonomy/"+encodeURIComponent(id)+"/reject",{
+      method:"POST",
+      body:JSON.stringify({reason:String(reason||"rejected_from_f14_panel")})
+    });
+    f14RenderRun(d.autonomy);
+    f14SetOutput("Ejecución F14 rechazada. No se realizó la acción externa.\n\n"+JSON.stringify(d.autonomy,null,2));
+  }catch(e){
+    f14SetOutput("❌ No se pudo rechazar la ejecución.\n\n"+String(e.message||e));
+  }
+}
+
 async function clearLocalDB(){if(!confirm("¿Borrar DB local?")) return;try{const req=indexedDB.deleteDatabase("AKIRA_V3_HIBRIDO");req.onsuccess=()=>{alert("DB borrada");location.reload();};}catch(e){alert(e.message);}}
 async function forceSyncR2(){try{const backend=localStorage.getItem("akira_backend_url");const r=await fetch(backend+"/api/brain/shared",{headers:typeof akiraAuthHeaders==="function"?akiraAuthHeaders():{}});if(r.status===401&&typeof akiraHandleAuthFailure==="function") akiraHandleAuthFailure(401);const d=await r.json();if(!r.ok) throw new Error((d&&d.detail)||"No autorizado");alert("R2 OK: "+JSON.stringify(d.membrana||d).slice(0,200));}catch(e){alert(e.message);}}
 function exportBackup(){if(typeof getNeuronasLocales === "function"){getNeuronasLocales().then(data=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="akira_backup_"+Date.now()+".json";a.click();});}}
@@ -1222,10 +1463,10 @@ async function renderLevels(){
       {id:"F8", name:"Herramientas de Akira", desc:"Herramientas registradas y verificadas por el sistema.", status: capStatus("tool_registry")},
       {id:"F9", name:"Agentes + Tareas", desc:"Agentes persistentes y especializados. Estado y número se derivan del registro real.", status: capStatus("agents_persistent")},
       {id:"F10", name:"Mission Engine + Conversaciones", desc:"Migraciones 011 + 012. Orquestador + chats persistentes.", status: capStatus("missions")},
-      {id:"F11", name:"Self-Repair Real", desc:"No implementado", status: capStatus("self_repair_full")},
-      {id:"F12", name:"Evolution Engine", desc:"No implementado", status: capStatus("evolution_engine")},
-      {id:"F13", name:"Autonomía Controlada", desc:"Futuro", status: "not_implemented"},
-      {id:"F14", name:"Auditoría V8 end-to-end", desc:"Futuro", status: "not_implemented"},
+      {id:"F11", name:"Self-knowledge / Autoconocimiento", desc:"Runtime de autoconocimiento persistente.", status: capStatus("self_knowledge_runtime")},
+      {id:"F12", name:"Self-Repair / Reparación", desc:"Motor de reparación implementado y verificable.", status: capStatus("repair_engine_v1")},
+      {id:"F13", name:"Evolution / Evolución", desc:"Motor de evolución implementado y verificable.", status: capStatus("evolution_engine_v1")},
+      {id:"F14", name:"Controlled Autonomy / Autonomía controlada", desc:"Implementada; queda verde solo después de una ejecución productiva verificada.", status: capStatus("controlled_autonomy_v1")},
     ];
     listEl.innerHTML = levels.map(l => (
       '<div style="background:#16161b;border:3px solid var(--border);padding:12px;display:flex;justify-content:space-between;align-items:center;">' +
