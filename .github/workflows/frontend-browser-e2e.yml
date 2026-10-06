@@ -84,16 +84,10 @@ jobs:
               throw new Error("2D Brain canvas did not render with usable dimensions");
             }
 
-            try {
-              await page.waitForFunction(() => {
-                const stats = document.getElementById("membraneStats");
-                return stats && stats.textContent.includes("3 nodos") && stats.textContent.includes("2 aristas");
-              }, null, {timeout:10000});
-            } catch (e) {
-              const statsText = await page.$eval("#membraneStats", el => el.textContent || "");
-              console.error("BRAIN_2D_SMOKE_STATS", statsText);
-              throw e;
-            }
+            await page.waitForFunction(() => {
+              const stats = document.getElementById("membraneStats");
+              return stats && stats.textContent.includes("3 nodos") && stats.textContent.includes("2 aristas");
+            }, null, {timeout:10000});
 
             if(errors.length){
               throw new Error("Unexpected page errors: " + errors.slice(0,5).join(" | "));
@@ -227,36 +221,41 @@ jobs:
             await page.mouse.down();
 
             const dragStart = await page.evaluate(() => {
-              const d = window.__akiraBrain2dDebug();
-              const node = d.nodes.find(n => n.id === "node_a");
+              const node = window.__akiraBrain2dNodePosition("node_a");
+              const neighbors = ["node_akira_e2e","node_b"]
+                .map(id => window.__akiraBrain2dNodePosition(id))
+                .filter(Boolean);
+              if(!node) throw new Error("Drag-start node missing");
               return {
-                x: node.renderedX,
-                y: node.renderedY,
-                neighbors: d.nodes
-                  .filter(n => n.id === "node_akira_e2e" || n.id === "node_b")
-                  .map(n => ({id:n.id,x:n.renderedX,y:n.renderedY}))
+                x: node.x,
+                y: node.y,
+                neighbors
               };
             });
 
             await page.mouse.move(pageX + 90,pageY + 20,{steps:8});
             await page.waitForTimeout(60);
 
-            const duringDrag = await page.evaluate(() => window.__akiraBrain2dDebug());
-            const draggedDuring = duringDrag.nodes.find(n => n.id === "node_a");
+            const draggedDuring = await page.evaluate(() => window.__akiraBrain2dNodePosition("node_a"));
             if(!draggedDuring) throw new Error("Dragged node missing during drag");
 
             const dragDistance = Math.hypot(
-              draggedDuring.renderedX - dragStart.x,
-              draggedDuring.renderedY - dragStart.y
+              draggedDuring.x - dragStart.x,
+              draggedDuring.y - dragStart.y
             );
             if(dragDistance < 35){
               throw new Error("2D node drag did not move the node");
             }
 
+            const duringNeighbors = await page.evaluate(() =>
+              ["node_akira_e2e","node_b"]
+                .map(id => window.__akiraBrain2dNodePosition(id))
+                .filter(Boolean)
+            );
             const neighborMovedDuringDrag = dragStart.neighbors.some(p0 => {
-              const p1 = duringDrag.nodes.find(n => n.id === p0.id);
+              const p1 = duringNeighbors.find(p => p.id === p0.id);
               return p1 &&
-                Math.hypot(p1.renderedX-p0.x,p1.renderedY-p0.y) > 3;
+                Math.hypot(p1.x-p0.x,p1.y-p0.y) > 3;
             });
             if(!neighborMovedDuringDrag){
               throw new Error("Elastic drag did not affect a real graph neighbor");
