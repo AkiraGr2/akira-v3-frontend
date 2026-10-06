@@ -40,31 +40,13 @@ jobs:
             const errors = [];
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
 
-            await page.addInitScript(() => {
-              localStorage.setItem("akira_session_token", "e2e-owner-token");
-              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now()/1000) + 3600));
-            });
-
-            await page.route("**/api/v8/me**", async route => {
-              await route.fulfill({
-                status:200,
-                contentType:"application/json",
-                body:JSON.stringify({
-                  authenticated:true,
-                  email:"owner@example.com",
-                  is_owner:true,
-                  owner_scope:"owner",
-                  expires_at:Math.floor(Date.now()/1000)+3600
-                })
-              });
-            });
-
-            await page.route("**/api/v8/graph/overview**", async route => {
+            await page.route("**/api/v8/graph/public-overview**", async route => {
               await route.fulfill({
                 status: 200,
                 contentType: "application/json",
                 body: JSON.stringify({
                   ok: true,
+                  public: true,
                   nodes: [
                     {id:"node_akira_e2e", label:"Akira", node_type:"project", weight:1, confidence:1, reuse_count:1},
                     {id:"node_memory_e2e", label:"memory:e2e", node_type:"experience", weight:1, confidence:.8, reuse_count:1},
@@ -136,6 +118,25 @@ jobs:
 
             await page.addInitScript(() => {
               localStorage.setItem("akira_e2e_debug", "1");
+            });
+
+            await page.addInitScript(() => {
+              localStorage.setItem("akira_session_token", "e2e-owner-token");
+              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now()/1000) + 3600));
+            });
+
+            await page.route("**/api/v8/me**", async route => {
+              await route.fulfill({
+                status:200,
+                contentType:"application/json",
+                body:JSON.stringify({
+                  authenticated:true,
+                  email:"owner@example.com",
+                  is_owner:true,
+                  owner_scope:"owner",
+                  expires_at:Math.floor(Date.now()/1000)+3600
+                })
+              });
             });
 
             await page.route("**/api/v8/graph/overview**", async route => {
