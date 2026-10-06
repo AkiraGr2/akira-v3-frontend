@@ -246,8 +246,9 @@ async function _fetchPublicJson(url) {
     "_=" +
     Date.now();
   const r = await fetch(bust, {
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store"
+    method: "GET",
+    cache: "no-store",
+    credentials: "omit"
   });
   if (!r.ok) throw new Error("HTTP " + r.status);
   return await r.json();
@@ -3804,30 +3805,28 @@ async function refreshMembrane(
         ? e.message
         : e
     );
-    // Un fallo de autenticación/autorización no debe dejar el Brain completamente vacío.
-    // Si la vista privada no está disponible, usamos la topología pública segura.
-    if (message === "HTTP 401" || message === "HTTP 403") {
-      try {
-        const publicData = await _fetchPublicJson(
-          "/api/v8/graph/public-overview"
-        );
-        if (!publicData || publicData.ok !== true || publicData.public !== true) {
-          throw new Error("Vista pública no disponible");
-        }
-        membranePublicMode = true;
-        _applyGraphToCy(publicData);
-        membraneError = null;
-        _updateMembraneStats();
-      } catch (publicError) {
-        membraneError = String(
-          publicError && publicError.message
-            ? publicError.message
-            : publicError
-        );
-        _updateMembraneStats();
+
+    // The private graph may fail before an HTTP status reaches the browser
+    // (for example a transient CORS/network failure). The Brain must still
+    // render a safe public topology rather than remaining visually empty.
+    // The public route contains no private graph data.
+    try {
+      const publicData = await _fetchPublicJson(
+        "/api/v8/graph/public-overview"
+      );
+      if (!publicData || publicData.ok !== true || publicData.public !== true) {
+        throw new Error("Vista pública no disponible");
       }
-    } else {
-      membraneError = message;
+      membranePublicMode = true;
+      _applyGraphToCy(publicData);
+      membraneError = null;
+      _updateMembraneStats();
+    } catch (publicError) {
+      membraneError = message + " | public-fallback: " + String(
+        publicError && publicError.message
+          ? publicError.message
+          : publicError
+      );
       _updateMembraneStats();
     }
   } finally {
