@@ -1550,6 +1550,8 @@ function _installBrain2dE2EDebug() {
           : 0,
         publicMode: membranePublicMode,
       };
+    };
+
     window.__akiraBrain2dPausePhysics = function() {
       try {
         if(_obsidianForceSimulation && typeof _obsidianForceSimulation.stop === "function"){
@@ -1569,7 +1571,6 @@ function _installBrain2dE2EDebug() {
         }
       } catch(_) {}
       return false;
-    };
     };
   } catch (_) {}
 }
