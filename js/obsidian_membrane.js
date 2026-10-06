@@ -1557,7 +1557,8 @@ function _installBrain2dE2EDebug() {
           return true;
         }
       } catch(_) {}
-      return false;
+      // A completed D3 simulation is already stable; there is nothing to pause.
+      return true;
     };
 
     window.__akiraBrain2dResumePhysics = function() {
