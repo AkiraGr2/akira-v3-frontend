@@ -192,47 +192,43 @@ jobs:
 
             await page.mouse.move(pageX,pageY);
             await page.mouse.down();
-            await page.mouse.move(pageX + 90,pageY + 20,{steps:8});
 
-            await page.waitForFunction((id) => {
-              const d = window.__akiraBrain2dDebug && window.__akiraBrain2dDebug();
-              const node = d && d.nodes.find(n => n.id === id);
-              return node && Math.hypot(node.renderedX - window.__akiraE2EDragStart.x,
-                                       node.renderedY - window.__akiraE2EDragStart.y) > 35;
-            }, "node_a", {timeout:5000}).catch(async () => {
-              await page.evaluate((node) => {
-                window.__akiraE2EDragStart = {
-                  x: node.renderedX,
-                  y: node.renderedY
-                };
-              }, candidate);
-              throw new Error("Unexpected drag diagnostic timing; retrying assertion");
+            const dragStart = await page.evaluate(() => {
+              const d = window.__akiraBrain2dDebug();
+              const node = d.nodes.find(n => n.id === "node_a");
+              return {
+                x: node.renderedX,
+                y: node.renderedY,
+                neighbors: d.nodes
+                  .filter(n => n.id === "node_akira_e2e" || n.id === "node_b")
+                  .map(n => ({id:n.id,x:n.renderedX,y:n.renderedY}))
+              };
             });
 
-            await page.mouse.up();
+            await page.mouse.move(pageX + 90,pageY + 20,{steps:8});
 
-            const afterDrag = await page.evaluate(() => window.__akiraBrain2dDebug());
-            const dragged = afterDrag.nodes.find(n => n.id === "node_a");
-            if(!dragged) throw new Error("Dragged node missing after drag");
+            const duringDrag = await page.evaluate(() => window.__akiraBrain2dDebug());
+            const draggedDuring = duringDrag.nodes.find(n => n.id === "node_a");
+            if(!draggedDuring) throw new Error("Dragged node missing during drag");
 
             const dragDistance = Math.hypot(
-              dragged.renderedX - candidate.renderedX,
-              dragged.renderedY - candidate.renderedY
+              draggedDuring.renderedX - dragStart.x,
+              draggedDuring.renderedY - dragStart.y
             );
-            if(dragDistance < 25){
+            if(dragDistance < 35){
               throw new Error("2D node drag did not move the node");
             }
 
-            const neighborIds = ["node_akira_e2e","node_b"];
-            const movedNeighbor = neighborIds.some(id => {
-              const p0 = before.nodes.find(n => n.id === id);
-              const p1 = afterDrag.nodes.find(n => n.id === id);
-              return p0 && p1 &&
-                Math.hypot(p1.renderedX-p0.renderedX,p1.renderedY-p0.renderedY) > 3;
+            const neighborMovedDuringDrag = dragStart.neighbors.some(p0 => {
+              const p1 = duringDrag.nodes.find(n => n.id === p0.id);
+              return p1 &&
+                Math.hypot(p1.renderedX-p0.x,p1.renderedY-p0.y) > 3;
             });
-            if(!movedNeighbor){
+            if(!neighborMovedDuringDrag){
               throw new Error("Elastic drag did not affect a real graph neighbor");
             }
+
+            await page.mouse.up();
 
             const corePoint = afterDrag.core;
             await page.mouse.click(stageBox.left + corePoint.renderedX, stageBox.top + corePoint.renderedY);
