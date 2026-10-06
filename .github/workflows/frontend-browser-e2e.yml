@@ -84,10 +84,16 @@ jobs:
               throw new Error("2D Brain canvas did not render with usable dimensions");
             }
 
-            await page.waitForFunction(() => {
-              const stats = document.getElementById("membraneStats");
-              return stats && stats.textContent.includes("3 nodos") && stats.textContent.includes("2 aristas");
-            }, null, {timeout:10000});
+            try {
+              await page.waitForFunction(() => {
+                const stats = document.getElementById("membraneStats");
+                return stats && stats.textContent.includes("3 nodos") && stats.textContent.includes("2 aristas");
+              }, null, {timeout:10000});
+            } catch (e) {
+              const statsText = await page.$eval("#membraneStats", el => el.textContent || "");
+              console.error("BRAIN_2D_SMOKE_STATS", statsText);
+              throw e;
+            }
 
             if(errors.length){
               throw new Error("Unexpected page errors: " + errors.slice(0,5).join(" | "));
