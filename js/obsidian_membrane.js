@@ -2183,6 +2183,197 @@ function _updateMembraneContextPanel(nodeId){
   _position2dContext(id);
 }
 
+let membraneNavigationHistory = [];
+let membraneNavigationIndex = -1;
+const MEMBRANE_MAX_NAV_HISTORY = 40;
+
+function _brain2dApplyExplore(depth, rootId){
+  if(!cyMembrane) return {depth:0, visibleNodeIds:new Set(), visibleLinkIds:new Set()};
+  const d=Math.max(0,Math.min(3,Number(depth)||0));
+  const root = rootId
+    ? String(rootId)
+    : (membraneSelectedBrainNodeId
+        ? String(membraneSelectedBrainNodeId)
+        : String(cyMembrane.nodes(".core").first().id() || ""));
+  const distance=new Map();
+  if(!root){
+    distance.clear();
+  }else{
+    distance.set(root,0);
+    const adjacency=new Map();
+    cyMembrane.edges().forEach(e=>{
+      const a=String(e.data("source"));
+      const b=String(e.data("target"));
+      if(a===b) return;
+      if(!adjacency.has(a)) adjacency.set(a,[]);
+      if(!adjacency.has(b)) adjacency.set(b,[]);
+      adjacency.get(a).push(b);
+      adjacency.get(b).push(a);
+    });
+    if(d>0){
+      const queue=[root];
+      while(queue.length){
+        const current=queue.shift();
+        const currentDistance=distance.get(current)||0;
+        if(currentDistance>=d) continue;
+        for(const other of adjacency.get(current)||[]){
+          if(!distance.has(other)){
+            distance.set(other,currentDistance+1);
+            queue.push(other);
+          }
+        }
+      }
+    }else{
+      cyMembrane.nodes().forEach(n=>distance.set(String(n.id()),0));
+    }
+  }
+
+  const visibleNodeIds=new Set(distance.keys());
+  const visibleLinkIds=new Set();
+  cyMembrane.edges().forEach(e=>{
+    const a=String(e.data("source"));
+    const b=String(e.data("target"));
+    if(visibleNodeIds.has(a) && visibleNodeIds.has(b)){
+      visibleLinkIds.add(String(e.id()));
+    }
+  });
+
+  membraneExploreDepth=d;
+  membraneExploreVisibleNodeIds=visibleNodeIds;
+  membraneExploreVisibleLinkIds=visibleLinkIds;
+
+  cyMembrane.nodes().forEach(n=>{
+    const visible=_brainActiveNodeVisible(n) &&
+      (d===0 || visibleNodeIds.has(String(n.id())));
+    n.style("display",visible ? "element" : "none");
+  });
+
+  cyMembrane.edges().forEach(e=>{
+    const source=cyMembrane.getElementById(String(e.data("source")));
+    const target=cyMembrane.getElementById(String(e.data("target")));
+    const visible=source.length && target.length &&
+      _brainActiveNodeVisible(source) && _brainActiveNodeVisible(target) &&
+      (d===0 || visibleLinkIds.has(String(e.id())));
+    e.style("display",visible ? "element" : "none");
+  });
+
+  const status=document.getElementById("brainExploreStatus");
+  if(status){
+    status.textContent=d===0 ? "MEMORIA · TODO" : "MEMORIA · "+d+" SALTO"+(d===1 ? "" : "S");
+  }
+
+  const visible=cyMembrane.nodes().filter(n=>n.style("display")!=="none");
+  if(visible.length){
+    try{ cyMembrane.fit(visible,70); }catch(_){}
+  }
+
+  return {depth:d,visibleNodeIds,visibleLinkIds};
+}
+
+function _record2dNavigation(nodeId){
+  const id=nodeId ? String(nodeId) : "";
+  if(!id) return;
+  if(
+    membraneNavigationIndex >= 0 &&
+    membraneNavigationHistory[membraneNavigationIndex] === id
+  ){
+    _update2dNavigationUI();
+    return;
+  }
+  membraneNavigationHistory=membraneNavigationHistory
+    .slice(0,membraneNavigationIndex+1);
+  membraneNavigationHistory.push(id);
+  if(membraneNavigationHistory.length>MEMBRANE_MAX_NAV_HISTORY){
+    membraneNavigationHistory.shift();
+  }
+  membraneNavigationIndex=membraneNavigationHistory.length-1;
+  _update2dNavigationUI();
+}
+
+function _render2dNavigationTrail(){
+  const el=document.getElementById("brainNavTrail");
+  if(!el) return;
+  if(!membraneNavigationHistory.length){
+    el.innerHTML="";
+    return;
+  }
+  const start=Math.max(0,membraneNavigationHistory.length-6);
+  const ids=membraneNavigationHistory.slice(start);
+  el.innerHTML=ids.map((id,i)=>{
+    const n=cyMembrane ? cyMembrane.getElementById(id) : null;
+    const label=n && !n.empty() ? String(n.data("label")||id) : id;
+    const active=(start+i)===membraneNavigationIndex;
+    return (i ? "<span class='brain-trail-arrow'>›</span>" : "") +
+      "<button type='button' class='brain-trail-node"+(active ? " active" : "")+
+      "' data-brain-history='"+_brainContextEscape(id)+"' title='"+_brainContextEscape(label)+"'>"+
+      _brainContextEscape(label)+"</button>";
+  }).join("");
+}
+
+function _update2dNavigationUI(){
+  const back=document.getElementById("brainNavBack");
+  const forward=document.getElementById("brainNavForward");
+  if(back) back.disabled=membraneNavigationIndex<=0;
+  if(forward) forward.disabled=membraneNavigationIndex<0 || membraneNavigationIndex>=membraneNavigationHistory.length-1;
+  _render2dNavigationTrail();
+}
+
+function _select2dNode(nodeId, pushHistory=true){
+  if(!cyMembrane) return false;
+  const id=nodeId ? String(nodeId) : "";
+  if(!id) return false;
+  const node=cyMembrane.getElementById(id);
+  if(!node || node.empty()) return false;
+
+  membraneSelectedBrainNodeId=id;
+  if(pushHistory) _record2dNavigation(id);
+
+  cyMembrane.nodes().unselect();
+  node.select();
+  _highlightNeighbors(node);
+  node.style("display","element");
+  node.style("opacity",1);
+  node.style("background-opacity",1);
+  node.removeClass("dimmed");
+  _updateMembraneContextPanel(id);
+
+  try{
+    cyMembrane.center(node);
+  }catch(_){}
+
+  return true;
+}
+
+function _navigate2dHistory(delta){
+  const target=membraneNavigationIndex+Number(delta||0);
+  if(target<0 || target>=membraneNavigationHistory.length) return false;
+  membraneNavigationIndex=target;
+  const id=membraneNavigationHistory[target];
+  const ok=_select2dNode(id,false);
+  _update2dNavigationUI();
+  return ok;
+}
+
+window.akiraBrainNavigateBack=function(){
+  _navigate2dHistory(-1);
+};
+
+window.akiraBrainNavigateForward=function(){
+  _navigate2dHistory(1);
+};
+
+window.akiraBrainExploreDepth=function(depth){
+  if(!cyMembrane) return;
+  const rootId=membraneSelectedBrainNodeId ||
+    String(cyMembrane.nodes(".core").first().id() || "");
+  _brain2dApplyExplore(depth,rootId);
+};
+
+window.akiraBrainExploreAll=function(){
+  if(!cyMembrane) return;
+  _brain2dApplyExplore(0,null);
+};
+
 function _clearMembraneSelection(){
   membraneSelectedBrainNodeId=null;
   if(!cyMembrane) return;
@@ -3107,15 +3298,10 @@ function initMembraneGraph() {
       "tap",
       "node",
       (evt) => {
-        _highlightNeighbors(
-          evt.target
-        );
-        try {
-          _updateMembraneContextPanel(evt.target.id());
-        } catch(_) {}
+        _select2dNode(evt.target.id(), true);
         try {
           window.dispatchEvent(new CustomEvent("akira:brain-select", {
-            detail: { nodeId: evt.target.id() }
+            detail: { nodeId: evt.target.id(), source:"2d" }
           }));
         } catch(_) {}
       }
@@ -4242,13 +4428,7 @@ window.addEventListener("akira:brain-navigation", function(ev){
     const detail = ev && ev.detail ? ev.detail : {};
     const id = detail.nodeId ? String(detail.nodeId) : null;
     if(!id || !cyMembrane) return;
-
-    const node = cyMembrane.getElementById(id);
-    if(node && node.length){
-      cyMembrane.nodes().unselect();
-      node.select();
-      _position2dContext(id);
-    }
+    _select2dNode(id, true);
   } catch(_) {}
 });
 
