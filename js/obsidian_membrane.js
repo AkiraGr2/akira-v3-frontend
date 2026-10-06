@@ -3708,6 +3708,13 @@ function _bindElasticNodeInteraction(){
       if(_obsidianForceSimulation && typeof _obsidianForceSimulation.stop === "function"){
         try { _obsidianForceSimulation.stop(); } catch(_) {}
       }
+      // A D3 tick can already have queued one Cytoscape sync frame. Cancel it
+      // before pointer ownership begins so stale physics cannot overwrite the
+      // user's drag coordinate.
+      if(_obsidianSyncRaf){
+        try { cancelAnimationFrame(_obsidianSyncRaf); } catch(_) {}
+        _obsidianSyncRaf=null;
+      }
       _radialPhysicsRun++;
       if(_radialPhysicsTimer){
         try { cancelAnimationFrame(_radialPhysicsTimer); } catch(_){}
