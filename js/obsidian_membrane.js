@@ -235,26 +235,50 @@ function _authHeaders() {
   return {};
 }
 
-async function _fetchPublicJson(url) {
-  const full =
-    url.indexOf("http") === 0
-      ? url
-      : (AKIRA_API_BASE + url);
-  const bust =
-    full +
-    (full.indexOf("?") >= 0 ? "&" : "?") +
-    "_=" +
-    Date.now();
-  const r = await fetch(bust, {
-    method: "GET",
-    cache: "no-store",
-    credentials: "omit"
-  });
-  if (!r.ok) throw new Error("HTTP " + r.status);
-  return await r.json();
+function _hasUsableSession() {
+  try {
+    const token = localStorage.getItem("akira_session_token");
+    const exp = Number(localStorage.getItem("akira_session_exp") || 0);
+    return Boolean(token) && Number.isFinite(exp) && exp > Math.floor(Date.now() / 1000);
+  } catch (_) {
+    return false;
+  }
 }
 
-async function _fetchJson(url, handleAuthFailure = true) {
+async function _fetchPublicJson(url, timeoutMs = 8000) {
+  const full =
+    url.indexOf("http") === 0
+      ? url
+      : (AKIRA_API_BASE + url);
+  const bust =
+    full +
+    (full.indexOf("?") >= 0 ? "&" : "?") +
+    "_=" +
+    Date.now();
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || 8000));
+
+  try {
+    const r = await fetch(bust, {
+      method: "GET",
+      cache: "no-store",
+      credentials: "omit",
+      signal: controller.signal
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return await r.json();
+  } catch (e) {
+    if (e && e.name === "AbortError") {
+      throw new Error("public_graph_timeout");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function _fetchJson(url, handleAuthFailure = true, timeoutMs = 12000) {
   const full =
     url.indexOf("http") === 0
       ? url
@@ -266,23 +290,37 @@ async function _fetchJson(url, handleAuthFailure = true) {
     "_=" +
     Date.now();
 
-  const r = await fetch(
-    bust,
-    {
-      headers: _authHeaders()
-    }
-  );
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || 12000));
 
-  if (!r.ok) {
-    try {
-      if (handleAuthFailure && r.status === 401 && typeof window.akiraHandleAuthFailure === "function") {
-        window.akiraHandleAuthFailure(401);
+  try {
+    const r = await fetch(
+      bust,
+      {
+        headers: _authHeaders(),
+        credentials: "omit",
+        signal: controller.signal
       }
-    } catch (_) {}
-    throw new Error("HTTP " + r.status);
-  }
+    );
 
-  return await r.json();
+    if (!r.ok) {
+      try {
+        if (handleAuthFailure && r.status === 401 && typeof window.akiraHandleAuthFailure === "function") {
+          window.akiraHandleAuthFailure(401);
+        }
+      } catch (_) {}
+      throw new Error("HTTP " + r.status);
+    }
+
+    return await r.json();
+  } catch (e) {
+    if (e && e.name === "AbortError") {
+      throw new Error("graph_request_timeout");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ===========================================================================
@@ -3785,7 +3823,26 @@ async function refreshMembrane(
   membraneLastFetch =
     Date.now();
 
+  const hasSession = _hasUsableSession();
+
   try {
+    // Anonymous users never need to trigger the authenticated preflight.
+    // The public topology is the canonical unauthenticated Brain view.
+    if (!hasSession) {
+      const publicData = await _fetchPublicJson(
+        "/api/v8/graph/public-overview"
+      );
+      if (!publicData || publicData.ok !== true || publicData.public !== true) {
+        throw new Error("Vista pública no disponible");
+      }
+
+      membranePublicMode = true;
+      _applyGraphToCy(publicData);
+      membraneError = null;
+      _updateMembraneStats();
+      return;
+    }
+
     const data =
       await _fetchJson(
         "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now(),
