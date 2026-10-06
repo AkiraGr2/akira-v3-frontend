@@ -1139,9 +1139,9 @@ async function f14Request(path, options={}){
     let d=null;
     try{d=await r.json();}catch(e){}
     if(r.status===401 && typeof akiraHandleAuthFailure==="function") akiraHandleAuthFailure(401);
-    if(r.status===403){ throw new Error("No autorizado: la operación F14 requiere sesión de propietario."); }
     if(!r.ok){
-      const detail=d && (d.detail||d.reason);
+      const detail=d && (d.detail||d.reason||d.error_type);
+      if(r.status===403) throw new Error("HTTP 403 · "+String(detail||"owner_required"));
       throw new Error(detail || ("HTTP "+r.status));
     }
     return d||{};
@@ -1219,6 +1219,13 @@ async function f14Start(){
   f14SetOutput("⏳ Ejecutando F14: observación → propuesta → sandbox → pruebas → revisión → compuerta de aprobación...");
   f14ShowActions("");
   try{
+    const session=await akiraVerifySession();
+    if(!session || session.authenticated!==true){
+      throw new Error("Sesión no autenticada. Entra de nuevo con Google.");
+    }
+    if(session.is_owner!==true){
+      throw new Error("HTTP 403 · owner_required · El servidor no reconoce esta sesión como propietario.");
+    }
     const payload={
       goal:"Verificación de producción F14: crear únicamente un pequeño archivo Markdown de evidencia.",
       repository:"AkiraGr2/akira-empresa",
