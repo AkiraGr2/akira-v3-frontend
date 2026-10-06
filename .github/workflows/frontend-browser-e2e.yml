@@ -276,6 +276,80 @@ jobs:
           });
           NODE
 
+      - name: Behavioral E2E private Brain transport fallback
+        run: |
+          node <<'NODE'
+          const { chromium } = require("playwright");
+
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+            const page = await browser.newPage({viewport:{width:1440,height:900}, deviceScaleFactor:1});
+            const errors = [];
+            let privateRouteHit = 0;
+            let publicRouteHit = 0;
+            page.on("pageerror", err => errors.push(String(err && err.message || err)));
+
+            await page.addInitScript(() => {
+              localStorage.setItem("akira_session_token", "e2e-owner-token");
+              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now()/1000) + 3600));
+            });
+
+            await page.route("**/api/v8/graph/overview**", async route => {
+              privateRouteHit += 1;
+              await route.abort("failed");
+            });
+
+            await page.route("**/api/v8/graph/public-overview**", async route => {
+              publicRouteHit += 1;
+              await route.fulfill({
+                status:200,
+                contentType:"application/json",
+                body:JSON.stringify({
+                  ok:true,
+                  public:true,
+                  scope:"public_architecture",
+                  version:"public-architecture-v1",
+                  nodes:[
+                    {id:"public:akira",label:"Akira",node_type:"concept",weight:1,confidence:1},
+                    {id:"public:memory",label:"Memoria",node_type:"skill",weight:1,confidence:1},
+                    {id:"public:graph",label:"Grafo",node_type:"skill",weight:1,confidence:1},
+                    {id:"public:learning",label:"Aprendizaje",node_type:"skill",weight:1,confidence:1}
+                  ],
+                  edges:[
+                    {id:"public:e1",from_node:"public:akira",to_node:"public:memory",relation_type:"uses",weight:1,frequency:1},
+                    {id:"public:e2",from_node:"public:akira",to_node:"public:graph",relation_type:"uses",weight:1,frequency:1},
+                    {id:"public:e3",from_node:"public:akira",to_node:"public:learning",relation_type:"uses",weight:1,frequency:1}
+                  ],
+                  counts:{nodes:4,edges:3}
+                })
+              });
+            });
+
+            await page.goto("http://127.0.0.1:4173/", {waitUntil:"domcontentloaded", timeout:30000});
+            await page.evaluate(() => showSection("membrane"));
+
+            await page.waitForFunction(() => {
+              const stats = document.getElementById("membraneStats");
+              return stats &&
+                stats.textContent.includes("VISTA PÚBLICA") &&
+                stats.textContent.includes("4 nodos") &&
+                stats.textContent.includes("3 aristas");
+            }, null, {timeout:15000});
+
+            if(privateRouteHit !== 1) throw new Error("Private Brain route was not attempted exactly once");
+            if(publicRouteHit < 1) throw new Error("Public Brain fallback was not attempted");
+            if(errors.length){
+              throw new Error("Unexpected Brain transport fallback errors: " + errors.slice(0,5).join(" | "));
+            }
+
+            console.log("BRAIN_PRIVATE_TRANSPORT_FALLBACK_PASS");
+            await browser.close();
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          NODE
+
       - name: Smoke test anonymous Brain public fallback
         run: |
           node <<'NODE'
