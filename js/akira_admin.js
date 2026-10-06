@@ -120,6 +120,7 @@
       ? Object.assign({}, self.current_state)
       : {};
     currentState.owner_observation = note.trim();
+    currentState.owner_observation_at = new Date().toISOString();
     const expected = self.version;
     const r = await _fetch("/api/v8/self", {
       method: "PATCH",
