@@ -189,6 +189,14 @@ jobs:
                 d.stageHeight > 100;
             }, null, {timeout:20000});
 
+            await page.waitForFunction(() => {
+              const d = window.__akiraBrain2dDebug && window.__akiraBrain2dDebug();
+              return d &&
+                d.engine === "d3-force" &&
+                d.simulationAlpha !== null &&
+                d.simulationAlpha < 0.03;
+            }, null, {timeout:20000});
+
             const before = await page.evaluate(() => window.__akiraBrain2dDebug());
             const core = before.core;
             if(Math.abs(core.renderedX - before.width/2) > 8 ||
@@ -215,23 +223,24 @@ jobs:
             await page.mouse.move(pageX,pageY);
             await page.mouse.down();
 
-            const dragStart = await page.evaluate(() => {
-              const node = window.__akiraBrain2dNodePosition("node_a");
-              const neighbors = ["node_akira_e2e","node_b"]
-                .map(id => window.__akiraBrain2dNodePosition(id))
-                .filter(Boolean);
-              if(!node) throw new Error("Drag-start node missing");
-              return {
-                x: node.x,
-                y: node.y,
-                neighbors
-              };
-            });
+            const dragStartNode = before.nodes.find(n => n.id === "node_a");
+            const dragStartNeighbors = before.nodes
+              .filter(n => n.id === "node_akira_e2e" || n.id === "node_b")
+              .map(n => ({id:n.id,x:n.x,y:n.y}));
+            if(!dragStartNode) throw new Error("Drag-start node missing");
+            const dragStart = {
+              x: dragStartNode.x,
+              y: dragStartNode.y,
+              neighbors: dragStartNeighbors
+            };
 
+            await page.mouse.move(pageX,pageY);
+            await page.mouse.down();
             await page.mouse.move(pageX + 90,pageY + 20,{steps:8});
             await page.waitForTimeout(60);
 
-            const draggedDuring = await page.evaluate(() => window.__akiraBrain2dNodePosition("node_a"));
+            const duringDrag = await page.evaluate(() => window.__akiraBrain2dDebug());
+            const draggedDuring = duringDrag.nodes.find(n => n.id === "node_a");
             if(!draggedDuring) throw new Error("Dragged node missing during drag");
 
             const dragDistance = Math.hypot(
@@ -242,13 +251,8 @@ jobs:
               throw new Error("2D node drag did not move the node");
             }
 
-            const duringNeighbors = await page.evaluate(() =>
-              ["node_akira_e2e","node_b"]
-                .map(id => window.__akiraBrain2dNodePosition(id))
-                .filter(Boolean)
-            );
             const neighborMovedDuringDrag = dragStart.neighbors.some(p0 => {
-              const p1 = duringNeighbors.find(p => p.id === p0.id);
+              const p1 = duringDrag.nodes.find(p => p.id === p0.id);
               return p1 &&
                 Math.hypot(p1.x-p0.x,p1.y-p0.y) > 3;
             });
