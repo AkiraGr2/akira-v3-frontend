@@ -1550,6 +1550,25 @@ function _installBrain2dE2EDebug() {
           : 0,
         publicMode: membranePublicMode,
       };
+    window.__akiraBrain2dPausePhysics = function() {
+      try {
+        if(_obsidianForceSimulation && typeof _obsidianForceSimulation.stop === "function"){
+          _obsidianForceSimulation.stop();
+          return true;
+        }
+      } catch(_) {}
+      return false;
+    };
+
+    window.__akiraBrain2dResumePhysics = function() {
+      try {
+        if(_obsidianForceSimulation && typeof _obsidianForceSimulation.alpha === "function"){
+          _obsidianForceSimulation.alpha(0.12).restart();
+          return true;
+        }
+      } catch(_) {}
+      return false;
+    };
     };
   } catch (_) {}
 }
