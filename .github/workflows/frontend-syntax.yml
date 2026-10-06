@@ -27,6 +27,31 @@ jobs:
           node --check js/akira_admin.js
           node --check js/akira_extras.js
                     
+      - name: Guard canonical public identity contract
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const index = fs.readFileSync("index.html", "utf8");
+          const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
+          if (manifest.name !== "Akira") throw new Error("PWA public name must be exactly Akira");
+          if (manifest.short_name !== "Akira") throw new Error("PWA short name must be exactly Akira");
+          if (/V7\.3|Ultra|Consciente|Auto-reparable/i.test(String(manifest.description || ""))) {
+            throw new Error("PWA description must not expose versioned or unverified identity/capability claims");
+          }
+          if (!String(manifest.start_url || "").startsWith("/akira-v3-frontend/")) {
+            throw new Error("PWA start_url must remain inside the GitHub Pages project path");
+          }
+          if (!String(manifest.start_url || "").includes("akira_build=")) {
+            throw new Error("PWA start_url must carry the canonical build marker");
+          }
+          if (manifest.scope !== "/akira-v3-frontend/") throw new Error("PWA scope must remain inside the project path");
+          if (!index.includes("<title>Akira</title>")) throw new Error("document title must remain Akira");
+          if (index.includes("Akira V7.3") || index.includes("V7.3 Consciente")) {
+            throw new Error("frontend public surface must not expose legacy versioned identity");
+          }
+          console.log("canonical public identity contract OK");
+          NODE
+
       - name: Guard Brain 2D-only contract
         run: |
           node - <<'NODE'
