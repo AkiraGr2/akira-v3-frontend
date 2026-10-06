@@ -2305,7 +2305,8 @@ function _render2dNavigationTrail(){
     const active=(start+i)===membraneNavigationIndex;
     return (i ? "<span class='brain-trail-arrow'>›</span>" : "") +
       "<button type='button' class='brain-trail-node"+(active ? " active" : "")+
-      "' data-brain-history='"+_brainContextEscape(id)+"' title='"+_brainContextEscape(label)+"'>"+
+      "' data-brain-history='"+_brainContextEscape(id)+"' data-brain-history-index='"+(start+i)+
+      "' title='"+_brainContextEscape(label)+"'>"+
       _brainContextEscape(label)+"</button>";
   }).join("");
 }
@@ -2317,6 +2318,17 @@ function _update2dNavigationUI(){
   if(forward) forward.disabled=membraneNavigationIndex<0 || membraneNavigationIndex>=membraneNavigationHistory.length-1;
   _render2dNavigationTrail();
 }
+
+document.addEventListener("click", function(ev){
+  const btn=ev.target.closest("#brainNavTrail [data-brain-history-index]");
+  if(!btn) return;
+  const target=Number(btn.getAttribute("data-brain-history-index"));
+  if(!Number.isInteger(target)) return;
+  if(target<0 || target>=membraneNavigationHistory.length) return;
+  membraneNavigationIndex=target;
+  _select2dNode(membraneNavigationHistory[target], false);
+  _update2dNavigationUI();
+});
 
 function _select2dNode(nodeId, pushHistory=true){
   if(!cyMembrane) return false;
