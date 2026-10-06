@@ -1542,6 +1542,12 @@ function _installBrain2dE2EDebug() {
         nodes,
         selectedNodeId: membraneSelectedBrainNodeId,
         exploreDepth: membraneExploreDepth,
+        visibleNodeCount: cyMembrane
+          ? cyMembrane.nodes().filter(node => node.style("display") !== "none").length
+          : 0,
+        visibleEdgeCount: cyMembrane
+          ? cyMembrane.edges().filter(edge => edge.style("display") !== "none").length
+          : 0,
         publicMode: membranePublicMode,
       };
     };
