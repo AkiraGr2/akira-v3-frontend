@@ -1475,6 +1475,79 @@ function _runObsidianPhysics(nodes, edges, coreId, restart=true){
   return true;
 }
 
+
+function _installBrain2dE2EDebug() {
+  try {
+    if (
+      typeof window === "undefined" ||
+      !window.localStorage ||
+      window.localStorage.getItem("akira_e2e_debug") !== "1"
+    ) {
+      return;
+    }
+
+    window.__akiraBrain2dDebug = function() {
+      const stage = document.getElementById("brainStage");
+      const width = cyMembrane ? (cyMembrane.width() || 0) : 0;
+      const height = cyMembrane ? (cyMembrane.height() || 0) : 0;
+      const nodes = cyMembrane
+        ? cyMembrane.nodes().map(node => {
+            const p = node.position();
+            const rp = node.renderedPosition();
+            return {
+              id: String(node.id()),
+              label: String(node.data("label") || ""),
+              x: Number(p && p.x),
+              y: Number(p && p.y),
+              renderedX: Number(rp && rp.x),
+              renderedY: Number(rp && rp.y),
+              isCore: node.hasClass("core"),
+            };
+          }).filter(item =>
+            Number.isFinite(item.x) &&
+            Number.isFinite(item.y)
+          )
+        : [];
+
+      const core = nodes.find(item => item.isCore) || null;
+      const finiteDistances = core
+        ? nodes
+            .filter(item => !item.isCore)
+            .map(item => Math.hypot(item.x - core.x, item.y - core.y))
+            .filter(Number.isFinite)
+        : [];
+
+      return {
+        engine:
+          _obsidianForceSimulation &&
+          typeof _obsidianForceSimulation.alpha === "function"
+            ? "d3-force"
+            : (_obsidianForceNodeById.size ? "akira-fallback-force" : "none"),
+        simulationAlpha:
+          _obsidianForceSimulation &&
+          typeof _obsidianForceSimulation.alpha === "function"
+            ? Number(_obsidianForceSimulation.alpha())
+            : null,
+        width,
+        height,
+        stageWidth: stage ? stage.getBoundingClientRect().width : 0,
+        stageHeight: stage ? stage.getBoundingClientRect().height : 0,
+        core,
+        maxCoreDistance: finiteDistances.length
+          ? Math.max(...finiteDistances)
+          : 0,
+        minCoreDistance: finiteDistances.length
+          ? Math.min(...finiteDistances)
+          : 0,
+        nodes,
+        selectedNodeId: membraneSelectedBrainNodeId,
+        exploreDepth: membraneExploreDepth,
+        publicMode: membranePublicMode,
+      };
+    };
+  } catch (_) {}
+}
+
 function _forceFlowerPositions(nodes, edges, coreId, forceSeed=false) {
   if(!cyMembrane) return false;
   try { cyMembrane.resize(); } catch(_) {}
@@ -2932,6 +3005,8 @@ function _scheduleFlowerViewportRestore() {
   }, 120);
 }
 
+_installBrain2dE2EDebug();
+
 function initMembraneGraph() {
   const container =
     document.getElementById(
@@ -4014,49 +4089,56 @@ function _applyGraphToCy(
     _lastGraphSignature = graphSignature;
 
     const coreEl = cyMembrane.nodes(".core");
+    
+    const graphChanged =
+      graphSignature !== _lastGraphSignature;
 
-    // Initial build: create the proven radial composition from scratch.
-    // Later graph changes: preserve every existing node and seed ONLY newcomers
-    // beside their real neighbors, so growth becomes part of the same Brain
-    // instead of generating a second independent structure.
+    _lastGraphSignature = graphSignature;
+
     const hasExistingLayout =
-      !!window.__akiraRadialTargets &&
-      _positionCache.size > 1;
+      _positionCache.size > 1 ||
+      _obsidianForceNodeById.size > 1;
 
     if(coreEl && coreEl.length && (graphChanged || !hasExistingLayout)){
-      if(!hasExistingLayout){
-        _forceFlowerPositions(nodesForSeed, edges, coreId, true);
-      }else{
-        _seedObsidianGraph(
-          nodesForSeed,
-          coreId,
-          {
-            x:(cyMembrane.width()||800)/2,
-            y:(cyMembrane.height()||600)/2
-          },
-          edges
-        );
-      }
+      const center = {
+        x:(cyMembrane.width()||800)/2,
+        y:(cyMembrane.height()||600)/2
+      };
 
-      // Establish the camera immediately only on the initial build. Subsequent
-      // growth must not recenter or zoom the existing Brain.
-      if(!window.__akiraRadialInitialViewportDone){
+      // D3 force is the authoritative 2D Brain layout. Existing coordinates
+      // are preserved; only genuinely new nodes receive neighbor-aware seeds.
+      _seedObsidianGraph(
+        nodesForSeed,
+        coreId,
+        center,
+        edges
+      );
+
+      // Establish the camera once. The world itself is not fit/reseeded on
+      // later refreshes, so graph growth does not destroy the current layout.
+      if(!window.__akiraObsidianInitialViewportDone){
         try{
           const nucleus=coreEl.first();
           if(nucleus && !nucleus.empty()){
-            const targetZoom=Math.max(
-              0.50,
-              Math.min(0.54, cyMembrane.maxZoom())
+            cyMembrane.zoom(
+              Math.max(
+                0.50,
+                Math.min(0.54, cyMembrane.maxZoom())
+              )
             );
-            cyMembrane.zoom(targetZoom);
             cyMembrane.center(nucleus);
-            window.__akiraRadialInitialViewportDone=true;
+            window.__akiraObsidianInitialViewportDone=true;
           }
         }catch(_){}
       }
 
-      _runFlowerPhysics(nodesForSeed, edges, coreId);
-    }
+      _runObsidianPhysics(
+        nodesForSeed,
+        edges,
+        coreId,
+        true
+      );
+    }    }
   } catch(e) {
     console.warn("[membrane] graph application/physics failure:", e);
   }
