@@ -245,8 +245,9 @@ async function _fetchPublicJson(url) {
     (full.indexOf("?") >= 0 ? "&" : "?") +
     "_=" +
     Date.now();
+  // Keep the public graph request a simple GET: no custom headers means
+  // browsers can avoid an unnecessary CORS preflight on the public fallback.
   const r = await fetch(bust, {
-    headers: { "Content-Type": "application/json" },
     cache: "no-store"
   });
   if (!r.ok) throw new Error("HTTP " + r.status);
@@ -3761,6 +3762,34 @@ window.reorganizeMembrane =
     refreshMembrane(true);
   };
 
+function _hasValidLocalSession() {
+  try {
+    const token = String(localStorage.getItem("akira_session_token") || "").trim();
+    const exp = Number(localStorage.getItem("akira_session_exp") || 0);
+    return Boolean(
+      token &&
+      Number.isFinite(exp) &&
+      exp > Math.floor(Date.now() / 1000)
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+async function _loadPublicMembrane() {
+  const publicData = await _fetchPublicJson(
+    "/api/v8/graph/public-overview"
+  );
+  if (
+    !publicData ||
+    publicData.ok !== true ||
+    publicData.public !== true
+  ) {
+    throw new Error("Vista pública no disponible");
+  }
+  return publicData;
+}
+
 async function refreshMembrane(
   force
 ) {
@@ -3784,18 +3813,20 @@ async function refreshMembrane(
   membraneLastFetch =
     Date.now();
 
+  const hasSession = _hasValidLocalSession();
+
   try {
-    const data =
-      await _fetchJson(
-        "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now(),
-        false
-      );
+    // Anonymous users should never preflight the private graph route.
+    // Owners use the private route; if transport/authentication fails, the
+    // safe public topology remains available instead of leaving a blank Brain.
+    const data = hasSession
+      ? await _fetchJson(
+          "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now(),
+          false
+        )
+      : await _loadPublicMembrane();
 
-    if (!data || data.ok !== true) {
-      throw new Error("Respuesta del Cerebro 2D no válida");
-    }
-
-    membranePublicMode = false;
+    membranePublicMode = !hasSession;
     _applyGraphToCy(data);
     membraneError = null;
   } catch (e) {
@@ -3804,30 +3835,22 @@ async function refreshMembrane(
         ? e.message
         : e
     );
-    // Un fallo de autenticación/autorización no debe dejar el Brain completamente vacío.
-    // Si la vista privada no está disponible, usamos la topología pública segura.
-    if (message === "HTTP 401" || message === "HTTP 403") {
-      try {
-        const publicData = await _fetchPublicJson(
-          "/api/v8/graph/public-overview"
-        );
-        if (!publicData || publicData.ok !== true || publicData.public !== true) {
-          throw new Error("Vista pública no disponible");
-        }
-        membranePublicMode = true;
-        _applyGraphToCy(publicData);
-        membraneError = null;
-        _updateMembraneStats();
-      } catch (publicError) {
-        membraneError = String(
-          publicError && publicError.message
-            ? publicError.message
-            : publicError
-        );
-        _updateMembraneStats();
-      }
-    } else {
-      membraneError = message;
+
+    try {
+      // Public topology is deliberately static and contains no private graph
+      // records, so it is a safe availability fallback for CORS/network/auth
+      // failures on the private route.
+      const publicData = await _loadPublicMembrane();
+      membranePublicMode = true;
+      _applyGraphToCy(publicData);
+      membraneError = null;
+      _updateMembraneStats();
+    } catch (publicError) {
+      membraneError = String(
+        publicError && publicError.message
+          ? publicError.message
+          : (hasSession ? message : publicError)
+      );
       _updateMembraneStats();
     }
   } finally {
