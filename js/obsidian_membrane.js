@@ -3435,7 +3435,7 @@ function _finishElasticDrag(){
   }catch(_){}
 
   // Keep the stable world coordinates authoritative after the return animation.
-  // Do not restart the expensive radial physics just because a user dragged.
+  // Resume the existing D3 simulation gently from its original world coordinates.
   setTimeout(()=>{
     if(!cyMembrane) return;
     try{
@@ -3447,6 +3447,9 @@ function _finishElasticDrag(){
         item.element.position(item.home);
         _positionCache.set(item.id,item.home);
       });
+      if(_obsidianForceSimulation && typeof _obsidianForceSimulation.alpha === "function"){
+        _obsidianForceSimulation.alpha(0.12).restart();
+      }
     }catch(_){}
   },duration+20);
 }
@@ -3459,8 +3462,12 @@ function _bindElasticNodeInteraction(){
     try{
       _finishElasticDrag();
 
-      // While a node is being dragged, the user owns its position. Cancel any
-      // in-flight radial physics so the simulation cannot fight the pointer.
+      // While a node is being dragged, the user owns its position. Pause the
+      // active D3 simulation so it cannot fight the pointer. The same simulation
+      // is gently restarted after the elastic return animation completes.
+      if(_obsidianForceSimulation && typeof _obsidianForceSimulation.stop === "function"){
+        try { _obsidianForceSimulation.stop(); } catch(_) {}
+      }
       _radialPhysicsRun++;
       if(_radialPhysicsTimer){
         try { cancelAnimationFrame(_radialPhysicsTimer); } catch(_){}
