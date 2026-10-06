@@ -4719,26 +4719,18 @@ window.addEventListener(
       if (!cyMembrane) {
         initMembraneGraph();
       } else {
-        setTimeout(
-          () => {
-            if (cyMembrane) {
-              cyMembrane.resize();
-              refreshMembrane(true);
-            }
-          },
-          100
-        );
+        try { cyMembrane.resize(); } catch(_) {}
       }
 
       // The Brain section can become visible after auth/session startup. Give
-      // the layout one frame to acquire its real mobile dimensions, then retry
-      // the 2D graph once so a startup race cannot leave a permanently blank view.
+      // the layout one frame to acquire its real mobile dimensions, but do not
+      // refetch the graph here: initialization already owns the data fetch.
+      // This prevents duplicate refreshes from racing with the active 2D layout.
       requestAnimationFrame(() => {
         setTimeout(() => {
           if (!cyMembrane) initMembraneGraph();
           if (cyMembrane) {
             try { cyMembrane.resize(); } catch(_) {}
-            refreshMembrane(true);
           }
         }, 250);
       });
