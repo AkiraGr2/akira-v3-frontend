@@ -4095,11 +4095,6 @@ function _applyGraphToCy(
     _lastGraphSignature = graphSignature;
 
     const coreEl = cyMembrane.nodes(".core");
-    
-    const graphChanged =
-      graphSignature !== _lastGraphSignature;
-
-    _lastGraphSignature = graphSignature;
 
     const hasExistingLayout =
       _positionCache.size > 1 ||
@@ -4144,7 +4139,7 @@ function _applyGraphToCy(
         coreId,
         true
       );
-    }    }
+    }
   } catch(e) {
     console.warn("[membrane] graph application/physics failure:", e);
   }
