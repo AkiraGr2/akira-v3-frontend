@@ -1475,6 +1475,106 @@ function _runObsidianPhysics(nodes, edges, coreId, restart=true){
   return true;
 }
 
+
+function _installBrain2dE2EDebug() {
+  try {
+    if (
+      typeof window === "undefined" ||
+      !window.localStorage ||
+      window.localStorage.getItem("akira_e2e_debug") !== "1"
+    ) {
+      return;
+    }
+
+    window.__akiraBrain2dDebug = function() {
+      const stage = document.getElementById("brainStage");
+      const width = cyMembrane ? (cyMembrane.width() || 0) : 0;
+      const height = cyMembrane ? (cyMembrane.height() || 0) : 0;
+      const nodes = cyMembrane
+        ? cyMembrane.nodes().map(node => {
+            const p = node.position();
+            const rp = node.renderedPosition();
+            return {
+              id: String(node.id()),
+              label: String(node.data("label") || ""),
+              x: Number(p && p.x),
+              y: Number(p && p.y),
+              renderedX: Number(rp && rp.x),
+              renderedY: Number(rp && rp.y),
+              isCore: node.hasClass("core"),
+            };
+          }).filter(item =>
+            Number.isFinite(item.x) &&
+            Number.isFinite(item.y)
+          )
+        : [];
+
+      const core = nodes.find(item => item.isCore) || null;
+      const finiteDistances = core
+        ? nodes
+            .filter(item => !item.isCore)
+            .map(item => Math.hypot(item.x - core.x, item.y - core.y))
+            .filter(Number.isFinite)
+        : [];
+
+      return {
+        engine:
+          _obsidianForceSimulation &&
+          typeof _obsidianForceSimulation.alpha === "function"
+            ? "d3-force"
+            : (_obsidianForceNodeById.size ? "akira-fallback-force" : "none"),
+        simulationAlpha:
+          _obsidianForceSimulation &&
+          typeof _obsidianForceSimulation.alpha === "function"
+            ? Number(_obsidianForceSimulation.alpha())
+            : null,
+        width,
+        height,
+        stageWidth: stage ? stage.getBoundingClientRect().width : 0,
+        stageHeight: stage ? stage.getBoundingClientRect().height : 0,
+        core,
+        maxCoreDistance: finiteDistances.length
+          ? Math.max(...finiteDistances)
+          : 0,
+        minCoreDistance: finiteDistances.length
+          ? Math.min(...finiteDistances)
+          : 0,
+        nodes,
+        selectedNodeId: membraneSelectedBrainNodeId,
+        exploreDepth: membraneExploreDepth,
+        visibleNodeCount: cyMembrane
+          ? cyMembrane.nodes().filter(node => node.style("display") !== "none").length
+          : 0,
+        visibleEdgeCount: cyMembrane
+          ? cyMembrane.edges().filter(edge => edge.style("display") !== "none").length
+          : 0,
+        publicMode: membranePublicMode,
+      };
+    };
+
+    window.__akiraBrain2dPausePhysics = function() {
+      try {
+        if(_obsidianForceSimulation && typeof _obsidianForceSimulation.stop === "function"){
+          _obsidianForceSimulation.stop();
+          return true;
+        }
+      } catch(_) {}
+      // A completed D3 simulation is already stable; there is nothing to pause.
+      return true;
+    };
+
+    window.__akiraBrain2dResumePhysics = function() {
+      try {
+        if(_obsidianForceSimulation && typeof _obsidianForceSimulation.alpha === "function"){
+          _obsidianForceSimulation.alpha(0.12).restart();
+          return true;
+        }
+      } catch(_) {}
+      return false;
+    };
+  } catch (_) {}
+}
+
 function _forceFlowerPositions(nodes, edges, coreId, forceSeed=false) {
   if(!cyMembrane) return false;
   try { cyMembrane.resize(); } catch(_) {}
@@ -2103,6 +2203,209 @@ function _updateMembraneContextPanel(nodeId){
   _bindBrainContextDragging();
   _position2dContext(id);
 }
+
+let membraneNavigationHistory = [];
+let membraneNavigationIndex = -1;
+const MEMBRANE_MAX_NAV_HISTORY = 40;
+
+function _brain2dApplyExplore(depth, rootId){
+  if(!cyMembrane) return {depth:0, visibleNodeIds:new Set(), visibleLinkIds:new Set()};
+  const d=Math.max(0,Math.min(3,Number(depth)||0));
+  const root = rootId
+    ? String(rootId)
+    : (membraneSelectedBrainNodeId
+        ? String(membraneSelectedBrainNodeId)
+        : String(cyMembrane.nodes(".core").first().id() || ""));
+  const distance=new Map();
+  if(!root){
+    distance.clear();
+  }else{
+    distance.set(root,0);
+    const adjacency=new Map();
+    cyMembrane.edges().forEach(e=>{
+      const a=String(e.data("source"));
+      const b=String(e.data("target"));
+      if(a===b) return;
+      if(!adjacency.has(a)) adjacency.set(a,[]);
+      if(!adjacency.has(b)) adjacency.set(b,[]);
+      adjacency.get(a).push(b);
+      adjacency.get(b).push(a);
+    });
+    if(d>0){
+      const queue=[root];
+      while(queue.length){
+        const current=queue.shift();
+        const currentDistance=distance.get(current)||0;
+        if(currentDistance>=d) continue;
+        for(const other of adjacency.get(current)||[]){
+          if(!distance.has(other)){
+            distance.set(other,currentDistance+1);
+            queue.push(other);
+          }
+        }
+      }
+    }else{
+      cyMembrane.nodes().forEach(n=>distance.set(String(n.id()),0));
+    }
+  }
+
+  const visibleNodeIds=new Set(distance.keys());
+  const visibleLinkIds=new Set();
+  cyMembrane.edges().forEach(e=>{
+    const a=String(e.data("source"));
+    const b=String(e.data("target"));
+    if(visibleNodeIds.has(a) && visibleNodeIds.has(b)){
+      visibleLinkIds.add(String(e.id()));
+    }
+  });
+
+  membraneExploreDepth=d;
+  membraneExploreVisibleNodeIds=visibleNodeIds;
+  membraneExploreVisibleLinkIds=visibleLinkIds;
+
+  cyMembrane.nodes().forEach(n=>{
+    const visible=_brainActiveNodeVisible(n) &&
+      (d===0 || visibleNodeIds.has(String(n.id())));
+    n.style("display",visible ? "element" : "none");
+  });
+
+  cyMembrane.edges().forEach(e=>{
+    const source=cyMembrane.getElementById(String(e.data("source")));
+    const target=cyMembrane.getElementById(String(e.data("target")));
+    const visible=source.length && target.length &&
+      _brainActiveNodeVisible(source) && _brainActiveNodeVisible(target) &&
+      (d===0 || visibleLinkIds.has(String(e.id())));
+    e.style("display",visible ? "element" : "none");
+  });
+
+  const status=document.getElementById("brainExploreStatus");
+  if(status){
+    status.textContent=d===0 ? "MEMORIA · TODO" : "MEMORIA · "+d+" SALTO"+(d===1 ? "" : "S");
+  }
+
+  const visible=cyMembrane.nodes().filter(n=>n.style("display")!=="none");
+  if(visible.length){
+    try{ cyMembrane.fit(visible,70); }catch(_){}
+  }
+
+  return {depth:d,visibleNodeIds,visibleLinkIds};
+}
+
+function _record2dNavigation(nodeId){
+  const id=nodeId ? String(nodeId) : "";
+  if(!id) return;
+  if(
+    membraneNavigationIndex >= 0 &&
+    membraneNavigationHistory[membraneNavigationIndex] === id
+  ){
+    _update2dNavigationUI();
+    return;
+  }
+  membraneNavigationHistory=membraneNavigationHistory
+    .slice(0,membraneNavigationIndex+1);
+  membraneNavigationHistory.push(id);
+  if(membraneNavigationHistory.length>MEMBRANE_MAX_NAV_HISTORY){
+    membraneNavigationHistory.shift();
+  }
+  membraneNavigationIndex=membraneNavigationHistory.length-1;
+  _update2dNavigationUI();
+}
+
+function _render2dNavigationTrail(){
+  const el=document.getElementById("brainNavTrail");
+  if(!el) return;
+  if(!membraneNavigationHistory.length){
+    el.innerHTML="";
+    return;
+  }
+  const start=Math.max(0,membraneNavigationHistory.length-6);
+  const ids=membraneNavigationHistory.slice(start);
+  el.innerHTML=ids.map((id,i)=>{
+    const n=cyMembrane ? cyMembrane.getElementById(id) : null;
+    const label=n && !n.empty() ? String(n.data("label")||id) : id;
+    const active=(start+i)===membraneNavigationIndex;
+    return (i ? "<span class='brain-trail-arrow'>›</span>" : "") +
+      "<button type='button' class='brain-trail-node"+(active ? " active" : "")+
+      "' data-brain-history='"+_brainContextEscape(id)+"' data-brain-history-index='"+(start+i)+
+      "' title='"+_brainContextEscape(label)+"'>"+
+      _brainContextEscape(label)+"</button>";
+  }).join("");
+}
+
+function _update2dNavigationUI(){
+  const back=document.getElementById("brainNavBack");
+  const forward=document.getElementById("brainNavForward");
+  if(back) back.disabled=membraneNavigationIndex<=0;
+  if(forward) forward.disabled=membraneNavigationIndex<0 || membraneNavigationIndex>=membraneNavigationHistory.length-1;
+  _render2dNavigationTrail();
+}
+
+document.addEventListener("click", function(ev){
+  const btn=ev.target.closest("#brainNavTrail [data-brain-history-index]");
+  if(!btn) return;
+  const target=Number(btn.getAttribute("data-brain-history-index"));
+  if(!Number.isInteger(target)) return;
+  if(target<0 || target>=membraneNavigationHistory.length) return;
+  membraneNavigationIndex=target;
+  _select2dNode(membraneNavigationHistory[target], false);
+  _update2dNavigationUI();
+});
+
+function _select2dNode(nodeId, pushHistory=true){
+  if(!cyMembrane) return false;
+  const id=nodeId ? String(nodeId) : "";
+  if(!id) return false;
+  const node=cyMembrane.getElementById(id);
+  if(!node || node.empty()) return false;
+
+  membraneSelectedBrainNodeId=id;
+  if(pushHistory) _record2dNavigation(id);
+
+  cyMembrane.nodes().unselect();
+  node.select();
+  _highlightNeighbors(node);
+  node.style("display","element");
+  node.style("opacity",1);
+  node.style("background-opacity",1);
+  node.removeClass("dimmed");
+  _updateMembraneContextPanel(id);
+
+  try{
+    cyMembrane.center(node);
+  }catch(_){}
+
+  return true;
+}
+
+function _navigate2dHistory(delta){
+  const target=membraneNavigationIndex+Number(delta||0);
+  if(target<0 || target>=membraneNavigationHistory.length) return false;
+  membraneNavigationIndex=target;
+  const id=membraneNavigationHistory[target];
+  const ok=_select2dNode(id,false);
+  _update2dNavigationUI();
+  return ok;
+}
+
+window.akiraBrainNavigateBack=function(){
+  _navigate2dHistory(-1);
+};
+
+window.akiraBrainNavigateForward=function(){
+  _navigate2dHistory(1);
+};
+
+window.akiraBrainExploreDepth=function(depth){
+  if(!cyMembrane) return;
+  const rootId=membraneSelectedBrainNodeId ||
+    String(cyMembrane.nodes(".core").first().id() || "");
+  _brain2dApplyExplore(depth,rootId);
+};
+
+window.akiraBrainExploreAll=function(){
+  if(!cyMembrane) return;
+  _brain2dApplyExplore(0,null);
+};
 
 function _clearMembraneSelection(){
   membraneSelectedBrainNodeId=null;
@@ -2932,6 +3235,8 @@ function _scheduleFlowerViewportRestore() {
   }, 120);
 }
 
+_installBrain2dE2EDebug();
+
 function initMembraneGraph() {
   const container =
     document.getElementById(
@@ -3026,15 +3331,10 @@ function initMembraneGraph() {
       "tap",
       "node",
       (evt) => {
-        _highlightNeighbors(
-          evt.target
-        );
-        try {
-          _updateMembraneContextPanel(evt.target.id());
-        } catch(_) {}
+        _select2dNode(evt.target.id(), true);
         try {
           window.dispatchEvent(new CustomEvent("akira:brain-select", {
-            detail: { nodeId: evt.target.id() }
+            detail: { nodeId: evt.target.id(), source:"2d" }
           }));
         } catch(_) {}
       }
@@ -3354,7 +3654,7 @@ function _finishElasticDrag(){
   }catch(_){}
 
   // Keep the stable world coordinates authoritative after the return animation.
-  // Do not restart the expensive radial physics just because a user dragged.
+  // Resume the existing D3 simulation gently from its original world coordinates.
   setTimeout(()=>{
     if(!cyMembrane) return;
     try{
@@ -3366,6 +3666,9 @@ function _finishElasticDrag(){
         item.element.position(item.home);
         _positionCache.set(item.id,item.home);
       });
+      if(_obsidianForceSimulation && typeof _obsidianForceSimulation.alpha === "function"){
+        _obsidianForceSimulation.alpha(0.12).restart();
+      }
     }catch(_){}
   },duration+20);
 }
@@ -3378,8 +3681,12 @@ function _bindElasticNodeInteraction(){
     try{
       _finishElasticDrag();
 
-      // While a node is being dragged, the user owns its position. Cancel any
-      // in-flight radial physics so the simulation cannot fight the pointer.
+      // While a node is being dragged, the user owns its position. Pause the
+      // active D3 simulation so it cannot fight the pointer. The same simulation
+      // is gently restarted after the elastic return animation completes.
+      if(_obsidianForceSimulation && typeof _obsidianForceSimulation.stop === "function"){
+        try { _obsidianForceSimulation.stop(); } catch(_) {}
+      }
       _radialPhysicsRun++;
       if(_radialPhysicsTimer){
         try { cancelAnimationFrame(_radialPhysicsTimer); } catch(_){}
@@ -4015,47 +4322,49 @@ function _applyGraphToCy(
 
     const coreEl = cyMembrane.nodes(".core");
 
-    // Initial build: create the proven radial composition from scratch.
-    // Later graph changes: preserve every existing node and seed ONLY newcomers
-    // beside their real neighbors, so growth becomes part of the same Brain
-    // instead of generating a second independent structure.
     const hasExistingLayout =
-      !!window.__akiraRadialTargets &&
-      _positionCache.size > 1;
+      _positionCache.size > 1 ||
+      _obsidianForceNodeById.size > 1;
 
     if(coreEl && coreEl.length && (graphChanged || !hasExistingLayout)){
-      if(!hasExistingLayout){
-        _forceFlowerPositions(nodesForSeed, edges, coreId, true);
-      }else{
-        _seedObsidianGraph(
-          nodesForSeed,
-          coreId,
-          {
-            x:(cyMembrane.width()||800)/2,
-            y:(cyMembrane.height()||600)/2
-          },
-          edges
-        );
-      }
+      const center = {
+        x:(cyMembrane.width()||800)/2,
+        y:(cyMembrane.height()||600)/2
+      };
 
-      // Establish the camera immediately only on the initial build. Subsequent
-      // growth must not recenter or zoom the existing Brain.
-      if(!window.__akiraRadialInitialViewportDone){
+      // D3 force is the authoritative 2D Brain layout. Existing coordinates
+      // are preserved; only genuinely new nodes receive neighbor-aware seeds.
+      _seedObsidianGraph(
+        nodesForSeed,
+        coreId,
+        center,
+        edges
+      );
+
+      // Establish the camera once. The world itself is not fit/reseeded on
+      // later refreshes, so graph growth does not destroy the current layout.
+      if(!window.__akiraObsidianInitialViewportDone){
         try{
           const nucleus=coreEl.first();
           if(nucleus && !nucleus.empty()){
-            const targetZoom=Math.max(
-              0.50,
-              Math.min(0.54, cyMembrane.maxZoom())
+            cyMembrane.zoom(
+              Math.max(
+                0.50,
+                Math.min(0.54, cyMembrane.maxZoom())
+              )
             );
-            cyMembrane.zoom(targetZoom);
             cyMembrane.center(nucleus);
-            window.__akiraRadialInitialViewportDone=true;
+            window.__akiraObsidianInitialViewportDone=true;
           }
         }catch(_){}
       }
 
-      _runFlowerPhysics(nodesForSeed, edges, coreId);
+      _runObsidianPhysics(
+        nodesForSeed,
+        edges,
+        coreId,
+        true
+      );
     }
   } catch(e) {
     console.warn("[membrane] graph application/physics failure:", e);
@@ -4152,13 +4461,7 @@ window.addEventListener("akira:brain-navigation", function(ev){
     const detail = ev && ev.detail ? ev.detail : {};
     const id = detail.nodeId ? String(detail.nodeId) : null;
     if(!id || !cyMembrane) return;
-
-    const node = cyMembrane.getElementById(id);
-    if(node && node.length){
-      cyMembrane.nodes().unselect();
-      node.select();
-      _position2dContext(id);
-    }
+    _select2dNode(id, true);
   } catch(_) {}
 });
 

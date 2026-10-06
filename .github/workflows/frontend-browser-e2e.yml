@@ -100,6 +100,182 @@ jobs:
           });
           NODE
 
+      - name: Behavioral E2E for authoritative D3 Brain 2D
+        run: |
+          node <<'NODE'
+          const { chromium } = require("playwright");
+
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+            const page = await browser.newPage({
+              viewport:{width:1440,height:900},
+              deviceScaleFactor:1
+            });
+
+            const errors = [];
+            page.on("pageerror", err => errors.push(String(err && err.message || err)));
+
+            await page.addInitScript(() => {
+              localStorage.setItem("akira_e2e_debug", "1");
+            });
+
+            await page.route("**/api/v8/graph/overview**", async route => {
+              await route.fulfill({
+                status:200,
+                contentType:"application/json",
+                body:JSON.stringify({
+                  ok:true,
+                  nodes:[
+                    {id:"node_akira_e2e",label:"Akira",node_type:"project",weight:1,confidence:1,reuse_count:5},
+                    {id:"node_a",label:"Concept A",node_type:"concept",weight:.9,confidence:.9,reuse_count:3},
+                    {id:"node_b",label:"Concept B",node_type:"concept",weight:.8,confidence:.85,reuse_count:2},
+                    {id:"node_c",label:"Tool C",node_type:"tool",weight:.7,confidence:.8,reuse_count:3},
+                    {id:"node_d",label:"Learning D",node_type:"experience",weight:.65,confidence:.75,reuse_count:1},
+                    {id:"node_e",label:"Project E",node_type:"project",weight:.6,confidence:.7,reuse_count:1},
+                    {id:"node_f",label:"Skill F",node_type:"skill",weight:.55,confidence:.7,reuse_count:2}
+                  ],
+                  edges:[
+                    {id:"edge_1",from_node:"node_akira_e2e",to_node:"node_a",relation_type:"related_to",weight:1,frequency:1},
+                    {id:"edge_2",from_node:"node_akira_e2e",to_node:"node_c",relation_type:"uses",weight:.9,frequency:1},
+                    {id:"edge_3",from_node:"node_akira_e2e",to_node:"node_d",relation_type:"part_of",weight:.85,frequency:1},
+                    {id:"edge_4",from_node:"node_a",to_node:"node_b",relation_type:"related_to",weight:.8,frequency:1},
+                    {id:"edge_5",from_node:"node_b",to_node:"node_c",relation_type:"related_to",weight:.75,frequency:1},
+                    {id:"edge_6",from_node:"node_c",to_node:"node_e",relation_type:"uses",weight:.7,frequency:1},
+                    {id:"edge_7",from_node:"node_d",to_node:"node_f",relation_type:"learned_from",weight:.65,frequency:1}
+                  ],
+                  counts:{
+                    nodes:7,
+                    edges:7,
+                    by_type:{project:2,concept:2,tool:1,experience:1,skill:1},
+                    by_relation:{related_to:3,uses:2,part_of:1,learned_from:1}
+                  }
+                })
+              });
+            });
+
+            await page.goto("http://127.0.0.1:4173/", {
+              waitUntil:"domcontentloaded",
+              timeout:30000
+            });
+            await page.evaluate(() => showSection("membrane"));
+
+            await page.waitForFunction(() => {
+              const d = window.__akiraBrain2dDebug && window.__akiraBrain2dDebug();
+              return d &&
+                d.engine === "d3-force" &&
+                d.nodes.length === 7 &&
+                d.core &&
+                d.stageWidth > 100 &&
+                d.stageHeight > 100;
+            }, null, {timeout:20000});
+
+            const before = await page.evaluate(() => window.__akiraBrain2dDebug());
+            const core = before.core;
+            if(Math.abs(core.renderedX - before.width/2) > 8 ||
+               Math.abs(core.renderedY - before.height/2) > 8){
+              throw new Error("Akira is not centered in the 2D Brain");
+            }
+            if(before.maxCoreDistance < 120){
+              throw new Error("D3 Brain nodes did not separate from the core");
+            }
+
+            const candidate = before.nodes.find(n => n.id === "node_a");
+            if(!candidate) throw new Error("Drag candidate missing");
+
+            const stageBox = await page.$eval("#membraneCy", el => {
+              const r = el.getBoundingClientRect();
+              return {left:r.left, top:r.top};
+            });
+
+            if(!await page.evaluate(() => window.__akiraBrain2dPausePhysics && window.__akiraBrain2dPausePhysics())){
+              throw new Error("Unable to pause D3 physics for deterministic drag instrumentation");
+            }
+
+            const stableCandidate = await page.evaluate((id) => {
+              const d = window.__akiraBrain2dDebug();
+              return d.nodes.find(n => n.id === id);
+            }, "node_a");
+            if(!stableCandidate) throw new Error("Stable drag candidate missing");
+
+            const pageX = stageBox.left + stableCandidate.renderedX;
+            const pageY = stageBox.top + stableCandidate.renderedY;
+
+            await page.mouse.move(pageX,pageY);
+            await page.mouse.down();
+
+            const dragStart = await page.evaluate(() => {
+              const d = window.__akiraBrain2dDebug();
+              const node = d.nodes.find(n => n.id === "node_a");
+              return {
+                x: node.renderedX,
+                y: node.renderedY,
+                neighbors: d.nodes
+                  .filter(n => n.id === "node_akira_e2e" || n.id === "node_b")
+                  .map(n => ({id:n.id,x:n.renderedX,y:n.renderedY}))
+              };
+            });
+
+            await page.mouse.move(pageX + 90,pageY + 20,{steps:8});
+            await page.waitForTimeout(60);
+
+            const duringDrag = await page.evaluate(() => window.__akiraBrain2dDebug());
+            const draggedDuring = duringDrag.nodes.find(n => n.id === "node_a");
+            if(!draggedDuring) throw new Error("Dragged node missing during drag");
+
+            const dragDistance = Math.hypot(
+              draggedDuring.renderedX - dragStart.x,
+              draggedDuring.renderedY - dragStart.y
+            );
+            if(dragDistance < 35){
+              throw new Error("2D node drag did not move the node");
+            }
+
+            const neighborMovedDuringDrag = dragStart.neighbors.some(p0 => {
+              const p1 = duringDrag.nodes.find(n => n.id === p0.id);
+              return p1 &&
+                Math.hypot(p1.renderedX-p0.x,p1.renderedY-p0.y) > 3;
+            });
+            if(!neighborMovedDuringDrag){
+              throw new Error("Elastic drag did not affect a real graph neighbor");
+            }
+
+            await page.evaluate(() => window.__akiraBrain2dResumePhysics && window.__akiraBrain2dResumePhysics());
+
+            const corePoint = duringDrag.core;
+            await page.mouse.up();
+            await page.mouse.click(stageBox.left + corePoint.renderedX, stageBox.top + corePoint.renderedY);
+
+            await page.waitForFunction(() => {
+              const panel = document.getElementById("brainContext");
+              const title = document.getElementById("brainContextTitle");
+              return panel &&
+                !panel.classList.contains("is-hidden") &&
+                title &&
+                title.textContent.trim().length > 0;
+            }, null, {timeout:5000});
+
+            await page.getByTitle("Mostrar vecinos directos").click();
+
+            await page.waitForFunction(() => {
+              const d = window.__akiraBrain2dDebug && window.__akiraBrain2dDebug();
+              return d &&
+                d.exploreDepth === 1 &&
+                d.visibleNodeCount >= 2 &&
+                d.visibleNodeCount < d.nodes.length;
+            }, null, {timeout:5000});
+
+            if(errors.length){
+              throw new Error("Unexpected page errors: " + errors.slice(0,5).join(" | "));
+            }
+
+            console.log("BRAIN_2D_D3_BEHAVIOR_PASS");
+            await browser.close();
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          NODE
+
       - name: Smoke test anonymous Brain public fallback
         run: |
           node <<'NODE'
