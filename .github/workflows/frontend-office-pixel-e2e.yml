@@ -118,6 +118,7 @@ jobs:
               sceneSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.sceneSource,
               atlasSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.atlasSource,
               atlasLayout:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.atlasLayout,
+              presentation2p5d:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.presentation2p5d,
               agents:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.agents,
               invalidEdges:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.invalidEdges,
               navigationMode:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.navigationMode,
@@ -184,7 +185,8 @@ jobs:
             const legacyButtons=officeButtons.filter(x=>[
               "officePixelMission","officePixelCoffee","officePixelMeeting","officePixelPrint"
             ].includes(x.id));
-            if(interactionButtons.length!==1 || legacyButtons.length!==0){
+            const overviewButtons=officeButtons.filter(x=>x.id==="officePixelOverview");
+            if(interactionButtons.length!==1 || overviewButtons.length!==1 || legacyButtons.length!==0){
               throw new Error("Office interaction controls are not unified: "+JSON.stringify(officeButtons));
             }
 
@@ -266,6 +268,14 @@ jobs:
               throw new Error("Dante directional sprite set is incomplete: "+JSON.stringify(dante));
             }
 
+            const presentation=await page.evaluate(() => window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.presentation2p5d);
+            if(!presentation || !presentation.enabled || presentation.version!=="2.5D-v1"){
+              throw new Error("2.5D presentation contract missing: "+JSON.stringify(presentation));
+            }
+            if(!(presentation.depth.min_scale<presentation.depth.max_scale) || presentation.camera.focus_zoom<=presentation.camera.default_zoom){
+              throw new Error("2.5D depth/camera calibration invalid: "+JSON.stringify(presentation));
+            }
+
             const layout=await page.$eval("#officePixelCanvas",el=>{
               const r=el.getBoundingClientRect();
               const stage=document.getElementById("officePixelStage").getBoundingClientRect();
@@ -319,6 +329,10 @@ jobs:
               throw new Error("Luna did not resolve the Web station visually after Interacción: "+JSON.stringify(visualLuna));
             }
 
+            const visualContract=await page.evaluate(() => window.akiraOfficePixelDebug.presentation2p5d && window.akiraOfficePixelDebug.presentation2p5d.cameraRuntime);
+            if(!visualContract || visualContract.focus!=="overview" || visualContract.zoom < 0.98 || visualContract.zoom > 1.02){
+              throw new Error("2.5D overview camera drifted unexpectedly: "+JSON.stringify(visualContract));
+            }
             const researcher=after.find(a=>a.name==="Luna");
             const developer=after.find(a=>a.name==="Nexo");
             if(!researcher || !developer){
