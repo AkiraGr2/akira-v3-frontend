@@ -497,6 +497,7 @@
     }
 
     agent.routeTargetId=targetId;
+    agent.stationId=targetId;
     agent.route=points.map((p,i)=>({
       screen:[...p],
       id:i===points.length-1?targetId:null
@@ -555,6 +556,7 @@
     agent.screen=[...(agent.homeSeat||agent.homeVisual)];
     agent.route=[];
     agent.routeTargetId=null;
+    agent.stationId=null;
     agent.routeIndex=0;
     agent.machine=agent.backendState==="working"?"working":"idle";
     agent.visualState=agent.backendState==="working"?"work":agent.backendState==="error"?"reaction":"idle";
@@ -1139,7 +1141,7 @@
 
   function stationKindForAgent(a){
     const t=a&&a.task;
-    const sid=taskStationId(t);
+    const sid=taskStationId(t)||a&&a.stationId||a&&a.routeTargetId;
     if(sid){
       const entries=Object.entries(config.stations||{});
       for(const [key,s] of entries){
@@ -1148,6 +1150,15 @@
       }
     }
     if(a&&a.actionState==="talk")return"meeting";
+    if(a&&a.backendState==="working"){
+      const roleSid=roleStationForAgent(a);
+      if(roleSid){
+        const entry=Object.entries(config.stations||{}).find(([_,s])=>
+          s&&((s.id===roleSid)||(Array.isArray(s.ids)&&s.ids.includes(roleSid)))
+        );
+        if(entry)return entry[0];
+      }
+    }
     if(a&&a.actionState==="use")return a.machine==="station" ? "utility":"mission";
     return null;
   }
