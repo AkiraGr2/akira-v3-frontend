@@ -4512,6 +4512,14 @@ function _updateMembraneStats() {
 // ===========================================================================
 // BRAIN 2D/3D — SINCRONIZACION DE SELECCION
 // ===========================================================================
+// When authentication is verified after Brain initialization, upgrade the
+// already-rendered public topology to the owner/private graph without reload.
+window.addEventListener("akira:session-valid", function(){
+  try{
+    if(cyMembrane) refreshMembrane(true);
+  }catch(_){}
+});
+
 window.addEventListener("akira:brain-navigation", function(ev){
   try {
     const detail = ev && ev.detail ? ev.detail : {};

@@ -956,7 +956,9 @@ async function akiraVerifySession(){
     if(r.ok && d && d.authenticated===true){
       localStorage.setItem("akira_user_email",String(d.email||""));
       window.akiraSessionState=d;
-      return Object.assign({ok:true,status:r.status},d);
+      const result=Object.assign({ok:true,status:r.status},d);
+      try{window.dispatchEvent(new CustomEvent("akira:session-valid",{detail:result}));}catch(e){}
+      return result;
     }
     return {ok:false,status:r.status,authenticated:Boolean(d&&d.authenticated),data:d};
   }catch(e){
@@ -980,7 +982,14 @@ function showSection(name){
   closeSidebar();
   if(name==='membrane'){
   window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"membrane"}}));
-  const bootBrain=()=>{
+  const bootBrain=async ()=>{
+    try{
+      const token=localStorage.getItem("akira_session_token");
+      const exp=Number(localStorage.getItem("akira_session_exp")||0);
+      if(token || exp){
+        await akiraVerifySession();
+      }
+    }catch(_){}
     try{
       if(window.AkiraMembrane && typeof window.AkiraMembrane.initMembraneGraph==="function"){
         window.AkiraMembrane.initMembraneGraph();
@@ -1127,6 +1136,8 @@ async function adminCheckSession(){
     const md=await r.json();
     if(md.authenticated && md.is_owner){
       if(status) status.textContent="";
+      window.akiraSessionState = Object.assign({ok:true}, md);
+      try{window.dispatchEvent(new CustomEvent("akira:session-valid",{detail:window.akiraSessionState}));}catch(e){}
       document.getElementById("adminLogin").style.display="none";
       document.getElementById("adminPanel").style.display="block";
       setTimeout(()=>{countNeuronas();renderLevels();if(window.adminDashboard) adminDashboard();},100);
