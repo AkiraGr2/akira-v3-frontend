@@ -1458,7 +1458,21 @@
     const dx=desired[0]-current[0];
     const dy=desired[1]-current[1];
     const horizontal=Math.abs(dx)>=Math.abs(dy);
-    const side=agentPriority(agent)%2===0?1:-1;
+    const projectedOthers=population
+      .filter(other=>other&&other!==agent&&other.status==="active"&&Array.isArray(other.screen))
+      .map(other=>({other,future:predictAgentNextPosition(other,dt)}))
+      .filter(x=>Math.hypot(current[0]-x.future[0],current[1]-x.future[1])<AGENT_MIN_GAP_PX*2.5)
+      .sort((a,b)=>Math.hypot(current[0]-a.future[0],current[1]-a.future[1])-
+                    Math.hypot(current[0]-b.future[0],current[1]-b.future[1]));
+    const blocker=projectedOthers[0]?.other||null;
+
+    // When two agents meet head-on, the side is decided from their relative
+    // deterministic priority, so the pair chooses opposite sides even when
+    // their hash/parity happens to match. This avoids both "waiting forever".
+    const side=blocker
+      ? (agentPriority(agent)<agentPriority(blocker)?1:-1)
+      : (agentPriority(agent)%2===0?1:-1);
+
     const primary=horizontal
       ? [current[0],current[1]+side*AGENT_SIDE_STEP_PX]
       : [current[0]+side*AGENT_SIDE_STEP_PX,current[1]];
