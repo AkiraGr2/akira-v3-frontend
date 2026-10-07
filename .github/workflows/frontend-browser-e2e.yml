@@ -599,7 +599,7 @@ jobs:
               null, {timeout:15000}
             );
 
-            const officeButtons=await page.$eval(".office-v2-actions .office-v2-btn",els =>
+            const officeButtons=await page.$$eval(".office-v2-actions .office-v2-btn",els =>
               els.map(el=>el.id)
             );
             if(!officeButtons.includes("officePixelInteract") ||
