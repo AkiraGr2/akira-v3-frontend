@@ -1795,6 +1795,7 @@
     get agents(){return agents.map(a=>({
       name:a.name,node:a.node,world:[...a.world],screen:[...a.screen],
       state:a.visualState,backendState:a.backendState,machine:a.machine,
+      stationKind:stationKindForAgent(a),
       intentKey:a.intentKey,
       animPhaseMs:a.animPhaseMs,
       stalledMs:a.stalledMs,
