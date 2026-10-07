@@ -1137,18 +1137,33 @@
     });
   }
 
+  function stationKindFromId(sid){
+    if(!sid||!config)return null;
+    for(const [key,s] of Object.entries(config.stations||{})){
+      if(s&&s.id===sid)return key;
+      if(s&&Array.isArray(s.ids)&&s.ids.includes(sid))return key;
+    }
+    return null;
+  }
+
   function stationKindForAgent(a){
     const t=a&&a.task;
-    const sid=taskStationId(t);
-    if(sid){
-      const entries=Object.entries(config.stations||{});
-      for(const [key,s] of entries){
-        if(s&&s.id===sid)return key;
-        if(s&&Array.isArray(s.ids)&&s.ids.includes(sid))return key;
-      }
-    }
+    const sid=taskStationId(t) ||
+      a&&a.routeTargetId ||
+      (a&&a.intentKey ? String(a.intentKey).split("|")[0] : "");
+    const direct=stationKindFromId(sid);
+    if(direct)return direct;
     if(a&&a.actionState==="talk")return"meeting";
-    if(a&&a.actionState==="use")return a.machine==="station" ? "utility":"mission";
+    if(a&&a.actionState==="use"){
+      if(a.machine==="station"){
+        const role=stationKindFromId(roleStationForAgent(a));
+        return role || "utility";
+      }
+      return"mission";
+    }
+    if(a&&a.machine==="station"){
+      return stationKindFromId(roleStationForAgent(a));
+    }
     return null;
   }
 
