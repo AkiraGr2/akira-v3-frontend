@@ -1,6 +1,6 @@
 {
-  "version": "akira-cache-v20261006-f14-ui2",
-  "generated_at": "2026-10-06T23:30:37.008Z",
+  "version": "akira-cache-v20261007-f8-tool-audit",
+  "generated_at": "2026-10-07T06:10:00.000Z",
   "assets": {
     "js/akira_brain.js": "akira-brain-v7-stream-root",
     "js/obsidian_membrane.js": "akira-membrane-v49-public-fallback",
