@@ -1473,12 +1473,16 @@
       ? (agentPriority(agent)<agentPriority(blocker)?1:-1)
       : (agentPriority(agent)%2===0?1:-1);
 
+    // Side-step is capped by the movement budget of the current frame.
+    // This avoids a visible teleport while still accumulating a smooth
+    // perpendicular displacement over subsequent frames.
+    const sideStep=Math.min(AGENT_SIDE_STEP_PX,step);
     const primary=horizontal
-      ? [current[0],current[1]+side*AGENT_SIDE_STEP_PX]
-      : [current[0]+side*AGENT_SIDE_STEP_PX,current[1]];
+      ? [current[0],current[1]+side*sideStep]
+      : [current[0]+side*sideStep,current[1]];
     const secondary=horizontal
-      ? [current[0],current[1]-side*AGENT_SIDE_STEP_PX]
-      : [current[0]-side*AGENT_SIDE_STEP_PX,current[1]];
+      ? [current[0],current[1]-side*sideStep]
+      : [current[0]-side*sideStep,current[1]];
 
     if(staticSafe(primary))return {screen:primary,waiting:false};
     if(staticSafe(secondary))return {screen:secondary,waiting:false};
