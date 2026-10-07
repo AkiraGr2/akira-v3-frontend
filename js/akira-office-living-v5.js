@@ -455,9 +455,17 @@
       cursor=[...toDoor.points[toDoor.points.length-1]];
     }
 
-    const toTarget=findReachableRoute(cursor,target,160);
-    if(!toTarget)return null;
-    legs.push(...toTarget.points);
+    const toTarget=findReachableRoute(cursor,target,192);
+    if(!toTarget){
+      // Last deterministic fallback: route directly to the semantic interaction
+      // point. Static collision is still enforced by A*. Never cancel a valid
+      // interaction merely because a doorway approach is slightly miscalibrated.
+      const direct=aStar(cursor,target);
+      if(!direct||!direct.length)return null;
+      legs.push(...direct);
+    }else{
+      legs.push(...toTarget.points);
+    }
 
     // Collapse collinear/grid micro-segments for natural walking.
     const out=[];
@@ -1056,7 +1064,7 @@
     const p=a.screen;
     const idleBob=!moving?Math.sin(officeClock*2+(a.seed||0)*0.017)*0.8:0;
     const walkBob=moving?Math.round(Math.sin((a.frame+0.5)*Math.PI/2)):0;
-    const scale=.82;
+    const scale=1.0;
     const baseW=directionalCanvas
       ? Number(config.directional_walk&&config.directional_walk.frame_canvas_px&&config.directional_walk.frame_canvas_px[0]||112)
       : (src&&src[2]||0);
@@ -1285,17 +1293,19 @@
     });
 
     active.forEach(({agent:a,kind},i)=>{
-      const base={
-        workstation_monitor:[a.screen[0]-27,a.screen[1]-88,54,24],
-        web:[785,320,24,13],
-        development:[1150,806,28,14],
-        mcp:[1145,820,30,14],
-        mission:[1048,205,28,14],
-        memory:[192,350,22,12],
-        printer:[1285,582,20,12],
-        coffee:[1432,382,20,12],
-        meeting:[1098,92,32,12]
-      }[kind];
+      let base=null;
+      if(kind==="workstation_monitor"){
+        base=[a.screen[0]-34,a.screen[1]-72,68,28];
+      }else{
+        const p=interactionPoint((config.stations&&config.stations[kind]&&config.stations[kind].id) || kind);
+        if(p){
+          const size={
+            web:[34,16],development:[36,16],mcp:[36,16],mission:[34,16],
+            memory:[30,15],printer:[28,14],coffee:[28,14],meeting:[38,16]
+          }[kind]||[30,14];
+          base=[p[0]-size[0]/2,p[1]-42,size[0],size[1]];
+        }
+      }
       if(!base)return;
       const [x,y,w,h]=base;
       const phase=Math.floor((officeClock*3.5+(i%7))%7);
