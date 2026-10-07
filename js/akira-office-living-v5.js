@@ -1348,6 +1348,46 @@
     });
   }
 
+  function validateObjectSprites(){
+    if(!assetSheet||!config)return {ok:false,ready:false,reason:"asset_sheet_not_loaded",items:[]};
+    const catalog=config.object_sprites||{};
+    const targets=config.object_sprite_targets||{};
+    const monitorAnchors=["Akira","Luna","Nexo","Nova","Orion","Kaori"];
+    const items=Object.entries(catalog).map(([kind,src])=>{
+      const validSource=Array.isArray(src)&&src.length===4&&src.every(Number.isFinite);
+      const target=kind==="workstation_monitor"
+        ? (monitorAnchors.length?{mode:"home-monitors",agents:monitorAnchors}:null)
+        : (Array.isArray(targets[kind])?targets[kind].map(Number):null);
+      let alphaPixels=0;
+      if(validSource){
+        const probe=document.createElement("canvas");
+        probe.width=24;
+        probe.height=24;
+        const pctx=probe.getContext("2d");
+        if(pctx){
+          pctx.imageSmoothingEnabled=false;
+          pctx.clearRect(0,0,24,24);
+          pctx.drawImage(assetSheet,src[0],src[1],src[2],src[3],0,0,24,24);
+          const data=pctx.getImageData(0,0,24,24).data;
+          for(let i=3;i<data.length;i+=4)if(data[i]>0)alphaPixels++;
+        }
+      }
+      return {
+        kind,
+        sourceRect:validSource?src:null,
+        target:target?target:null,
+        usable:Boolean(validSource&&alphaPixels>0&&target),
+        alphaPixels
+      };
+    });
+    return {
+      ok:items.length>0&&items.every(x=>x.usable),
+      ready:true,
+      count:items.length,
+      items
+    };
+  }
+
   function drawObjectInteractionBadges(){
     if(!assetSheet)return;
     const oc=config.object_interaction||{};
@@ -1450,13 +1490,13 @@
     drawMonitorLife();
     drawStationEffects();
     drawDoorEffects(officeClock);
+    drawLiveObjectSprites();
     drawRoutes();
 
     const ordered=[...agents].sort(depthCompare);
     ordered.forEach((a,i)=>depthRank.set(a.name,i));
     ordered.forEach(drawSprite);
 
-    drawLiveObjectSprites();
     drawObjectInteractionBadges();
     drawActiveObjectCue();
     drawSelectedAssetPreview();
@@ -1629,6 +1669,8 @@
     }));},
     get objectCatalog(){return {...((config&&config.object_catalog)||{})};},
     get objectSprites(){return {...((config&&config.object_sprites)||{})};},
+    get objectSpriteTargets(){return {...((config&&config.object_sprite_targets)||{})};},
+    get objectSpriteValidation(){return validateObjectSprites();},
     get truth(){return {...truth};},
     get collisionContract(){return {
       enabled:false,
