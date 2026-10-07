@@ -599,31 +599,33 @@ jobs:
               null, {timeout:15000}
             );
 
-            await page.click("#officePixelMission");
+            const officeButtons=await page.$eval(".office-v2-actions .office-v2-btn",els =>
+              els.map(el=>el.id)
+            );
+            if(!officeButtons.includes("officePixelInteract") ||
+               officeButtons.some(id=>["officePixelMission","officePixelCoffee","officePixelPrint","officePixelMeeting"].includes(id))){
+              throw new Error("Legacy Office controls still present: "+JSON.stringify(officeButtons));
+            }
+
+            const before=await page.evaluate(() =>
+              (window.akiraOfficePixelDebug.agents||[]).map(a=>({name:a.name,screen:[...a.screen],machine:a.machine}))
+            );
+            await page.click("#officePixelInteract");
             await page.waitForFunction(() => {
               const agents=window.akiraOfficePixelDebug.agents||[];
-              const akira=agents.find(a=>a.name==="Akira");
-              return !!akira && ["walking","station"].includes(akira.machine);
+              return agents.filter(a=>a.name!=="Dante" && ["walking","station"].includes(a.machine)).length >= 1;
             }, null, {timeout:10000});
 
-            await page.click("#officePixelCoffee");
-            await page.waitForFunction(() => {
-              const agents=window.akiraOfficePixelDebug.agents||[];
-              return agents.filter(a=>["walking","station"].includes(a.machine)).length >= 1;
-            }, null, {timeout:10000});
-
-            await page.click("#officePixelPrint");
-            await page.waitForFunction(() => {
-              const agents=window.akiraOfficePixelDebug.agents||[];
-              const nexo=agents.find(a=>a.name==="Nexo");
-              return !!nexo && ["walking","station"].includes(nexo.machine);
-            }, null, {timeout:10000});
-
-            await page.click("#officePixelMeeting");
-            await page.waitForFunction(() => {
-              const agents=window.akiraOfficePixelDebug.agents||[];
-              return agents.filter(a=>a.machine==="walking").length >= 1;
-            }, null, {timeout:10000});
+            const after=await page.evaluate(() =>
+              (window.akiraOfficePixelDebug.agents||[]).map(a=>({name:a.name,screen:[...a.screen],machine:a.machine,intentKey:a.intentKey}))
+            );
+            const moved=after.filter(a=>{
+              const b=before.find(x=>x.name===a.name);
+              return b && Math.hypot(a.screen[0]-b.screen[0],a.screen[1]-b.screen[1])>8;
+            });
+            if(moved.length<2){
+              throw new Error("Collective interaction did not activate multiple independent agents: "+JSON.stringify({before,after}));
+            }
 
             if(errors.length){
               throw new Error("Unexpected Office page errors: " + errors.slice(0,5).join(" | "));
