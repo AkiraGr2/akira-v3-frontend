@@ -23,6 +23,7 @@
   function createController(host){
     if(!host || host.__akiraEntity) return host && host.__akiraEntity;
     host.classList.add("is-akira-entity");
+    host.setAttribute("role","img");
     const canvas=document.createElement("canvas");
     canvas.className="akira-entity-canvas";
     canvas.setAttribute("aria-hidden","true");
@@ -66,7 +67,7 @@
       const motion=reduced ? .18 : 1;
       const breath=1+Math.sin(t*(1.35+state.speed*.18))*state.pulse*.22*motion;
       const minSide=Math.max(16,Math.min(width,height));
-      const cx=width/2,cy=height/2,base=minSide*.27,nucleus=base*breath;
+      const cx=width/2,cy=height/2,base=minSide*.20,nucleus=base*breath;
       ctx.clearRect(0,0,width,height);
 
       const halo=ctx.createRadialGradient(cx,cy,0,cx,cy,nucleus*2.8);
