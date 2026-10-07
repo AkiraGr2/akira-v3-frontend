@@ -234,6 +234,17 @@ jobs:
               throw new Error("Live object sprite validation failed: "+JSON.stringify(spriteValidation));
             }
 
+            const runtimeAgentContract=await page.evaluate(async () => {
+              const r=await fetch("assets/office/office_runtime_v5.json",{cache:"no-store"});
+              const d=await r.json();
+              const dante=(d.agents||[]).find(a=>a.name==="Dante");
+              return dante ? {status:dante.status,row_order:d.atlas?.row_order||[]} : null;
+            });
+            if(!runtimeAgentContract || runtimeAgentContract.status!=="active" ||
+               !runtimeAgentContract.row_order.includes("Dante")){
+              throw new Error("Dante must be fully sprite-capable and backend-controlled, not hard-disabled in frontend config: "+JSON.stringify(runtimeAgentContract));
+            }
+
             const spriteInventory=await page.evaluate(() => window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.completeSpriteInventory);
             if(!spriteInventory || !spriteInventory.base.ok || spriteInventory.base.frames !== 171 ||
                !spriteInventory.directional.ok || spriteInventory.directional.poses !== 126 ||
