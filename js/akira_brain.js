@@ -339,6 +339,8 @@ async function sendMsgStream(){
         }
       } catch(_){}
       let resp2 = d2.response||'Conexión restablecida';
+      try{const entity=row.querySelector("[data-akira-entity]");if(entity&&entity.__akiraEntity)entity.__akiraEntity.setState("success");}catch(_){}
+      try{window.akiraEntitySetState&&window.akiraEntitySetState("success",".akira-global-entity");}catch(_){}
       if(b) b.innerHTML = escapeHtml(resp2).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
       if(orb)orb.classList.remove('thinking');
       // FASE 11.0 (2026-10-01): guardado de respuesta de Akira (fallback) DESHABILITADO.
@@ -361,6 +363,8 @@ async function sendMsgStream(){
               window.akiraConversations.onConversationIdReceived(d3.conversation_id, d3.conversation_message_count);
             }
           } catch(_){}
+          try{const entity=row.querySelector("[data-akira-entity]");if(entity&&entity.__akiraEntity)entity.__akiraEntity.setState("success");}catch(_){}
+          try{window.akiraEntitySetState&&window.akiraEntitySetState("success",".akira-global-entity");}catch(_){}
           if(b) b.innerHTML = escapeHtml(d3.response||'Conexión restablecida').replace(/\n/g,'<br>');
         }catch(_){ if(b) b.innerHTML = '✅ Colmena activa, reintenta en 5s'; }
       }, 3000);
