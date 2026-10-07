@@ -405,6 +405,7 @@
     agent.deskMode=false;
     agent.ambientIndex=(agent.ambientIndex+1)%Math.max(1,ambientTargetsForAgent(agent).length);
     agent.ambientTargetId=targetId;
+    agent.ambientNextAt=Infinity;
     const ok=startRoute(agent,targetId,"think","idle",dwell,true);
     if(!ok){
       agent.ambientMode=false;
@@ -722,6 +723,7 @@
     agent.actionUntil=now+(Number(agent.durationMs)||0)/1000;
   }
 
+
   function reconcileAgent(agent){
     if(agent.status==="disabled" || agent.backendState==="disabled"){
       agent.machine="disabled";
@@ -735,6 +737,7 @@
     agent.task=activeTask;
 
     if(agent.backendState==="error"){
+      agent.ambientMode=false;
       if(agent.machine==="walking"||agent.machine==="station"||agent.machine==="returning"||agent.machine==="working"){
         agent.intentKey="";
         beginReturn(agent);
@@ -746,25 +749,31 @@
     }
 
     if(agent.backendState==="working"){
-      // Real work always has priority over ambient life. The agent must return
-      // to its assigned desk and stay there while the backend reports work.
+      // Real task has absolute priority: interrupt any ambient visit and route
+      // to the assigned desk. The desktop is the canonical place for real work.
       agent.ambientMode=false;
       agent.ambientTargetId=null;
       agent.ambientNextAt=Infinity;
+
       if(isAtHomeDesk(agent)){
         finishHome(agent);
+        agent.machine="working";
         agent.visualState=homeWorkState(agent);
         agent.deskMode=true;
         agent.direction=homeSeatDirection(agent);
         return;
       }
+
+      // A walking ambient agent is deliberately interrupted from its current
+      // location. beginReturn recalculates the safe path back to its desk.
       if(agent.machine!=="returning"){
         beginReturn(agent);
       }
       return;
     }
 
-    // Backend idle: ambient life is allowed, but the desk remains the anchor.
+    // Backend idle: do not stop a running ambient visit. The desk remains the
+    // return anchor and the routine itself is deterministic and role-specific.
     if(agent.machine==="station"||agent.machine==="walking"||agent.machine==="returning"){
       return;
     }
@@ -774,7 +783,17 @@
       return;
     }
 
-    finishHome(agent);
+    agent.machine="idle";
+    agent.visualState="idle";
+    agent.deskMode=true;
+    agent.ambientMode=false;
+    agent.direction=homeSeatDirection(agent);
+    if(!Number.isFinite(agent.ambientNextAt) || agent.ambientNextAt===Infinity){
+      const routines=ambientConfig();
+      const base=Number(routines.initial_desk_dwell_ms||3200);
+      const jitter=((agent.seed||0)%5)*550;
+      agent.ambientNextAt=performance.now()/1000+base/1000+jitter/1000;
+    }
   }
 
   async function pollTruth(){
@@ -2049,7 +2068,10 @@
       cancelAnimationFrame(raf);
       raf=requestAnimationFrame(loop);
       clearInterval(pollTimer);
-      pollTimer=setInterval(pollTruth,2500);
+      pollTimer=setInterval(
+        pollTruth,
+        Number(config&&config.ambient_routines&&config.ambient_routines.poll_ms||2500)
+      );
     }catch(err){
       eventText="Error cargando Oficina 2.5D: "+err.message;
       render();
