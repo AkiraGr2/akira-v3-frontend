@@ -54,7 +54,17 @@ jobs:
             const browser = await chromium.launch({headless:true});
             const page = await browser.newPage({viewport:{width:1440,height:900}, deviceScaleFactor:1});
             const errors = [];
+            const privateGraphHits = [];
+            const publicGraphHits = [];
+            const sessionVerifyHits = [];
+            const observedGraphRequests = [];
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
+            page.on("request", req => {
+              const u = req.url();
+              if (u.includes("/api/v8/graph/") || u.includes("/api/v8/me")) {
+                observedGraphRequests.push({method:req.method(), url:u});
+              }
+            });
 
             // Exercise the authenticated/private graph path explicitly.
             await page.addInitScript(() => {
@@ -66,6 +76,7 @@ jobs:
             // akira_admin.js verifies an existing session on DOMContentLoaded and
             // would otherwise call the real backend and clear the test token on 401.
             await page.route("**/api/v8/me", async route => {
+              sessionVerifyHits.push(route.request().method() + " " + route.request().url());
               if (route.request().method() === "OPTIONS") {
                 await route.fulfill({
                   status: 204,
@@ -94,6 +105,7 @@ jobs:
             });
 
             await page.route("**/api/v8/graph/overview**", async route => {
+              privateGraphHits.push(route.request().method() + " " + route.request().url());
               if (route.request().method() === "OPTIONS") {
                 await route.fulfill({
                   status: 204,
@@ -127,6 +139,18 @@ jobs:
               });
             });
 
+            await page.route("**/api/v8/graph/public-overview**", async route => {
+              publicGraphHits.push(route.request().method() + " " + route.request().url());
+              await route.fulfill({
+                status: 500,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ok:false,reason:"public_route_unexpected_in_private_smoke"})
+              });
+            });
+
             await page.goto("http://127.0.0.1:4173/", {waitUntil:"domcontentloaded", timeout:30000});
             await page.evaluate(() => showSection("membrane"));
 
@@ -150,14 +174,28 @@ jobs:
               throw new Error("2D Brain canvas did not render with usable dimensions");
             }
 
-            await page.waitForFunction(() => {
-              const data = window.__akiraMembraneGraphData;
-              return data &&
-                Array.isArray(data.nodes) &&
-                data.nodes.length === 3 &&
-                Array.isArray(data.edges) &&
-                data.edges.length === 2;
-            }, null, {timeout:10000});
+            try {
+              await page.waitForFunction(() => {
+                const data = window.__akiraMembraneGraphData;
+                return data &&
+                  Array.isArray(data.nodes) &&
+                  data.nodes.length === 3 &&
+                  Array.isArray(data.edges) &&
+                  data.edges.length === 2;
+              }, null, {timeout:10000});
+            } catch (e) {
+              const diag = await page.evaluate(() => ({
+                tokenPresent: Boolean(localStorage.getItem("akira_session_token")),
+                exp: localStorage.getItem("akira_session_exp"),
+                stats: document.getElementById("membraneStats")?.textContent || "",
+                graphNodes: window.__akiraMembraneGraphData?.nodes?.length || 0,
+                graphEdges: window.__akiraMembraneGraphData?.edges?.length || 0,
+                publicMode: typeof window.__akiraBrain2dDebug === "function"
+                  ? window.__akiraBrain2dDebug().publicMode
+                  : null
+              }));
+              throw new Error("Brain graph payload timeout: " + JSON.stringify({diag,sessionVerifyHits,privateGraphHits,publicGraphHits,observedGraphRequests}));
+            }
 
             const membraneDiagnostics = await page.evaluate(() => ({
               stats: document.getElementById("membraneStats")?.textContent || "",
