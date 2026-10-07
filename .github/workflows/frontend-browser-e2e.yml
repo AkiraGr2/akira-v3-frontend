@@ -120,9 +120,28 @@ jobs:
             }
 
             await page.waitForFunction(() => {
-              const stats = document.getElementById("membraneStats");
-              return stats && stats.textContent.includes("3 nodos") && stats.textContent.includes("2 aristas");
+              const data = window.__akiraMembraneGraphData;
+              return data &&
+                Array.isArray(data.nodes) &&
+                data.nodes.length === 3 &&
+                Array.isArray(data.edges) &&
+                data.edges.length === 2;
             }, null, {timeout:10000});
+
+            const membraneDiagnostics = await page.evaluate(() => ({
+              stats: document.getElementById("membraneStats")?.textContent || "",
+              graphNodes: window.__akiraMembraneGraphData?.nodes?.length || 0,
+              graphEdges: window.__akiraMembraneGraphData?.edges?.length || 0,
+              graphCore: window.__akiraMembraneGraphData?.coreId || null,
+              publicMode: typeof window.__akiraBrain2dDebug === "function"
+                ? window.__akiraBrain2dDebug().publicMode
+                : null
+            }));
+
+            if(!membraneDiagnostics.stats.includes("3 nodos") ||
+               !membraneDiagnostics.stats.includes("2 aristas")){
+              throw new Error("Brain stats did not synchronize: " + JSON.stringify(membraneDiagnostics));
+            }
 
             if(errors.length){
               throw new Error("Unexpected page errors: " + errors.slice(0,5).join(" | "));
