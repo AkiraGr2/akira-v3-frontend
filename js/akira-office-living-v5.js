@@ -34,6 +34,7 @@
   let truth={loaded:false,total:0,working:0,idle:0,error:0,disabled:0};
   let selectedName="";
   let eventText="Cargando Oficina V6…";
+  let selectedDetailSignature="";
   let navMap=null,assetSheet=null,officeClock=0;
   const doorPulse=Object.create(null);
   // Keep the front/back relationship stable while avatars overlap. Sorting only
@@ -398,6 +399,9 @@
         direction:"down",
         lastDirection:null,
         waitingForAgent:false,
+        waitingForAgentMs:0,
+        yieldRemainingPx:0,
+        yieldCooldownMs:0,
         stalledMs:0,
         lastMovementScreen:[...h.visual],
         animPhaseMs:((String(c.name||"").split("").reduce((n,ch)=>n+ch.charCodeAt(0),0)%997)*137)%1800,
@@ -683,29 +687,22 @@
         a.backendState==="error"?"Error":
         a.status==="disabled"?"Desactivado":
         a.backendState==="idle"?"Disponible":"Sin confirmar";
-      return '<button type="button" class="office-agent-row" data-office-agent="'+a.name+'">'+
+      const selected=a.name===selectedName;
+      return '<button type="button" class="office-agent-row'+(selected?" is-selected":"")+'" data-office-agent="'+a.name+'" aria-pressed="'+(selected?"true":"false")">'+
         '<span class="office-agent-dot '+(a.backendState||"idle")+'"></span>'+
         '<span>'+a.name+'</span><small>'+status+'</small></button>';
     }).join("");
 
-    list.querySelectorAll("[data-office-agent]").forEach(b=>{
-      b.addEventListener("click",()=>{
-        selectedName=b.dataset.officeAgent||"";
-        const a=agents.find(x=>x.name===selectedName);
-        if(a){
-          const wx=Number(a.world[0]||0).toFixed(1);
-          const wy=Number(a.world[1]||0).toFixed(1);
-          say(a.name+" · "+a.role+" · ("+wx+", "+wy+")");
-          const detail=el("officeAgentDetail");
-          if(detail)detail.innerHTML="<strong>"+a.name+"</strong><br>"+a.role+
-            "<br>Estado visual: "+a.visualState+
-            "<br>Máquina: "+a.machine+
-            "<br>Estación: "+(stationKindForAgent(a)||"home")+
-            "<br>Tarea: "+(a.task&&String(a.task.title||a.task.name||a.task.tool||"en ejecución") || "—")+
-            "<br>Coordenada: ("+wx+", "+wy+")";
-        }
-      });
-    });
+    // Event delegation keeps mobile selection reliable even when the 5-second
+    // backend refresh rebuilds the list DOM.
+    list.onclick=ev=>{
+      const button=ev.target.closest("[data-office-agent]");
+      if(!button||!list.contains(button))return;
+      const a=agents.find(x=>x.name===button.dataset.officeAgent);
+      if(a)selectAgent(a);
+    };
+
+    renderSelectedAgentDetail();
   }
 
   function beginExplicitRoute(agent,targetId,state,duration,message){
@@ -849,6 +846,13 @@
       const desired=[a.screen[0]+dx*k,a.screen[1]+dy*k];
       const safe=safeDynamicStep(a,desired,dt);
       a.waitingForAgent=Boolean(safe.waiting);
+      if(a.waitingForAgent){
+        a.waitingForAgentMs=(Number(a.waitingForAgentMs)||0)+dt*1000;
+      }else if(safe.yielding){
+        a.waitingForAgentMs=Math.max(0,(Number(a.waitingForAgentMs)||0)-dt*1000);
+      }else{
+        a.waitingForAgentMs=0;
+      }
 
       const moved=Math.hypot(safe.screen[0]-a.screen[0],safe.screen[1]-a.screen[1]);
       a.screen[0]=safe.screen[0];
@@ -1372,6 +1376,54 @@
     if(ctx)ctx.imageSmoothingEnabled=false;
   }
 
+  function renderSelectedAgentDetail(){
+    const detail=el("officeAgentDetail");
+    const list=el("officeAgentList");
+    if(!detail)return;
+
+    const a=agents.find(x=>x.name===selectedName);
+    if(!a){
+      selectedDetailSignature="";
+      detail.className="office-empty";
+      detail.textContent="Selecciona un agente en la Oficina.";
+      if(list)list.querySelectorAll("[data-office-agent]").forEach(b=>{
+        b.classList.remove("is-selected");
+        b.setAttribute("aria-pressed","false");
+      });
+      return;
+    }
+
+    const wx=Number(a.world[0]||0).toFixed(1);
+    const wy=Number(a.world[1]||0).toFixed(1);
+    const station=stationKindForAgent(a)||"home";
+    const taskTitle=a.task&&String(a.task.title||a.task.name||a.task.tool||"en ejecución") || "—";
+    const signature=[a.name,a.visualState,a.machine,station,taskTitle,wx,wy,a.backendState].join("|");
+
+    detail.className="office-detail-block";
+    detail.innerHTML="<strong>"+a.name+"</strong><br>"+a.role+
+      "<br>Estado visual: "+a.visualState+
+      "<br>Máquina: "+a.machine+
+      "<br>Estación: "+station+
+      "<br>Tarea: "+taskTitle+
+      "<br>Coordenada: ("+wx+", "+wy+")";
+    selectedDetailSignature=signature;
+
+    if(list)list.querySelectorAll("[data-office-agent]").forEach(b=>{
+      const isSelected=b.dataset.officeAgent===selectedName;
+      b.classList.toggle("is-selected",isSelected);
+      b.setAttribute("aria-pressed",isSelected?"true":"false");
+    });
+  }
+
+  function selectAgent(agent){
+    if(!agent)return;
+    selectedName=agent.name||"";
+    const wx=Number(agent.world[0]||0).toFixed(1);
+    const wy=Number(agent.world[1]||0).toFixed(1);
+    say(agent.name+" · "+agent.role+" · ("+wx+", "+wy+")");
+    renderSelectedAgentDetail();
+  }
+
   function hitTest(ev){
     const r=canvas.getBoundingClientRect();
     const x=(ev.clientX-r.left)/r.width*1536;
@@ -1381,8 +1433,7 @@
       const d=Math.hypot(a.screen[0]-x,a.screen[1]-y);
       if(d<70&&d<best){best=d;hit=a;}
     }
-    selectedName=hit?hit.name:"";
-    if(hit)say(hit.name+" · "+hit.role+" · ("+Number(hit.world[0]).toFixed(1)+", "+Number(hit.world[1]).toFixed(1)+")");
+    if(hit)selectAgent(hit);
   }
 
   // Dynamic collision is a runtime safety constraint, not a visual afterthought.
@@ -1395,6 +1446,9 @@
   const AGENT_SIDE_STEP_PX=12;
   const AGENT_EMERGENCY_GAP_PX=24;
   const AGENT_EMERGENCY_PUSH_PX=2;
+  const AGENT_YIELD_AFTER_MS=650;
+  const AGENT_YIELD_DISTANCE_PX=36;
+  const AGENT_YIELD_COOLDOWN_MS=1100;
 
   function agentPriority(a){
     const seed=Number(a&&a.seed)||0;
@@ -1448,6 +1502,26 @@
       return segmentClear(current,point) && candidateIsSafeAgainstAgents(agent,point,dt,population);
     };
 
+    // Deadlock recovery: when this agent has lower deterministic priority and
+    // has been blocked long enough, it temporarily retreats along its current
+    // route. A one-frame sidestep is not sufficient in a narrow corridor;
+    // yielding distance is accumulated smoothly over several frames so the
+    // higher-priority agent can pass instead of both waiting forever.
+    if(agent.yieldCooldownMs>0)agent.yieldCooldownMs=Math.max(0,agent.yieldCooldownMs-dt*1000);
+    if(agent.yieldRemainingPx>0){
+      const retreatDist=Math.hypot(desired[0]-current[0],desired[1]-current[1]);
+      const retreatStep=Math.min(retreatDist,agent.yieldRemainingPx,step);
+      const retreat=[
+        current[0]-(desired[0]-current[0])/Math.max(.001,retreatDist)*retreatStep,
+        current[1]-(desired[1]-current[1])/Math.max(.001,retreatDist)*retreatStep
+      ];
+      if(staticSafe(retreat)){
+        agent.yieldRemainingPx=Math.max(0,agent.yieldRemainingPx-retreatStep);
+        return {screen:retreat,waiting:false,yielding:true};
+      }
+      agent.yieldRemainingPx=0;
+    }
+
     if(staticSafe(desired)){
       return {screen:[...desired],waiting:false};
     }
@@ -1472,6 +1546,25 @@
     const side=blocker
       ? (agentPriority(agent)<agentPriority(blocker)?1:-1)
       : (agentPriority(agent)%2===0?1:-1);
+
+    if(blocker &&
+       agentPriority(agent)>agentPriority(blocker) &&
+       Number(agent.waitingForAgentMs||0)>=AGENT_YIELD_AFTER_MS &&
+       Number(agent.yieldCooldownMs||0)<=0){
+      agent.yieldRemainingPx=AGENT_YIELD_DISTANCE_PX;
+      agent.yieldCooldownMs=AGENT_YIELD_COOLDOWN_MS;
+      const retreatDist=Math.hypot(dx,dy);
+      const retreatStep=Math.min(step,agent.yieldRemainingPx);
+      const retreat=[
+        current[0]-dx/Math.max(.001,retreatDist)*retreatStep,
+        current[1]-dy/Math.max(.001,retreatDist)*retreatStep
+      ];
+      if(staticSafe(retreat)){
+        agent.yieldRemainingPx=Math.max(0,agent.yieldRemainingPx-retreatStep);
+        return {screen:retreat,waiting:false,yielding:true};
+      }
+      agent.yieldRemainingPx=0;
+    }
 
     // Side-step is capped by the movement budget of the current frame.
     // This avoids a visible teleport while still accumulating a smooth
@@ -1561,6 +1654,72 @@
     };
   }
 
+  function runCollisionDeadlockProbe(){
+    if(!config||!navMap)return {ok:false,reason:"office_not_initialized"};
+    const a={
+      name:"__probe_low",
+      seed:22,
+      status:"active",
+      machine:"walking",
+      screen:[500,350],
+      route:[{screen:[650,350]}],
+      routeIndex:0,
+      waitingForAgent:false,
+      waitingForAgentMs:0,
+      yieldRemainingPx:0,
+      yieldCooldownMs:0
+    };
+    const b={
+      name:"__probe_high",
+      seed:11,
+      status:"active",
+      machine:"walking",
+      screen:[548,350],
+      route:[{screen:[400,350]}],
+      routeIndex:0,
+      waitingForAgent:false,
+      waitingForAgentMs:0,
+      yieldRemainingPx:0,
+      yieldCooldownMs:0
+    };
+    const pop=[a,b];
+    let maxGap=Infinity;
+    let yielded=false;
+    let progressed=false;
+    for(let i=0;i<360;i++){
+      const dt=1/60;
+      for(const agent of pop){
+        const target=agent.route[0].screen;
+        const dx=target[0]-agent.screen[0],dy=target[1]-agent.screen[1];
+        const dist=Math.hypot(dx,dy);
+        if(dist<=.75)continue;
+        const step=Math.min(dist,dt*74);
+        const desired=[agent.screen[0]+dx/dist*step,agent.screen[1]+dy/dist*step];
+        const safe=safeDynamicStep(agent,desired,dt,pop);
+        agent.waitingForAgent=Boolean(safe.waiting);
+        if(agent.waitingForAgent)agent.waitingForAgentMs+=dt*1000;
+        else if(safe.yielding)agent.waitingForAgentMs=Math.max(0,agent.waitingForAgentMs-dt*1000);
+        else agent.waitingForAgentMs=0;
+        const moved=Math.hypot(safe.screen[0]-agent.screen[0],safe.screen[1]-agent.screen[1]);
+        if(safe.yielding||agent.yieldRemainingPx>0)yielded=true;
+        agent.screen=[...safe.screen];
+        if(moved>0.25)progressed=true;
+      }
+      const gap=Math.hypot(a.screen[0]-b.screen[0],a.screen[1]-b.screen[1]);
+      maxGap=Math.min(maxGap,gap);
+      if(a.screen[0]>548 || b.screen[0]<500)progressed=true;
+    }
+    return {
+      ok:true,
+      minGap:maxGap,
+      requiredGap:AGENT_MIN_GAP_PX,
+      yielded,
+      progressed,
+      separated:Math.hypot(a.screen[0]-b.screen[0],a.screen[1]-b.screen[1])>=AGENT_MIN_GAP_PX,
+      final:[{x:a.screen[0],y:a.screen[1]},{x:b.screen[0],y:b.screen[1]}]
+    };
+  }
+
   function render(){
     renderHud();
     renderSidePanel();
@@ -1588,6 +1747,15 @@
       if(!directionalFrames)console.warn("[OfficeFloor] directional atlas preprocessing unavailable; using direct frame fallback.");
       makeAgents();
       canvas.addEventListener("click",hitTest);
+      const list=el("officeAgentList");
+      if(list){
+        list.onclick=ev=>{
+          const button=ev.target.closest("[data-office-agent]");
+          if(!button||!list.contains(button))return;
+          const a=agents.find(x=>x.name===button.dataset.officeAgent);
+          if(a)selectAgent(a);
+        };
+      }
       initialized=true;
       resize();
       await pollTruth();
@@ -1669,6 +1837,10 @@
       animPhaseMs:a.animPhaseMs,
       stalledMs:a.stalledMs,
       waitingForAgent:Boolean(a.waitingForAgent),
+      waitingForAgentMs:Number(a.waitingForAgentMs||0),
+      yieldRemainingPx:Number(a.yieldRemainingPx||0),
+      roleStation:roleStationForAgent(a),
+      taskStation:a.task?taskStationId(a.task):null,
       route:a.route.map(p=>[...p.screen])
     }));},
     get objectCatalog(){return {...((config&&config.object_catalog)||{})};},
@@ -1681,7 +1853,8 @@
       staticCollisionAware:true,
       sideStepPx:AGENT_SIDE_STEP_PX
     };},
-    runCollisionProbe
+    runCollisionProbe,
+    runCollisionDeadlockProbe
   };
 
   document.addEventListener("DOMContentLoaded",()=>{
