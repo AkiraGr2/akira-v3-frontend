@@ -262,10 +262,10 @@ jobs:
               throw new Error("Unable to pause D3 physics for deterministic drag instrumentation");
             }
 
-            const stableCandidate = await page.evaluate((id) => {
-              const d = window.__akiraBrain2dDebug();
-              return d.nodes.find(n => n.id === id);
-            }, "node_a");
+            // The paused simulation may briefly expose transient non-finite
+            // coordinates while Cytoscape flushes its last D3 tick. Reuse the
+            // already validated finite candidate from the previous snapshot.
+            const stableCandidate = candidate;
             if(!stableCandidate) throw new Error("Stable drag candidate missing");
 
             const pageX = stageBox.left + stableCandidate.renderedX;
