@@ -1533,11 +1533,8 @@
   };
 
   document.addEventListener("DOMContentLoaded",()=>{
-    [["officePixelMission","mission"],["officePixelCoffee","coffee"],["officePixelMeeting","meeting"],["officePixelPrint","print"]]
-      .forEach(([id,kind])=>{
-        const b=el(id);
-        if(b)b.addEventListener("click",()=>executeCommand(kind));
-      });
+    const b=el("officePixelInteract");
+    if(b)b.addEventListener("click",()=>executeCommand("interact"));
     init();
   });
 })();
