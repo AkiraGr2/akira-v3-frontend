@@ -1490,7 +1490,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     const runId=start.data.run_id;
     write({ok:true,estado:"en ejecución",run_id:runId,herramientas:start.data.tool_count,build_ref:start.data.build_ref},false);
 
-    const deadline=Date.now()+180000;
+    const deadline=Date.now()+600000;
     while(Date.now()<deadline){
       await wait(1500);
       const r=await req("/api/v8/tools/audit/"+encodeURIComponent(runId),{method:"GET"},15000);
@@ -1750,7 +1750,7 @@ document.addEventListener("DOMContentLoaded",function(){
       ok:false,
       reason:"agent_audit_timeout",
       run_id:runId,
-      message:"La auditoría continúa en segundo plano; el resultado no se ha perdido."
+      message:"La auditoría continúa en segundo plano; el servidor conserva el resultado y el run_id permite consultarlo."
     },true);
   };
 })();
