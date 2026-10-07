@@ -159,7 +159,6 @@ async function sendMsg(){
   const currentImage = selectedImageBase64;
   const msgToSend = txt || (hasImage ? "Qué ves en esta imagen?" : "");
   const exchangeId = _newChatExchangeId();
-  const exchangeId = _newChatExchangeId();
   inp.value=''; clearImagePreview();
   const tid=addTyping();
   // FASE 11.0 (2026-10-01): guardado de mensaje del usuario DESHABILITADO.
