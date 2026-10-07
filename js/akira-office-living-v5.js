@@ -1271,6 +1271,49 @@
     return true;
   }
 
+  function drawDynamicInteractionScreens(){
+    if(!ctx||!config)return;
+    const active=[];
+    agents.forEach(a=>{
+      if(a.status==="disabled")return;
+      const activeKind=a.machine==="station"
+        ? stationKindForAgent(a)
+        : (a.machine==="working"&&a.node===a.homeNav ? "workstation_monitor" : null);
+      if(activeKind)active.push({agent:a,kind:activeKind});
+    });
+
+    active.forEach(({agent:a,kind},i)=>{
+      const base={
+        workstation_monitor:[a.screen[0]-27,a.screen[1]-88,54,24],
+        web:[785,320,24,13],
+        development:[1150,806,28,14],
+        mcp:[1145,820,30,14],
+        mission:[1048,205,28,14],
+        memory:[192,350,22,12],
+        printer:[1285,582,20,12],
+        coffee:[1432,382,20,12],
+        meeting:[1098,92,32,12]
+      }[kind];
+      if(!base)return;
+      const [x,y,w,h]=base;
+      const phase=Math.floor((officeClock*3.5+(i%7))%7);
+      ctx.save();
+      ctx.globalAlpha=.72;
+      ctx.fillStyle="#06111D";
+      ctx.fillRect(Math.round(x),Math.round(y),w,h);
+      ctx.globalAlpha=.82;
+      for(let row=0;row<Math.max(2,Math.floor(h/4));row++){
+        const len=Math.max(3,Math.floor(w*(.28+.11*((row+phase)%4))));
+        ctx.fillStyle=row===phase%3?"#70E1FF":"#39D4C6";
+        ctx.fillRect(Math.round(x+2),Math.round(y+2+row*4),len,2);
+      }
+      const cursorX=x+3+((phase*5+i*7)%Math.max(4,w-7));
+      ctx.fillStyle="#F4C95D";
+      ctx.fillRect(Math.round(cursorX),Math.round(y+h-4),3,2);
+      ctx.restore();
+    });
+  }
+
   function drawLiveObjectSprites(){
     if(!assetSheet||!config)return;
     const activeKinds=new Map();
@@ -1389,14 +1432,20 @@
     ];
     const characters=names.map((name,row)=>{
       const frames=directionalFrames[row]||[];
-      const available=groups.flatMap(([direction,layout])=>
-        (Array.isArray(layout&&layout.cycle)?layout.cycle:[]).map((_,i)=>{
-          const slot=Number(layout.cycle[i]??0);
-          const index=Number(layout.start||0)+slot;
-          return {direction,index,canvas:frames[index]};
-        })
-      );
-      const poses=available.filter(x=>x.canvas).length;
+      const unique=[];
+      const seen=new Set();
+      groups.forEach(([direction,layout])=>{
+        const cycle=Array.isArray(layout&&layout.cycle)?layout.cycle:[];
+        cycle.forEach(slot=>{
+          const index=Number(layout.start||0)+Number(slot||0);
+          const key=direction+":"+index;
+          if(!seen.has(key)){
+            seen.add(key);
+            unique.push({direction,index,canvas:frames[index]});
+          }
+        });
+      });
+      const poses=unique.filter(x=>x.canvas).length;
       return {name,directions:groups.map(x=>x[0]),poses,complete:poses===14};
     });
     return {
@@ -1548,6 +1597,7 @@
     drawStationEffects();
     drawDoorEffects(officeClock);
     drawLiveObjectSprites();
+    drawDynamicInteractionScreens();
     drawRoutes();
 
     const ordered=[...agents].sort(depthCompare);
