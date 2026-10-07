@@ -318,8 +318,63 @@
 
   window.f8AuditAllTools = async function(){
     _out("f8Output", "🔬 Iniciando auditoría individual de las 16 herramientas…", false);
-    const start = await _fetch("/api/v8/tools/audit", { method: "POST" }, 15000);
-    if(!start.ok || !start.data || !start.data.ok) return _out("f8Output", _errText(start), true);
+
+    // Render Free puede necesitar unos segundos para despertar la instancia.
+    // El endpoint /health no requiere autenticación y evita un falso "Failed to fetch"
+    // mientras el backend está arrancando. Esperamos aquí antes de declarar fallo.
+    const wakeDeadline = Date.now() + 60000;
+    let backendReady = false;
+    while(Date.now() < wakeDeadline){
+      try{
+        const health = await fetch(BACKEND() + "/health", {
+          method: "GET",
+          cache: "no-store",
+          headers: { "Accept": "application/json" }
+        });
+        if(health.ok){
+          backendReady = true;
+          break;
+        }
+      }catch(_){}
+      _out("f8Output", {
+        ok: true,
+        estado: "despertando backend",
+        mensaje: "Render está iniciando Akira. Esperando y reintentando automáticamente…"
+      }, false);
+      await new Promise(resolve => setTimeout(resolve, 4000));
+    }
+
+    if(!backendReady){
+      return _out("f8Output", {
+        ok: false,
+        reason: "backend_unreachable",
+        message: "No fue posible despertar el backend después de 60 segundos.",
+        backend: BACKEND()
+      }, true);
+    }
+
+    // Una vez despierto, el POST de arranque puede sufrir un primer fallo
+    // transitorio. Reintentamos sin duplicar la auditoría si aún no existe run_id.
+    let start = null;
+    for(let attempt=1; attempt<=5; attempt++){
+      start = await _fetch("/api/v8/tools/audit", { method: "POST" }, 20000);
+      if(start.ok && start.data && start.data.ok) break;
+      if(start.status === 401 || start.status === 403){
+        return _out("f8Output", _errText(start), true);
+      }
+      if(attempt < 5){
+        _out("f8Output", {
+          ok: true,
+          estado: "reintentando inicio",
+          intento: attempt + 1,
+          mensaje: "La conexión inicial fue transitoria; no se ha marcado como fallo todavía."
+        }, false);
+        await new Promise(resolve => setTimeout(resolve, 3500));
+      }
+    }
+    if(!start || !start.ok || !start.data || !start.data.ok){
+      return _out("f8Output", _errText(start || {status:0,error:"backend_unreachable"}), true);
+    }
 
     const runId = start.data.run_id;
     const deadline = Date.now() + 180000;
