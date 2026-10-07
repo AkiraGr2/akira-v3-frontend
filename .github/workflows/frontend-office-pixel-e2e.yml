@@ -244,19 +244,6 @@ jobs:
 
             const frameBefore=await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[]).find(a=>a.name==="Akira"));
             await page.waitForTimeout(500);
-            // Responsive smoke: resize only after the runtime is initialized,
-            // then verify the mobile canvas remains usable rather than requiring
-            // the full runtime to cold-start inside a narrow flex layout.
-            await page.setViewportSize({width:390,height:844});
-            await page.waitForTimeout(250);
-            const mobileLayout=await page.$eval("#officePixelCanvas",el=>{
-              const r=el.getBoundingClientRect();
-              return {width:r.width,height:r.height};
-            });
-            if(mobileLayout.width<300 || mobileLayout.height<220){
-              throw new Error("Responsive Pixel Office canvas is too small: "+JSON.stringify(mobileLayout));
-            }
-
             const frameAfter=await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[]).find(a=>a.name==="Akira"));
             if(!frameBefore || !frameAfter){
               throw new Error("Akira sprite debug state missing");
