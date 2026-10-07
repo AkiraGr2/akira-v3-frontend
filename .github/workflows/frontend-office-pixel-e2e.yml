@@ -52,6 +52,9 @@ jobs:
 
             const errors = [];
             const page = await browser.newPage({
+              // Use a stable desktop viewport for runtime initialization.
+              // Responsive behavior is checked separately after the Office is
+              // initialized, so CSS sizing cannot masquerade as a runtime failure.
               viewport:{width:1440,height:900},
               deviceScaleFactor:1
             });
@@ -98,15 +101,13 @@ jobs:
             await page.click("#btn-office");
             await page.waitForSelector("#officePixelCanvas", {state:"visible",timeout:10000});
 
-            // Now exercise the actual mobile layout after the section is open.
-            await page.setViewportSize({width:390,height:844});
             await page.waitForFunction(() => {
               const canvas=document.getElementById("officePixelCanvas");
-              const stage=document.getElementById("officePixelStage");
-              if(!canvas || !stage) return false;
-              const c=canvas.getBoundingClientRect();
-              return c.width>300 && c.height>220 && Boolean(window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.sceneSource.endsWith("01_akira_office_floor_v5_doors.png"));
-            }, null, {timeout:20000});
+              return Boolean(canvas &&
+                window.akiraOfficePixelDebug &&
+                window.akiraOfficePixelDebug.initialized &&
+                window.akiraOfficePixelDebug.sceneSource.endsWith("01_akira_office_floor_v5_doors.png"));
+            }, null, {timeout:60000});
 
             const domState=await page.evaluate(() => ({
               office3dStage:document.getElementById("office3dStage"),
@@ -171,6 +172,25 @@ jobs:
               throw new Error("Agent collision probe failed: "+JSON.stringify(collisionProbe));
             }
 
+            const deadlockProbe=await page.evaluate(() => window.akiraOfficePixelDebug.runCollisionDeadlockProbe());
+            if(!deadlockProbe || !deadlockProbe.ok || !deadlockProbe.yielded ||
+               !deadlockProbe.progressed || !deadlockProbe.separated ||
+               deadlockProbe.minGap<deadlockProbe.requiredGap){
+              throw new Error("Agent collision deadlock recovery failed: "+JSON.stringify(deadlockProbe));
+            }
+
+            const taskStationState=await page.evaluate(() => window.akiraOfficePixelDebug.agents);
+            const taskByName=Object.fromEntries((taskStationState||[]).map(a=>[a.name,a]));
+            if(taskByName.Luna?.taskStation!=="web" || taskByName.Nexo?.taskStation!=="development"){
+              throw new Error("Real-task station routing contract failed: "+JSON.stringify({
+                Luna:taskByName.Luna,
+                Nexo:taskByName.Nexo
+              }));
+            }
+            if((taskStationState||[]).filter(a=>a.name!=="Dante").some(a=>!a.roleStation)){
+              throw new Error("One or more active agents lack a deterministic role station: "+JSON.stringify(taskStationState));
+            }
+
             const allHomes=(domState.agents||[]).map(a=>a.name);
             if(allHomes.length!==9){
               throw new Error("Office roster is not 9 agents: "+JSON.stringify(allHomes));
@@ -229,7 +249,16 @@ jobs:
               throw new Error("Akira sprite debug state missing");
             }
 
+            // Reopen the checked-out application at desktop width before
+            // testing movement and multi-agent choreography. This avoids making
+            // responsive layout behavior depend on a live canvas resize.
             await page.setViewportSize({width:1440,height:900});
+            await page.goto("http://127.0.0.1:4173/", {
+              waitUntil:"domcontentloaded",
+              timeout:30000
+            });
+            await page.click("#btn-office");
+            await page.waitForSelector("#officePixelCanvas", {state:"visible",timeout:10000});
             await page.waitForFunction(() => {
               const canvas=document.getElementById("officePixelCanvas");
               return canvas && canvas.getBoundingClientRect().width>500;
@@ -252,9 +281,63 @@ jobs:
               return a ? {world:[...a.world],screen:[...a.screen],state:a.state,phase:a.phase} : null;
             });
             const pixelTravel=Math.hypot(after.screen[0]-before.screen[0],after.screen[1]-before.screen[1]);
+
+            // Selection contract: both the lower agent list and the avatar itself
+            // must populate the same detail panel, and the selection must survive
+            // the periodic backend refresh that rebuilds the list DOM.
+            const lunaRow=page.locator('#officeAgentList [data-office-agent="Luna"]');
+            await lunaRow.scrollIntoViewIfNeeded();
+            await lunaRow.click();
+            await page.waitForFunction(() => {
+              const detail=document.getElementById("officeAgentDetail");
+              return detail && detail.textContent.includes("Luna") &&
+                     document.querySelector('#officeAgentList [data-office-agent="Luna"].is-selected');
+            }, null, {timeout:5000});
+
+            await page.waitForTimeout(5200);
+            const persistedSelection=await page.evaluate(() => ({
+              detail:document.getElementById("officeAgentDetail")?.textContent||"",
+              selected:Boolean(document.querySelector('#officeAgentList [data-office-agent="Luna"].is-selected'))
+            }));
+            if(!persistedSelection.detail.includes("Luna") || !persistedSelection.selected){
+              throw new Error("Agent list selection did not persist: "+JSON.stringify(persistedSelection));
+            }
+
+            const lunaScreen=await page.evaluate(() => {
+              const a=(window.akiraOfficePixelDebug.agents||[]).find(x=>x.name==="Luna");
+              return a ? [...a.screen] : null;
+            });
+            const canvasBox=await page.locator("#officePixelCanvas").boundingBox();
+            if(!lunaScreen || !canvasBox) throw new Error("Could not resolve Luna canvas selection coordinates");
+            await page.mouse.click(
+              canvasBox.x + lunaScreen[0]/1536*canvasBox.width,
+              canvasBox.y + lunaScreen[1]/1024*canvasBox.height
+            );
+            await page.waitForFunction(() => {
+              const detail=document.getElementById("officeAgentDetail");
+              return detail && detail.textContent.includes("Luna");
+            }, null, {timeout:5000});
             if(pixelTravel>1200){
               throw new Error("Akira moved implausibly fast/far: "+pixelTravel);
             }
+            // Responsive contract: resize only after the runtime is initialized.
+            // This avoids making image/atlas initialization depend on a narrow
+            // flex/grid min-content calculation while still exercising mobile layout.
+            await page.setViewportSize({width:390,height:844});
+            await page.waitForFunction(() => {
+              const canvas=document.getElementById("officePixelCanvas");
+              if(!canvas || !window.akiraOfficePixelDebug?.initialized)return false;
+              const r=canvas.getBoundingClientRect();
+              return r.width>=300 && r.height>=220;
+            }, null, {timeout:10000});
+            const mobileLayout=await page.$eval("#officePixelCanvas",el=>{
+              const r=el.getBoundingClientRect();
+              return {width:r.width,height:r.height};
+            });
+            if(mobileLayout.width<300 || mobileLayout.height<220){
+              throw new Error("Pixel Office mobile canvas is too small: "+JSON.stringify(mobileLayout));
+            }
+
             if(!before || !after) throw new Error("Akira debug state missing");
             if(Math.hypot(after.screen[0]-before.screen[0],after.screen[1]-before.screen[1])<=8){
               throw new Error("Akira did not move after Mission command: "+JSON.stringify({before,after}));
