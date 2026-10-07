@@ -57,9 +57,63 @@ jobs:
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
 
             // Exercise the authenticated/private graph path explicitly.
-            await page.addInitScript(() => {
-              localStorage.setItem("akira_session_token", "e2e-owner-token");
-              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now() / 1000) + 3600));
+            // Start anonymous so page bootstrap cannot invalidate the synthetic session.
+            // The authenticated fixture is installed only after DOMContentLoaded work settles.
+            // Keep the synthetic E2E session valid during page bootstrap.
+            // akira_admin.js verifies an existing session on DOMContentLoaded and
+            // would otherwise call the real backend and clear the test token on 401.
+            await page.route("**/api/v8/me", async route => {
+              if (route.request().method() === "OPTIONS") {
+                await route.fulfill({
+                  status: 204,
+                  headers: {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, OPTIONS",
+                    "Access-Control-Allow-Headers": "Authorization, Content-Type"
+                  }
+                });
+                return;
+              }
+              await route.fulfill({
+                status: 200,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                  ok: true,
+                  authenticated: true,
+                  is_owner: true,
+                  email: "e2e-owner@example.test",
+                  expires_at: 4102444800
+                })
+              });
+            });
+
+            await page.route("**/api/brain/shared", async route => {
+              if (route.request().method() === "OPTIONS") {
+                await route.fulfill({
+                  status: 204,
+                  headers: {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, OPTIONS",
+                    "Access-Control-Allow-Headers": "Authorization, Content-Type"
+                  }
+                });
+                return;
+              }
+              await route.fulfill({
+                status: 200,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                  ok: true,
+                  count: 3,
+                  membrana: {available:true, shared:3, knowledge:0, hive:0}
+                })
+              });
             });
 
             await page.route("**/api/v8/graph/overview**", async route => {
@@ -97,6 +151,11 @@ jobs:
             });
 
             await page.goto("http://127.0.0.1:4173/", {waitUntil:"domcontentloaded", timeout:30000});
+            await page.waitForTimeout(1500);
+            await page.evaluate(() => {
+              localStorage.setItem("akira_session_token", "e2e-owner-token");
+              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now() / 1000) + 3600));
+            });
             await page.evaluate(() => showSection("membrane"));
 
             await page.waitForFunction(() => {
@@ -170,10 +229,66 @@ jobs:
             const errors = [];
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
 
+            // Start anonymous so bootstrap auth checks cannot invalidate the fixture.
             await page.addInitScript(() => {
               localStorage.setItem("akira_e2e_debug", "1");
-              localStorage.setItem("akira_session_token", "e2e-owner-token");
-              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now() / 1000) + 3600));
+            });
+
+            // Keep the synthetic E2E session valid during page bootstrap.
+            // akira_admin.js verifies an existing session on DOMContentLoaded and
+            // would otherwise call the real backend and clear the test token on 401.
+            await page.route("**/api/v8/me", async route => {
+              if (route.request().method() === "OPTIONS") {
+                await route.fulfill({
+                  status: 204,
+                  headers: {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, OPTIONS",
+                    "Access-Control-Allow-Headers": "Authorization, Content-Type"
+                  }
+                });
+                return;
+              }
+              await route.fulfill({
+                status: 200,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                  ok: true,
+                  authenticated: true,
+                  is_owner: true,
+                  email: "e2e-owner@example.test",
+                  expires_at: 4102444800
+                })
+              });
+            });
+
+            await page.route("**/api/brain/shared", async route => {
+              if (route.request().method() === "OPTIONS") {
+                await route.fulfill({
+                  status: 204,
+                  headers: {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, OPTIONS",
+                    "Access-Control-Allow-Headers": "Authorization, Content-Type"
+                  }
+                });
+                return;
+              }
+              await route.fulfill({
+                status: 200,
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                  ok: true,
+                  count: 3,
+                  membrana: {available:true, shared:3, knowledge:0, hive:0}
+                })
+              });
             });
 
             await page.route("**/api/v8/graph/overview**", async route => {
@@ -227,6 +342,11 @@ jobs:
             await page.goto("http://127.0.0.1:4173/", {
               waitUntil:"domcontentloaded",
               timeout:30000
+            });
+            await page.waitForTimeout(1500);
+            await page.evaluate(() => {
+              localStorage.setItem("akira_session_token", "e2e-owner-token");
+              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now() / 1000) + 3600));
             });
             await page.evaluate(() => showSection("membrane"));
 
