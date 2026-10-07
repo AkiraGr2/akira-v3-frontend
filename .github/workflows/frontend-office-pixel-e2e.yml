@@ -307,6 +307,17 @@ jobs:
             const after=await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[])
               .map(a=>({name:a.name,screen:[...a.screen],state:a.state,machine:a.machine,intentKey:a.intentKey})));
             if(!after.length) throw new Error("Office agents missing after collective interaction");
+            await page.waitForTimeout(1800);
+            const visualAfter=await page.evaluate(() =>
+              (window.akiraOfficePixelDebug.agents||[]).map(a=>({
+                name:a.name,machine:a.machine,stationKind:a.stationKind,
+                screen:[...a.screen],intentKey:a.intentKey
+              }))
+            );
+            const visualLuna=visualAfter.find(a=>a.name==="Luna");
+            if(!visualLuna || !["walking","station"].includes(visualLuna.machine) || visualLuna.stationKind!=="web"){
+              throw new Error("Luna did not resolve the Web station visually after Interacción: "+JSON.stringify(visualLuna));
+            }
 
             const researcher=after.find(a=>a.name==="Luna");
             const developer=after.find(a=>a.name==="Nexo");
