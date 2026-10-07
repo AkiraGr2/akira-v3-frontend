@@ -285,7 +285,7 @@ jobs:
               throw new Error("Assigned desk contract incomplete: "+JSON.stringify(desks));
             }
             const ambient=presentation.ambientRoutines||{};
-            if(!ambient.enabled || ambient.deterministic || !ambient.deterministic || Object.keys(ambient.per_agent||{}).length!==9){
+            if(!ambient.enabled || !ambient.deterministic || Object.keys(ambient.per_agent||{}).length!==9){
               throw new Error("Deterministic ambient routine contract missing: "+JSON.stringify(ambient));
             }
 
