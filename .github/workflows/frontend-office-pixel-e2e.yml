@@ -64,15 +64,15 @@ jobs:
                 contentType:"application/json",
                 body:JSON.stringify({
                   agents:[
-                    {name:"researcher",role:"researcher",status:"idle",allowed_tools:["web_search"]},
-                    {name:"developer",role:"developer",status:"idle",allowed_tools:["developer_propose"]},
-                    {name:"tester",role:"tester",status:"idle",allowed_tools:["python_test"]},
-                    {name:"reviewer",role:"reviewer",status:"idle",allowed_tools:["code_review"]},
-                    {name:"memorizer",role:"memorizer",status:"idle",allowed_tools:["memory_save"]},
-                    {name:"graph_builder",role:"graph_builder",status:"idle",allowed_tools:["graph_create_node"]},
-                    {name:"learner",role:"learner",status:"idle",allowed_tools:["learning_save"]},
-                    {name:"internal",role:"internal",status:"idle",allowed_tools:["self_model_read"]},
-                    {name:"selftest_agent",role:"generic",status:"disabled",allowed_tools:[]}
+                    {name:"Akira",role:"internal",status:"idle",allowed_tools:["self_model_read","cognitive_cycle"]},
+                    {name:"Luna",role:"researcher",status:"idle",allowed_tools:["web_search","memory_search"]},
+                    {name:"Nexo",role:"developer",status:"idle",allowed_tools:["developer_propose","github_repo_read"]},
+                    {name:"Nova",role:"tester",status:"idle",allowed_tools:["python_test","github_repo_read"]},
+                    {name:"Orion",role:"reviewer",status:"idle",allowed_tools:["code_review","python_test"]},
+                    {name:"Kaori",role:"memorizer",status:"idle",allowed_tools:["memory_save","memory_search"]},
+                    {name:"Zeri",role:"graph_builder",status:"idle",allowed_tools:["graph_create_node","graph_related"]},
+                    {name:"Lyra",role:"learner",status:"idle",allowed_tools:["learning_save","memory_save"]},
+                    {name:"Dante",role:"generic",status:"disabled",allowed_tools:[]}
                   ]
                 })
               });
