@@ -1,8 +1,9 @@
-/* AKIRA OFFICE — Living V6
- * Semantic office choreography: calibrated home seats, role stations, physical-door routing,
- * deterministic meeting seats, contextual object interactions, and backend-authoritative state.
+/* AKIRA OFFICE — Living V7
+ * Autonomous office choreography: assigned desks, role-relevant ambient movement,
+ * backend-authoritative real work, and deterministic thought bubbles.
+ * Manual interaction commands are intentionally removed from the public runtime.
  * Reimplemented for Akira with Akira-only scene + sprite assets.
- * 9 agents total: 8 active + Dante disabled.
+ * 9 agents total: backend-controlled roster with Dante supported.
  */
 (function(){
   "use strict";
@@ -36,7 +37,7 @@
   let camera={x:768,y:512,zoom:1};
   let cameraTarget={x:768,y:512,zoom:1};
   let cameraFocus="overview";
-  let eventText="Cargando Oficina V6…";
+  let eventText="Cargando Oficina V7…";
   let navMap=null,assetSheet=null,officeClock=0;
   const doorPulse=Object.create(null);
   // Keep the front/back relationship stable while avatars overlap. Sorting only
@@ -367,6 +368,95 @@
   function ambientConfig(){
     return (config&&config.ambient_routines)||{enabled:false};
   }
+  function thoughtBubbleConfig(){
+    return (config&&config.thought_bubbles)||{
+      enabled:true,
+      initial_delay_ms:2600,
+      show_ms:4200,
+      gap_min_ms:7000,
+      gap_max_ms:12000,
+      max_chars:56,
+      max_width_px:210,
+      deterministic:true,
+      global:[
+        "¿Qué estará haciendo Akira ahora?",
+        "Un café y seguimos.",
+        "Hay que revisar eso dos veces.",
+        "Todo en orden por aquí.",
+        "Creo que esto puede quedar mejor.",
+        "La oficina nunca duerme del todo."
+      ],
+      walking:[
+        "Voy para allá…",
+        "Cambio de estación.",
+        "Un momento, estoy revisando esto.",
+        "Ya casi llego."
+      ],
+      station:[
+        "Comprobando el resultado.",
+        "Esto sí tiene sentido.",
+        "Un pequeño ajuste…",
+        "Listo, siguiente paso."
+      ],
+      working:[
+        "Procesando la tarea…",
+        "Comprobando resultados.",
+        "Una cosa a la vez.",
+        "Casi listo.",
+        "Voy a verificar eso."
+      ],
+      per_agent:{}
+    };
+  }
+
+  function thoughtPoolForAgent(agent){
+    const c=thoughtBubbleConfig();
+    const own=c.per_agent&&Array.isArray(c.per_agent[agent&&agent.name]) ? c.per_agent[agent.name] : null;
+    if(own&&own.length)return own;
+    if(agent&&agent.backendState==="working")return Array.isArray(c.working)&&c.working.length?c.working:c.global;
+    if((agent&&agent.machine==="walking")||(agent&&agent.machine==="returning"))return Array.isArray(c.walking)&&c.walking.length?c.walking:c.global;
+    if(agent&&agent.machine==="station")return Array.isArray(c.station)&&c.station.length?c.station:c.global;
+    return Array.isArray(c.global)&&c.global.length?c.global:["…"];
+  }
+
+  function thoughtGapMs(agent){
+    const c=thoughtBubbleConfig();
+    const min=Math.max(2000,Number(c.gap_min_ms||7000));
+    const max=Math.max(min,Number(c.gap_max_ms||12000));
+    const seed=(Number(agent&&agent.seed||0)*31+Number(agent&&agent.thoughtIndex||0)*17)%997;
+    return min+Math.round((max-min)*(seed/997));
+  }
+
+  function setThought(agent,text,now){
+    if(!agent)return;
+    const c=thoughtBubbleConfig();
+    agent.thoughtText=String(text||"").slice(0,Math.max(12,Number(c.max_chars||56)));
+    agent.thoughtUntil=now+Math.max(1200,Number(c.show_ms||4200))/1000;
+    agent.thoughtLastAt=now;
+  }
+
+  function updateThoughtBubble(agent,now){
+    const c=thoughtBubbleConfig();
+    if(!c.enabled||!agent||agent.status==="disabled")return;
+    if(agent.backendState==="working"&&agent.task){
+      const title=String(agent.task.title||agent.task.name||agent.task.tool||agent.task.tool_name||"Trabajo real").trim();
+      const nextText=title ? "Procesando: "+title : "Procesando la tarea…";
+      if(now>=(agent.thoughtNextAt||0) && now>=(agent.thoughtUntil||0)){
+        setThought(agent,nextText,now);
+        agent.thoughtIndex=(agent.thoughtIndex+1)%997;
+        agent.thoughtNextAt=now+Math.max(3500,Number(c.show_ms||4200)/1000);
+      }
+      return;
+    }
+    if(now>=(agent.thoughtNextAt||0) && now>=(agent.thoughtUntil||0)){
+      const pool=thoughtPoolForAgent(agent);
+      const idx=(Number(agent.seed||0)+Number(agent.thoughtIndex||0))%Math.max(1,pool.length);
+      setThought(agent,pool[idx],now);
+      agent.thoughtIndex=(agent.thoughtIndex+1)%997;
+      agent.thoughtNextAt=now+thoughtGapMs(agent)/1000;
+    }
+  }
+
 
   function ambientTargetsForAgent(agent){
     const routines=ambientConfig();
@@ -524,7 +614,13 @@
         ambientIndex:0,
         ambientTargetId:null,
         ambientNextAt:((Number(config&&config.ambient_routines&&config.ambient_routines.initial_desk_dwell_ms)||3500)
-          /1000)+(((String(c.name||"").split("").reduce((n,ch)=>n+ch.charCodeAt(0),0)%997)%5)*0.55)
+          /1000)+(((String(c.name||"").split("").reduce((n,ch)=>n+ch.charCodeAt(0),0)%997)%5)*0.55),
+        thoughtText:"",
+        thoughtUntil:0,
+        thoughtNextAt:((Number(config&&config.thought_bubbles&&config.thought_bubbles.initial_delay_ms)||2600)
+          /1000)+(((String(c.name||"").split("").reduce((n,ch)=>n+ch.charCodeAt(0),0)%997)%7)*0.7),
+        thoughtIndex:0,
+        thoughtLastAt:0
       };
     });
   }
@@ -883,67 +979,6 @@
     });
   }
 
-  function beginExplicitRoute(agent,targetId,state,duration,message){
-    if(!agent||agent.status!=="active")return false;
-    if(agent.machine==="walking" && agent.routeTargetId===targetId)return true;
-    agent.durationMs=duration||0;
-    if(startRoute(agent,targetId,state,"working",duration||0,false)){
-      if(message)say(message);
-      return true;
-    }
-    return false;
-  }
-
-  function executeCommand(kind){
-    if(kind==="interact"){
-      let moved=0,protectedTasks=0;
-      agents.filter(a=>a.status==="active").forEach(a=>{
-        const activeTask=taskForAgent(a);
-        // Manual interaction never overrides real backend work. Working agents
-        // stay at their assigned desk and continue their real task.
-        if(activeTask||a.backendState==="working"){
-          protectedTasks++;
-          return;
-        }
-        const target=roleStationForAgent(a);
-        if(!target)return;
-        const state=roleWorkStateForAgent(a);
-        if(beginExplicitRoute(a,target,state,6500,""))moved++;
-      });
-      say("Interacción colectiva · "+moved+" agente(s) libres; "+protectedTasks+" tarea(s) real(es) protegida(s) en escritorio.");
-      return;
-    }
-
-    const live=agents.filter(a=>a.status==="active");
-    if(kind==="mission"){
-      const a=agents.find(x=>x.name==="Akira");
-      if(a)beginExplicitRoute(a,config.stations.mission.id,"use",6500,"Akira → Tablero de misiones.");
-      return;
-    }
-    if(kind==="coffee"){
-      live.slice(0,3).forEach(a=>beginExplicitRoute(a,config.stations.coffee.id,"use",5000,""));
-      say("Pausa de café · ruta por la cuadrícula segura.");
-      return;
-    }
-    if(kind==="print"){
-      const a=agents.find(x=>x.name==="Nexo")||live[0];
-      if(a)beginExplicitRoute(a,config.stations.printer.id,"use",5000,a.name+" → Impresora.");
-      return;
-    }
-    if(kind==="meeting"){
-      const slots=(config.stations.meeting&&config.stations.meeting.ids)||[];
-      let moved=0;
-      live.forEach((a,i)=>{
-        const selected=slots[i]||slots[0];
-        if(!selected)return;
-        const seat=config.meeting_seats&&config.meeting_seats[selected];
-        if(seat)a.direction=seat.direction||"down";
-        if(beginExplicitRoute(a,selected,"talk",6500,""))moved++;
-      });
-      say("Reunión de equipo · "+moved+" agente(s) con ruta segura.");
-    }
-  }
-
   function updateAgent(a,dt,now){
     if(a.status==="disabled" || a.backendState==="disabled"){
       a.machine="disabled";
@@ -952,6 +987,8 @@
       a.frame=(Math.floor(a.frameClock/450))%3;
       return;
     }
+
+    updateThoughtBubble(a,now);
 
     if(a.machine==="walking"||a.machine==="returning"){
       const target=a.route[a.routeIndex];
@@ -1888,6 +1925,61 @@
     });
   }
 
+  function drawThoughtBubbles(){
+    const c=thoughtBubbleConfig();
+    if(!c.enabled)return;
+    const now=officeClock;
+    const maxWidth=Number(c.max_width_px||210);
+    agents.forEach(a=>{
+      if(a.status==="disabled"||!a.thoughtText||now>=Number(a.thoughtUntil||0))return;
+      const d=depthFactor(a.screen[1]);
+      const fadeIn=Math.min(1,(now-(a.thoughtLastAt||now))*5);
+      const remaining=Math.max(0,(a.thoughtUntil-now));
+      const fadeOut=Math.min(1,remaining*3);
+      const alpha=Math.max(0,Math.min(fadeIn,fadeOut));
+      const textValue=String(a.thoughtText||"").trim();
+      if(!textValue)return;
+      ctx.save();
+      ctx.font="bold "+Math.max(10,Math.round(11*d))+"px 'Pixelify Sans', sans-serif";
+      ctx.textAlign="left";
+      const words=textValue.split(/\s+/);
+      const lines=[];let line="";
+      for(const word of words){
+        const probe=line?line+" "+word:word;
+        if(ctx.measureText(probe).width>maxWidth && line){
+          lines.push(line);line=word;
+          if(lines.length>=3)break;
+        }else{
+          line=probe;
+        }
+      }
+      if(line&&lines.length<3)lines.push(line);
+      if(!lines.length)lines.push(textValue.slice(0,24));
+      const lineH=13;
+      const padX=9,padY=7;
+      const contentW=Math.min(maxWidth,Math.max(90,...lines.map(x=>ctx.measureText(x).width)));
+      const w=Math.round(contentW+padX*2);
+      const h=Math.round(lines.length*lineH+padY*2);
+      const spriteTop=a.screen[1]-Math.max(92,112*d);
+      let x=Math.round(a.screen[0]-w/2);
+      let y=Math.round(spriteTop-h-12);
+      x=Math.max(8,Math.min(1528-w,x));
+      y=Math.max(8,y);
+      ctx.globalAlpha=alpha*.96;
+      ctx.fillStyle="rgba(247,250,255,.95)";
+      ctx.strokeStyle="#101722";
+      ctx.lineWidth=2;
+      ctx.fillRect(x,y,w,h);
+      ctx.strokeRect(x,y,w,h);
+      ctx.fillStyle="#101722";
+      lines.forEach((ln,i)=>ctx.fillText(ln,x+padX,y+padY+10+i*lineH));
+      const dotBase=x+Math.round(w*.30);
+      const dotY=y+h+4;
+      [[0,4],[5,3],[10,2]].forEach(([dx,sz])=>ctx.fillRect(dotBase+dx,dotY,sz,sz));
+      ctx.restore();
+    });
+  }
+
   function draw(){
     if(!ctx)return;
     ctx.clearRect(0,0,1536,1024);
@@ -1929,6 +2021,7 @@
 
     drawActivityParticles();
     drawAgentLabels();
+    drawThoughtBubbles();
     drawObjectInteractionBadges();
     drawActiveObjectCue();
     ctx.restore();
@@ -2123,7 +2216,6 @@
     draw();
   };
   window.resetAkiraOfficePixelView=resetOfficeCamera;
-  window.akiraOfficePixelCommand=executeCommand;
   window.akiraOfficePixelDebug={
     get initialized(){return initialized;},
     get sceneSource(){return SCENE_SRC;},
@@ -2169,7 +2261,9 @@
       deskMode:Boolean(a.deskMode),
       ambientMode:Boolean(a.ambientMode),
       ambientTargetId:a.ambientTargetId,
-      deskLabel:homeDeskLabel(a)
+      deskLabel:homeDeskLabel(a),
+      thoughtText:a.thoughtText||"",
+      thoughtVisible:Boolean(a.thoughtText&&officeClock<Number(a.thoughtUntil||0))
     }));},
     get objectCatalog(){return {...((config&&config.object_catalog)||{})};},
     get objectSprites(){return {...((config&&config.object_sprites)||{})};},
@@ -2212,6 +2306,8 @@
           occlusionEnabled:Object.values(config&&config.desk_assignments||{}).some(v=>Array.isArray(v&&v.occlusion))
         },
         ambientRoutines:{...(config&&config.ambient_routines||{})},
+        thoughtBubbles:{...(config&&config.thought_bubbles||{})},
+        autonomy:{manualInteraction:false,automaticAmbientMovement:true,thoughtBubbles:true,realTaskPriority:"backend"},
         cameraRuntime:{...camera,focus:cameraFocus}
       };
     },
@@ -2225,8 +2321,6 @@
   };
 
   document.addEventListener("DOMContentLoaded",()=>{
-    const b=el("officePixelInteract");
-    if(b)b.addEventListener("click",()=>executeCommand("interact"));
     const o=el("officePixelOverview");
     if(o)o.addEventListener("click",resetOfficeCamera);
     init();
