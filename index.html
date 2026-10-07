@@ -768,6 +768,10 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
               <strong>📜 Ver las tareas que han realizado los agentes</strong>
               <small>Muestra la actividad reciente de los agentes.</small>
             </button>
+            <button class="admin-v2-action" onclick="f9AuditAllAgents()">
+              <strong>🔬 Auditar individualmente los 9 agentes</strong>
+              <small>Comprueba que cada agente exista, use solo sus capacidades permitidas, ejecute una tarea real, persista la evidencia y vuelva a quedar libre.</small>
+            </button>
           </div>
           <pre id="f9Output" class="admin-v2-output">Todavía no se ha consultado la actividad de los agentes.</pre>
         </div>
@@ -1623,6 +1627,133 @@ document.addEventListener("DOMContentLoaded",function(){
   }
   if(window.initAkiraOfficePixel) initAkiraOfficePixel();
 });
+</script>
+<script>
+/* F9 AGENT AUDIT INLINE GUARD v1 — auditoría E2E de los 9 agentes de producción. */
+(function(){
+  window.f9AuditAllAgents = async function(){
+    const out = document.getElementById("f9Output");
+    const write = (value, error) => {
+      if(!out) return;
+      const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+      out.style.color = error ? "#ef4444" : "#8a8a93";
+      out.textContent = "[" + new Date().toLocaleTimeString() + "] " +
+        (error ? "❌ " : "") +
+        (text.length > 9000 ? text.slice(0,9000) + "\n… (truncado)" : text);
+    };
+    const backend = () => localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
+    const headers = () => {
+      try{
+        if(typeof window.akiraAuthHeaders === "function") return window.akiraAuthHeaders();
+      }catch(_){}
+      return {"Content-Type":"application/json"};
+    };
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    async function req(path, options, timeoutMs){
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs || 20000);
+      try{
+        const r = await fetch(backend()+path, Object.assign({
+          cache:"no-store",
+          signal:ctrl.signal,
+          headers:headers()
+        }, options || {}));
+        clearTimeout(timer);
+        let data=null;
+        try{ data=await r.json(); }catch(_){}
+        return {ok:r.ok,status:r.status,data};
+      }catch(e){
+        clearTimeout(timer);
+        return {ok:false,status:0,error:String((e&&e.message)||e)};
+      }
+    }
+
+    write({
+      ok:true,
+      estado:"iniciando",
+      mensaje:"Auditando los 9 agentes; no se toma el registro como prueba suficiente."
+    }, false);
+
+    let start=null;
+    for(let attempt=1;attempt<=5;attempt++){
+      start=await req("/api/v8/agents/audit",{method:"POST"},20000);
+      if(start.ok && start.data && start.data.ok) break;
+      if(start.status===401 || start.status===403){
+        write(start.status===401
+          ? "Sesión no válida o expirada. Entra a Cuenta e inicia sesión."
+          : "No autorizado: la auditoría de agentes requiere propietario.", true);
+        return;
+      }
+      if(attempt<5){
+        write({ok:true,estado:"reintentando inicio",intento:attempt+1,mensaje:"Fallo transitorio de conexión."},false);
+        await wait(3500);
+      }
+    }
+
+    if(!start || !start.ok || !start.data || !start.data.ok){
+      write({ok:false,reason:"agent_audit_start_failed",status:start&&start.status||0,error:start&&start.error||null},true);
+      return;
+    }
+
+    const runId=start.data.run_id;
+    write({
+      ok:true,
+      estado:"en ejecución",
+      run_id:runId,
+      agentes:start.data.agent_count,
+      build_ref:start.data.build_ref
+    },false);
+
+    const deadline=Date.now()+180000;
+    while(Date.now()<deadline){
+      await wait(1500);
+      const r=await req("/api/v8/agents/audit/"+encodeURIComponent(runId),{method:"GET"},15000);
+      if(!r.ok || !r.data || !r.data.ok){
+        if(r.status===404) continue;
+        write({ok:false,reason:"agent_audit_status_failed",status:r.status,error:r.error||null},true);
+        return;
+      }
+      if(r.data.status==="running"){
+        write({
+          ok:true,
+          estado:"en ejecución",
+          run_id:runId,
+          agentes:start.data.agent_count,
+          build_ref:start.data.build_ref
+        },false);
+        continue;
+      }
+
+      const report=r.data.report||{};
+      const rows=(report.reports||[]).map(item=>({
+        agente:item.agent,
+        herramienta:item.tool,
+        veredicto:item.verdict,
+        comprobaciones:item.checks||{},
+        duracion_ms:item.elapsed_ms,
+        error:item.error||null,
+        evidencia:item.evidence||{}
+      }));
+      write({
+        ok:report.ok===true,
+        run_id:report.run_id,
+        agentes:report.agent_count,
+        casos:report.case_count,
+        resumen:report.summary,
+        limpieza:report.cleanup,
+        agentes_auditados:rows
+      },report.ok!==true);
+      return;
+    }
+
+    write({
+      ok:false,
+      reason:"agent_audit_timeout",
+      run_id:runId,
+      message:"La auditoría continúa en segundo plano; el resultado no se ha perdido."
+    },true);
+  };
+})();
 </script>
 <script>
 /* BRAIN 2D HARD BOOT

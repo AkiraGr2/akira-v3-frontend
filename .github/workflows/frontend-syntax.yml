@@ -242,6 +242,20 @@ jobs:
           console.log("interactive UI integrity guard OK");
           NODE
 
+      - name: Guard F9 agent audit UI truth surface
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const index = fs.readFileSync("index.html", "utf8");
+          if (!index.includes("window.f9AuditAllAgents = async function()")) throw new Error("F9 agent audit handler missing");
+          if (!index.includes('onclick="f9AuditAllAgents()"')) throw new Error("F9 agent audit action missing");
+          if (!index.includes("/api/v8/agents/audit")) throw new Error("F9 agent audit backend route missing");
+          if (!index.includes("Auditar individualmente los 9 agentes")) throw new Error("F9 user-facing audit label missing");
+          if (!index.includes("agentes_auditados:rows")) throw new Error("F9 UI must render individual agent evidence");
+          if (!index.includes("report.cleanup")) throw new Error("F9 UI must expose cleanup evidence");
+          console.log("F9 agent audit UI truth surface guard OK");
+          NODE
+
       - name: Guard image error truthfulness
         run: |
           node - <<'NODE'
