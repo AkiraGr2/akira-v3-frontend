@@ -42,7 +42,7 @@ jobs:
       - name: Stamp deployment marker
         run: |
           set -euo pipefail
-          printf '%s\n' "$GITHUB_SHA" > __akira_deploy_commit.txt
+          printf '%s\n' "$GITHUB_SHA" > akira-deploy-commit.txt
           python3 - <<'PY'
           import json, os
           p = "build-version.json"
@@ -70,7 +70,8 @@ jobs:
       - name: Verify live Pages deployment
         run: |
           set -euo pipefail
-          url="${{ steps.deployment.outputs.page_url }}__akira_deploy_commit.txt?verify=${GITHUB_SHA}"
+          base="${{ steps.deployment.outputs.page_url }}"
+          url="${base}akira-deploy-commit.txt?verify=${GITHUB_SHA}"
           for attempt in 1 2 3 4 5 6 7 8; do
             if curl --fail --silent --show-error --location --connect-timeout 10 --max-time 30 "$url" -o /tmp/akira-live-marker.txt; then
               live="$(tr -d '\r\n' < /tmp/akira-live-marker.txt)"
