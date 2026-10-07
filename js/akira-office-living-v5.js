@@ -727,7 +727,7 @@
         const target=taskStationId(activeTask)||roleStationForAgent(a);
         if(!target)return;
         const state=activeTask ? "use" : roleWorkStateForAgent(a);
-        if(beginExplicitRoute(a,target,state,1800,""))moved++;
+        if(beginExplicitRoute(a,target,state,6500,""))moved++;
       });
       say("Interacción colectiva · "+moved+" agente(s) hacia su estación semántica.");
       return;
@@ -1348,6 +1348,63 @@
     });
   }
 
+  function validateBaseCharacterSprites(){
+    if(!atlas||!config)return {ok:false,ready:false,count:0,frames:0,characters:[]};
+    const rows=(config.atlas&&config.atlas.row_order)||[];
+    const scratch=document.createElement("canvas");
+    scratch.width=24;scratch.height=24;
+    const pctx=scratch.getContext("2d");
+    if(!pctx)return {ok:false,ready:false,count:0,frames:0,characters:[]};
+    const characters=rows.map((name,row)=>{
+      let usable=0;
+      for(let col=0;col<19;col++){
+        const src=frameRect(row,col);
+        pctx.clearRect(0,0,24,24);
+        pctx.imageSmoothingEnabled=false;
+        pctx.drawImage(atlas,src[0],src[1],src[2],src[3],0,0,24,24);
+        const data=pctx.getImageData(0,0,24,24).data;
+        let alpha=0;
+        for(let i=3;i<data.length;i+=4)if(data[i]>0)alpha++;
+        if(alpha>0)usable++;
+      }
+      return {name,frames:19,usableFrames:usable,complete:usable===19};
+    });
+    return {
+      ok:characters.length===9&&characters.every(x=>x.complete),
+      ready:true,count:characters.length,frames:characters.length*19,characters
+    };
+  }
+
+  function validateDirectionalCharacterSprites(){
+    if(!directionalFrames||!config||!config.directional_walk){
+      return {ok:false,ready:false,count:0,poses:0,characters:[]};
+    }
+    const names=(config.directional_walk.row_order||[]).slice();
+    const d=config.directional_walk;
+    const groups=[
+      ["down",d.vertical_front],
+      ["up",d.vertical_back],
+      ["left",d.horizontal_left],
+      ["right",d.horizontal_right]
+    ];
+    const characters=names.map((name,row)=>{
+      const frames=directionalFrames[row]||[];
+      const available=groups.flatMap(([direction,layout])=>
+        (Array.isArray(layout&&layout.cycle)?layout.cycle:[]).map((_,i)=>{
+          const slot=Number(layout.cycle[i]??0);
+          const index=Number(layout.start||0)+slot;
+          return {direction,index,canvas:frames[index]};
+        })
+      );
+      const poses=available.filter(x=>x.canvas).length;
+      return {name,directions:groups.map(x=>x[0]),poses,complete:poses===14};
+    });
+    return {
+      ok:characters.length===9&&characters.every(x=>x.complete),
+      ready:true,count:characters.length,poses:characters.reduce((n,x)=>n+x.poses,0),characters
+    };
+  }
+
   function validateObjectSprites(){
     if(!assetSheet||!config)return {ok:false,ready:false,reason:"asset_sheet_not_loaded",items:[]};
     const catalog=config.object_sprites||{};
@@ -1671,6 +1728,17 @@
     get objectSprites(){return {...((config&&config.object_sprites)||{})};},
     get objectSpriteTargets(){return {...((config&&config.object_sprite_targets)||{})};},
     get objectSpriteValidation(){return validateObjectSprites();},
+    get baseCharacterSpriteValidation(){return validateBaseCharacterSprites();},
+    get directionalCharacterSpriteValidation(){return validateDirectionalCharacterSprites();},
+    get completeSpriteInventory(){return {
+      characters:9,
+      baseStateFrames:171,
+      directionalMovementPoses:126,
+      objectSpriteGroups:Object.keys((config&&config.object_sprites)||{}).length,
+      base:validateBaseCharacterSprites(),
+      directional:validateDirectionalCharacterSprites(),
+      objects:validateObjectSprites()
+    };},
     get truth(){return {...truth};},
     get collisionContract(){return {
       enabled:false,
