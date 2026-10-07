@@ -611,10 +611,15 @@ jobs:
               (window.akiraOfficePixelDebug.agents||[]).map(a=>({name:a.name,screen:[...a.screen],machine:a.machine}))
             );
             await page.click("#officePixelInteract");
-            await page.waitForFunction(() => {
+            await page.waitForFunction((baseline) => {
               const agents=window.akiraOfficePixelDebug.agents||[];
-              return agents.filter(a=>a.name!=="Dante" && ["walking","station"].includes(a.machine)).length >= 1;
-            }, null, {timeout:10000});
+              return agents.filter(a=>{
+                if(a.name==="Dante")return false;
+                const b=baseline.find(x=>x.name===a.name);
+                return b && ["walking","station"].includes(a.machine) &&
+                  Math.hypot(a.screen[0]-b.screen[0],a.screen[1]-b.screen[1])>8;
+              }).length >= 2;
+            }, before, {timeout:10000});
 
             const after=await page.evaluate(() =>
               (window.akiraOfficePixelDebug.agents||[]).map(a=>({name:a.name,screen:[...a.screen],machine:a.machine,intentKey:a.intentKey}))
