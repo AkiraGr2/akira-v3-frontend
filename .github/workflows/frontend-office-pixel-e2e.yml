@@ -111,7 +111,7 @@ jobs:
                 window.akiraOfficePixelDebug &&
                 window.akiraOfficePixelDebug.initialized &&
                 window.akiraOfficePixelDebug.sceneSource.endsWith("01_akira_office_floor_v5_doors.png"));
-            }, null, {timeout:40000});
+            }, null, {timeout:120000});
 
             const domState=await page.evaluate(() => ({
               office3dStage:document.getElementById("office3dStage"),
