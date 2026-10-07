@@ -145,6 +145,13 @@ jobs:
               throw new Error("Pixel Office roster contract failed: "+JSON.stringify(domState.agents));
             }
 
+            const animPhases=(domState.agents||[])
+              .filter(a=>a.name!=="Dante")
+              .map(a=>a.animPhaseMs);
+            if(new Set(animPhases).size<4){
+              throw new Error("Pixel Office animation phases are too synchronized: "+JSON.stringify(animPhases));
+            }
+
             if(domState.navigationMode!=="grid-a-star-semantic-v6"){
               throw new Error("Grid/station navigation is not active: "+JSON.stringify(domState.navigationMode));
             }
