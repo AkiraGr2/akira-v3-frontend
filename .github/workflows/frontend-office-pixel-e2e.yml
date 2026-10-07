@@ -145,11 +145,30 @@ jobs:
               throw new Error("Pixel Office roster contract failed: "+JSON.stringify(domState.agents));
             }
 
+            const animPhases=(domState.agents||[])
+              .filter(a=>a.name!=="Dante")
+              .map(a=>a.animPhaseMs);
+            if(new Set(animPhases).size<4){
+              throw new Error("Pixel Office animation phases are too synchronized: "+JSON.stringify(animPhases));
+            }
+
             if(domState.navigationMode!=="grid-a-star-semantic-v6"){
               throw new Error("Grid/station navigation is not active: "+JSON.stringify(domState.navigationMode));
             }
             if(!domState.grid || domState.grid.width!==48 || domState.grid.height!==32 || domState.grid.tile!==32){
               throw new Error("V5 navigation grid contract failed: "+JSON.stringify(domState.grid));
+            }
+
+            const collisionContract=await page.evaluate(() => window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.collisionContract);
+            if(!collisionContract || !collisionContract.enabled || !collisionContract.dynamicPrediction ||
+               !collisionContract.staticCollisionAware || collisionContract.minGapPx<30){
+              throw new Error("Dynamic agent collision contract failed: "+JSON.stringify(collisionContract));
+            }
+
+            const collisionProbe=await page.evaluate(() => window.akiraOfficePixelDebug.runCollisionProbe());
+            if(!collisionProbe || !collisionProbe.ok || !collisionProbe.prevented ||
+               collisionProbe.nextGap<collisionProbe.minGapPx){
+              throw new Error("Agent collision probe failed: "+JSON.stringify(collisionProbe));
             }
 
             const allHomes=(domState.agents||[]).map(a=>a.name);
@@ -239,6 +258,29 @@ jobs:
             if(!before || !after) throw new Error("Akira debug state missing");
             if(Math.hypot(after.screen[0]-before.screen[0],after.screen[1]-before.screen[1])<=8){
               throw new Error("Akira did not move after Mission command: "+JSON.stringify({before,after}));
+            }
+
+            await page.evaluate(() => window.akiraOfficePixelCommand("meeting"));
+            const meetingGaps=[];
+            for(let i=0;i<12;i++){
+              await page.waitForTimeout(250);
+              const snapshot=await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[])
+                .filter(a=>a.name!=="Dante" && a.status!=="disabled")
+                .map(a=>({name:a.name,screen:[...a.screen],state:a.state,machine:a.machine})));
+              let minGap=Infinity;
+              for(let a=0;a<snapshot.length;a++){
+                for(let b=a+1;b<snapshot.length;b++){
+                  minGap=Math.min(minGap,Math.hypot(
+                    snapshot[a].screen[0]-snapshot[b].screen[0],
+                    snapshot[a].screen[1]-snapshot[b].screen[1]
+                  ));
+                }
+              }
+              meetingGaps.push({t:(i+1)*250,minGap,waiting:snapshot.filter(a=>a.waitingForAgent).length});
+            }
+            const contract=await page.evaluate(() => window.akiraOfficePixelDebug.collisionContract);
+            if(!contract || meetingGaps.some(x=>x.minGap < contract.minGapPx-2)){
+              throw new Error("Meeting collision sweep failed: "+JSON.stringify({contract,meetingGaps}));
             }
 
             await page.click("#officeRefresh");
