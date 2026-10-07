@@ -234,6 +234,17 @@ jobs:
               throw new Error("Live object sprite validation failed: "+JSON.stringify(spriteValidation));
             }
 
+            const spriteInventory=await page.evaluate(() => window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.completeSpriteInventory);
+            if(!spriteInventory || !spriteInventory.base.ok || spriteInventory.base.frames !== 171 ||
+               !spriteInventory.directional.ok || spriteInventory.directional.poses !== 126 ||
+               !spriteInventory.objects.ok || spriteInventory.objectSpriteGroups < 12){
+              throw new Error("Complete Office sprite inventory failed: "+JSON.stringify(spriteInventory));
+            }
+            const dante=spriteInventory.directional.characters.find(x=>x.name==="Dante");
+            if(!dante || !dante.complete || dante.poses!==14){
+              throw new Error("Dante directional sprite set is incomplete: "+JSON.stringify(dante));
+            }
+
             const layout=await page.$eval("#officePixelCanvas",el=>{
               const r=el.getBoundingClientRect();
               const stage=document.getElementById("officePixelStage").getBoundingClientRect();
