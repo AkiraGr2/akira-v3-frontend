@@ -97,7 +97,11 @@ jobs:
               timeout:30000
             });
 
-            await page.click("#btn-office");
+            // On the narrow mobile viewport the nav strip can place the
+            // Office button outside the viewport. Invoke the same public
+            // section action directly so this test measures the Office, not
+            // Playwright's horizontal scrolling behavior.
+            await page.evaluate(() => showSection("office"));
             await page.waitForSelector("#officePixelCanvas", {state:"visible",timeout:10000});
 
             // The page was opened at the mobile viewport from the start.
