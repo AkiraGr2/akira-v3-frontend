@@ -211,11 +211,11 @@
     const inp = document.getElementById("f7Message");
     const msg = (inp && inp.value || "").trim();
     if (!msg) return _out("f7Output", "Escribe un mensaje para el ciclo.", true);
-    _out("f7Output", "Ejecutando ciclo cognitivo (puede tardar 5–15s)…", false);
+    _out("f7Output", "Ejecutando ciclo cognitivo (puede tardar hasta 90s)…", false);
     const r = await _fetch("/api/v8/cognitive/cycle", {
       method: "POST",
       body: JSON.stringify({ trigger: "admin_panel", input: { message: msg } }),
-    }, 40000);
+    }, 90000);
     if (!r.ok || !r.data || !r.data.ok) return _out("f7Output", _errText(r), true);
     _out("f7Output", {
       ok: true, cycle_id: r.data.cycle_id, events_count: r.data.events_count,
