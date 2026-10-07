@@ -278,14 +278,15 @@
     }, 25000);
     if (!r.ok || !r.data || !r.data.ok) return _out("f8Output", _errText(r), true);
     const outputs = r.data.outputs || {};
-    const results = Array.isArray(outputs.results) ? outputs.results : [];
+    const result = outputs.result && typeof outputs.result === "object" ? outputs.result : outputs;
+    const results = Array.isArray(result.results) ? result.results : [];
     _out("f8Output", {
       ok: true,
       tool: r.data.tool_name,
       duration_ms: r.data.duration_ms,
-      query: outputs.query || q,
-      engine: outputs.engine || null,
-      result_count: Number(outputs.result_count ?? results.length),
+      query: result.query || q,
+      engine: result.engine || null,
+      result_count: Number(result.result_count ?? results.length),
       results: results.slice(0, 5).map(x => ({
         title: x && x.title,
         reference: x && x.reference,
@@ -313,6 +314,57 @@
       capabilities_verificadas: verifiedCapabilities.length,
       capacidades_verificadas_nombres: verifiedCapabilities.map(c => c.name).slice(0, 20),
     }, false);
+  };
+
+  window.f8AuditAllTools = async function(){
+    _out("f8Output", "🔬 Iniciando auditoría individual de las 16 herramientas…", false);
+    const start = await _fetch("/api/v8/tools/audit", { method: "POST" }, 15000);
+    if(!start.ok || !start.data || !start.data.ok) return _out("f8Output", _errText(start), true);
+
+    const runId = start.data.run_id;
+    const deadline = Date.now() + 180000;
+    while(Date.now() < deadline){
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      const r = await _fetch("/api/v8/tools/audit/" + encodeURIComponent(runId), {}, 15000);
+      if(!r.ok || !r.data || !r.data.ok){
+        if(r.status === 404) continue;
+        return _out("f8Output", _errText(r), true);
+      }
+      if(r.data.status === "running"){
+        _out("f8Output", {
+          ok: true,
+          estado: "en ejecución",
+          run_id: runId,
+          herramientas: start.data.tool_count,
+          build_ref: start.data.build_ref
+        }, false);
+        continue;
+      }
+      const report = r.data.report || {};
+      const rows = (report.reports || []).map(item => ({
+        herramienta: item.tool,
+        veredicto: item.verdict,
+        pruebas_pasadas: Object.values(item.checks || {}).filter(Boolean).length,
+        pruebas_totales: Object.keys(item.checks || {}).length,
+        duracion_ms: item.elapsed_ms,
+        error: item.error || null,
+        evidencia: item.evidence || {}
+      }));
+      _out("f8Output", {
+        ok: report.ok === true,
+        run_id: report.run_id,
+        resumen: report.summary,
+        limpieza: report.cleanup,
+        herramientas: rows
+      }, report.ok !== true);
+      return;
+    }
+    _out("f8Output", {
+      ok: false,
+      reason: "tool_audit_timeout",
+      run_id: runId,
+      message: "La auditoría sigue en segundo plano; vuelve a consultar el resultado."
+    }, true);
   };
 
   window.f8ViewInvocations = async function(){
