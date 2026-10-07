@@ -274,17 +274,17 @@ jobs:
             await page.mouse.move(pageX,pageY);
             await page.mouse.down();
 
-            const dragStart = await page.evaluate(() => {
-              const d = window.__akiraBrain2dDebug();
-              const node = d.nodes.find(n => n.id === "node_a");
-              return {
-                x: node.renderedX,
-                y: node.renderedY,
-                neighbors: d.nodes
-                  .filter(n => n.id === "node_akira_e2e" || n.id === "node_b")
-                  .map(n => ({id:n.id,x:n.renderedX,y:n.renderedY}))
-              };
-            });
+            // Use the same validated finite snapshot for the drag baseline.
+            // The application can refresh/reconcile Cytoscape coordinates while
+            // the paused D3 simulation is settling; the test must not depend on
+            // a transient debug snapshot at that exact moment.
+            const dragStart = {
+              x: candidate.renderedX,
+              y: candidate.renderedY,
+              neighbors: before.nodes
+                .filter(n => n.id === "node_akira_e2e" || n.id === "node_b")
+                .map(n => ({id:n.id,x:n.renderedX,y:n.renderedY}))
+            };
 
             await page.mouse.move(pageX + 90,pageY + 20,{steps:8});
             await page.waitForTimeout(60);
