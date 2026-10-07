@@ -1704,7 +1704,7 @@ document.addEventListener("DOMContentLoaded",function(){
       build_ref:start.data.build_ref
     },false);
 
-    const deadline=Date.now()+180000;
+    const deadline=Date.now()+600000;
     while(Date.now()<deadline){
       await wait(1500);
       const r=await req("/api/v8/agents/audit/"+encodeURIComponent(runId),{method:"GET"},15000);
