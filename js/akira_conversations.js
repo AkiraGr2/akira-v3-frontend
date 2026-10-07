@@ -278,7 +278,7 @@
       return api.currentId || _getCurrentId();
     },
 
-    onConversationIdReceived: function(newId){
+    onConversationIdReceived: function(newId, messageCount){
       if (!newId) return;
       const changed = (newId !== api.currentId);
       api.currentId = newId;
@@ -287,11 +287,16 @@
       const idx = api.convsCache.findIndex(function(c){ return c.id === newId; });
       if (idx >= 0) {
         const conv = api.convsCache[idx];
-        conv.message_count = (Number(conv.message_count) || 0) + 2;
-        conv.last_message_at = new Date().toISOString();
-        api.convsCache.splice(idx, 1);
-        api.convsCache.unshift(conv);
-        api.renderList(api.convsCache);
+        const count = Number(messageCount);
+        if (Number.isFinite(count) && count >= 0) {
+          conv.message_count = count;
+          conv.last_message_at = new Date().toISOString();
+          api.convsCache.splice(idx, 1);
+          api.convsCache.unshift(conv);
+          api.renderList(api.convsCache);
+        } else {
+          api.loadList();
+        }
       } else {
         api.loadList();
       }

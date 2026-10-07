@@ -21,6 +21,13 @@ let LAST_LATENCY = 9999;
 let STREAM_FAIL_COUNT = 0;
 let AUTO_REPAIR_LOG = [];
 
+function _newChatExchangeId(){
+  try{
+    if(window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+  }catch(_){ }
+  return 'chat_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,10);
+}
+
 function logAutoRepair(action){
   try{
     AUTO_REPAIR_LOG.push({ts: new Date().toISOString(), action, latency: LAST_LATENCY, healthy: BACKEND_HEALTHY, stream: USE_STREAM});
@@ -151,6 +158,7 @@ async function sendMsg(){
   else addMsg(txt,'user');
   const currentImage = selectedImageBase64;
   const msgToSend = txt || (hasImage ? "Qué ves en esta imagen?" : "");
+  const exchangeId = _newChatExchangeId();
   inp.value=''; clearImagePreview();
   const tid=addTyping();
   // FASE 11.0 (2026-10-01): guardado de mensaje del usuario DESHABILITADO.
@@ -162,7 +170,7 @@ async function sendMsg(){
   try{
     // H-05: el cliente ya NO envia is_owner. El backend lo resuelve por sesion firmada.
     // Fase 10.7.2: envia conversation_id si hay una activa.
-    const payload = {message:msgToSend,user_id:uid,user_api_key:uk};
+    const payload = {message:msgToSend,user_id:uid,user_api_key:uk,chat_exchange_id:exchangeId};
     if(hasImage && currentImage) payload.image_base64 = currentImage;
     try {
       const _cid = (window.akiraConversations && window.akiraConversations.getConversationIdForRequest) ? window.akiraConversations.getConversationIdForRequest() : null;
@@ -173,7 +181,7 @@ async function sendMsg(){
     const d = await r.json();
     try {
       if (d && d.conversation_id && window.akiraConversations && window.akiraConversations.onConversationIdReceived) {
-        window.akiraConversations.onConversationIdReceived(d.conversation_id);
+        window.akiraConversations.onConversationIdReceived(d.conversation_id, d.conversation_message_count);
       }
     } catch(_){}
     removeTyping(tid); if(orb)orb.classList.remove('thinking');
@@ -233,7 +241,7 @@ async function sendMsgStream(){
   try{
     // H-05: el cliente ya NO envia is_owner. El backend lo resuelve por sesion firmada.
     // Fase 10.7.2: envia conversation_id si hay una activa.
-    const payload = {message:msgToSend,user_id:uid,user_api_key:uk};
+    const payload = {message:msgToSend,user_id:uid,user_api_key:uk,chat_exchange_id:exchangeId};
     if(hasImage && currentImage) payload.image_base64 = currentImage;
     try {
       const _cid = (window.akiraConversations && window.akiraConversations.getConversationIdForRequest) ? window.akiraConversations.getConversationIdForRequest() : null;
@@ -272,7 +280,7 @@ async function sendMsgStream(){
               }
               try {
                 if (j.conversation_id && window.akiraConversations && window.akiraConversations.onConversationIdReceived) {
-                  window.akiraConversations.onConversationIdReceived(j.conversation_id);
+                  window.akiraConversations.onConversationIdReceived(j.conversation_id, j.conversation_message_count);
                 }
               } catch(_){}
               // FASE 11.0 (2026-10-01): guardado de respuesta de Akira (stream) DESHABILITADO.
@@ -306,7 +314,7 @@ async function sendMsgStream(){
     const b = document.getElementById(bubbleId);
     if(b) b.innerHTML = "🔄 Akira cambiando a modo estable...";
     try{
-      const payload2 = {message:msgToSend,user_id:uid,user_api_key:uk};
+      const payload2 = {message:msgToSend,user_id:uid,user_api_key:uk,chat_exchange_id:exchangeId};
       if(hasImage && currentImage) payload2.image_base64 = currentImage;
       try {
         const _cid2 = (window.akiraConversations && window.akiraConversations.getConversationIdForRequest) ? window.akiraConversations.getConversationIdForRequest() : null;
@@ -316,7 +324,7 @@ async function sendMsgStream(){
       const d2 = await r2.json();
       try {
         if (d2 && d2.conversation_id && window.akiraConversations && window.akiraConversations.onConversationIdReceived) {
-          window.akiraConversations.onConversationIdReceived(d2.conversation_id);
+          window.akiraConversations.onConversationIdReceived(d2.conversation_id, d2.conversation_message_count);
         }
       } catch(_){}
       let resp2 = d2.response||'Conexión restablecida';
@@ -330,7 +338,7 @@ async function sendMsgStream(){
       if(b) b.innerHTML = '⏳ Akira reconectando colmena... reintento automático en 3s';
       setTimeout(async ()=>{
         try{
-          const payload3 = {message:msgToSend,user_id:uid,user_api_key:uk};
+          const payload3 = {message:msgToSend,user_id:uid,user_api_key:uk,chat_exchange_id:exchangeId};
           try {
             const _cid3 = (window.akiraConversations && window.akiraConversations.getConversationIdForRequest) ? window.akiraConversations.getConversationIdForRequest() : null;
             if (_cid3) payload3.conversation_id = _cid3;
@@ -339,7 +347,7 @@ async function sendMsgStream(){
           const d3 = await r3.json();
           try {
             if (d3 && d3.conversation_id && window.akiraConversations && window.akiraConversations.onConversationIdReceived) {
-              window.akiraConversations.onConversationIdReceived(d3.conversation_id);
+              window.akiraConversations.onConversationIdReceived(d3.conversation_id, d3.conversation_message_count);
             }
           } catch(_){}
           if(b) b.innerHTML = escapeHtml(d3.response||'Conexión restablecida').replace(/\n/g,'<br>');
