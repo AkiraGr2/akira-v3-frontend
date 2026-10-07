@@ -1,10 +1,10 @@
 {
-  "version": "akira-cache-v20261007-office-sprite-audit-v4",
-  "generated_at": "2026-10-07T20:38:00Z",
+  "version": "akira-cache-v20261007-office-root-sprite-audit-v5",
+  "generated_at": "2026-10-07T20:44:00Z",
   "assets": {
     "js/akira_brain.js": "akira-brain-v7-stream-root",
     "js/obsidian_membrane.js": "akira-membrane-v49-public-fallback",
     "js/akira_learning.js": "akira-learning-v13-root-auth",
-    "js/akira-office-living-v5.js": "akira-office-v8-sprite-audit-v4"
+    "js/akira-office-living-v5.js": "akira-office-v9-root-sprite-audit-v5"
   }
 }
