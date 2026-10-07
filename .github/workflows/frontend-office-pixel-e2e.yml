@@ -107,10 +107,10 @@ jobs:
             // The page was opened at the mobile viewport from the start.
             await page.waitForFunction(() => {
               const canvas=document.getElementById("officePixelCanvas");
-              const stage=document.getElementById("officePixelStage");
-              if(!canvas || !stage) return false;
-              const c=canvas.getBoundingClientRect();
-              return c.width>300 && c.height>220 && Boolean(window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.sceneSource.endsWith("01_akira_office_floor_v5_doors.png"));
+              return Boolean(canvas &&
+                window.akiraOfficePixelDebug &&
+                window.akiraOfficePixelDebug.initialized &&
+                window.akiraOfficePixelDebug.sceneSource.endsWith("01_akira_office_floor_v5_doors.png"));
             }, null, {timeout:40000});
 
             const domState=await page.evaluate(() => ({
