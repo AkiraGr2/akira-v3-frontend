@@ -289,10 +289,16 @@
     });
     if (!r.ok || !r.data || !r.data.ok) return _out("f8Output", _errText(r), true);
     const sm = (r.data.outputs && r.data.outputs.self_model) || {};
+    const capabilities = Array.isArray(sm.capabilities) ? sm.capabilities : [];
+    const verifiedCapabilities = capabilities.filter(c =>
+      c && (c.verification_state === "verified" || c.effective_state === "verified")
+    );
     _out("f8Output", {
       ok: true, duration_ms: r.data.duration_ms,
       self_model_version: sm.version,
-      capabilities_verificadas: (sm.capabilities || []).filter(c => c.status === "verified").length,
+      capacidades: capabilities.length,
+      capabilities_verificadas: verifiedCapabilities.length,
+      capacidades_verificadas_nombres: verifiedCapabilities.map(c => c.name).slice(0, 20),
     }, false);
   };
 
