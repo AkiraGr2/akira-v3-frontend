@@ -67,11 +67,8 @@ jobs:
             });
 
             // Exercise the authenticated/private graph path explicitly.
-            await page.addInitScript(() => {
-              localStorage.setItem("akira_session_token", "e2e-owner-token");
-              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now() / 1000) + 3600));
-            });
-
+            // Start anonymous so page bootstrap cannot invalidate the synthetic session.
+            // The authenticated fixture is installed only after DOMContentLoaded work settles.
             // Keep the synthetic E2E session valid during page bootstrap.
             // akira_admin.js verifies an existing session on DOMContentLoaded and
             // would otherwise call the real backend and clear the test token on 401.
@@ -178,6 +175,11 @@ jobs:
             });
 
             await page.goto("http://127.0.0.1:4173/", {waitUntil:"domcontentloaded", timeout:30000});
+            await page.waitForTimeout(1500);
+            await page.evaluate(() => {
+              localStorage.setItem("akira_session_token", "e2e-owner-token");
+              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now() / 1000) + 3600));
+            });
             await page.evaluate(() => showSection("membrane"));
 
             await page.waitForFunction(() => {
@@ -265,10 +267,9 @@ jobs:
             const errors = [];
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
 
+            // Start anonymous so bootstrap auth checks cannot invalidate the fixture.
             await page.addInitScript(() => {
               localStorage.setItem("akira_e2e_debug", "1");
-              localStorage.setItem("akira_session_token", "e2e-owner-token");
-              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now() / 1000) + 3600));
             });
 
             // Keep the synthetic E2E session valid during page bootstrap.
@@ -379,6 +380,11 @@ jobs:
             await page.goto("http://127.0.0.1:4173/", {
               waitUntil:"domcontentloaded",
               timeout:30000
+            });
+            await page.waitForTimeout(1500);
+            await page.evaluate(() => {
+              localStorage.setItem("akira_session_token", "e2e-owner-token");
+              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now() / 1000) + 3600));
             });
             await page.evaluate(() => showSection("membrane"));
 
