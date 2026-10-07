@@ -727,7 +727,9 @@
         const target=taskStationId(activeTask)||roleStationForAgent(a);
         if(!target)return;
         const state=activeTask ? "use" : roleWorkStateForAgent(a);
-        if(beginExplicitRoute(a,target,state,6500,""))moved++;
+        if(activeTask){
+          if(startRoute(a,target,state,"working",0,true))moved++;
+        }else if(beginExplicitRoute(a,target,state,6500,""))moved++;
       });
       say("Interacción colectiva · "+moved+" agente(s) hacia su estación semántica.");
       return;
