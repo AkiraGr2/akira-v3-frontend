@@ -277,8 +277,21 @@
       method: "POST", body: JSON.stringify({ inputs: { query: q } }),
     }, 25000);
     if (!r.ok || !r.data || !r.data.ok) return _out("f8Output", _errText(r), true);
+    const outputs = r.data.outputs || {};
+    const results = Array.isArray(outputs.results) ? outputs.results : [];
     _out("f8Output", {
-      ok: true, tool: r.data.tool_name, duration_ms: r.data.duration_ms, outputs: r.data.outputs,
+      ok: true,
+      tool: r.data.tool_name,
+      duration_ms: r.data.duration_ms,
+      query: outputs.query || q,
+      engine: outputs.engine || null,
+      result_count: Number(outputs.result_count ?? results.length),
+      results: results.slice(0, 5).map(x => ({
+        title: x && x.title,
+        reference: x && x.reference,
+        snippet: x && x.snippet,
+        type: x && x.type,
+      })),
     }, false);
   };
 
