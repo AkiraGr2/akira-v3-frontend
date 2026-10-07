@@ -1,4 +1,4 @@
-# AKIRA OFFICE — 2.5D V1
+# AKIRA OFFICE — 2.5D V1 + Desk Life V2
 
 ## Objetivo
 Evolucionar la Oficina Pixel existente a una escena 2.5D viva sin reconstruir el backend ni descartar el arte maestro.
@@ -36,3 +36,42 @@ No se generó una imagen nueva en V1 porque los activos existentes cubren escena
 4. Pixel Office E2E verde.
 5. Verificación Live del despliegue verde.
 6. Revisión visual manual en móvil tras publicar.
+
+
+## Desk Life V2
+Cada agente tiene un puesto fijo y una posición de asiento. La orientación de trabajo es hacia arriba (espalda visible) y la parte inferior del sprite queda ocluida por el frente del escritorio mediante una segunda lectura recortada de la escena maestra.
+
+### Rutina sin tareas
+Cuando el backend reporta al agente como disponible:
+- permanece unos segundos en su puesto;
+- recorre una secuencia determinista de zonas relacionadas con su rol;
+- permanece brevemente en cada zona usando el estado visual apropiado;
+- regresa a su puesto y repite el ciclo.
+
+No hay roaming aleatorio.
+
+### Prioridad de tareas reales
+Cuando aparece una tarea backend:
+1. se cancela la actividad ambiental;
+2. el agente regresa inmediatamente a su puesto;
+3. se orienta de espaldas al usuario;
+4. entra en animación de trabajo;
+5. permanece en el escritorio mientras el backend lo reporte trabajando.
+
+La acción manual "Interacción" no puede sacar de su puesto a un agente que esté ejecutando una tarea real.
+
+### Sprites y pantallas
+No se requiere una imagen nueva en V2. Se reutilizan el atlas direccional de 14 poses, la hoja de objetos y la escena maestra. Los monitores de los puestos siguen visibles incluso en espera, con una señal muy tenue; durante trabajo real reciben una animación pixel más intensa.
+
+### Verificación
+El E2E comprueba:
+- 9 puestos definidos;
+- orientación de espalda y 4 poses posteriores;
+- oclusión de escritorio;
+- 9 rutinas ambientales deterministas;
+- movimiento visible de agentes libres;
+- prioridad de tarea real sobre roaming;
+- protección de trabajadores frente a Interacción;
+- 12 grupos de sprites de objetos;
+- backend, navegación y no-bloqueo entre agentes;
+- build y despliegue de Pages.
