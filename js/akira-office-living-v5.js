@@ -857,41 +857,9 @@
         a.stalledMs+=dt*1000;
       }
 
-      // A dynamic agent can legitimately yield, but a non-collision stall
-      // should never last indefinitely. Re-route from the current position
-      // after a short deterministic threshold while the task/target remains
-      // valid. This fixes the old "one agent keeps walking / never arrives"
-      // class without inventing a new backend state.
-      if(a.routeTargetId && a.waitingForAgent && a.stalledMs>1200){
-        const blockers=agents
-          .filter(other=>other&&other!==a&&other.status==="active"&&Array.isArray(other.screen))
-          .map(other=>({other,future:predictAgentNextPosition(other,dt)}))
-          .filter(x=>Math.hypot(a.screen[0]-x.future[0],a.screen[1]-x.future[1])<96)
-          .sort((x,y)=>agentPriority(x.other)-agentPriority(y.other));
-        const blocker=blockers[0]?.other||null;
-        const rightOfWay=!blocker || agentPriority(a)<agentPriority(blocker);
-
-        if(rightOfWay){
-          const detour=dynamicDeadlockRoute(a,a.routeTargetId,dt);
-          if(detour&&detour.length){
-            a.route=detour.map((p,i)=>({screen:[...p],id:i===detour.length-1?a.routeTargetId:null}));
-            a.routeIndex=0;
-            a.stalledMs=0;
-            a.waitingForAgent=false;
-            a.frameClock=0;
-            a.frame=0;
-          }
-        }else if(a.stalledMs>3200){
-          const replanned=routePoints(a,a.routeTargetId);
-          if(replanned&&replanned.length){
-            a.route=replanned.map((p,i)=>({screen:[...p],id:i===replanned.length-1?a.routeTargetId:null}));
-            a.routeIndex=0;
-            a.stalledMs=0;
-            a.frameClock=0;
-            a.frame=0;
-          }
-        }
-      }else if(a.stalledMs>2200 && !a.waitingForAgent && a.routeTargetId){
+      // A static obstruction can stall a route briefly. Re-plan from the
+      // current position instead of invoking any agent-to-agent avoidance.
+      if(a.stalledMs>2200 && a.routeTargetId){
         const replanned=routePoints(a,a.routeTargetId);
         if(replanned&&replanned.length){
           a.route=replanned.map((p,i)=>({screen:[...p],id:i===replanned.length-1?a.routeTargetId:null}));
