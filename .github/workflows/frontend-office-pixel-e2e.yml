@@ -98,21 +98,16 @@ jobs:
               timeout:30000
             });
 
-            // On the narrow mobile viewport the nav strip can place the
-            // Office button outside the viewport. Invoke the same public
-            // section action directly so this test measures the Office, not
-            // Playwright's horizontal scrolling behavior.
-            await page.evaluate(() => showSection("office"));
+            await page.click("#btn-office");
             await page.waitForSelector("#officePixelCanvas", {state:"visible",timeout:10000});
 
-            // The page was opened at the mobile viewport from the start.
             await page.waitForFunction(() => {
               const canvas=document.getElementById("officePixelCanvas");
               return Boolean(canvas &&
                 window.akiraOfficePixelDebug &&
                 window.akiraOfficePixelDebug.initialized &&
                 window.akiraOfficePixelDebug.sceneSource.endsWith("01_akira_office_floor_v5_doors.png"));
-            }, null, {timeout:120000});
+            }, null, {timeout:60000});
 
             const domState=await page.evaluate(() => ({
               office3dStage:document.getElementById("office3dStage"),
@@ -338,6 +333,24 @@ jobs:
             if(pixelTravel>1200){
               throw new Error("Akira moved implausibly fast/far: "+pixelTravel);
             }
+            // Responsive contract: resize only after the runtime is initialized.
+            // This avoids making image/atlas initialization depend on a narrow
+            // flex/grid min-content calculation while still exercising mobile layout.
+            await page.setViewportSize({width:390,height:844});
+            await page.waitForFunction(() => {
+              const canvas=document.getElementById("officePixelCanvas");
+              if(!canvas || !window.akiraOfficePixelDebug?.initialized)return false;
+              const r=canvas.getBoundingClientRect();
+              return r.width>=300 && r.height>=220;
+            }, null, {timeout:10000});
+            const mobileLayout=await page.$eval("#officePixelCanvas",el=>{
+              const r=el.getBoundingClientRect();
+              return {width:r.width,height:r.height};
+            });
+            if(mobileLayout.width<300 || mobileLayout.height<220){
+              throw new Error("Pixel Office mobile canvas is too small: "+JSON.stringify(mobileLayout));
+            }
+
             if(!before || !after) throw new Error("Akira debug state missing");
             if(Math.hypot(after.screen[0]-before.screen[0],after.screen[1]-before.screen[1])<=8){
               throw new Error("Akira did not move after Mission command: "+JSON.stringify({before,after}));
