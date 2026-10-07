@@ -2108,6 +2108,26 @@ function _brainContextEscape(value){
     .replace(/'/g,"&#39;");
 }
 
+function _brainNodeImportance(node){
+  if(!node) return null;
+  const explicit=Number(node._importance);
+  if(Number.isFinite(explicit) && explicit >= 0){
+    return Math.max(0,Math.min(1,explicit));
+  }
+  const weight=Number(node.weight);
+  if(Number.isFinite(weight) && weight >= 0){
+    // Graph node weight is the authoritative scalar currently persisted by
+    // Akira. Normalize the 0..10 scale to 0..100% for the UI.
+    return Math.max(0,Math.min(1,weight/10));
+  }
+  return null;
+}
+
+function _brainNodeMetric(value,digits=2){
+  const n=Number(value);
+  return Number.isFinite(n) ? n.toFixed(digits) : "—";
+}
+
 function _renderBrainNodePortrait(node){
   if(!node) return "";
   const id=String(node.id || "");
@@ -2115,12 +2135,12 @@ function _renderBrainNodePortrait(node){
   const group=String(_detectGroup(node) || "other");
   const isCore=label.trim().toLowerCase()==="akira";
   const accent=isCore ? "#7b61ff" : (GROUP_COLORS[group] || _neural2DColor(node,false));
-  const importance=Math.max(0,Math.min(1,Number(node._importance)||0));
-  const weight=Math.max(0,Number(node.weight)||0);
+  const importance=_brainNodeImportance(node);
+  const weight=Number.isFinite(Number(node.weight)) ? Math.max(0,Number(node.weight)) : null;
   const reuse=Math.max(0,Number(node.reuse_count)||0);
   const graph=window.__akiraMembraneGraphData;
   const degree=graph && Array.isArray(graph.edges) ? graph.edges.filter(e=>String(e.from_node)===id || String(e.to_node)===id).length : 0;
-  const coreSize=isCore ? 28 : 18 + Math.min(10,importance*10);
+  const coreSize=isCore ? 28 : 18 + Math.min(10,(importance ?? 0)*10);
   const ring1=34 + Math.min(14,degree*1.8);
   const ring2=48 + Math.min(18,reuse*2);
   const hash=_hashId(id);
@@ -2148,7 +2168,7 @@ function _renderBrainNodePortrait(node){
         <circle cx="75" cy="50" r="${Math.max(9,coreSize-5).toFixed(1)}" fill="#0b0d15" stroke="${accent}" stroke-width="2.2"/>
         <circle cx="75" cy="50" r="${Math.max(4,coreSize-11).toFixed(1)}" fill="${accent}" fill-opacity=".92"/>
         <text x="75" y="84" text-anchor="middle" fill="#f1f4ff" font-size="7.5" font-family="monospace" letter-spacing=".4">${short}</text>
-        <text x="75" y="94" text-anchor="middle" fill="#8a8f9d" font-size="5.8" font-family="monospace">${group.toUpperCase()} · ${degree} CONEXIONES · ${weight.toFixed(2)} PESO</text>
+        <text x="75" y="94" text-anchor="middle" fill="#8a8f9d" font-size="5.8" font-family="monospace">${group.toUpperCase()} · ${degree} CONEXIONES · ${weight === null ? "—" : weight.toFixed(2)} PESO</text>
       </svg>
     </div>
   `;
@@ -2183,17 +2203,17 @@ function _updateMembraneContextPanel(nodeId){
   if(type) type.textContent=String(node.node_type || _detectGroup(node) || "nodo").toUpperCase();
   if(title) title.textContent=String(node.label || node.id);
 
-  const importance=Math.round((Number(node._importance)||0)*100);
+  const importance=_brainNodeImportance(node);
   const clusterId=graph.community && graph.community.assignments instanceof Map
     ? (graph.community.assignments.get(id) || "—")
     : "—";
 
   if(meta){
     meta.innerHTML=
-      "<div>PESO<b>"+(Number(node.weight)||0).toFixed(2)+"</b></div>"+
-      "<div>REUTILIZACIÓN<b>"+(Number(node.reuse_count)||0)+"</b></div>"+
-      "<div>CONFIANZA<b>"+(Number(node.confidence)||0).toFixed(2)+"</b></div>"+
-      "<div>IMPORTANCIA<b>"+importance+"%</b></div>"+
+      "<div>PESO<b>"+_brainNodeMetric(node.weight)+"</b></div>"+
+      "<div>REUTILIZACIÓN<b>"+_brainNodeMetric(node.reuse_count,0)+"</b></div>"+
+      "<div>CONFIANZA<b>"+_brainNodeMetric(node.confidence)+"</b></div>"+
+      "<div>IMPORTANCIA<b>"+(importance === null ? "—" : Math.round(importance*100)+"%")+"</b></div>"+
       "<div>GRUPO<b>"+_brainContextEscape(_detectGroup(node))+"</b></div>"+
       "<div>CLUSTER<b>"+_brainContextEscape(clusterId)+"</b></div>";
   }
