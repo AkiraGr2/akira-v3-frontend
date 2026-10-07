@@ -84,7 +84,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./css/akira-brain-space.css?v=akira-brain-space-v1">
 <link rel="stylesheet" href="./css/akira-cognitive-workspace-v2.css?v=akira-cognitive-workspace-v2">
-<link rel="stylesheet" href="./css/akira-office-canonical-v5.css?v=akira-office-canonical-v5">
+<link rel="stylesheet" href="./css/akira-office-2p5d.css?v=akira-office-2p5d-v1">
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -459,8 +459,9 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
         <div class="office-v2-toolbar">
           <span class="office-v2-live">Observabilidad en vivo</span>
           <div class="office-v2-actions">
-            <span class="office-v2-live">Oficina Pixel · V5</span>
+            <span class="office-v2-live office-2p5d-badge">Oficina 2.5D · V1</span>
             <button id="officePixelInteract" class="office-v2-btn" type="button">Interacción</button>
+            <button id="officePixelOverview" class="office-v2-btn" type="button">Vista general</button>
             <button id="officeRefresh" class="office-v2-btn" type="button">Actualizar</button>
             <button id="officePause" class="office-v2-btn" type="button">Pausar</button>
           </div>
@@ -1518,7 +1519,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 })();
 </script>
 <script src="./js/akira_missions_panel.js?v=akira-missions-v5"></script>
-<script src="./js/akira-office-living-v5.js?v=akira-office-v11-visual-root-v7"></script>
+<script src="./js/akira-office-2p5d.js?v=akira-office-2p5d-v1"></script>
 <script>
 async function fetchRuntimeCapabilities(){
   const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
