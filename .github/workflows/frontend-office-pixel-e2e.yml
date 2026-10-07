@@ -245,6 +245,15 @@ jobs:
               throw new Error("Dante must be fully sprite-capable and backend-controlled, not hard-disabled in frontend config: "+JSON.stringify(runtimeAgentContract));
             }
 
+            const assetRuntime=await page.evaluate(() => window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.assetSheetRuntime);
+            if(!assetRuntime || !assetRuntime.loaded || assetRuntime.width!==1536 || assetRuntime.height!==1024){
+              throw new Error("Office object sprite sheet is not loaded at expected 1536x1024: "+JSON.stringify(assetRuntime));
+            }
+            const badRects=Object.entries(assetRuntime.objectSourceRects||{}).filter(([_,r]) =>
+              !Array.isArray(r)||r.length!==4||r[0]<0||r[1]<0||r[2]<=0||r[3]<=0||r[0]+r[2]>assetRuntime.width||r[1]+r[3]>assetRuntime.height
+            );
+            if(badRects.length) throw new Error("Object sprite source rectangles are outside the asset sheet: "+JSON.stringify(badRects));
+
             const spriteInventory=await page.evaluate(() => window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.completeSpriteInventory);
             if(!spriteInventory || !spriteInventory.base.ok || spriteInventory.base.frames !== 171 ||
                !spriteInventory.directional.ok || spriteInventory.directional.poses !== 126 ||
