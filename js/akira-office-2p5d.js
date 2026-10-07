@@ -896,17 +896,21 @@
 
   function executeCommand(kind){
     if(kind==="interact"){
-      let moved=0;
+      let moved=0,protectedTasks=0;
       agents.filter(a=>a.status==="active").forEach(a=>{
         const activeTask=taskForAgent(a);
-        const target=taskStationId(activeTask)||roleStationForAgent(a);
+        // Manual interaction never overrides real backend work. Working agents
+        // stay at their assigned desk and continue their real task.
+        if(activeTask||a.backendState==="working"){
+          protectedTasks++;
+          return;
+        }
+        const target=roleStationForAgent(a);
         if(!target)return;
-        const state=activeTask ? "use" : roleWorkStateForAgent(a);
-        if(activeTask){
-          if(startRoute(a,target,state,"working",0,true))moved++;
-        }else if(beginExplicitRoute(a,target,state,6500,""))moved++;
+        const state=roleWorkStateForAgent(a);
+        if(beginExplicitRoute(a,target,state,6500,""))moved++;
       });
-      say("Interacción colectiva · "+moved+" agente(s) hacia su estación semántica.");
+      say("Interacción colectiva · "+moved+" agente(s) libres; "+protectedTasks+" tarea(s) real(es) protegida(s) en escritorio.");
       return;
     }
 
@@ -1511,11 +1515,17 @@
       if(a.status==="disabled")return;
       const activeKind=a.machine==="station"
         ? stationKindForAgent(a)
-        : (a.machine==="working"&&a.node===a.homeNav ? "workstation_monitor" : null);
-      if(activeKind)active.push({agent:a,kind:activeKind});
+        : (a.machine==="working"&&a.node===a.homeNav
+          ? "workstation_monitor"
+          : (a.machine==="idle"&&a.deskMode&&isAtHomeDesk(a) ? "workstation_monitor" : null));
+      if(activeKind)active.push({
+        agent:a,
+        kind:activeKind,
+        standby:a.machine==="idle"&&activeKind==="workstation_monitor"
+      });
     });
 
-    active.forEach(({agent:a,kind},i)=>{
+    active.forEach(({agent:a,kind,standby},i)=>{
       let base=null;
       if(kind==="workstation_monitor"){
         base=[a.screen[0]-34,a.screen[1]-72,68,28];
@@ -1533,6 +1543,16 @@
       const [x,y,w,h]=base;
       const phase=Math.floor((officeClock*3.5+(i%7))%7);
       ctx.save();
+      if(standby){
+        ctx.globalAlpha=.22+.08*((Math.sin(officeClock*2.2+i)+1)/2);
+        ctx.fillStyle="#06111D";
+        ctx.fillRect(Math.round(x),Math.round(y),w,h);
+        ctx.globalAlpha=.45;
+        ctx.fillStyle="#39D4C6";
+        ctx.fillRect(Math.round(x+4+(phase%3)*5),Math.round(y+h-5),3,2);
+        ctx.restore();
+        return;
+      }
       ctx.globalAlpha=.72;
       ctx.fillStyle="#06111D";
       ctx.fillRect(Math.round(x),Math.round(y),w,h);
@@ -2186,6 +2206,11 @@
         camera:{...(p.camera||{})},
         activity:{...(p.activity||{})},
         deskAssignments:Object.fromEntries(Object.entries(config&&config.desk_assignments||{}).map(([k,v])=>[k,{...v}])),
+        deskWorkVisual:{
+          usesDirectionalBack:Boolean(config&&config.directional_walk&&config.directional_walk.vertical_back),
+          backFrameCount:Number(config&&config.directional_walk&&config.directional_walk.vertical_back&&config.directional_walk.vertical_back.count||0),
+          occlusionEnabled:Object.values(config&&config.desk_assignments||{}).some(v=>Array.isArray(v&&v.occlusion))
+        },
         ambientRoutines:{...(config&&config.ambient_routines||{})},
         cameraRuntime:{...camera,focus:cameraFocus}
       };
