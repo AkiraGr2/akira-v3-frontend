@@ -398,6 +398,9 @@
         direction:"down",
         lastDirection:null,
         waitingForAgent:false,
+        stalledMs:0,
+        lastMovementScreen:[...h.visual],
+        animPhaseMs:((String(c.name||"").split("").reduce((n,ch)=>n+ch.charCodeAt(0),0)%997)*137)%1800,
         seed:(String(c.name||"").split("").reduce((n,ch)=>n+ch.charCodeAt(0),0)%997)
       };
     });
@@ -555,6 +558,8 @@
     agent.actionState=null;
     agent.routeFinalDirection=null;
     agent.waitingForAgent=false;
+    agent.stalledMs=0;
+    agent.lastMovementScreen=[...agent.screen];
   }
 
   function finishStation(agent,now){
@@ -845,8 +850,33 @@
       const safe=safeDynamicStep(a,desired,dt);
       a.waitingForAgent=Boolean(safe.waiting);
 
+      const moved=Math.hypot(safe.screen[0]-a.screen[0],safe.screen[1]-a.screen[1]);
       a.screen[0]=safe.screen[0];
       a.screen[1]=safe.screen[1];
+      if(moved>0.25){
+        a.stalledMs=0;
+        a.lastMovementScreen=[...a.screen];
+      }else{
+        a.stalledMs+=dt*1000;
+      }
+
+      // A dynamic agent can legitimately yield, but a non-collision stall
+      // should never last indefinitely. Re-route from the current position
+      // after a short deterministic threshold while the task/target remains
+      // valid. This fixes the old "one agent keeps walking / never arrives"
+      // class without inventing a new backend state.
+      if(a.stalledMs>2200 && !a.waitingForAgent && a.routeTargetId){
+        const replanned=routePoints(a,a.routeTargetId);
+        if(replanned&&replanned.length){
+          a.route=replanned.map((p,i)=>({screen:[...p],id:i===replanned.length-1?a.routeTargetId:null}));
+          a.routeIndex=0;
+          a.stalledMs=0;
+          a.frameClock=0;
+          a.frame=0;
+        }else{
+          a.stalledMs=0;
+        }
+      }
       return;
     }
 
@@ -857,7 +887,8 @@
       }
       a.frameClock+=dt*1000;
       const st=STATE_BY_NAME[a.visualState]||STATE_BY_NAME.use;
-      a.frame=Math.floor(a.frameClock/(a.visualState==="talk"?170:190))%st.count;
+      const stationFrameMs=a.visualState==="talk"?170:190;
+      a.frame=Math.floor((a.frameClock+a.animPhaseMs)/stationFrameMs)%st.count;
       return;
     }
 
@@ -872,10 +903,15 @@
       a.visualState="idle";
     }
 
+    const before=[...a.screen];
+    const movedSinceLast=Math.hypot(before[0]-(a.lastMovementScreen?.[0]??before[0]),before[1]-(a.lastMovementScreen?.[1]??before[1]));
+    a.stalledMs=movedSinceLast<0.35 ? a.stalledMs+dt*1000 : 0;
+    a.lastMovementScreen=before;
+
     a.frameClock+=dt*1000;
     const st=STATE_BY_NAME[a.visualState]||STATE_BY_NAME.idle;
     const frameMs=a.visualState==="work"?190:a.visualState==="reaction"?240:220;
-    a.frame=Math.floor(a.frameClock/frameMs)%st.count;
+    a.frame=Math.floor((a.frameClock+a.animPhaseMs)/frameMs)%st.count;
   }
 
   function prepareDirectionalFrames(){
@@ -1612,6 +1648,9 @@
       name:a.name,node:a.node,world:[...a.world],screen:[...a.screen],
       state:a.visualState,backendState:a.backendState,machine:a.machine,
       intentKey:a.intentKey,
+      animPhaseMs:a.animPhaseMs,
+      stalledMs:a.stalledMs,
+      waitingForAgent:Boolean(a.waitingForAgent),
       route:a.route.map(p=>[...p.screen])
     }));},
     get objectCatalog(){return {...((config&&config.object_catalog)||{})};},
