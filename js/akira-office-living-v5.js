@@ -573,7 +573,7 @@
   }
 
   function reconcileAgent(agent){
-    if(agent.status==="disabled"){
+    if(agent.status==="disabled" || agent.backendState==="disabled"){
       agent.machine="disabled";
       agent.visualState="idle";
       return;
@@ -681,7 +681,7 @@
     list.innerHTML=agents.map(a=>{
       const status=a.backendState==="working"?"Trabajando":
         a.backendState==="error"?"Error":
-        a.status==="disabled"?"Desactivado":
+        (a.status==="disabled"||a.backendState==="disabled")?"Desactivado":
         a.backendState==="idle"?"Disponible":"Sin confirmar";
       return '<button type="button" class="office-agent-row" data-office-agent="'+a.name+'">'+
         '<span class="office-agent-dot '+(a.backendState||"idle")+'"></span>'+
@@ -766,7 +766,7 @@
   }
 
   function updateAgent(a,dt,now){
-    if(a.status==="disabled"){
+    if(a.status==="disabled" || a.backendState==="disabled"){
       a.machine="disabled";
       a.visualState="idle";
       a.frameClock+=dt;
