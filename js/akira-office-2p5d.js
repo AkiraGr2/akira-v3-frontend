@@ -352,6 +352,119 @@
 
   function homeVisual(name){return config.homes[name]?.visual||[0,0];}
   function homeSeat(name){return config.homes[name]?.seat||homeVisual(name);}
+
+  function deskAssignment(name){
+    const d=config&&config.desk_assignments&&config.desk_assignments[name];
+    return d||{
+      seat:homeSeat(name),
+      direction:"up",
+      occlusion:null,
+      label:name,
+      monitor:null
+    };
+  }
+
+  function ambientConfig(){
+    return (config&&config.ambient_routines)||{enabled:false};
+  }
+
+  function ambientTargetsForAgent(agent){
+    const routines=ambientConfig();
+    const explicit=routines.per_agent&&routines.per_agent[agent&&agent.name];
+    if(Array.isArray(explicit)&&explicit.length)return explicit.slice();
+
+    const rp=config&&config.role_profiles&&config.role_profiles[agent&&agent.name];
+    const secondary=Array.isArray(rp&&rp.secondary)?rp.secondary:[];
+    const ids=[];
+    secondary.forEach(kind=>{
+      const st=config&&config.stations&&config.stations[kind];
+      if(st&&Array.isArray(st.ids)){
+        if(st.ids[0])ids.push(st.ids[0]);
+      }else if(st&&st.id){
+        ids.push(st.id);
+      }
+    });
+    return ids;
+  }
+
+  function isAtHomeDesk(agent){
+    if(!agent)return false;
+    const seat=homeSeat(agent.name);
+    return Array.isArray(seat) &&
+      Math.hypot(agent.screen[0]-seat[0],agent.screen[1]-seat[1])<22;
+  }
+
+  function beginAmbientVisit(agent,targetId,now){
+    if(!agent||agent.status!=="active"||agent.backendState!=="idle"||!targetId)return false;
+    const routines=ambientConfig();
+    const dwellMin=Number(routines.visit_min_ms||3500);
+    const dwellMax=Number(routines.visit_max_ms||6500);
+    const seed=(agent.seed||1)*97;
+    const dwell=dwellMin+((seed%Math.max(1,dwellMax-dwellMin+1)));
+    agent.ambientMode=true;
+    agent.deskMode=false;
+    agent.ambientIndex=(agent.ambientIndex+1)%Math.max(1,ambientTargetsForAgent(agent).length);
+    agent.ambientTargetId=targetId;
+    const ok=startRoute(agent,targetId,"think","idle",dwell,true);
+    if(!ok){
+      agent.ambientMode=false;
+      agent.deskMode=true;
+      agent.ambientTargetId=null;
+      agent.ambientNextAt=now+1800;
+      return false;
+    }
+    return true;
+  }
+
+  function updateAmbientRoutine(agent,now){
+    const routines=ambientConfig();
+    if(!routines.enabled||agent.status!=="active"||agent.backendState!=="idle")return;
+    if(agent.ambientMode||agent.machine==="walking"||agent.machine==="returning"||agent.machine==="station")return;
+    if(!isAtHomeDesk(agent)){
+      beginReturn(agent);
+      return;
+    }
+    const targets=ambientTargetsForAgent(agent);
+    if(!targets.length)return;
+    if(now<(agent.ambientNextAt||0))return;
+    const target=targets[agent.ambientIndex%targets.length];
+    if(!target)return;
+    beginAmbientVisit(agent,target,now);
+  }
+  function homeWorkState(agent){
+    const rp=config&&config.role_profiles&&config.role_profiles[agent&&agent.name];
+    return rp&&rp.work_state ? rp.work_state : "use";
+  }
+
+  function homeWorkLabel(agent){
+    const task=agent&&agent.task;
+    return task ? String(task.title||task.name||task.tool||task.tool_name||"Trabajo real") : "Trabajo";
+  }
+
+  function homeWorkMode(agent){
+    return Boolean(agent&&agent.deskMode&&agent.machine==="working"&&isAtHomeDesk(agent));
+  }
+
+  function homeSeatDirection(agent){
+    const d=deskAssignment(agent&&agent.name);
+    return d.direction||"up";
+  }
+
+  function homeOcclusion(agent){
+    const d=deskAssignment(agent&&agent.name);
+    return Array.isArray(d.occlusion)&&d.occlusion.length===4 ? d.occlusion.map(Number) : null;
+  }
+
+  function homeMonitorTarget(agent){
+    const d=deskAssignment(agent&&agent.name);
+    return Array.isArray(d.monitor)&&d.monitor.length===4 ? d.monitor.map(Number) : null;
+  }
+
+  function homeDeskLabel(agent){
+    const d=deskAssignment(agent&&agent.name);
+    return String(d.label||agent&&agent.name||"Puesto");
+  }
+
   function homeExit(name){return config.homes[name]?.nav||null;}
 
   function interactionPoint(id){
@@ -404,7 +517,13 @@
         stalledMs:0,
         lastMovementScreen:[...h.visual],
         animPhaseMs:((String(c.name||"").split("").reduce((n,ch)=>n+ch.charCodeAt(0),0)%997)*137)%1800,
-        seed:(String(c.name||"").split("").reduce((n,ch)=>n+ch.charCodeAt(0),0)%997)
+        seed:(String(c.name||"").split("").reduce((n,ch)=>n+ch.charCodeAt(0),0)%997),
+        deskMode:true,
+        ambientMode:false,
+        ambientIndex:0,
+        ambientTargetId:null,
+        ambientNextAt:((Number(config&&config.ambient_routines&&config.ambient_routines.initial_desk_dwell_ms)||3500)
+          /1000)+(((String(c.name||"").split("").reduce((n,ch)=>n+ch.charCodeAt(0),0)%997)%5)*0.55)
       };
     });
   }
@@ -504,6 +623,9 @@
     }
 
     agent.routeTargetId=targetId;
+    agent.deskMode=false;
+    agent.ambientMode=false;
+    agent.ambientTargetId=null;
     agent.route=points.map((p,i)=>({
       screen:[...p],
       id:i===points.length-1?targetId:null
@@ -551,26 +673,43 @@
     agent.routeIndex=0;
     agent.machine="returning";
     agent.visualState="walk";
+    agent.deskMode=false;
+    agent.ambientMode=false;
+    agent.ambientTargetId=null;
     agent.returnFinalDirection=(config.home_directions&&config.home_directions[agent.name])||"down";
     agent.frame=0;
     agent.frameClock=0;
   }
 
   function finishHome(agent){
+    const wasWorking=agent.backendState==="working";
     agent.node=agent.homeNav;
     agent.world=[...nodeWorld(agent.homeNav)];
     agent.screen=[...(agent.homeSeat||agent.homeVisual)];
     agent.route=[];
     agent.routeTargetId=null;
     agent.routeIndex=0;
-    agent.machine=agent.backendState==="working"?"working":"idle";
-    agent.visualState=agent.backendState==="working"?"work":agent.backendState==="error"?"reaction":"idle";
+    agent.machine=wasWorking?"working":"idle";
+    agent.visualState=wasWorking?"work":agent.backendState==="error"?"reaction":"idle";
     agent.intentKey="";
     agent.actionState=null;
     agent.routeFinalDirection=null;
+    agent.direction=homeSeatDirection(agent);
+    agent.facing=1;
+    agent.deskMode=true;
+    agent.ambientMode=false;
+    agent.ambientTargetId=null;
     agent.waitingForAgent=false;
     agent.stalledMs=0;
     agent.lastMovementScreen=[...agent.screen];
+    if(!wasWorking){
+      const routines=ambientConfig();
+      const base=Number(routines.initial_desk_dwell_ms||3500);
+      const jitter=((agent.seed||0)%5)*550;
+      agent.ambientNextAt=performance.now()/1000+base/1000+jitter/1000;
+    }else{
+      agent.ambientNextAt=Infinity;
+    }
   }
 
   function finishStation(agent,now){
@@ -587,49 +726,55 @@
     if(agent.status==="disabled" || agent.backendState==="disabled"){
       agent.machine="disabled";
       agent.visualState="idle";
+      agent.deskMode=false;
+      agent.ambientMode=false;
       return;
     }
 
     const activeTask=taskForAgent(agent);
     agent.task=activeTask;
-    const desiredStation=taskStationId(activeTask);
 
     if(agent.backendState==="error"){
-      if(agent.machine==="walking"||agent.machine==="station"||agent.machine==="returning"){
+      if(agent.machine==="walking"||agent.machine==="station"||agent.machine==="returning"||agent.machine==="working"){
         agent.intentKey="";
         beginReturn(agent);
       }else{
-        agent.machine="idle";
+        finishHome(agent);
         agent.visualState="reaction";
       }
       return;
     }
 
     if(agent.backendState==="working"){
-      const target=desiredStation||roleStationForAgent(agent);
-      if(target){
-        const key=target+"|backend";
-        const atTarget=agent.node===target && Math.hypot(agent.screen[0]-nodeScreen(target)[0],agent.screen[1]-nodeScreen(target)[1])<18;
-        if(!atTarget && agent.intentKey!==key && agent.machine!=="walking"){
-          const roleState=desiredStation ? "think" : roleWorkStateForAgent(agent);
-          if(startRoute(agent,target,roleState,"working",0,true)){
-            agent.intentKey=key;
-          }
-        }
-      }else if(agent.machine==="idle"||agent.machine==="returning"||agent.machine==="station"){
+      // Real work always has priority over ambient life. The agent must return
+      // to its assigned desk and stay there while the backend reports work.
+      agent.ambientMode=false;
+      agent.ambientTargetId=null;
+      agent.ambientNextAt=Infinity;
+      if(isAtHomeDesk(agent)){
         finishHome(agent);
-      }else if(agent.machine==="working"){
-        agent.visualState="work";
+        agent.visualState=homeWorkState(agent);
+        agent.deskMode=true;
+        agent.direction=homeSeatDirection(agent);
+        return;
+      }
+      if(agent.machine!=="returning"){
+        beginReturn(agent);
       }
       return;
     }
 
-    // Backend is idle: finish any temporary station visit, then remain at home.
+    // Backend idle: ambient life is allowed, but the desk remains the anchor.
     if(agent.machine==="station"||agent.machine==="walking"||agent.machine==="returning"){
-      if(agent.machine!=="returning")beginReturn(agent);
-    }else{
-      finishHome(agent);
+      return;
     }
+
+    if(!isAtHomeDesk(agent)){
+      beginReturn(agent);
+      return;
+    }
+
+    finishHome(agent);
   }
 
   async function pollTruth(){
@@ -915,6 +1060,22 @@
     a.stalledMs=movedSinceLast<0.35 ? a.stalledMs+dt*1000 : 0;
     a.lastMovementScreen=before;
 
+    if(a.backendState==="idle" && a.machine==="idle"){
+      a.deskMode=true;
+      a.direction=homeSeatDirection(a);
+      updateAmbientRoutine(a,now);
+    }else if(a.machine==="idle"){
+      a.deskMode=isAtHomeDesk(a);
+    }
+
+    if(homeWorkMode(a)){
+      a.direction=homeSeatDirection(a);
+      a.visualState=homeWorkState(a);
+      a.frameClock+=dt*1000;
+      a.frame=Math.floor((a.frameClock+a.animPhaseMs)/Number(config&&config.presentation_2_5d&&config.presentation_2_5d.activity&&config.presentation_2_5d.activity.desk_work_frame_ms||260))%4;
+      return;
+    }
+
     a.frameClock+=dt*1000;
     const st=STATE_BY_NAME[a.visualState]||STATE_BY_NAME.idle;
     const frameMs=a.visualState==="work"?190:a.visualState==="reaction"?240:220;
@@ -1081,12 +1242,14 @@
 
   function drawSprite(a){
     const moving=a.machine==="walking"||a.machine==="returning";
-    const directionalCanvas=moving?directionalFrameCanvas(a):null;
+    const deskMode=homeWorkMode(a)||Boolean(a.deskMode&&a.machine==="idle"&&isAtHomeDesk(a));
+    const directionalCanvas=(moving||deskMode)?directionalFrameCanvas(a):null;
     const src=directionalCanvas?null:spriteFrame(a);
     const sourceAtlas=directionalCanvas||atlas;
     if(!sourceAtlas)return;
     const p=a.screen;
     const idleBob=!moving?Math.sin(officeClock*2+(a.seed||0)*0.017)*0.8:0;
+    const deskBob=deskMode?Math.sin(officeClock*2.6+(a.seed||0)*0.017)*0.7:0;
     const walkBob=moving?Math.round(Math.sin((a.frame+0.5)*Math.PI/2)):0;
     const scale=1.0*depthFactor(p[1]);
     const baseW=directionalCanvas
@@ -1096,9 +1259,10 @@
       ? Number(config.directional_walk&&config.directional_walk.frame_canvas_px&&config.directional_walk.frame_canvas_px[1]||112)
       : (src&&src[3]||0);
     if(baseW<=0||baseH<=0)return;
-    const dw=baseW*scale,dh=baseH*scale;
+    const dw=baseW*scale*(deskMode?.88:1);
+    const dh=baseH*scale*(deskMode?.80:1);
     const left=Math.round(p[0]-dw/2);
-    const top=Math.round(p[1]-dh+6+walkBob+idleBob);
+    const top=Math.round(p[1]-dh+8+walkBob+idleBob+deskBob);
 
     ctx.save();
     ctx.imageSmoothingEnabled=false;
@@ -1368,15 +1532,24 @@
 
   function drawLiveObjectSprites(){
     if(!assetSheet||!config)return;
-    const activeKinds=new Map();
 
+    const desks=config.desk_assignments||{};
+    Object.entries(desks).forEach(([name,d],i)=>{
+      const a=agents.find(x=>x.name===name);
+      const target=Array.isArray(d&&d.monitor)?d.monitor:null;
+      if(!target)return;
+      const working=Boolean(a&&a.backendState==="working"&&isAtHomeDesk(a));
+      const alpha=working?.94:.30;
+      const pulse=working?.16*Math.sin(officeClock*3+i):.04*Math.sin(officeClock*1.4+i);
+      drawLiveObjectSprite("workstation_monitor",target,{alpha,pulse});
+    });
+
+    const activeKinds=new Map();
     agents.forEach(a=>{
       if(a.status==="disabled")return;
       if(a.machine==="station"){
         const kind=stationKindForAgent(a);
         if(kind)activeKinds.set(kind,(activeKinds.get(kind)||0)+1);
-      }else if(a.machine==="working" && a.node===a.homeNav){
-        activeKinds.set("workstation_monitor",(activeKinds.get("workstation_monitor")||0)+1);
       }
     });
 
@@ -1384,39 +1557,15 @@
     const basePulse=(Math.sin(t*4)+1)/2;
 
     activeKinds.forEach((count,kind)=>{
-      if(kind==="workstation_monitor"){
-        const anchors={
-          Akira:[476,202,96,55],
-          Luna:[770,202,96,55],
-          Nexo:[420,375,105,55],
-          Nova:[1075,375,105,55],
-          Orion:[420,545,105,55],
-          Kaori:[1075,545,105,55]
-        };
-        Object.entries(anchors).forEach(([name,target],i)=>{
-          const a=agents.find(x=>x.name===name);
-          if(a&&a.backendState==="working"&&a.node===a.homeNav){
-            drawLiveObjectSprite("workstation_monitor",target,{
-              alpha:.88,
-              pulse:.15*Math.sin(t*3+i)
-            });
-          }
-        });
-        return;
-      }
-
       const target=objectSpriteTarget(kind);
       if(!target)return;
       const pulse=0.5+0.5*Math.sin(t*3.2+String(kind).length);
       const lift=kind==="coffee"?2*pulse:kind==="printer"?1.5*pulse:kind==="mcp"?1.2*pulse:0;
       drawLiveObjectSprite(kind,target,{
-        alpha:.9,
-        pulse:.18*pulse,
+        alpha:.92,
+        pulse:.28*pulse,
         lift
       });
-
-      // A second simultaneous worker at the same semantic station gets a
-      // restrained glow instead of duplicating the furniture sprite.
       if(count>1){
         ctx.save();
         const [x,y,w,h]=target;
@@ -1427,9 +1576,6 @@
       }
     });
 
-    // These catalogued groups are ambient authored sprites rather than
-    // clickable stations. Keep them subtle so they enrich the room without
-    // covering the canonical background illustration.
     const ambient=[
       ["lighting",.20],
       ["chairs",.16],
@@ -1727,6 +1873,21 @@
       drawSprite(a);
     });
 
+    // The source scene is already fully painted. Repainting only the front
+    // strip of each assigned desk creates real occlusion: the character's
+    // lower body disappears behind the desk without requiring a new image.
+    ordered.forEach(a=>{
+      if(!a.deskMode)return;
+      const o=homeOcclusion(a);
+      if(!o||!scene)return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(o[0],o[1],o[2],o[3]);
+      ctx.clip();
+      ctx.drawImage(scene,0,0,1536,1024);
+      ctx.restore();
+    });
+
     drawActivityParticles();
     drawAgentLabels();
     drawObjectInteractionBadges();
@@ -1888,7 +2049,7 @@
       cancelAnimationFrame(raf);
       raf=requestAnimationFrame(loop);
       clearInterval(pollTimer);
-      pollTimer=setInterval(pollTruth,5000);
+      pollTimer=setInterval(pollTruth,2500);
     }catch(err){
       eventText="Error cargando Oficina 2.5D: "+err.message;
       render();
@@ -1962,7 +2123,11 @@
       animPhaseMs:a.animPhaseMs,
       stalledMs:a.stalledMs,
       waitingForAgent:Boolean(a.waitingForAgent),
-      route:a.route.map(p=>[...p.screen])
+      route:a.route.map(p=>[...p.screen]),
+      deskMode:Boolean(a.deskMode),
+      ambientMode:Boolean(a.ambientMode),
+      ambientTargetId:a.ambientTargetId,
+      deskLabel:homeDeskLabel(a)
     }));},
     get objectCatalog(){return {...((config&&config.object_catalog)||{})};},
     get objectSprites(){return {...((config&&config.object_sprites)||{})};},
@@ -1998,6 +2163,8 @@
         depth:{...(p.depth||{})},
         camera:{...(p.camera||{})},
         activity:{...(p.activity||{})},
+        deskAssignments:Object.fromEntries(Object.entries(config&&config.desk_assignments||{}).map(([k,v])=>[k,{...v}])),
+        ambientRoutines:{...(config&&config.ambient_routines||{})},
         cameraRuntime:{...camera,focus:cameraFocus}
       };
     },
