@@ -118,7 +118,8 @@ function addTyping(){
   row.className='msg-row akira';
   const id='typing_'+Date.now();
   row.id=id;
-  row.innerHTML=`<div class="avatar"></div><div class="bubble">⏳ Akira pensando...</div>`;
+  row.innerHTML=`<div class="avatar akira-entity-slot" data-akira-entity data-state="thinking" data-size="42" aria-label="Akira · Pensando"></div><div class="bubble"><span class="typing-copy">Akira está pensando…</span><span class="cursor">▌</span></div>`;
+  try{const entity=row.querySelector("[data-akira-entity]");if(entity&&window.akiraEntityMount)window.akiraEntityMount(entity);}catch(_){}
   inner.appendChild(row);
   inner.scrollTop=inner.scrollHeight;
   return id;
@@ -153,6 +154,7 @@ async function sendMsg(){
   if(USE_STREAM) return sendMsgStream();
   if(txt.length > 1500){ txt = txt.slice(0,1500); inp.value = txt; }
   const orb=document.getElementById('orb'); if(orb)orb.classList.add('thinking');
+  try{window.akiraEntitySetState&&window.akiraEntitySetState('thinking','#orb');}catch(_){}
   const hasImage = selectedImageBase64 && selectedImageBase64.length > 20;
   if(hasImage) addMsg(txt || "📷 Analiza esta imagen", 'user', selectedImageBase64);
   else addMsg(txt,'user');
@@ -185,6 +187,7 @@ async function sendMsg(){
       }
     } catch(_){}
     removeTyping(tid); if(orb)orb.classList.remove('thinking');
+    try{window.akiraEntitySetState&&window.akiraEntitySetState((d.response||'Error')!=='Error'?'success':'error','#orb');}catch(_){}
     let resp = d.response||'Error';
     if(!resp.includes("503") && !resp.includes("UNAVAILABLE")){
       if(LAST_LATENCY < 2000){
@@ -200,9 +203,11 @@ async function sendMsg(){
     await countNeuronas();
   }catch(e){
     removeTyping(tid); if(orb)orb.classList.remove('thinking');
+    try{window.akiraEntitySetState&&window.akiraEntitySetState('error','#orb');setTimeout(()=>window.akiraEntitySetState&&window.akiraEntitySetState('idle','#orb'),1600);}catch(_){}
     BACKEND_HEALTHY = false;
     logAutoRepair(`Error chat ${e.message} -> AUTO OFF y reintento`);
-    addMsg('⏳ Akira está despertando el backend, dame 5 segundos y reintenta, tu mensaje quedó guardado en colmena.','akira');
+    try{window.akiraEntitySetState&&window.akiraEntitySetState('error','#orb');setTimeout(()=>window.akiraEntitySetState&&window.akiraEntitySetState('idle','#orb'),1600);}catch(_){}
+    addMsg('⏳ Akira está reconectando el backend. Puedes reintentar en unos segundos.','akira');
     setTimeout(()=>{ checkBackendHealth(); }, 5000);
   }
 }
@@ -224,6 +229,7 @@ async function sendMsgStream(){
   else addMsg(txt,'user');
   const currentImage = selectedImageBase64;
   const msgToSend = txt || (hasImage ? "Qué ves en esta imagen?" : "");
+  const exchangeId = _newChatExchangeId();
   inp.value=''; clearImagePreview();
   // FASE 11.0 (2026-10-01): guardado de mensaje del usuario (stream) DESHABILITADO.
   // try{ await saveNeuronaHibrida(msgToSend + (hasImage ? " [imagen]" : ""), 'sensorial', 6, ['user_input']); }catch(e){}
@@ -234,7 +240,8 @@ async function sendMsgStream(){
   const row=document.createElement('div');
   row.className='msg-row akira';
   const bubbleId = 'stream_'+Date.now();
-  row.innerHTML=`<div class="avatar"></div><div class="bubble" id="${bubbleId}"><span class="cursor">▌</span></div>`;
+  row.innerHTML=`<div class="avatar akira-entity-slot" data-akira-entity data-state="thinking" data-size="42" aria-label="Akira · Pensando"></div><div class="bubble" id="${bubbleId}"><span class="typing-copy">Akira está pensando…</span><span class="cursor">▌</span></div>`;
+  try{const entity=row.querySelector("[data-akira-entity]");if(entity&&window.akiraEntityMount)window.akiraEntityMount(entity);}catch(_){}
   if(inner) inner.appendChild(row);
   if(inner) inner.scrollTop = inner.scrollHeight;
   let fullText = "";
@@ -273,6 +280,8 @@ async function sendMsgStream(){
               if(inner) inner.scrollTop = inner.scrollHeight;
             }
             if(j.done){
+              try{const entity=row.querySelector("[data-akira-entity]");if(entity&&entity.__akiraEntity)entity.__akiraEntity.setState("success");}catch(_){}
+              try{window.akiraEntitySetState&&window.akiraEntitySetState("success","#orb");}catch(_){}
               const b = document.getElementById(bubbleId);
               if(b){
                 let finalHtml = escapeHtml(fullText).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
@@ -311,8 +320,10 @@ async function sendMsgStream(){
         }
       }, 120000);
     }
+    try{const entity=row.querySelector("[data-akira-entity]");if(entity&&entity.__akiraEntity)entity.__akiraEntity.setState("uncertain");}catch(_){}
+    try{window.akiraEntitySetState&&window.akiraEntitySetState("uncertain","#orb");}catch(_){}
     const b = document.getElementById(bubbleId);
-    if(b) b.innerHTML = "🔄 Akira cambiando a modo estable...";
+    if(b) b.innerHTML = "🔄 Akira está cambiando a un modo estable…";
     try{
       const payload2 = {message:msgToSend,user_id:uid,user_api_key:uk,chat_exchange_id:exchangeId};
       if(hasImage && currentImage) payload2.image_base64 = currentImage;
@@ -370,7 +381,8 @@ function addMsg(t,who,imgBase64=null){
     row.innerHTML=`<div class="bubble">${escapeHtml(t)}${imgHtml}</div>`;
   }else{
     const formatted = t.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
-    row.innerHTML=`<div class="avatar"></div><div class="bubble">${formatted}${imgHtml}</div>`;
+    row.innerHTML=`<div class="avatar akira-entity-slot" data-akira-entity data-state="success" data-size="42" aria-label="Akira · Lista"></div><div class="bubble">${formatted}${imgHtml}</div>`;
+    try{const entity=row.querySelector("[data-akira-entity]");if(entity&&window.akiraEntityMount)window.akiraEntityMount(entity);}catch(_){}
   }
   inner.appendChild(row);
   inner.scrollTop=inner.scrollHeight;
