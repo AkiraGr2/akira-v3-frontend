@@ -63,7 +63,7 @@
 
     function draw(ts){
       const t=(ts-started)/1000;
-      const motion=reduced?.18:1;
+      const motion=reduced ? .18 : 1;
       const breath=1+Math.sin(t*(1.35+state.speed*.18))*state.pulse*.22*motion;
       const minSide=Math.max(16,Math.min(width,height));
       const cx=width/2,cy=height/2,base=minSide*.27,nucleus=base*breath;
