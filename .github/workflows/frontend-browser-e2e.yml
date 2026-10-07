@@ -63,9 +63,23 @@ jobs:
             });
 
             await page.route("**/api/v8/graph/overview**", async route => {
+              if (route.request().method() === "OPTIONS") {
+                await route.fulfill({
+                  status: 204,
+                  headers: {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, OPTIONS",
+                    "Access-Control-Allow-Headers": "Authorization, Content-Type"
+                  }
+                });
+                return;
+              }
               await route.fulfill({
                 status: 200,
-                contentType: "application/json",
+                headers: {
+                  "Access-Control-Allow-Origin": "*",
+                  "Content-Type": "application/json"
+                },
                 body: JSON.stringify({
                   ok: true,
                   nodes: [
@@ -144,9 +158,23 @@ jobs:
             });
 
             await page.route("**/api/v8/graph/overview**", async route => {
+              if (route.request().method() === "OPTIONS") {
+                await route.fulfill({
+                  status:204,
+                  headers:{
+                    "Access-Control-Allow-Origin":"*",
+                    "Access-Control-Allow-Methods":"GET, OPTIONS",
+                    "Access-Control-Allow-Headers":"Authorization, Content-Type"
+                  }
+                });
+                return;
+              }
               await route.fulfill({
                 status:200,
-                contentType:"application/json",
+                headers:{
+                  "Access-Control-Allow-Origin":"*",
+                  "Content-Type":"application/json"
+                },
                 body:JSON.stringify({
                   ok:true,
                   nodes:[
