@@ -276,6 +276,19 @@ jobs:
               throw new Error("2.5D depth/camera calibration invalid: "+JSON.stringify(presentation));
             }
 
+            const deskWorkVisual=presentation.deskWorkVisual;
+            const desks=presentation.deskAssignments||{};
+            if(!deskWorkVisual || !deskWorkVisual.usesDirectionalBack || deskWorkVisual.backFrameCount!==4 || !deskWorkVisual.occlusionEnabled){
+              throw new Error("Desk work visual contract missing back-facing animation/occlusion: "+JSON.stringify(deskWorkVisual));
+            }
+            if(Object.keys(desks).length!==9 || Object.values(desks).some(d=>d.direction!=="up" || !Array.isArray(d.seat) || !Array.isArray(d.occlusion))){
+              throw new Error("Assigned desk contract incomplete: "+JSON.stringify(desks));
+            }
+            const ambient=presentation.ambientRoutines||{};
+            if(!ambient.enabled || ambient.deterministic || !ambient.deterministic || Object.keys(ambient.per_agent||{}).length!==9){
+              throw new Error("Deterministic ambient routine contract missing: "+JSON.stringify(ambient));
+            }
+
             const layout=await page.$eval("#officePixelCanvas",el=>{
               const r=el.getBoundingClientRect();
               const stage=document.getElementById("officePixelStage").getBoundingClientRect();
@@ -304,10 +317,57 @@ jobs:
               return canvas && canvas.getBoundingClientRect().width>500;
             }, null, {timeout:10000});
 
+            // Real backend tasks have absolute priority. Luna and Nexo must be
+            // working at their assigned desks rather than being redirected to
+            // semantic stations.
+            await page.waitForFunction(() => {
+              const state=window.akiraOfficePixelDebug.agents||[];
+              const desks=window.akiraOfficePixelDebug.presentation2p5d?.deskAssignments||{};
+              return ["Luna","Nexo"].every(name=>{
+                const a=state.find(x=>x.name===name);
+                const d=desks[name];
+                return a && d &&
+                  a.machine==="working" &&
+                  a.deskMode===true &&
+                  Math.hypot(a.screen[0]-d.seat[0],a.screen[1]-d.seat[1])<24;
+              });
+            }, null, {timeout:12000});
+
+            const taskDeskState=await page.evaluate(() =>
+              (window.akiraOfficePixelDebug.agents||[])
+                .filter(a=>a.name==="Luna"||a.name==="Nexo")
+                .map(a=>({name:a.name,machine:a.machine,deskMode:a.deskMode,stationKind:a.stationKind,screen:[...a.screen]}))
+            );
+            if(taskDeskState.length!==2 || taskDeskState.some(a=>a.machine!=="working"||!a.deskMode)){
+              throw new Error("Real task workers are not anchored at desks: "+JSON.stringify(taskDeskState));
+            }
+
+            // Idle agents have deterministic ambient destinations and must
+            // visibly leave their desks even when no task is active.
+            const idleBefore=await page.evaluate(() =>
+              (window.akiraOfficePixelDebug.agents||[])
+                .filter(a=>a.name!=="Dante" && a.backendState==="idle")
+                .map(a=>({name:a.name,screen:[...a.screen],ambient:a.ambientMode}))
+            );
+            await page.waitForTimeout(9000);
+            const idleAfter=await page.evaluate(() =>
+              (window.akiraOfficePixelDebug.agents||[])
+                .filter(a=>a.name!=="Dante" && a.backendState==="idle")
+                .map(a=>({name:a.name,screen:[...a.screen],ambient:a.ambientMode,machine:a.machine,ambientTargetId:a.ambientTargetId}))
+            );
+            const ambientMoved=idleAfter.filter(a=>{
+              const b=idleBefore.find(x=>x.name===a.name);
+              return b && (a.ambient===true || Math.hypot(a.screen[0]-b.screen[0],a.screen[1]-b.screen[1])>12);
+            });
+            if(ambientMoved.length<4){
+              throw new Error("Idle ambient movement is insufficient: "+JSON.stringify({before:idleBefore,after:idleAfter}));
+            }
+
             const before=await page.evaluate(() => {
               const a=(window.akiraOfficePixelDebug.agents||[]).find(x=>x.name==="Akira");
               return a ? {world:[...a.world],screen:[...a.screen],state:a.state} : null;
             });
+
             await page.evaluate(() => window.akiraOfficePixelCommand("interact"));
             await page.waitForFunction(() => {
               const state=window.akiraOfficePixelDebug.agents||[];
@@ -315,39 +375,30 @@ jobs:
             }, null, {timeout:12000});
 
             const after=await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[])
-              .map(a=>({name:a.name,screen:[...a.screen],state:a.state,machine:a.machine,intentKey:a.intentKey})));
+              .map(a=>({name:a.name,screen:[...a.screen],state:a.state,machine:a.machine,intentKey:a.intentKey,deskMode:a.deskMode,stationKind:a.stationKind})));
             if(!after.length) throw new Error("Office agents missing after collective interaction");
-            await page.waitForTimeout(1800);
-            const visualAfter=await page.evaluate(() =>
-              (window.akiraOfficePixelDebug.agents||[]).map(a=>({
-                name:a.name,machine:a.machine,stationKind:a.stationKind,
-                screen:[...a.screen],intentKey:a.intentKey
-              }))
-            );
-            const visualLuna=visualAfter.find(a=>a.name==="Luna");
-            if(!visualLuna || !["walking","station"].includes(visualLuna.machine) || visualLuna.stationKind!=="web"){
-              throw new Error("Luna did not resolve the Web station visually after Interacción: "+JSON.stringify(visualLuna));
+
+            await page.waitForTimeout(1500);
+            const protectedWorkers=await page.evaluate(() => {
+              const state=window.akiraOfficePixelDebug.agents||[];
+              const desks=window.akiraOfficePixelDebug.presentation2p5d?.deskAssignments||{};
+              return ["Luna","Nexo"].map(name=>{
+                const a=state.find(x=>x.name===name),d=desks[name];
+                return a?{
+                  name:a.name,machine:a.machine,deskMode:a.deskMode,
+                  stationKind:a.stationKind,screen:[...a.screen],
+                  atDesk:Boolean(d&&Math.hypot(a.screen[0]-d.seat[0],a.screen[1]-d.seat[1])<24)
+                }:null;
+              });
+            });
+            if(protectedWorkers.some(a=>!a || a.machine!=="working" || !a.deskMode || !a.atDesk)){
+              throw new Error("Manual interaction displaced a real task worker: "+JSON.stringify(protectedWorkers));
             }
 
             const visualContract=await page.evaluate(() => window.akiraOfficePixelDebug.presentation2p5d && window.akiraOfficePixelDebug.presentation2p5d.cameraRuntime);
             if(!visualContract || visualContract.focus!=="overview" || visualContract.zoom < 0.98 || visualContract.zoom > 1.02){
               throw new Error("2.5D overview camera drifted unexpectedly: "+JSON.stringify(visualContract));
             }
-            const researcher=after.find(a=>a.name==="Luna");
-            const developer=after.find(a=>a.name==="Nexo");
-            if(!researcher || !developer){
-              throw new Error("Expected independent task-driven agents missing: "+JSON.stringify(after));
-            }
-
-            // The mocked backend has active web/development tasks. Their
-            // interaction targets must therefore resolve independently.
-            const hasIndependentIntents=
-              String(researcher.intentKey||"").includes("P26_WEB") &&
-              String(developer.intentKey||"").includes("P25_DEVELOPMENT");
-            if(!hasIndependentIntents){
-              throw new Error("Task-driven station resolution failed: "+JSON.stringify({researcher,developer}));
-            }
-
             await page.evaluate(() => window.akiraOfficePixelCommand("meeting"));
             const crossingSweep=[];
             for(let i=0;i<12;i++){
