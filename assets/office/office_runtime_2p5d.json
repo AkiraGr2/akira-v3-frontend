@@ -1,5 +1,5 @@
 {
-  "version": "8.0",
+  "version": "9.0",
   "scene": "assets/office/01_akira_office_floor_v5_doors.png",
   "scene_px": [
     1536,
@@ -1670,7 +1670,303 @@
       "station_halo": true,
       "screen_overlay": true,
       "labels": true,
-      "walking_trails": true
+      "walking_trails": true,
+      "desk_work_frame_ms": 280
+    },
+    "behavior_version": "desk-life-v2"
+  },
+  "home_directions": {
+    "Akira": "up",
+    "Luna": "up",
+    "Nexo": "up",
+    "Nova": "up",
+    "Orion": "up",
+    "Kaori": "up",
+    "Zeri": "up",
+    "Lyra": "up",
+    "Dante": "up"
+  },
+  "desk_assignments": {
+    "Akira": {
+      "seat": [
+        500,
+        318
+      ],
+      "direction": "up",
+      "desk_rect": [
+        385,
+        180,
+        220,
+        120
+      ],
+      "occlusion": [
+        370,
+        270,
+        250,
+        62
+      ],
+      "monitor": [
+        476,
+        202,
+        96,
+        55
+      ],
+      "label": "Puesto Akira"
+    },
+    "Luna": {
+      "seat": [
+        790,
+        318
+      ],
+      "direction": "up",
+      "desk_rect": [
+        675,
+        180,
+        220,
+        120
+      ],
+      "occlusion": [
+        660,
+        270,
+        250,
+        62
+      ],
+      "monitor": [
+        770,
+        202,
+        96,
+        55
+      ],
+      "label": "Puesto Luna"
+    },
+    "Nexo": {
+      "seat": [
+        450,
+        488
+      ],
+      "direction": "up",
+      "desk_rect": [
+        330,
+        350,
+        235,
+        120
+      ],
+      "occlusion": [
+        315,
+        440,
+        265,
+        62
+      ],
+      "monitor": [
+        420,
+        375,
+        105,
+        55
+      ],
+      "label": "Puesto Nexo"
+    },
+    "Nova": {
+      "seat": [
+        1065,
+        488
+      ],
+      "direction": "up",
+      "desk_rect": [
+        980,
+        350,
+        235,
+        120
+      ],
+      "occlusion": [
+        965,
+        440,
+        265,
+        62
+      ],
+      "monitor": [
+        1075,
+        375,
+        105,
+        55
+      ],
+      "label": "Puesto Nova"
+    },
+    "Orion": {
+      "seat": [
+        450,
+        648
+      ],
+      "direction": "up",
+      "desk_rect": [
+        330,
+        520,
+        235,
+        115
+      ],
+      "occlusion": [
+        315,
+        605,
+        265,
+        62
+      ],
+      "monitor": [
+        420,
+        545,
+        105,
+        55
+      ],
+      "label": "Puesto Orion"
+    },
+    "Kaori": {
+      "seat": [
+        1065,
+        648
+      ],
+      "direction": "up",
+      "desk_rect": [
+        980,
+        520,
+        235,
+        115
+      ],
+      "occlusion": [
+        965,
+        600,
+        265,
+        65
+      ],
+      "monitor": [
+        1075,
+        545,
+        105,
+        55
+      ],
+      "label": "Puesto Kaori"
+    },
+    "Zeri": {
+      "seat": [
+        690,
+        865
+      ],
+      "direction": "up",
+      "desk_rect": [
+        620,
+        730,
+        140,
+        120
+      ],
+      "occlusion": [
+        605,
+        810,
+        170,
+        72
+      ],
+      "monitor": [
+        650,
+        760,
+        105,
+        50
+      ],
+      "label": "Puesto Zeri"
+    },
+    "Lyra": {
+      "seat": [
+        860,
+        865
+      ],
+      "direction": "up",
+      "desk_rect": [
+        790,
+        730,
+        140,
+        120
+      ],
+      "occlusion": [
+        775,
+        810,
+        170,
+        72
+      ],
+      "monitor": [
+        815,
+        760,
+        105,
+        50
+      ],
+      "label": "Puesto Lyra"
+    },
+    "Dante": {
+      "seat": [
+        1385,
+        245
+      ],
+      "direction": "up",
+      "desk_rect": [
+        1300,
+        125,
+        165,
+        105
+      ],
+      "occlusion": [
+        1288,
+        196,
+        190,
+        62
+      ],
+      "monitor": [
+        1330,
+        145,
+        105,
+        48
+      ],
+      "label": "Puesto Dante"
+    }
+  },
+  "ambient_routines": {
+    "enabled": true,
+    "initial_desk_dwell_ms": 3200,
+    "visit_min_ms": 3800,
+    "visit_max_ms": 6200,
+    "poll_ms": 2500,
+    "priority": "real_task_over_ambient",
+    "deterministic": true,
+    "per_agent": {
+      "Akira": [
+        "P21_MISSION",
+        "M06"
+      ],
+      "Luna": [
+        "P26_WEB",
+        "P24_MEMORY"
+      ],
+      "Nexo": [
+        "P25_DEVELOPMENT",
+        "P23_PRINTER"
+      ],
+      "Nova": [
+        "P26_WEB",
+        "P21_MISSION"
+      ],
+      "Orion": [
+        "P21_MISSION",
+        "P23_PRINTER"
+      ],
+      "Kaori": [
+        "P24_MEMORY",
+        "P23_PRINTER"
+      ],
+      "Zeri": [
+        "P27_MCP",
+        "P22_CAFE"
+      ],
+      "Lyra": [
+        "P26_WEB",
+        "P24_MEMORY"
+      ],
+      "Dante": [
+        "P27_MCP",
+        "M02"
+      ]
     }
   }
 }
