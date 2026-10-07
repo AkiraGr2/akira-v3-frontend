@@ -52,7 +52,9 @@ jobs:
 
             const errors = [];
             const page = await browser.newPage({
-              viewport:{width:1440,height:900},
+              // Start mobile-first so the responsive Office contract is tested
+              // from a clean navigation rather than a live viewport mutation.
+              viewport:{width:390,height:844},
               deviceScaleFactor:1
             });
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
@@ -98,8 +100,7 @@ jobs:
             await page.click("#btn-office");
             await page.waitForSelector("#officePixelCanvas", {state:"visible",timeout:10000});
 
-            // Now exercise the actual mobile layout after the section is open.
-            await page.setViewportSize({width:390,height:844});
+            // The page was opened at the mobile viewport from the start.
             await page.waitForFunction(() => {
               const canvas=document.getElementById("officePixelCanvas");
               const stage=document.getElementById("officePixelStage");
@@ -248,7 +249,16 @@ jobs:
               throw new Error("Akira sprite debug state missing");
             }
 
+            // Reopen the checked-out application at desktop width before
+            // testing movement and multi-agent choreography. This avoids making
+            // responsive layout behavior depend on a live canvas resize.
             await page.setViewportSize({width:1440,height:900});
+            await page.goto("http://127.0.0.1:4173/", {
+              waitUntil:"domcontentloaded",
+              timeout:30000
+            });
+            await page.click("#btn-office");
+            await page.waitForSelector("#officePixelCanvas", {state:"visible",timeout:10000});
             await page.waitForFunction(() => {
               const canvas=document.getElementById("officePixelCanvas");
               return canvas && canvas.getBoundingClientRect().width>500;
