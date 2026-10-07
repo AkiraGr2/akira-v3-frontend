@@ -182,12 +182,13 @@ jobs:
               els.map(el=>({id:el.id,text:el.textContent.trim()}))
             );
             const interactionButtons=officeButtons.filter(x=>x.id==="officePixelInteract");
+            const refreshButtons=officeButtons.filter(x=>x.id==="officeRefresh");
             const legacyButtons=officeButtons.filter(x=>[
               "officePixelMission","officePixelCoffee","officePixelMeeting","officePixelPrint"
             ].includes(x.id));
             const overviewButtons=officeButtons.filter(x=>x.id==="officePixelOverview");
-            if(interactionButtons.length!==1 || overviewButtons.length!==1 || legacyButtons.length!==0){
-              throw new Error("Office interaction controls are not unified: "+JSON.stringify(officeButtons));
+            if(interactionButtons.length!==0 || refreshButtons.length!==0 || overviewButtons.length!==1 || legacyButtons.length!==0){
+              throw new Error("Manual office controls are still exposed: "+JSON.stringify(officeButtons));
             }
 
             const allHomes=(domState.agents||[]).map(a=>a.name);
@@ -288,6 +289,14 @@ jobs:
             if(!ambient.enabled || !ambient.deterministic || Object.keys(ambient.per_agent||{}).length!==9){
               throw new Error("Deterministic ambient routine contract missing: "+JSON.stringify(ambient));
             }
+            const thoughts=presentation.thoughtBubbles||{};
+            if(!thoughts.enabled || !thoughts.deterministic || !Array.isArray(thoughts.global) || thoughts.global.length<4){
+              throw new Error("Thought bubble contract missing: "+JSON.stringify(thoughts));
+            }
+            const autonomy=presentation.autonomy||{};
+            if(autonomy.manualInteraction!==false || autonomy.automaticAmbientMovement!==true || autonomy.thoughtBubbles!==true){
+              throw new Error("Office autonomy contract failed: "+JSON.stringify(autonomy));
+            }
 
             const layout=await page.$eval("#officePixelCanvas",el=>{
               const r=el.getBoundingClientRect();
@@ -368,7 +377,6 @@ jobs:
               return a ? {world:[...a.world],screen:[...a.screen],state:a.state} : null;
             });
 
-            await page.evaluate(() => window.akiraOfficePixelCommand("interact"));
             await page.waitForFunction(() => {
               const state=window.akiraOfficePixelDebug.agents||[];
               return state.some(a=>a.machine==="walking" || a.machine==="station");
@@ -393,6 +401,35 @@ jobs:
             });
             if(protectedWorkers.some(a=>!a || a.machine!=="working" || !a.deskMode || !a.atDesk)){
               throw new Error("Manual interaction displaced a real task worker: "+JSON.stringify(protectedWorkers));
+            }
+
+            const thoughtSweep=[];
+            for(let i=0;i<10;i++){
+              await page.waitForTimeout(1000);
+              thoughtSweep.push(await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[])
+                .map(a=>({name:a.name,thoughtVisible:Boolean(a.thoughtVisible),thoughtText:a.thoughtText||""}))));
+            }
+            const thoughtSeen=new Set();
+            thoughtSweep.flat().filter(a=>a.thoughtVisible && a.thoughtText).forEach(a=>thoughtSeen.add(a.name));
+            if(thoughtSeen.size<4){
+              throw new Error("Autonomous thought bubbles are not surfacing across the office: "+JSON.stringify({agents:[...thoughtSeen]}));
+            }
+            const manualApi=await page.evaluate(() => typeof window.akiraOfficePixelCommand);
+            if(manualApi!=="undefined"){
+              throw new Error("Manual office command API is still exposed");
+            }
+
+            const sourceContract=await page.evaluate(async () => {
+              const r=await fetch("./js/akira-office-2p5d.js",{cache:"no-store"});
+              const t=await r.text();
+              return {
+                scopedOcclusion:t.includes("const deskOcclusion=deskMode ? homeOcclusion(a) : null;"),
+                noGlobalOcclusion:!t.includes("ordered.forEach(a=>{\\n      if(!a.deskMode)return;"),
+                thoughtRenderer:t.includes("function drawThoughtBubbles")
+              };
+            });
+            if(!sourceContract.scopedOcclusion || !sourceContract.noGlobalOcclusion || !sourceContract.thoughtRenderer){
+              throw new Error("Office render/source contract failed: "+JSON.stringify(sourceContract));
             }
 
             const visualContract=await page.evaluate(() => window.akiraOfficePixelDebug.presentation2p5d && window.akiraOfficePixelDebug.presentation2p5d.cameraRuntime);

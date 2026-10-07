@@ -1,5 +1,5 @@
 {
-  "version": "9.0",
+  "version": "10.0",
   "scene": "assets/office/01_akira_office_floor_v5_doors.png",
   "scene_px": [
     1536,
@@ -1673,7 +1673,7 @@
       "walking_trails": true,
       "desk_work_frame_ms": 280
     },
-    "behavior_version": "desk-life-v2"
+    "behavior_version": "desk-life-v3-autonomous-thoughts"
   },
   "home_directions": {
     "Akira": "up",
@@ -1966,6 +1966,100 @@
       "Dante": [
         "P27_MCP",
         "M02"
+      ]
+    }
+  },
+  "thought_bubbles": {
+    "enabled": true,
+    "initial_delay_ms": 2600,
+    "show_ms": 4200,
+    "gap_min_ms": 7000,
+    "gap_max_ms": 12000,
+    "max_chars": 56,
+    "max_width_px": 210,
+    "deterministic": true,
+    "render_mode": "pixel-thought-bubble",
+    "priority": "visual-only-never-controls-agent",
+    "global": [
+      "¿Qué estará haciendo Akira ahora?",
+      "Un café y seguimos.",
+      "Hay que revisar eso dos veces.",
+      "Todo en orden por aquí.",
+      "Creo que esto puede quedar mejor.",
+      "La oficina nunca duerme del todo."
+    ],
+    "walking": [
+      "Voy para allá…",
+      "Cambio de estación.",
+      "Un momento, estoy revisando esto.",
+      "Ya casi llego."
+    ],
+    "station": [
+      "Comprobando el resultado.",
+      "Esto sí tiene sentido.",
+      "Un pequeño ajuste…",
+      "Listo, siguiente paso."
+    ],
+    "working": [
+      "Procesando la tarea…",
+      "Comprobando resultados.",
+      "Una cosa a la vez.",
+      "Casi listo."
+    ],
+    "per_agent": {
+      "Akira": [
+        "Pensando cómo mejorar Akira…",
+        "Tengo una idea para el sistema.",
+        "Voy a comprobar una cosa más.",
+        "Esto puede quedar más elegante."
+      ],
+      "Luna": [
+        "Revisando la web…",
+        "Creo que hay algo interesante aquí.",
+        "Voy a cruzar estas pistas.",
+        "Un detalle más y listo."
+      ],
+      "Nexo": [
+        "Compilando mentalmente.",
+        "Ese bug no se va a esconder.",
+        "Voy a revisar el desarrollo.",
+        "Una prueba más."
+      ],
+      "Nova": [
+        "Buscando una conexión útil.",
+        "Esto merece otra mirada.",
+        "Voy a ordenar estas pistas.",
+        "Creo que ya entendí."
+      ],
+      "Orion": [
+        "Revisando la misión.",
+        "Hay que verificar el objetivo.",
+        "Un paso a la vez.",
+        "Voy a comprobar el tablero."
+      ],
+      "Kaori": [
+        "Buscando el recuerdo correcto.",
+        "La memoria necesita contexto.",
+        "Voy a conectar estas piezas.",
+        "Esto encaja."
+      ],
+      "Zeri": [
+        "Comprobando una herramienta.",
+        "Ese MCP tiene potencial.",
+        "Voy a revisar la conexión.",
+        "Una prueba rápida."
+      ],
+      "Lyra": [
+        "Ordenando la información.",
+        "Hay una relación interesante.",
+        "Voy a cruzar contexto.",
+        "Esto podría servir."
+      ],
+      "Dante": [
+        "Observando el sistema.",
+        "Hay algo que revisar.",
+        "Voy a comprobar el entorno.",
+        "Todo bajo control."
       ]
     }
   }
