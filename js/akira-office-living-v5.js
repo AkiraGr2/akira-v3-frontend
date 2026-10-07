@@ -1242,6 +1242,112 @@
     return Array.isArray(r)&&r.length===4?r:null;
   }
 
+  function objectSpriteTarget(kind){
+    const raw=config&&config.object_sprite_targets&&config.object_sprite_targets[kind];
+    if(Array.isArray(raw)&&raw.length===4)return raw.map(Number);
+    return null;
+  }
+
+  function drawLiveObjectSprite(kind,target,opts={}){
+    if(!assetSheet||!target)return false;
+    const src=objectSpriteRect(kind);
+    if(!src)return false;
+
+    const [x,y,w,h]=target;
+    const pulse=Number(opts.pulse||0);
+    const lift=Number(opts.lift||0);
+    const alpha=Math.max(0,Math.min(1,Number(opts.alpha??1)));
+    const scale=1+pulse*.025;
+    const dw=w*scale,dh=h*scale;
+    const dx=x+(w-dw)/2;
+    const dy=y+(h-dh)-lift;
+
+    ctx.save();
+    ctx.globalAlpha=alpha;
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(assetSheet,src[0],src[1],src[2],src[3],
+      Math.round(dx),Math.round(dy),Math.round(dw),Math.round(dh));
+    ctx.restore();
+    return true;
+  }
+
+  function drawLiveObjectSprites(){
+    if(!assetSheet||!config)return;
+    const activeKinds=new Map();
+
+    agents.forEach(a=>{
+      if(a.status==="disabled")return;
+      if(a.machine==="station"){
+        const kind=stationKindForAgent(a);
+        if(kind)activeKinds.set(kind,(activeKinds.get(kind)||0)+1);
+      }else if(a.machine==="working" && a.node===a.homeNav){
+        activeKinds.set("workstation_monitor",(activeKinds.get("workstation_monitor")||0)+1);
+      }
+    });
+
+    const t=officeClock;
+    const basePulse=(Math.sin(t*4)+1)/2;
+
+    activeKinds.forEach((count,kind)=>{
+      if(kind==="workstation_monitor"){
+        const anchors={
+          Akira:[476,202,96,55],
+          Luna:[770,202,96,55],
+          Nexo:[420,375,105,55],
+          Nova:[1075,375,105,55],
+          Orion:[420,545,105,55],
+          Kaori:[1075,545,105,55]
+        };
+        Object.entries(anchors).forEach(([name,target],i)=>{
+          const a=agents.find(x=>x.name===name);
+          if(a&&a.backendState==="working"&&a.node===a.homeNav){
+            drawLiveObjectSprite("workstation_monitor",target,{
+              alpha:.88,
+              pulse:.15*Math.sin(t*3+i)
+            });
+          }
+        });
+        return;
+      }
+
+      const target=objectSpriteTarget(kind);
+      if(!target)return;
+      const pulse=0.5+0.5*Math.sin(t*3.2+String(kind).length);
+      const lift=kind==="coffee"?2*pulse:kind==="printer"?1.5*pulse:kind==="mcp"?1.2*pulse:0;
+      drawLiveObjectSprite(kind,target,{
+        alpha:.9,
+        pulse:.18*pulse,
+        lift
+      });
+
+      // A second simultaneous worker at the same semantic station gets a
+      // restrained glow instead of duplicating the furniture sprite.
+      if(count>1){
+        ctx.save();
+        const [x,y,w,h]=target;
+        ctx.globalAlpha=.08+.05*basePulse;
+        ctx.fillStyle="#39D4C6";
+        ctx.fillRect(x,y,w,h);
+        ctx.restore();
+      }
+    });
+
+    // These catalogued groups are ambient authored sprites rather than
+    // clickable stations. Keep them subtle so they enrich the room without
+    // covering the canonical background illustration.
+    const ambient=[
+      ["lighting",.20],
+      ["chairs",.16],
+      ["props",.14]
+    ];
+    ambient.forEach(([kind,alpha])=>{
+      const target=objectSpriteTarget(kind);
+      if(!target)return;
+      const pulse=(Math.sin(t*1.7+String(kind).length)+1)/2;
+      drawLiveObjectSprite(kind,target,{alpha:alpha+.03*pulse,pulse:.05*pulse});
+    });
+  }
+
   function drawObjectInteractionBadges(){
     if(!assetSheet)return;
     const oc=config.object_interaction||{};
@@ -1350,6 +1456,7 @@
     ordered.forEach((a,i)=>depthRank.set(a.name,i));
     ordered.forEach(drawSprite);
 
+    drawLiveObjectSprites();
     drawObjectInteractionBadges();
     drawActiveObjectCue();
     drawSelectedAssetPreview();
