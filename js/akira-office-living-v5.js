@@ -1792,6 +1792,16 @@
     get objectSpriteValidation(){return validateObjectSprites();},
     get baseCharacterSpriteValidation(){return validateBaseCharacterSprites();},
     get directionalCharacterSpriteValidation(){return validateDirectionalCharacterSprites();},
+    get assetSheetRuntime(){
+      if(!assetSheet)return {loaded:false,width:0,height:0};
+      return {
+        loaded:true,
+        width:assetSheet.naturalWidth||assetSheet.width||0,
+        height:assetSheet.naturalHeight||assetSheet.height||0,
+        src:ASSET_SHEET_SRC,
+        objectSourceRects:Object.fromEntries(Object.entries((config&&config.object_sprites)||{}))
+      };
+    },
     get completeSpriteInventory(){return {
       characters:9,
       baseStateFrames:171,
