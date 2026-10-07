@@ -84,8 +84,8 @@ jobs:
                 contentType:"application/json",
                 body:JSON.stringify({
                   tasks:[
-                    {agent_name:"researcher",status:"running",tool_name:"web_search",mission_id:"mission-e2e",created_at:"2026-10-04T23:00:00Z"},
-                    {agent_name:"developer",status:"running",tool_name:"developer_propose",mission_id:"mission-e2e",created_at:"2026-10-04T23:01:00Z"}
+                    {agent_name:"Luna",status:"running",tool_name:"web_search",mission_id:"mission-e2e",created_at:"2026-10-04T23:00:00Z"},
+                    {agent_name:"Nexo",status:"running",tool_name:"developer_propose",mission_id:"mission-e2e",created_at:"2026-10-04T23:01:00Z"}
                   ]
                 })
               });
