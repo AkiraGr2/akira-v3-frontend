@@ -1472,7 +1472,9 @@
       "chairs",
       "lighting",
       "props"
-    ]
+    ],
+    "screen_mode": "station_anchored",
+    "target_policy": "interaction_point_relative"
   },
   "directional_walk": {
     "path": "assets/office/02_akira_agents_walk_directional_v8_transparent.png",
@@ -1569,70 +1571,76 @@
   },
   "object_sprite_targets": {
     "development": [
-      1188,
-      682,
-      250,
-      125
+      1095,
+      735,
+      170,
+      100
     ],
     "web": [
-      714,
-      188,
-      150,
-      112
+      735,
+      235,
+      130,
+      92
     ],
     "memory": [
-      58,
-      314,
-      140,
-      110
+      105,
+      300,
+      115,
+      92
     ],
     "printer": [
-      1322,
-      520,
-      92,
-      110
+      1285,
+      510,
+      105,
+      92
     ],
     "coffee": [
-      1332,
-      310,
-      94,
-      112
+      1325,
+      295,
+      105,
+      92
     ],
     "meeting": [
-      1025,
-      100,
-      175,
-      112
+      1000,
+      55,
+      180,
+      100
     ],
     "mission": [
-      995,
+      980,
       145,
-      155,
-      110
+      135,
+      95
     ],
     "mcp": [
-      1188,
-      704,
-      205,
-      112
+      1095,
+      755,
+      180,
+      100
     ],
     "chairs": [
-      1048,
-      64,
-      120,
-      92
+      1000,
+      55,
+      180,
+      95
     ],
     "lighting": [
       680,
-      44,
+      45,
       175,
       115
     ],
     "props": [
       585,
-      872,
+      865,
       300,
       96
+    ],
+    "workstation_monitor": [
+      0,
+      0,
+      0,
+      0
     ]
   }
 }
