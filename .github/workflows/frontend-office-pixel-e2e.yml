@@ -177,7 +177,7 @@ jobs:
               throw new Error("Agent crossing probe failed: "+JSON.stringify(collisionProbe));
             }
 
-            const officeButtons=await page.$eval(".office-v2-actions .office-v2-btn",els =>
+            const officeButtons=await page.$$eval(".office-v2-actions .office-v2-btn",els =>
               els.map(el=>({id:el.id,text:el.textContent.trim()}))
             );
             const interactionButtons=officeButtons.filter(x=>x.id==="officePixelInteract");
