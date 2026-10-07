@@ -152,6 +152,18 @@ jobs:
               throw new Error("V5 navigation grid contract failed: "+JSON.stringify(domState.grid));
             }
 
+            const collisionContract=await page.evaluate(() => window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.collisionContract);
+            if(!collisionContract || !collisionContract.enabled || !collisionContract.dynamicPrediction ||
+               !collisionContract.staticCollisionAware || collisionContract.minGapPx<30){
+              throw new Error("Dynamic agent collision contract failed: "+JSON.stringify(collisionContract));
+            }
+
+            const collisionProbe=await page.evaluate(() => window.akiraOfficePixelDebug.runCollisionProbe());
+            if(!collisionProbe || !collisionProbe.ok || !collisionProbe.prevented ||
+               collisionProbe.nextGap<collisionProbe.minGapPx){
+              throw new Error("Agent collision probe failed: "+JSON.stringify(collisionProbe));
+            }
+
             const allHomes=(domState.agents||[]).map(a=>a.name);
             if(allHomes.length!==9){
               throw new Error("Office roster is not 9 agents: "+JSON.stringify(allHomes));
