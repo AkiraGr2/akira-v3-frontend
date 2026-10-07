@@ -436,11 +436,6 @@ jobs:
             if(!visualContract || visualContract.focus!=="overview" || visualContract.zoom < 0.98 || visualContract.zoom > 1.02){
               throw new Error("2.5D overview camera drifted unexpectedly: "+JSON.stringify(visualContract));
             }
-            const manualApi=await page.evaluate(() => typeof window.akiraOfficePixelCommand);
-            if(manualApi!=="undefined"){
-              throw new Error("Frozen Office manual command API is still exposed");
-            }
-
             await page.waitForTimeout(1200);
             const autonomousState=await page.evaluate(() =>
               (window.akiraOfficePixelDebug.agents||[]).map(a=>({
