@@ -1,10 +1,10 @@
 {
-  "version": "akira-cache-v20261007-office-crossing-v1",
-  "generated_at": "2026-10-07T20:03:00.000Z",
+  "version": "akira-cache-v20261007-office-crossing-v2",
+  "generated_at": "2026-10-07T20:08:00.000Z",
   "assets": {
     "js/akira_brain.js": "akira-brain-v7-stream-root",
     "js/obsidian_membrane.js": "akira-membrane-v49-public-fallback",
     "js/akira_learning.js": "akira-learning-v13-root-auth",
-    "js/akira-office-living-v5.js": "akira-office-v6-crossing-v1"
+    "js/akira-office-living-v5.js": "akira-office-v6-crossing-v2"
   }
 }
