@@ -1,0 +1,475 @@
+name: Frontend Pixel Office E2E
+# Final root sprite audit runner
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "index.html"
+      - "css/**"
+      - "js/**"
+      - "assets/office/**"
+      - ".github/workflows/frontend-office-pixel-e2e.yml"
+  pull_request:
+    paths:
+      - "index.html"
+      - "css/**"
+      - "js/**"
+      - "assets/office/**"
+      - ".github/workflows/frontend-office-pixel-e2e.yml"
+  workflow_dispatch:
+
+jobs:
+  office-pixel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Install Playwright
+        run: npm install --no-save --no-package-lock playwright@1.55.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Serve checked-out frontend
+        run: |
+          python3 -m http.server 4173 --directory . > /tmp/akira-office-pages.log 2>&1 &
+          echo $! > /tmp/akira-office-pages.pid
+          sleep 2
+
+      - name: Smoke test Pixel Office
+        run: |
+          node <<'NODE'
+          const { chromium } = require("playwright");
+
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+
+            const errors = [];
+            const page = await browser.newPage({
+              viewport:{width:1440,height:900},
+              deviceScaleFactor:1
+            });
+            page.on("pageerror", err => errors.push(String(err && err.message || err)));
+
+            await page.route("https://akira-empresa.onrender.com/api/v8/agents", route => {
+              route.fulfill({
+                status:200,
+                contentType:"application/json",
+                body:JSON.stringify({
+                  agents:[
+                    {name:"researcher",role:"researcher",status:"idle",allowed_tools:["web_search"]},
+                    {name:"developer",role:"developer",status:"idle",allowed_tools:["developer_propose"]},
+                    {name:"tester",role:"tester",status:"idle",allowed_tools:["python_test"]},
+                    {name:"reviewer",role:"reviewer",status:"idle",allowed_tools:["code_review"]},
+                    {name:"memorizer",role:"memorizer",status:"idle",allowed_tools:["memory_save"]},
+                    {name:"graph_builder",role:"graph_builder",status:"idle",allowed_tools:["graph_create_node"]},
+                    {name:"learner",role:"learner",status:"idle",allowed_tools:["learning_save"]},
+                    {name:"internal",role:"internal",status:"idle",allowed_tools:["self_model_read"]},
+                    {name:"selftest_agent",role:"generic",status:"disabled",allowed_tools:[]}
+                  ]
+                })
+              });
+            });
+
+            await page.route("https://akira-empresa.onrender.com/api/v8/tasks?limit=100", route => {
+              route.fulfill({
+                status:200,
+                contentType:"application/json",
+                body:JSON.stringify({
+                  tasks:[
+                    {agent_name:"researcher",status:"running",tool_name:"web_search",mission_id:"mission-e2e",created_at:"2026-10-04T23:00:00Z"},
+                    {agent_name:"developer",status:"running",tool_name:"developer_propose",mission_id:"mission-e2e",created_at:"2026-10-04T23:01:00Z"}
+                  ]
+                })
+              });
+            });
+
+            await page.goto("http://127.0.0.1:4173/", {
+              waitUntil:"domcontentloaded",
+              timeout:30000
+            });
+
+            await page.click("#btn-office");
+            await page.waitForSelector("#officePixelCanvas", {state:"visible",timeout:10000});
+
+            // Now exercise the actual mobile layout after the section is open.
+            await page.setViewportSize({width:390,height:844});
+            await page.waitForFunction(() => {
+              const canvas=document.getElementById("officePixelCanvas");
+              const stage=document.getElementById("officePixelStage");
+              if(!canvas || !stage) return false;
+              const c=canvas.getBoundingClientRect();
+              return c.width>300 && c.height>220 && Boolean(window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.sceneSource.endsWith("01_akira_office_floor_v5_doors.png"));
+            }, null, {timeout:20000});
+
+            const domState=await page.evaluate(() => ({
+              office3dStage:document.getElementById("office3dStage"),
+              office3dMode:document.getElementById("office3dMode"),
+              officeCanvas:document.getElementById("officeCanvas"),
+              legacyFloor3dScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-floor")),
+              pixelScript:[...document.scripts].some(s=>String(s.src).includes("akira-office-2p5d")),
+              sceneSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.sceneSource,
+              atlasSource:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.atlasSource,
+              atlasLayout:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.atlasLayout,
+              presentation2p5d:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.presentation2p5d,
+              agents:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.agents,
+              invalidEdges:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.invalidEdges,
+              navigationMode:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.navigationMode,
+              walkSpeed:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.walkSpeed,
+              grid:window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.grid
+            }));
+
+            if(domState.office3dStage || domState.office3dMode || domState.officeCanvas || domState.legacyFloor3dScript){
+              throw new Error("3D Office elements/scripts are still present: "+JSON.stringify(domState));
+            }
+            if(!domState.pixelScript) throw new Error("Office 2.5D script is not loaded");
+            if(!String(domState.sceneSource||"").endsWith("01_akira_office_floor_v5_doors.png")){
+              throw new Error("Clean V3 Akira V5 office floor was not loaded: "+JSON.stringify(domState.sceneSource));
+            }
+            if(!String(domState.atlasSource||"").endsWith("02_office_agents_atlas_v3_clean4.png")){
+              throw new Error("V3 clean4 agent atlas was not loaded: "+JSON.stringify(domState.atlasSource));
+            }
+            if(!domState.atlasLayout || domState.atlasLayout.rows!==9 || domState.atlasLayout.framesPerRow!==19){
+              throw new Error("Clean4 atlas layout contract is wrong: "+JSON.stringify(domState.atlasLayout));
+            }
+            if(!domState.atlasLayout.directionalReady || !domState.atlasLayout.directionalFrameModel?.framesPrepared ||
+               domState.atlasLayout.directionalFrameModel.actualPosesPerRow!==14){
+              throw new Error("Directional character sprite contract is incomplete: "+JSON.stringify(domState.atlasLayout));
+            }
+            if(domState.navigationMode!=="grid-a-star-semantic-v6" || !(domState.walkSpeed>0 && domState.walkSpeed<120)){
+              throw new Error("Realistic screen navigation contract failed: "+JSON.stringify({mode:domState.navigationMode,speed:domState.walkSpeed}));
+            }
+            const agentByName=Object.fromEntries((domState.agents||[]).map(a=>[a.name,a]));
+            if(Object.keys(agentByName).length!==9 || !agentByName.Dante){
+              throw new Error("Pixel Office roster contract failed: "+JSON.stringify(domState.agents));
+            }
+
+            const animPhases=(domState.agents||[])
+              .filter(a=>a.name!=="Dante")
+              .map(a=>a.animPhaseMs);
+            if(new Set(animPhases).size<4){
+              throw new Error("Pixel Office animation phases are too synchronized: "+JSON.stringify(animPhases));
+            }
+
+            if(domState.navigationMode!=="grid-a-star-semantic-v6"){
+              throw new Error("Grid/station navigation is not active: "+JSON.stringify(domState.navigationMode));
+            }
+            if(!domState.grid || domState.grid.width!==48 || domState.grid.height!==32 || domState.grid.tile!==32){
+              throw new Error("2.5D navigation grid contract failed: "+JSON.stringify(domState.grid));
+            }
+
+            const collisionContract=await page.evaluate(() => window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.collisionContract);
+            if(!collisionContract || collisionContract.enabled ||
+               collisionContract.dynamicPrediction || !collisionContract.staticCollisionAware ||
+               !collisionContract.agentsAreNonBlocking){
+              throw new Error("Non-blocking agent contract failed: "+JSON.stringify(collisionContract));
+            }
+
+            const collisionProbe=await page.evaluate(() => window.akiraOfficePixelDebug.runCollisionProbe());
+            if(!collisionProbe || !collisionProbe.ok || !collisionProbe.crossingAllowed ||
+               !collisionProbe.agentsAreNonBlocking || !collisionProbe.staticCollisionAware){
+              throw new Error("Agent crossing probe failed: "+JSON.stringify(collisionProbe));
+            }
+
+            const officeButtons=await page.$$eval(".office-v2-actions .office-v2-btn",els =>
+              els.map(el=>({id:el.id,text:el.textContent.trim()}))
+            );
+            const interactionButtons=officeButtons.filter(x=>x.id==="officePixelInteract");
+            const refreshButtons=officeButtons.filter(x=>x.id==="officeRefresh");
+            const legacyButtons=officeButtons.filter(x=>[
+              "officePixelMission","officePixelCoffee","officePixelMeeting","officePixelPrint"
+            ].includes(x.id));
+            const overviewButtons=officeButtons.filter(x=>x.id==="officePixelOverview");
+            if(interactionButtons.length!==0 || refreshButtons.length!==0 || overviewButtons.length!==1 || legacyButtons.length!==0){
+              throw new Error("Manual office controls are still exposed: "+JSON.stringify(officeButtons));
+            }
+
+            const allHomes=(domState.agents||[]).map(a=>a.name);
+            if(allHomes.length!==9){
+              throw new Error("Office roster is not 9 agents: "+JSON.stringify(allHomes));
+            }
+
+            const assets=await page.evaluate(async () => {
+              const paths=[
+                "assets/office/01_akira_office_floor_v5_doors.png",
+                "assets/office/02_akira_office_assets_v5.png",
+                "assets/office/02_office_agents_atlas_v3_clean4.png",
+                "assets/office/02_office_ui_reference.png",
+                "assets/office/03_office_production_map.png",
+                "assets/office/04_office_map_objects_and_zones.png",
+                "assets/office/05_office_assets_and_spritesheets.png"
+              ];
+              return Promise.all(paths.map(async path => {
+                const r=await fetch(path,{cache:"no-store"});
+                const b=new Uint8Array(await r.arrayBuffer());
+                return {path,ok:r.ok,status:r.status,size:b.byteLength,signature:Array.from(b.slice(0,8))};
+              }));
+            });
+
+            if(assets.some(x=>!x.ok || x.size<100 || x.signature[0]!==137 || x.signature[1]!==80 || x.signature[2]!==78 || x.signature[3]!==71)){
+              throw new Error("Authored Pixel Office asset delivery failed: "+JSON.stringify(assets));
+            }
+            if(!assets.find(x=>x.path==="assets/office/02_akira_office_assets_v5.png" && x.ok && x.size>100)){
+              throw new Error("Akira supplemental asset sheet delivery failed: "+JSON.stringify(assets));
+            }
+            const runtimeConfig=await page.evaluate(async () => {
+              const r=await fetch("assets/office/office_runtime_2p5d.json",{cache:"no-store"});
+              return {ok:r.ok,data:r.ok?await r.json():null};
+            });
+            if(!runtimeConfig.ok || !runtimeConfig.data || !Array.isArray(runtimeConfig.data.doors) || runtimeConfig.data.doors.length < 8){
+              throw new Error("2.5D runtime door contract failed: "+JSON.stringify(runtimeConfig));
+            }
+            const requiredObjectSprites=["workstation_monitor","development","web","memory","printer","coffee","meeting","mission","mcp","chairs","lighting","props"];
+            const objectSprites=runtimeConfig.data.object_sprites||{};
+            if(requiredObjectSprites.some(k=>!Array.isArray(objectSprites[k]) || objectSprites[k].length!==4)){
+              throw new Error("Office object/furniture sprite catalog is incomplete: "+JSON.stringify(objectSprites));
+            }
+
+            const spriteValidation=await page.evaluate(() => window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.objectSpriteValidation);
+            if(!spriteValidation || !spriteValidation.ok || spriteValidation.count < 12 ||
+               (spriteValidation.items||[]).some(x=>!x.usable)){
+              throw new Error("Live object sprite validation failed: "+JSON.stringify(spriteValidation));
+            }
+
+            const runtimeAgentContract=await page.evaluate(async () => {
+              const r=await fetch("assets/office/office_runtime_2p5d.json",{cache:"no-store"});
+              const d=await r.json();
+              const dante=(d.agents||[]).find(a=>a.name==="Dante");
+              return dante ? {status:dante.status,row_order:d.atlas?.row_order||[]} : null;
+            });
+            if(!runtimeAgentContract || runtimeAgentContract.status!=="active" ||
+               !runtimeAgentContract.row_order.includes("Dante")){
+              throw new Error("Dante must be fully sprite-capable and backend-controlled, not hard-disabled in frontend config: "+JSON.stringify(runtimeAgentContract));
+            }
+
+            const assetRuntime=await page.evaluate(() => window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.assetSheetRuntime);
+            if(!assetRuntime || !assetRuntime.loaded || assetRuntime.width!==1536 || assetRuntime.height!==1024){
+              throw new Error("Office object sprite sheet is not loaded at expected 1536x1024: "+JSON.stringify(assetRuntime));
+            }
+            const badRects=Object.entries(assetRuntime.objectSourceRects||{}).filter(([_,r]) =>
+              !Array.isArray(r)||r.length!==4||r[0]<0||r[1]<0||r[2]<=0||r[3]<=0||r[0]+r[2]>assetRuntime.width||r[1]+r[3]>assetRuntime.height
+            );
+            if(badRects.length) throw new Error("Object sprite source rectangles are outside the asset sheet: "+JSON.stringify(badRects));
+
+            const spriteInventory=await page.evaluate(() => window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.completeSpriteInventory);
+            if(!spriteInventory || !spriteInventory.base.ok || spriteInventory.base.frames !== 171 ||
+               !spriteInventory.directional.ok || spriteInventory.directional.poses !== 126 ||
+               !spriteInventory.objects.ok || spriteInventory.objectSpriteGroups < 12){
+              throw new Error("Complete Office sprite inventory failed: "+JSON.stringify(spriteInventory));
+            }
+            const dante=spriteInventory.directional.characters.find(x=>x.name==="Dante");
+            if(!dante || !dante.complete || dante.poses!==14){
+              throw new Error("Dante directional sprite set is incomplete: "+JSON.stringify(dante));
+            }
+
+            const presentation=await page.evaluate(() => window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.presentation2p5d);
+            if(!presentation || !presentation.enabled || presentation.version!=="2.5D-v1"){
+              throw new Error("2.5D presentation contract missing: "+JSON.stringify(presentation));
+            }
+            if(!(presentation.depth.min_scale<presentation.depth.max_scale) || presentation.camera.focus_zoom<=presentation.camera.default_zoom){
+              throw new Error("2.5D depth/camera calibration invalid: "+JSON.stringify(presentation));
+            }
+
+            const deskWorkVisual=presentation.deskWorkVisual;
+            const desks=presentation.deskAssignments||{};
+            if(!deskWorkVisual || !deskWorkVisual.usesDirectionalBack || deskWorkVisual.backFrameCount!==4 || !deskWorkVisual.occlusionEnabled){
+              throw new Error("Desk work visual contract missing back-facing animation/occlusion: "+JSON.stringify(deskWorkVisual));
+            }
+            if(Object.keys(desks).length!==9 || Object.values(desks).some(d=>d.direction!=="up" || !Array.isArray(d.seat) || !Array.isArray(d.occlusion))){
+              throw new Error("Assigned desk contract incomplete: "+JSON.stringify(desks));
+            }
+            const ambient=presentation.ambientRoutines||{};
+            if(!ambient.enabled || !ambient.deterministic || Object.keys(ambient.per_agent||{}).length!==9){
+              throw new Error("Deterministic ambient routine contract missing: "+JSON.stringify(ambient));
+            }
+            const thoughts=presentation.thoughtBubbles||{};
+            if(!thoughts.enabled || !thoughts.deterministic || !Array.isArray(thoughts.global) || thoughts.global.length<4){
+              throw new Error("Thought bubble contract missing: "+JSON.stringify(thoughts));
+            }
+            const autonomy=presentation.autonomy||{};
+            if(autonomy.manualInteraction!==false || autonomy.automaticAmbientMovement!==true || autonomy.thoughtBubbles!==true){
+              throw new Error("Office autonomy contract failed: "+JSON.stringify(autonomy));
+            }
+
+            const layout=await page.$eval("#officePixelCanvas",el=>{
+              const r=el.getBoundingClientRect();
+              const stage=document.getElementById("officePixelStage").getBoundingClientRect();
+              const ctx=el.getContext("2d");
+              const sample=ctx ? Array.from(ctx.getImageData(12,12,1,1).data) : [];
+              return {canvas:{width:r.width,height:r.height},stage:{top:stage.top,bottom:stage.bottom},sample};
+            });
+
+            if(layout.canvas.width<300 || layout.canvas.height<220){
+              throw new Error("Pixel Office canvas is too small: "+JSON.stringify(layout.canvas));
+            }
+            if(!layout.sample.length || layout.sample[3]===0){
+              throw new Error("Pixel Office canvas did not paint");
+            }
+
+            const frameBefore=await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[]).find(a=>a.name==="Akira"));
+            await page.waitForTimeout(500);
+            const frameAfter=await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[]).find(a=>a.name==="Akira"));
+            if(!frameBefore || !frameAfter){
+              throw new Error("Akira sprite debug state missing");
+            }
+
+            await page.setViewportSize({width:1440,height:900});
+            await page.waitForFunction(() => {
+              const canvas=document.getElementById("officePixelCanvas");
+              return canvas && canvas.getBoundingClientRect().width>500;
+            }, null, {timeout:10000});
+
+            // Real backend tasks have absolute priority. Luna and Nexo must be
+            // working at their assigned desks rather than being redirected to
+            // semantic stations.
+            await page.waitForFunction(() => {
+              const state=window.akiraOfficePixelDebug.agents||[];
+              const desks=window.akiraOfficePixelDebug.presentation2p5d?.deskAssignments||{};
+              return ["Luna","Nexo"].every(name=>{
+                const a=state.find(x=>x.name===name);
+                const d=desks[name];
+                return a && d &&
+                  a.machine==="working" &&
+                  a.deskMode===true &&
+                  Math.hypot(a.screen[0]-d.seat[0],a.screen[1]-d.seat[1])<24;
+              });
+            }, null, {timeout:12000});
+
+            const taskDeskState=await page.evaluate(() =>
+              (window.akiraOfficePixelDebug.agents||[])
+                .filter(a=>a.name==="Luna"||a.name==="Nexo")
+                .map(a=>({name:a.name,machine:a.machine,deskMode:a.deskMode,stationKind:a.stationKind,screen:[...a.screen]}))
+            );
+            if(taskDeskState.length!==2 || taskDeskState.some(a=>a.machine!=="working"||!a.deskMode)){
+              throw new Error("Real task workers are not anchored at desks: "+JSON.stringify(taskDeskState));
+            }
+
+            // Idle agents have deterministic ambient destinations and must
+            // visibly leave their desks even when no task is active.
+            const idleBefore=await page.evaluate(() =>
+              (window.akiraOfficePixelDebug.agents||[])
+                .filter(a=>a.name!=="Dante" && a.backendState==="idle")
+                .map(a=>({name:a.name,screen:[...a.screen],ambient:a.ambientMode}))
+            );
+            await page.waitForTimeout(9000);
+            const idleAfter=await page.evaluate(() =>
+              (window.akiraOfficePixelDebug.agents||[])
+                .filter(a=>a.name!=="Dante" && a.backendState==="idle")
+                .map(a=>({name:a.name,screen:[...a.screen],ambient:a.ambientMode,machine:a.machine,ambientTargetId:a.ambientTargetId}))
+            );
+            const ambientMoved=idleAfter.filter(a=>{
+              const b=idleBefore.find(x=>x.name===a.name);
+              return b && (a.ambient===true || Math.hypot(a.screen[0]-b.screen[0],a.screen[1]-b.screen[1])>12);
+            });
+            if(ambientMoved.length<4){
+              throw new Error("Idle ambient movement is insufficient: "+JSON.stringify({before:idleBefore,after:idleAfter}));
+            }
+
+            const before=await page.evaluate(() => {
+              const a=(window.akiraOfficePixelDebug.agents||[]).find(x=>x.name==="Akira");
+              return a ? {world:[...a.world],screen:[...a.screen],state:a.state} : null;
+            });
+
+            await page.waitForFunction(() => {
+              const state=window.akiraOfficePixelDebug.agents||[];
+              return state.some(a=>a.machine==="walking" || a.machine==="station");
+            }, null, {timeout:12000});
+
+            const after=await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[])
+              .map(a=>({name:a.name,screen:[...a.screen],state:a.state,machine:a.machine,intentKey:a.intentKey,deskMode:a.deskMode,stationKind:a.stationKind})));
+            if(!after.length) throw new Error("Office agents missing after collective interaction");
+
+            await page.waitForTimeout(1500);
+            const protectedWorkers=await page.evaluate(() => {
+              const state=window.akiraOfficePixelDebug.agents||[];
+              const desks=window.akiraOfficePixelDebug.presentation2p5d?.deskAssignments||{};
+              return ["Luna","Nexo"].map(name=>{
+                const a=state.find(x=>x.name===name),d=desks[name];
+                return a?{
+                  name:a.name,machine:a.machine,deskMode:a.deskMode,
+                  stationKind:a.stationKind,screen:[...a.screen],
+                  atDesk:Boolean(d&&Math.hypot(a.screen[0]-d.seat[0],a.screen[1]-d.seat[1])<24)
+                }:null;
+              });
+            });
+            if(protectedWorkers.some(a=>!a || a.machine!=="working" || !a.deskMode || !a.atDesk)){
+              throw new Error("Manual interaction displaced a real task worker: "+JSON.stringify(protectedWorkers));
+            }
+
+            const thoughtSweep=[];
+            for(let i=0;i<10;i++){
+              await page.waitForTimeout(1000);
+              thoughtSweep.push(await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[])
+                .map(a=>({name:a.name,thoughtVisible:Boolean(a.thoughtVisible),thoughtText:a.thoughtText||""}))));
+            }
+            const thoughtSeen=new Set();
+            thoughtSweep.flat().filter(a=>a.thoughtVisible && a.thoughtText).forEach(a=>thoughtSeen.add(a.name));
+            if(thoughtSeen.size<4){
+              throw new Error("Autonomous thought bubbles are not surfacing across the office: "+JSON.stringify({agents:[...thoughtSeen]}));
+            }
+            const manualApi=await page.evaluate(() => typeof window.akiraOfficePixelCommand);
+            if(manualApi!=="undefined"){
+              throw new Error("Manual office command API is still exposed");
+            }
+
+            const sourceContract=await page.evaluate(async () => {
+              const r=await fetch("./js/akira-office-2p5d.js",{cache:"no-store"});
+              const t=await r.text();
+              return {
+                scopedOcclusion:t.includes("const deskOcclusion=deskMode ? homeOcclusion(a) : null;"),
+                noGlobalOcclusion:!t.includes("ordered.forEach(a=>{\\n      if(!a.deskMode)return;"),
+                thoughtRenderer:t.includes("function drawThoughtBubbles")
+              };
+            });
+            if(!sourceContract.scopedOcclusion || !sourceContract.noGlobalOcclusion || !sourceContract.thoughtRenderer){
+              throw new Error("Office render/source contract failed: "+JSON.stringify(sourceContract));
+            }
+
+            const visualContract=await page.evaluate(() => window.akiraOfficePixelDebug.presentation2p5d && window.akiraOfficePixelDebug.presentation2p5d.cameraRuntime);
+            if(!visualContract || visualContract.focus!=="overview" || visualContract.zoom < 0.98 || visualContract.zoom > 1.02){
+              throw new Error("2.5D overview camera drifted unexpectedly: "+JSON.stringify(visualContract));
+            }
+            await page.evaluate(() => window.akiraOfficePixelCommand("meeting"));
+            const crossingSweep=[];
+            for(let i=0;i<12;i++){
+              await page.waitForTimeout(250);
+              const snapshot=await page.evaluate(() => (window.akiraOfficePixelDebug.agents||[])
+                .filter(a=>a.name!=="Dante")
+                .map(a=>({name:a.name,screen:[...a.screen],waiting:Boolean(a.waitingForAgent)})));
+              crossingSweep.push({
+                t:(i+1)*250,
+                waiting:snapshot.filter(a=>a.waiting).length
+              });
+            }
+            if(crossingSweep.some(x=>x.waiting>0)){
+              throw new Error("Agents still yield to one another during crossing: "+JSON.stringify(crossingSweep));
+            }
+
+            await page.click("#officeRefresh");
+            await page.click("#officePause");
+            const paused=await page.$eval("#officePause",el=>({text:el.textContent,pressed:el.getAttribute("aria-pressed")}));
+            if(paused.text!=="Reanudar" || paused.pressed!=="true"){
+              throw new Error("Pixel Office pause control failed");
+            }
+            await page.click("#officePause");
+            const resumed=await page.$eval("#officePause",el=>({text:el.textContent,pressed:el.getAttribute("aria-pressed")}));
+            if(resumed.text!=="Pausar" || resumed.pressed!=="false"){
+              throw new Error("Pixel Office resume control failed");
+            }
+
+            if(errors.length) throw new Error("Unexpected page errors: "+errors.slice(0,5).join(" | "));
+
+            console.log("PIXEL_OFFICE_E2E_PASS clean_scene=true authored_atlas=true sprite_movement=true office_3d=false");
+            await browser.close();
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          NODE
