@@ -1,4 +1,5 @@
 name: Frontend Pixel Office E2E
+# Final root sprite audit runner
 
 on:
   push:
