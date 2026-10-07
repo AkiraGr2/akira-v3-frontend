@@ -137,6 +137,10 @@ jobs:
             if(!domState.atlasLayout || domState.atlasLayout.rows!==9 || domState.atlasLayout.framesPerRow!==19){
               throw new Error("Clean4 atlas layout contract is wrong: "+JSON.stringify(domState.atlasLayout));
             }
+            if(!domState.atlasLayout.directionalReady || !domState.atlasLayout.directionalFrameModel?.framesPrepared ||
+               domState.atlasLayout.directionalFrameModel.actualPosesPerRow!==14){
+              throw new Error("Directional character sprite contract is incomplete: "+JSON.stringify(domState.atlasLayout));
+            }
             if(domState.navigationMode!=="grid-a-star-semantic-v6" || !(domState.walkSpeed>0 && domState.walkSpeed<120)){
               throw new Error("Realistic screen navigation contract failed: "+JSON.stringify({mode:domState.navigationMode,speed:domState.walkSpeed}));
             }
@@ -217,6 +221,11 @@ jobs:
             });
             if(!runtimeConfig.ok || !runtimeConfig.data || !Array.isArray(runtimeConfig.data.doors) || runtimeConfig.data.doors.length < 8){
               throw new Error("V5 runtime door contract failed: "+JSON.stringify(runtimeConfig));
+            }
+            const requiredObjectSprites=["workstation_monitor","development","web","memory","printer","coffee","meeting","mission","mcp","chairs","lighting","props"];
+            const objectSprites=runtimeConfig.data.object_sprites||{};
+            if(requiredObjectSprites.some(k=>!Array.isArray(objectSprites[k]) || objectSprites[k].length!==4)){
+              throw new Error("Office object/furniture sprite catalog is incomplete: "+JSON.stringify(objectSprites));
             }
 
             const layout=await page.$eval("#officePixelCanvas",el=>{
