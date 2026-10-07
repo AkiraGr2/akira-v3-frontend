@@ -720,6 +720,19 @@
   }
 
   function executeCommand(kind){
+    if(kind==="interact"){
+      let moved=0;
+      agents.filter(a=>a.status==="active").forEach(a=>{
+        const activeTask=taskForAgent(a);
+        const target=taskStationId(activeTask)||roleStationForAgent(a);
+        if(!target)return;
+        const state=activeTask ? "use" : roleWorkStateForAgent(a);
+        if(beginExplicitRoute(a,target,state,1800,""))moved++;
+      });
+      say("Interacción colectiva · "+moved+" agente(s) hacia su estación semántica.");
+      return;
+    }
+
     const live=agents.filter(a=>a.status==="active");
     if(kind==="mission"){
       const a=agents.find(x=>x.name==="Akira");
@@ -738,69 +751,16 @@
     }
     if(kind==="meeting"){
       const slots=(config.stations.meeting&&config.stations.meeting.ids)||[];
-      const claimed=new Set();
       let moved=0;
       live.forEach((a,i)=>{
-        const preferred=slots[i]||null;
-        const candidates=preferred
-          ? [preferred,...slots.filter(id=>id!==preferred)]
-          : slots;
-        let selected=null;
-        for(const slot of candidates){
-          if(claimed.has(slot))continue;
-          if(routePoints(a,slot)){selected=slot;break;}
-        }
-        if(!selected){
-          for(const slot of slots){
-            if(routePoints(a,slot)){selected=slot;break;}
-          }
-        }
-        if(selected){
-          claimed.add(selected);
-          const seat=config.meeting_seats&&config.meeting_seats[selected];
-          if(seat) a.direction=seat.direction||"down";
-          if(beginExplicitRoute(a,selected,"talk",6500,""))moved++;
-        }
+        const selected=slots[i]||slots[0];
+        if(!selected)return;
+        const seat=config.meeting_seats&&config.meeting_seats[selected];
+        if(seat)a.direction=seat.direction||"down";
+        if(beginExplicitRoute(a,selected,"talk",6500,""))moved++;
       });
       say("Reunión de equipo · "+moved+" agente(s) con ruta segura.");
     }
-  }
-
-  function dynamicDeadlockRoute(agent,targetId,dt){
-    if(!agent||!targetId||!Array.isArray(agent.screen))return null;
-    const blockers=agents
-      .filter(other=>other&&other!==agent&&other.status==="active"&&Array.isArray(other.screen))
-      .map(other=>({other,future:predictAgentNextPosition(other,Math.max(dt,1/60))}))
-      .filter(x=>Math.hypot(agent.screen[0]-x.future[0],agent.screen[1]-x.future[1])<96)
-      .sort((a,b)=>agentPriority(a.other)-agentPriority(b.other));
-    if(!blockers.length)return null;
-    const blocker=blockers[0].future;
-    const dx=blocker[0]-agent.screen[0],dy=blocker[1]-agent.screen[1];
-    const horizontal=Math.abs(dx)>=Math.abs(dy);
-    const side=agentPriority(agent)<agentPriority(blockers[0].other)?1:-1;
-    const target=interactionPoint(targetId);
-    if(!target)return null;
-    const candidates=[];
-    for(const d of [32,48,64,80]){
-      if(horizontal){
-        candidates.push([agent.screen[0],agent.screen[1]+side*d]);
-        candidates.push([agent.screen[0],agent.screen[1]-side*d]);
-      }else{
-        candidates.push([agent.screen[0]+side*d,agent.screen[1]]);
-        candidates.push([agent.screen[0]-side*d,agent.screen[1]]);
-      }
-    }
-    for(const candidate of candidates){
-      if(!navMap||!navMap.inside(...screenToGrid(candidate)))continue;
-      if(!segmentClear(agent.screen,candidate))continue;
-      if(!candidateIsSafeAgainstAgents(agent,candidate,Math.max(dt,1/60)))continue;
-      const first=findReachableRoute(agent.screen,candidate,128);
-      if(!first||!first.points.length)continue;
-      const second=findReachableRoute(candidate,target,160);
-      if(!second||!second.points.length)continue;
-      return first.points.concat(second.points);
-    }
-    return null;
   }
 
   function updateAgent(a,dt,now){
@@ -1451,179 +1411,35 @@
     if(hit)say(hit.name+" · "+hit.role+" · ("+Number(hit.world[0]).toFixed(1)+", "+Number(hit.world[1]).toFixed(1)+")");
   }
 
-  // Dynamic collision is a runtime safety constraint, not a visual afterthought.
-  // Agents are NOT hard static obstacles in the A* map because they move, but
-  // their predicted next positions are treated as dynamic obstacles before a
-  // movement step is committed. This prevents sprite overlap without pushing
-  // an avatar into a wall, desk, doorway, or furniture block.
-  const AGENT_MIN_GAP_PX=38;
-  const AGENT_COLLISION_PREDICTION_PAD_PX=6;
-  const AGENT_SIDE_STEP_PX=12;
-  const AGENT_EMERGENCY_GAP_PX=24;
-  const AGENT_EMERGENCY_PUSH_PX=2;
-
-  function agentPriority(a){
-    const seed=Number(a&&a.seed)||0;
-    const name=String(a&&a.name||"");
-    return seed*10000 + name.split("").reduce((n,ch)=>n+ch.charCodeAt(0),0);
-  }
-
-  function predictAgentNextPosition(a,dt){
-    if(!a||a.status!=="active"||!Array.isArray(a.screen))return a&&a.screen?[...a.screen]:[0,0];
-    if(a.machine!=="walking"&&a.machine!=="returning")return [...a.screen];
-    const target=a.route&&a.route[a.routeIndex];
-    if(!target||!Array.isArray(target.screen))return [...a.screen];
-    const dx=target.screen[0]-a.screen[0];
-    const dy=target.screen[1]-a.screen[1];
-    const dist=Math.hypot(dx,dy);
-    if(dist<=0.001)return [...a.screen];
-    const speed=Number(config&&config.navigation&&config.navigation.speed_px_per_second)||80;
-    const step=Math.min(dist,dt*speed);
-    return [
-      a.screen[0]+dx/dist*step,
-      a.screen[1]+dy/dist*step
-    ];
-  }
-
-  function candidateIsSafeAgainstAgents(agent,candidate,dt,population=agents){
-    const required=AGENT_MIN_GAP_PX+Math.min(
-      AGENT_COLLISION_PREDICTION_PAD_PX,
-      (Number(config&&config.navigation&&config.navigation.speed_px_per_second)||80)*dt*0.5
-    );
-    for(const other of population){
-      if(!other||other===agent||other.status!=="active"||!Array.isArray(other.screen))continue;
-      const future=predictAgentNextPosition(other,dt);
-      if(Math.hypot(candidate[0]-future[0],candidate[1]-future[1])<required)return false;
-    }
-    return true;
-  }
+  // Agents are intentionally non-blocking to one another.
+  // Static collision remains enforced against authored walls, furniture and
+  // room boundaries by segmentClear(). Agents may cross paths naturally.
+  const AGENT_CROSSING_EPSILON_PX=0.01;
 
   function safeDynamicStep(agent,desired,dt,population=agents){
-    if(!agent||!Array.isArray(agent.screen)||!Array.isArray(desired))return [...agent?.screen||desired];
-
+    if(!agent||!Array.isArray(agent.screen)||!Array.isArray(desired)){
+      return {screen:[...agent?.screen||desired],waiting:false};
+    }
     const current=[...agent.screen];
-    const step=Math.hypot(desired[0]-current[0],desired[1]-current[1]);
-    if(step<=0.001){
-      return {
-        screen:current,
-        waiting:false
-      };
+    if(Math.hypot(desired[0]-current[0],desired[1]-current[1])<=AGENT_CROSSING_EPSILON_PX){
+      return {screen:current,waiting:false};
     }
-
-    const staticSafe=point=>{
-      return segmentClear(current,point) && candidateIsSafeAgainstAgents(agent,point,dt,population);
-    };
-
-    if(staticSafe(desired)){
-      return {screen:[...desired],waiting:false};
-    }
-
-    // Prefer a perpendicular one-axis sidestep. The preferred side is
-    // deterministic, so two agents approaching each other do not make random
-    // mirrored decisions on different frames.
-    const dx=desired[0]-current[0];
-    const dy=desired[1]-current[1];
-    const horizontal=Math.abs(dx)>=Math.abs(dy);
-    const projectedOthers=population
-      .filter(other=>other&&other!==agent&&other.status==="active"&&Array.isArray(other.screen))
-      .map(other=>({other,future:predictAgentNextPosition(other,dt)}))
-      .filter(x=>Math.hypot(current[0]-x.future[0],current[1]-x.future[1])<AGENT_MIN_GAP_PX*2.5)
-      .sort((a,b)=>Math.hypot(current[0]-a.future[0],current[1]-a.future[1])-
-                    Math.hypot(current[0]-b.future[0],current[1]-b.future[1]));
-    const blocker=projectedOthers[0]?.other||null;
-
-    // When two agents meet head-on, the side is decided from their relative
-    // deterministic priority, so the pair chooses opposite sides even when
-    // their hash/parity happens to match. This avoids both "waiting forever".
-    const side=blocker
-      ? (agentPriority(agent)<agentPriority(blocker)?1:-1)
-      : (agentPriority(agent)%2===0?1:-1);
-
-    // Side-step is capped by the movement budget of the current frame.
-    // This avoids a visible teleport while still accumulating a smooth
-    // perpendicular displacement over subsequent frames.
-    const sideStep=Math.min(AGENT_SIDE_STEP_PX,step);
-    const primary=horizontal
-      ? [current[0],current[1]+side*sideStep]
-      : [current[0]+side*sideStep,current[1]];
-    const secondary=horizontal
-      ? [current[0],current[1]-side*sideStep]
-      : [current[0]-side*sideStep,current[1]];
-
-    if(staticSafe(primary))return {screen:primary,waiting:false};
-    if(staticSafe(secondary))return {screen:secondary,waiting:false};
-
-    // No safe bypass exists in the current frame: yield instead of overlapping.
-    return {screen:current,waiting:true};
-  }
-
-  function resolveAgentOverlap(){
-    const all=agents.filter(a=>
-      a.status==="active" &&
-      Array.isArray(a.screen)
-    );
-    for(let i=0;i<all.length;i++){
-      for(let j=i+1;j<all.length;j++){
-        const a=all[i], b=all[j];
-        let dx=b.screen[0]-a.screen[0];
-        let dy=b.screen[1]-a.screen[1];
-        let dist=Math.hypot(dx,dy);
-        if(dist>=AGENT_EMERGENCY_GAP_PX)continue;
-        if(dist<0.001){
-          const angle=((agentPriority(a)+agentPriority(b))%360)*Math.PI/180;
-          dx=Math.cos(angle); dy=Math.sin(angle); dist=1;
-        }
-
-        // Emergency correction is deliberately tiny and only happens when a
-        // teleport/reconciliation/arrival has already produced an overlap.
-        // Every proposed correction must remain inside the static collision map.
-        const nx=dx/dist,ny=dy/dist;
-        const moveA=agentPriority(a)>agentPriority(b)?a:b;
-        const candidate=[
-          moveA.screen[0]+(moveA===a?-nx:nx)*AGENT_EMERGENCY_PUSH_PX,
-          moveA.screen[1]+(moveA===a?-ny:ny)*AGENT_EMERGENCY_PUSH_PX
-        ];
-        if(segmentClear(moveA.screen,candidate)){
-          moveA.screen=[...candidate];
-        }
-      }
-    }
+    return segmentClear(current,desired)
+      ? {screen:[...desired],waiting:false}
+      : {screen:current,waiting:false};
   }
 
   function runCollisionProbe(){
-    if(!config||!navMap){
-      return {ok:false,reason:"office_not_initialized"};
-    }
-    const a={
-      name:"__probe_a",
-      seed:11,
-      status:"active",
-      machine:"walking",
-      screen:[500,330],
-      route:[{screen:[650,330]}],
-      routeIndex:0
-    };
-    const b={
-      name:"__probe_b",
-      seed:22,
-      status:"active",
-      machine:"walking",
-      screen:[548,330],
-      route:[{screen:[400,330]}],
-      routeIndex:0
-    };
-    const desired=[512,330];
-    const result=safeDynamicStep(a,desired,1/60,[a,b]);
-    const nextB=predictAgentNextPosition(b,1/60);
-    const nextGap=Math.hypot(result.screen[0]-nextB[0],result.screen[1]-nextB[1]);
+    if(!config||!navMap)return {ok:false,reason:"office_not_initialized"};
+    const a={name:"__probe_a",status:"active",machine:"walking",screen:[500,330],route:[{screen:[650,330]}],routeIndex:0};
+    const b={name:"__probe_b",status:"active",machine:"walking",screen:[548,330],route:[{screen:[400,330]}],routeIndex:0};
+    const resultA=safeDynamicStep(a,[512,330],1/60,[a,b]);
+    const resultB=safeDynamicStep(b,[536,330],1/60,[a,b]);
     return {
       ok:true,
-      currentGap:Math.hypot(a.screen[0]-b.screen[0],a.screen[1]-b.screen[1]),
-      desiredGap:Math.hypot(desired[0]-nextB[0],desired[1]-nextB[1]),
-      nextGap,
-      minGap:AGENT_MIN_GAP_PX,
-      waiting:result.waiting,
-      prevented:nextGap>=AGENT_MIN_GAP_PX
+      crossingAllowed:resultA.screen[0]===512&&resultB.screen[0]===536&&!resultA.waiting&&!resultB.waiting,
+      agentsAreNonBlocking:true,
+      staticCollisionAware:true
     };
   }
 
@@ -1677,7 +1493,6 @@
     officeClock=now;
     if(!paused){
       agents.forEach(a=>updateAgent(a,dt,now));
-      resolveAgentOverlap();
     }
     draw();
     last=ts;
@@ -1741,11 +1556,10 @@
     get objectSprites(){return {...((config&&config.object_sprites)||{})};},
     get truth(){return {...truth};},
     get collisionContract(){return {
-      enabled:true,
-      minGapPx:AGENT_MIN_GAP_PX,
-      dynamicPrediction:true,
+      enabled:false,
+      dynamicPrediction:false,
       staticCollisionAware:true,
-      sideStepPx:AGENT_SIDE_STEP_PX
+      agentsAreNonBlocking:true
     };},
     runCollisionProbe
   };
