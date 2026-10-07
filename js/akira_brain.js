@@ -154,7 +154,7 @@ async function sendMsg(){
   if(USE_STREAM) return sendMsgStream();
   if(txt.length > 1500){ txt = txt.slice(0,1500); inp.value = txt; }
   const orb=document.getElementById('orb'); if(orb)orb.classList.add('thinking');
-  try{window.akiraEntitySetState&&window.akiraEntitySetState('thinking','#orb');}catch(_){}
+  try{window.akiraEntitySetState&&window.akiraEntitySetState('thinking',".akira-global-entity");}catch(_){}
   const hasImage = selectedImageBase64 && selectedImageBase64.length > 20;
   if(hasImage) addMsg(txt || "📷 Analiza esta imagen", 'user', selectedImageBase64);
   else addMsg(txt,'user');
@@ -187,7 +187,7 @@ async function sendMsg(){
       }
     } catch(_){}
     removeTyping(tid); if(orb)orb.classList.remove('thinking');
-    try{window.akiraEntitySetState&&window.akiraEntitySetState((d.response||'Error')!=='Error'?'success':'error','#orb');}catch(_){}
+    try{window.akiraEntitySetState&&window.akiraEntitySetState((d.response||'Error')!=='Error'?'success':'error',".akira-global-entity");}catch(_){}
     let resp = d.response||'Error';
     if(!resp.includes("503") && !resp.includes("UNAVAILABLE")){
       if(LAST_LATENCY < 2000){
@@ -203,10 +203,10 @@ async function sendMsg(){
     await countNeuronas();
   }catch(e){
     removeTyping(tid); if(orb)orb.classList.remove('thinking');
-    try{window.akiraEntitySetState&&window.akiraEntitySetState('error','#orb');setTimeout(()=>window.akiraEntitySetState&&window.akiraEntitySetState('idle','#orb'),1600);}catch(_){}
+    try{window.akiraEntitySetState&&window.akiraEntitySetState('error',".akira-global-entity");setTimeout(()=>window.akiraEntitySetState&&window.akiraEntitySetState('idle',".akira-global-entity"),1600);}catch(_){}
     BACKEND_HEALTHY = false;
     logAutoRepair(`Error chat ${e.message} -> AUTO OFF y reintento`);
-    try{window.akiraEntitySetState&&window.akiraEntitySetState('error','#orb');setTimeout(()=>window.akiraEntitySetState&&window.akiraEntitySetState('idle','#orb'),1600);}catch(_){}
+    try{window.akiraEntitySetState&&window.akiraEntitySetState('error',".akira-global-entity");setTimeout(()=>window.akiraEntitySetState&&window.akiraEntitySetState('idle',".akira-global-entity"),1600);}catch(_){}
     addMsg('⏳ Akira está reconectando el backend. Puedes reintentar en unos segundos.','akira');
     setTimeout(()=>{ checkBackendHealth(); }, 5000);
   }
@@ -281,7 +281,7 @@ async function sendMsgStream(){
             }
             if(j.done){
               try{const entity=row.querySelector("[data-akira-entity]");if(entity&&entity.__akiraEntity)entity.__akiraEntity.setState("success");}catch(_){}
-              try{window.akiraEntitySetState&&window.akiraEntitySetState("success","#orb");}catch(_){}
+              try{window.akiraEntitySetState&&window.akiraEntitySetState("success",".akira-global-entity");}catch(_){}
               const b = document.getElementById(bubbleId);
               if(b){
                 let finalHtml = escapeHtml(fullText).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
@@ -321,7 +321,7 @@ async function sendMsgStream(){
       }, 120000);
     }
     try{const entity=row.querySelector("[data-akira-entity]");if(entity&&entity.__akiraEntity)entity.__akiraEntity.setState("uncertain");}catch(_){}
-    try{window.akiraEntitySetState&&window.akiraEntitySetState("uncertain","#orb");}catch(_){}
+    try{window.akiraEntitySetState&&window.akiraEntitySetState("uncertain",".akira-global-entity");}catch(_){}
     const b = document.getElementById(bubbleId);
     if(b) b.innerHTML = "🔄 Akira está cambiando a un modo estable…";
     try{
