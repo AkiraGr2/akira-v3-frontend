@@ -1,0 +1,2066 @@
+{
+  "version": "10.0",
+  "scene": "assets/office/01_akira_office_floor_v5_doors.png",
+  "scene_px": [
+    1536,
+    1024
+  ],
+  "asset_sheet": {
+    "path": "assets/office/02_akira_office_assets_v5.png",
+    "size": [
+      1536,
+      1024
+    ]
+  },
+  "grid": {
+    "width": 48,
+    "height": 32,
+    "tile_px": 32,
+    "origin": "top-left"
+  },
+  "atlas": {
+    "path": "assets/office/02_office_agents_atlas_v3_clean4.png",
+    "rows": 9,
+    "frames_per_row": 19,
+    "row_order": [
+      "Akira",
+      "Luna",
+      "Nexo",
+      "Nova",
+      "Orion",
+      "Kaori",
+      "Zeri",
+      "Lyra",
+      "Dante"
+    ],
+    "state_order": [
+      "idle",
+      "walk",
+      "work",
+      "talk",
+      "think",
+      "use",
+      "reaction"
+    ],
+    "frames_per_state": {
+      "idle": 3,
+      "walk": 3,
+      "work": 3,
+      "talk": 3,
+      "think": 2,
+      "use": 3,
+      "reaction": 2
+    },
+    "directional_rows": null,
+    "character_aliases": {
+      "Kaori": "Kael",
+      "Zeri": "Zane"
+    }
+  },
+  "calibration": {
+    "x_centers": [
+      62.6,
+      144.4,
+      221.8,
+      308.2,
+      380.2,
+      447.9,
+      533.5,
+      616.9,
+      695.6,
+      770.1,
+      846.4,
+      923.3,
+      1000.1,
+      1078.1,
+      1152.7,
+      1231.5,
+      1312.5,
+      1389.9,
+      1467.5
+    ],
+    "y_centers": [
+      71.3,
+      178.9,
+      285.3,
+      402.9,
+      510.6,
+      627.5,
+      735.7,
+      844.3,
+      952.7
+    ]
+  },
+  "collision_blocks": [],
+  "screen_collision_blocks": [
+    {
+      "id": "OUT_TOP",
+      "x": 0,
+      "y": 0,
+      "w": 1536,
+      "h": 32
+    },
+    {
+      "id": "OUT_BOTTOM_L",
+      "x": 0,
+      "y": 992,
+      "w": 720,
+      "h": 32
+    },
+    {
+      "id": "OUT_BOTTOM_R",
+      "x": 865,
+      "y": 992,
+      "w": 671,
+      "h": 32
+    },
+    {
+      "id": "OUT_LEFT",
+      "x": 0,
+      "y": 0,
+      "w": 32,
+      "h": 1024
+    },
+    {
+      "id": "OUT_RIGHT",
+      "x": 1504,
+      "y": 0,
+      "w": 32,
+      "h": 1024
+    },
+    {
+      "id": "LEFT_SUITE_WALL_A",
+      "x": 250,
+      "y": 32,
+      "w": 38,
+      "h": 173
+    },
+    {
+      "id": "LEFT_SUITE_WALL_B",
+      "x": 250,
+      "y": 275,
+      "w": 38,
+      "h": 80
+    },
+    {
+      "id": "LEFT_SUITE_WALL_C",
+      "x": 250,
+      "y": 427,
+      "w": 38,
+      "h": 108
+    },
+    {
+      "id": "LEFT_SUITE_WALL_D",
+      "x": 250,
+      "y": 607,
+      "w": 38,
+      "h": 75
+    },
+    {
+      "id": "LEFT_LOUNGE_BOTTOM",
+      "x": 32,
+      "y": 250,
+      "w": 218,
+      "h": 34
+    },
+    {
+      "id": "LEFT_MEMORY_BOTTOM",
+      "x": 32,
+      "y": 445,
+      "w": 218,
+      "h": 34
+    },
+    {
+      "id": "LEFT_ARCHIVE_BOTTOM",
+      "x": 32,
+      "y": 650,
+      "w": 218,
+      "h": 34
+    },
+    {
+      "id": "MEETING_WALL_LEFT",
+      "x": 960,
+      "y": 32,
+      "w": 38,
+      "h": 218
+    },
+    {
+      "id": "MEETING_BOTTOM_L",
+      "x": 998,
+      "y": 250,
+      "w": 52,
+      "h": 34
+    },
+    {
+      "id": "MEETING_BOTTOM_R",
+      "x": 1140,
+      "y": 250,
+      "w": 108,
+      "h": 34
+    },
+    {
+      "id": "DANTE_WALL_LEFT",
+      "x": 1240,
+      "y": 32,
+      "w": 38,
+      "h": 218
+    },
+    {
+      "id": "DANTE_BOTTOM_L",
+      "x": 1278,
+      "y": 250,
+      "w": 52,
+      "h": 34
+    },
+    {
+      "id": "DANTE_BOTTOM_R",
+      "x": 1402,
+      "y": 250,
+      "w": 102,
+      "h": 34
+    },
+    {
+      "id": "CAFE_WALL_A",
+      "x": 1248,
+      "y": 272,
+      "w": 32,
+      "h": 108
+    },
+    {
+      "id": "CAFE_WALL_B",
+      "x": 1248,
+      "y": 435,
+      "w": 32,
+      "h": 45
+    },
+    {
+      "id": "PRINTER_WALL_A",
+      "x": 1248,
+      "y": 480,
+      "w": 32,
+      "h": 85
+    },
+    {
+      "id": "PRINTER_WALL_B",
+      "x": 1248,
+      "y": 630,
+      "w": 32,
+      "h": 50
+    },
+    {
+      "id": "DEV_WALL_A",
+      "x": 1120,
+      "y": 656,
+      "w": 32,
+      "h": 64
+    },
+    {
+      "id": "DEV_WALL_B",
+      "x": 1120,
+      "y": 780,
+      "w": 32,
+      "h": 72
+    },
+    {
+      "id": "BATH_TOP",
+      "x": 32,
+      "y": 640,
+      "w": 190,
+      "h": 34
+    },
+    {
+      "id": "BATH_RIGHT",
+      "x": 222,
+      "y": 640,
+      "w": 34,
+      "h": 292
+    },
+    {
+      "id": "AKIRA_DESK",
+      "x": 385,
+      "y": 180,
+      "w": 220,
+      "h": 120
+    },
+    {
+      "id": "LUNA_DESK",
+      "x": 675,
+      "y": 180,
+      "w": 220,
+      "h": 120
+    },
+    {
+      "id": "NEXO_DESK",
+      "x": 330,
+      "y": 350,
+      "w": 235,
+      "h": 120
+    },
+    {
+      "id": "NOVA_DESK",
+      "x": 980,
+      "y": 350,
+      "w": 235,
+      "h": 120
+    },
+    {
+      "id": "ORION_DESK",
+      "x": 330,
+      "y": 520,
+      "w": 235,
+      "h": 115
+    },
+    {
+      "id": "KAORI_DESK",
+      "x": 980,
+      "y": 520,
+      "w": 235,
+      "h": 115
+    },
+    {
+      "id": "MEETING_TABLE",
+      "x": 1040,
+      "y": 138,
+      "w": 150,
+      "h": 74
+    },
+    {
+      "id": "DANTE_DESK",
+      "x": 1300,
+      "y": 125,
+      "w": 165,
+      "h": 105
+    },
+    {
+      "id": "MEMORY_FURNITURE",
+      "x": 55,
+      "y": 310,
+      "w": 155,
+      "h": 130
+    },
+    {
+      "id": "ARCHIVE_FURNITURE",
+      "x": 50,
+      "y": 485,
+      "w": 160,
+      "h": 150
+    },
+    {
+      "id": "CAFE_COUNTER",
+      "x": 1320,
+      "y": 320,
+      "w": 165,
+      "h": 65
+    },
+    {
+      "id": "CAFE_TABLE",
+      "x": 1350,
+      "y": 405,
+      "w": 100,
+      "h": 55
+    },
+    {
+      "id": "PRINTERS",
+      "x": 1320,
+      "y": 515,
+      "w": 165,
+      "h": 115
+    },
+    {
+      "id": "DEV_DESK",
+      "x": 1190,
+      "y": 690,
+      "w": 285,
+      "h": 125
+    },
+    {
+      "id": "CORE_LEFT_SOFA",
+      "x": 610,
+      "y": 395,
+      "w": 95,
+      "h": 220
+    },
+    {
+      "id": "CORE_TOP_SOFA",
+      "x": 700,
+      "y": 375,
+      "w": 180,
+      "h": 70
+    },
+    {
+      "id": "CORE_TABLE",
+      "x": 700,
+      "y": 445,
+      "w": 180,
+      "h": 105
+    },
+    {
+      "id": "CORE_RIGHT_SOFA",
+      "x": 875,
+      "y": 395,
+      "w": 95,
+      "h": 220
+    },
+    {
+      "id": "CORE_BOTTOM_SOFA",
+      "x": 685,
+      "y": 575,
+      "w": 210,
+      "h": 70
+    },
+    {
+      "id": "RECEPTION",
+      "x": 600,
+      "y": 730,
+      "w": 355,
+      "h": 120
+    }
+  ],
+  "doors": [
+    {
+      "id": "D01_LOUNGE",
+      "room": "Lounge",
+      "x": 250,
+      "y": 205,
+      "w": 40,
+      "h": 70,
+      "side": "east"
+    },
+    {
+      "id": "D02_MEMORY",
+      "room": "Memoria",
+      "x": 250,
+      "y": 355,
+      "w": 40,
+      "h": 72,
+      "side": "east"
+    },
+    {
+      "id": "D03_ARCHIVOS",
+      "room": "Archivos",
+      "x": 250,
+      "y": 535,
+      "w": 40,
+      "h": 72,
+      "side": "east"
+    },
+    {
+      "id": "D04_REUNION",
+      "room": "Reunión",
+      "x": 1050,
+      "y": 250,
+      "w": 90,
+      "h": 38,
+      "side": "south"
+    },
+    {
+      "id": "D05_DANTE",
+      "room": "Dante",
+      "x": 1330,
+      "y": 250,
+      "w": 72,
+      "h": 38,
+      "side": "south"
+    },
+    {
+      "id": "D06_CAFE",
+      "room": "Café",
+      "x": 1245,
+      "y": 380,
+      "w": 45,
+      "h": 55,
+      "side": "west"
+    },
+    {
+      "id": "D07_IMPRESORA",
+      "room": "Impresora",
+      "x": 1245,
+      "y": 565,
+      "w": 45,
+      "h": 65,
+      "side": "west"
+    },
+    {
+      "id": "D08_DESARROLLO",
+      "room": "Desarrollo",
+      "x": 1115,
+      "y": 720,
+      "w": 45,
+      "h": 60,
+      "side": "west"
+    },
+    {
+      "id": "D09_ENTRADA",
+      "room": "Entrada",
+      "x": 720,
+      "y": 944,
+      "w": 145,
+      "h": 48,
+      "side": "south"
+    }
+  ],
+  "waypoints": {
+    "P01_ENTRADA": {
+      "world": [
+        24,
+        28
+      ],
+      "screen": [
+        790,
+        920
+      ]
+    },
+    "P02_SUR": {
+      "world": [
+        34,
+        27
+      ],
+      "screen": [
+        1080,
+        880
+      ]
+    },
+    "P03_CENTRO_SUR": {
+      "world": [
+        25,
+        23
+      ],
+      "screen": [
+        800,
+        740
+      ]
+    },
+    "P04_CENTRO": {
+      "world": [
+        25,
+        17
+      ],
+      "screen": [
+        800,
+        560
+      ]
+    },
+    "P05_CENTRO_NORTE": {
+      "world": [
+        25,
+        11
+      ],
+      "screen": [
+        800,
+        350
+      ]
+    },
+    "P06_AKIRA_EXIT": {
+      "world": [
+        20,
+        10
+      ],
+      "screen": [
+        640,
+        330
+      ]
+    },
+    "P07_TOP_WEST": {
+      "world": [
+        10,
+        10
+      ],
+      "screen": [
+        320,
+        330
+      ]
+    },
+    "P08_TOP_EAST": {
+      "world": [
+        37,
+        10
+      ],
+      "screen": [
+        1180,
+        330
+      ]
+    },
+    "P09_LEFT_MID": {
+      "world": [
+        10,
+        16
+      ],
+      "screen": [
+        320,
+        520
+      ]
+    },
+    "P10_LEFT_LOW": {
+      "world": [
+        10,
+        21
+      ],
+      "screen": [
+        320,
+        680
+      ]
+    },
+    "P11_RIGHT_MID": {
+      "world": [
+        38,
+        16
+      ],
+      "screen": [
+        1210,
+        520
+      ]
+    },
+    "P12_RIGHT_LOW": {
+      "world": [
+        36,
+        24
+      ],
+      "screen": [
+        1150,
+        780
+      ]
+    },
+    "P13_LOUNGE_DOOR": {
+      "world": [
+        8,
+        7
+      ],
+      "screen": [
+        290,
+        240
+      ]
+    },
+    "P14_MEMORY_DOOR": {
+      "world": [
+        8,
+        12
+      ],
+      "screen": [
+        290,
+        390
+      ]
+    },
+    "P15_ARCHIVE_DOOR": {
+      "world": [
+        8,
+        18
+      ],
+      "screen": [
+        290,
+        570
+      ]
+    },
+    "P16_REUNION_DOOR": {
+      "world": [
+        34,
+        8
+      ],
+      "screen": [
+        1090,
+        290
+      ]
+    },
+    "P17_DANTE_DOOR": {
+      "world": [
+        42,
+        8
+      ],
+      "screen": [
+        1365,
+        290
+      ]
+    },
+    "P18_CAFE_DOOR": {
+      "world": [
+        40,
+        12
+      ],
+      "screen": [
+        1300,
+        405
+      ]
+    },
+    "P19_PRINTER_DOOR": {
+      "world": [
+        40,
+        18
+      ],
+      "screen": [
+        1300,
+        600
+      ]
+    },
+    "P20_DEV_DOOR": {
+      "world": [
+        36,
+        23
+      ],
+      "screen": [
+        1160,
+        750
+      ]
+    },
+    "P21_MISSION": {
+      "world": [
+        34,
+        7
+      ],
+      "screen": [
+        1065,
+        235
+      ]
+    },
+    "P22_CAFE": {
+      "world": [
+        45,
+        12
+      ],
+      "screen": [
+        1460,
+        400
+      ]
+    },
+    "P23_PRINTER": {
+      "world": [
+        41,
+        18
+      ],
+      "screen": [
+        1310,
+        600
+      ]
+    },
+    "P24_MEMORY": {
+      "world": [
+        7,
+        12
+      ],
+      "screen": [
+        220,
+        375
+      ]
+    },
+    "P25_DEVELOPMENT": {
+      "world": [
+        36,
+        24
+      ],
+      "screen": [
+        1170,
+        820
+      ]
+    },
+    "P26_WEB": {
+      "world": [
+        25,
+        10
+      ],
+      "screen": [
+        800,
+        330
+      ]
+    },
+    "P27_MCP": {
+      "world": [
+        36,
+        25
+      ],
+      "screen": [
+        1165,
+        835
+      ]
+    },
+    "M01": {
+      "world": [
+        32,
+        4
+      ],
+      "screen": [
+        1015,
+        105
+      ]
+    },
+    "M02": {
+      "world": [
+        34,
+        4
+      ],
+      "screen": [
+        1065,
+        105
+      ]
+    },
+    "M03": {
+      "world": [
+        36,
+        4
+      ],
+      "screen": [
+        1135,
+        105
+      ]
+    },
+    "M04": {
+      "world": [
+        38,
+        4
+      ],
+      "screen": [
+        1190,
+        105
+      ]
+    },
+    "M05": {
+      "world": [
+        32,
+        7
+      ],
+      "screen": [
+        1015,
+        235
+      ]
+    },
+    "M06": {
+      "world": [
+        34,
+        7
+      ],
+      "screen": [
+        1065,
+        235
+      ]
+    },
+    "M07": {
+      "world": [
+        36,
+        7
+      ],
+      "screen": [
+        1135,
+        235
+      ]
+    },
+    "M08": {
+      "world": [
+        38,
+        7
+      ],
+      "screen": [
+        1190,
+        235
+      ]
+    }
+  },
+  "movement_edges": [],
+  "homes": {
+    "Akira": {
+      "visual": [
+        500,
+        318
+      ],
+      "seat": [
+        500,
+        318
+      ],
+      "nav": "P06_AKIRA_EXIT"
+    },
+    "Luna": {
+      "visual": [
+        790,
+        318
+      ],
+      "seat": [
+        790,
+        318
+      ],
+      "nav": "P05_CENTRO_NORTE"
+    },
+    "Nexo": {
+      "visual": [
+        450,
+        488
+      ],
+      "seat": [
+        450,
+        488
+      ],
+      "nav": "P07_TOP_WEST"
+    },
+    "Nova": {
+      "visual": [
+        1065,
+        488
+      ],
+      "seat": [
+        1065,
+        488
+      ],
+      "nav": "P08_TOP_EAST"
+    },
+    "Orion": {
+      "visual": [
+        450,
+        648
+      ],
+      "seat": [
+        450,
+        648
+      ],
+      "nav": "P09_LEFT_MID"
+    },
+    "Kaori": {
+      "visual": [
+        1065,
+        648
+      ],
+      "seat": [
+        1065,
+        648
+      ],
+      "nav": "P11_RIGHT_MID"
+    },
+    "Zeri": {
+      "visual": [
+        690,
+        865
+      ],
+      "seat": [
+        690,
+        865
+      ],
+      "nav": "P03_CENTRO_SUR"
+    },
+    "Lyra": {
+      "visual": [
+        860,
+        865
+      ],
+      "seat": [
+        860,
+        865
+      ],
+      "nav": "P03_CENTRO_SUR"
+    },
+    "Dante": {
+      "visual": [
+        1385,
+        245
+      ],
+      "seat": [
+        1385,
+        245
+      ],
+      "nav": "P17_DANTE_DOOR"
+    }
+  },
+  "agents": [
+    {
+      "name": "Akira",
+      "backend": "internal",
+      "role": "Supervisor",
+      "status": "active"
+    },
+    {
+      "name": "Luna",
+      "backend": "researcher",
+      "role": "Investigación",
+      "status": "active"
+    },
+    {
+      "name": "Nexo",
+      "backend": "developer",
+      "role": "Desarrollo",
+      "status": "active"
+    },
+    {
+      "name": "Nova",
+      "backend": "graph_builder",
+      "role": "Creatividad",
+      "status": "active"
+    },
+    {
+      "name": "Orion",
+      "backend": "reviewer",
+      "role": "Análisis",
+      "status": "active"
+    },
+    {
+      "name": "Kaori",
+      "backend": "memorizer",
+      "role": "Organización",
+      "status": "active"
+    },
+    {
+      "name": "Zeri",
+      "backend": "tester",
+      "role": "Soporte",
+      "status": "active"
+    },
+    {
+      "name": "Lyra",
+      "backend": "learner",
+      "role": "Estrategia",
+      "status": "active"
+    },
+    {
+      "name": "Dante",
+      "backend": "selftest_agent",
+      "role": "Desactivado",
+      "status": "active"
+    }
+  ],
+  "interactions": {
+    "mission": "P21_MISSION",
+    "coffee": "P22_CAFE",
+    "print": "P23_PRINTER",
+    "meeting": [
+      "M01",
+      "M02",
+      "M03",
+      "M04",
+      "M05",
+      "M06",
+      "M07",
+      "M08"
+    ]
+  },
+  "navigation": {
+    "mode": "grid-a-star-semantic-v6",
+    "grid": {
+      "width": 48,
+      "height": 32,
+      "tile_px": 32,
+      "origin_px": [
+        0,
+        0
+      ],
+      "diagonal": false
+    },
+    "bounds_px": {
+      "x": 32,
+      "y": 32,
+      "w": 1472,
+      "h": 928
+    },
+    "agent_clearance_px": 13,
+    "speed_px_per_second": 74,
+    "walk_frame_ms": 115,
+    "note": "Backend task state is authoritative. Agents move through physical doors/corridors, use calibrated interaction points, and use the directional locomotion atlas for walking. No random roaming or debug route rendering."
+  },
+  "station_resolution": {
+    "explicit_fields": [
+      "station",
+      "station_id",
+      "destination",
+      "destination_station",
+      "office_station",
+      "office_station_id"
+    ],
+    "tool_map": {
+      "web": "P26_WEB",
+      "websearch": "P26_WEB",
+      "web_search": "P26_WEB",
+      "search": "P26_WEB",
+      "research": "P26_WEB",
+      "browser": "P26_WEB",
+      "memory": "P24_MEMORY",
+      "learn": "P24_MEMORY",
+      "learning": "P24_MEMORY",
+      "memorize": "P24_MEMORY",
+      "print": "P23_PRINTER",
+      "printer": "P23_PRINTER",
+      "development": "P25_DEVELOPMENT",
+      "developer": "P25_DEVELOPMENT",
+      "code": "P25_DEVELOPMENT",
+      "coding": "P25_DEVELOPMENT",
+      "mcp": "P27_MCP",
+      "tool": "P27_MCP",
+      "meeting": "meeting",
+      "talk": "meeting",
+      "chat": "meeting",
+      "mission": "P21_MISSION"
+    },
+    "default": "home"
+  },
+  "stations": {
+    "mission": {
+      "id": "P21_MISSION",
+      "label": "Tablero / misión",
+      "kind": "mission"
+    },
+    "coffee": {
+      "id": "P22_CAFE",
+      "label": "Café",
+      "kind": "break"
+    },
+    "printer": {
+      "id": "P23_PRINTER",
+      "label": "Impresora",
+      "kind": "utility"
+    },
+    "memory": {
+      "id": "P24_MEMORY",
+      "label": "Memoria / archivos",
+      "kind": "memory"
+    },
+    "development": {
+      "id": "P25_DEVELOPMENT",
+      "label": "Desarrollo",
+      "kind": "development"
+    },
+    "web": {
+      "id": "P26_WEB",
+      "label": "Web / investigación",
+      "kind": "web"
+    },
+    "mcp": {
+      "id": "P27_MCP",
+      "label": "MCP / herramientas",
+      "kind": "mcp"
+    },
+    "meeting": {
+      "ids": [
+        "M01",
+        "M02",
+        "M03",
+        "M04",
+        "M05",
+        "M06",
+        "M07",
+        "M08"
+      ],
+      "label": "Reunión",
+      "kind": "meeting"
+    }
+  },
+  "asset_previews": {
+    "mission": [
+      862,
+      555,
+      150,
+      135
+    ],
+    "coffee": [
+      560,
+      555,
+      150,
+      135
+    ],
+    "printer": [
+      460,
+      555,
+      100,
+      135
+    ],
+    "memory": [
+      320,
+      555,
+      135,
+      135
+    ],
+    "development": [
+      0,
+      555,
+      150,
+      135
+    ],
+    "meeting": [
+      710,
+      555,
+      170,
+      135
+    ],
+    "mcp": [
+      560,
+      700,
+      180,
+      145
+    ]
+  },
+  "debug": {
+    "show_routes": false
+  },
+  "station_access": {
+    "P22_CAFE": "P18_CAFE_DOOR",
+    "P23_PRINTER": "P19_PRINTER_DOOR",
+    "P24_MEMORY": "P14_MEMORY_DOOR",
+    "P25_DEVELOPMENT": "P20_DEV_DOOR",
+    "P21_MISSION": "P16_REUNION_DOOR",
+    "P26_WEB": "P05_CENTRO_NORTE",
+    "P27_MCP": "P20_DEV_DOOR"
+  },
+  "meeting_access": "P16_REUNION_DOOR",
+  "role_profiles": {
+    "Akira": {
+      "primary": "mission",
+      "secondary": [
+        "meeting",
+        "development"
+      ],
+      "work_state": "think"
+    },
+    "Luna": {
+      "primary": "web",
+      "secondary": [
+        "memory",
+        "meeting"
+      ],
+      "work_state": "think"
+    },
+    "Nexo": {
+      "primary": "development",
+      "secondary": [
+        "mcp",
+        "printer"
+      ],
+      "work_state": "use"
+    },
+    "Nova": {
+      "primary": "web",
+      "secondary": [
+        "mission",
+        "meeting"
+      ],
+      "work_state": "think"
+    },
+    "Orion": {
+      "primary": "mission",
+      "secondary": [
+        "printer",
+        "meeting"
+      ],
+      "work_state": "think"
+    },
+    "Kaori": {
+      "primary": "memory",
+      "secondary": [
+        "printer",
+        "meeting"
+      ],
+      "work_state": "use"
+    },
+    "Zeri": {
+      "primary": "mcp",
+      "secondary": [
+        "coffee",
+        "printer",
+        "meeting"
+      ],
+      "work_state": "use"
+    },
+    "Lyra": {
+      "primary": "web",
+      "secondary": [
+        "memory",
+        "meeting"
+      ],
+      "work_state": "think"
+    },
+    "Dante": {
+      "primary": "mcp",
+      "secondary": [
+        "development",
+        "meeting"
+      ],
+      "work_state": "use"
+    }
+  },
+  "interaction_points": {
+    "P21_MISSION": [
+      1065,
+      235
+    ],
+    "P22_CAFE": [
+      1460,
+      400
+    ],
+    "P23_PRINTER": [
+      1310,
+      600
+    ],
+    "P24_MEMORY": [
+      220,
+      375
+    ],
+    "P25_DEVELOPMENT": [
+      1170,
+      820
+    ],
+    "P26_WEB": [
+      800,
+      330
+    ],
+    "P27_MCP": [
+      1165,
+      835
+    ]
+  },
+  "meeting_seats": {
+    "M01": {
+      "direction": "down",
+      "screen": [
+        1015,
+        105
+      ]
+    },
+    "M02": {
+      "direction": "down",
+      "screen": [
+        1065,
+        105
+      ]
+    },
+    "M03": {
+      "direction": "down",
+      "screen": [
+        1135,
+        105
+      ]
+    },
+    "M04": {
+      "direction": "down",
+      "screen": [
+        1190,
+        105
+      ]
+    },
+    "M05": {
+      "direction": "up",
+      "screen": [
+        1015,
+        235
+      ]
+    },
+    "M06": {
+      "direction": "up",
+      "screen": [
+        1065,
+        235
+      ]
+    },
+    "M07": {
+      "direction": "up",
+      "screen": [
+        1135,
+        235
+      ]
+    },
+    "M08": {
+      "direction": "up",
+      "screen": [
+        1190,
+        235
+      ]
+    }
+  },
+  "object_catalog": {
+    "desk": "workstation / monitors / keyboard",
+    "monitor": "screens / active display",
+    "printer": "printer station / paper",
+    "coffee": "coffee counter / cups",
+    "memory": "archive / books / memory station",
+    "mission": "mission board / reunion whiteboard",
+    "development": "development workstation",
+    "mcp": "core tools workstation",
+    "meeting": "meeting table / chairs",
+    "door": "physical room doors",
+    "lighting": "lamps / ambient details",
+    "props": "small office props"
+  },
+  "choreography": {
+    "backend_authority": true,
+    "idle_behavior": "return_home",
+    "working_behavior": "role_station_fallback",
+    "meeting": "seat_specific_then_talk",
+    "random_roaming": false,
+    "object_interaction": "station_specific",
+    "route_debug_visible": false
+  },
+  "interaction_directions": {
+    "P21_MISSION": "up",
+    "P22_CAFE": "left",
+    "P23_PRINTER": "left",
+    "P24_MEMORY": "right",
+    "P25_DEVELOPMENT": "left",
+    "P26_WEB": "down",
+    "P27_MCP": "left"
+  },
+  "object_sprites": {
+    "workstation_monitor": [
+      366,
+      910,
+      70,
+      48
+    ],
+    "development": [
+      8,
+      575,
+      175,
+      110
+    ],
+    "web": [
+      183,
+      575,
+      140,
+      110
+    ],
+    "memory": [
+      330,
+      575,
+      140,
+      110
+    ],
+    "printer": [
+      475,
+      575,
+      90,
+      110
+    ],
+    "coffee": [
+      575,
+      575,
+      90,
+      110
+    ],
+    "meeting": [
+      680,
+      575,
+      170,
+      110
+    ],
+    "mission": [
+      855,
+      575,
+      155,
+      110
+    ],
+    "mcp": [
+      1015,
+      575,
+      200,
+      110
+    ],
+    "chairs": [
+      595,
+      300,
+      120,
+      205
+    ],
+    "lighting": [
+      730,
+      900,
+      175,
+      115
+    ],
+    "props": [
+      10,
+      905,
+      345,
+      110
+    ]
+  },
+  "object_interaction": {
+    "render_mode": "live_sprite_overlay",
+    "source": "asset_sheet",
+    "active_distance_px": 92,
+    "fade_seconds": 0.35,
+    "working_home_monitor": true,
+    "station_badges": true,
+    "static_scene_not_duplicated": true,
+    "live_station_sprites": true,
+    "ambient_sprite_groups": [
+      "chairs",
+      "lighting",
+      "props"
+    ],
+    "screen_mode": "station_anchored",
+    "target_policy": "interaction_point_relative"
+  },
+  "directional_walk": {
+    "path": "assets/office/02_akira_agents_walk_directional_v8_transparent.png",
+    "actual_poses_per_row": 14,
+    "row_order": [
+      "Akira",
+      "Luna",
+      "Nexo",
+      "Nova",
+      "Orion",
+      "Kaori",
+      "Zeri",
+      "Lyra",
+      "Dante"
+    ],
+    "vertical_front": {
+      "start": 0,
+      "count": 3,
+      "cycle": [
+        0,
+        1,
+        2,
+        1
+      ]
+    },
+    "vertical_back": {
+      "start": 3,
+      "count": 4,
+      "cycle": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "horizontal_left": {
+      "start": 7,
+      "count": 3,
+      "cycle": [
+        0,
+        1,
+        2,
+        1
+      ]
+    },
+    "horizontal_right": {
+      "start": 10,
+      "count": 4,
+      "cycle": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "frame_centers_x": [
+      98,
+      196,
+      294,
+      402,
+      501,
+      597,
+      694,
+      815,
+      919,
+      1022,
+      1148,
+      1248,
+      1346,
+      1446
+    ],
+    "row_centers_y": [
+      67,
+      178,
+      290,
+      404,
+      517,
+      634,
+      743,
+      851,
+      959
+    ],
+    "frame_crop_px": [
+      112,
+      112
+    ],
+    "frame_canvas_px": [
+      112,
+      112
+    ],
+    "frame_canvas_offset_y": 0,
+    "preprocessing": "nearest-center-isolated",
+    "note": "Pixel-audited V8 layout. The published PNG contains 14 actual poses per row (3 front, 4 back, 3 left, 4 right); it is not a uniform 16-column sprite grid. Runtime uses calibrated frame centers and integer crop rectangles to preserve whole sprites."
+  },
+  "object_sprite_targets": {
+    "development": [
+      1095,
+      735,
+      170,
+      100
+    ],
+    "web": [
+      735,
+      235,
+      130,
+      92
+    ],
+    "memory": [
+      105,
+      300,
+      115,
+      92
+    ],
+    "printer": [
+      1285,
+      510,
+      105,
+      92
+    ],
+    "coffee": [
+      1325,
+      295,
+      105,
+      92
+    ],
+    "meeting": [
+      1000,
+      55,
+      180,
+      100
+    ],
+    "mission": [
+      980,
+      145,
+      135,
+      95
+    ],
+    "mcp": [
+      1095,
+      755,
+      180,
+      100
+    ],
+    "chairs": [
+      1000,
+      55,
+      180,
+      95
+    ],
+    "lighting": [
+      680,
+      45,
+      175,
+      115
+    ],
+    "props": [
+      585,
+      865,
+      300,
+      96
+    ],
+    "workstation_monitor": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "audit_revision": "office-2p5d-v1-20261007",
+  "presentation_2_5d": {
+    "enabled": true,
+    "version": "2.5D-v1",
+    "depth": {
+      "y_start": 120,
+      "y_end": 940,
+      "min_scale": 0.94,
+      "max_scale": 1.06,
+      "shadow_min": 0.14,
+      "shadow_max": 0.28
+    },
+    "camera": {
+      "default_zoom": 1,
+      "focus_zoom": 1.08,
+      "follow_lerp": 7,
+      "zoom_lerp": 5,
+      "overview_center": [
+        768,
+        512
+      ]
+    },
+    "activity": {
+      "particles": true,
+      "station_halo": true,
+      "screen_overlay": true,
+      "labels": true,
+      "walking_trails": true,
+      "desk_work_frame_ms": 280
+    },
+    "behavior_version": "desk-life-v3-autonomous-thoughts"
+  },
+  "home_directions": {
+    "Akira": "up",
+    "Luna": "up",
+    "Nexo": "up",
+    "Nova": "up",
+    "Orion": "up",
+    "Kaori": "up",
+    "Zeri": "up",
+    "Lyra": "up",
+    "Dante": "up"
+  },
+  "desk_assignments": {
+    "Akira": {
+      "seat": [
+        500,
+        318
+      ],
+      "direction": "up",
+      "desk_rect": [
+        385,
+        180,
+        220,
+        120
+      ],
+      "occlusion": [
+        370,
+        270,
+        250,
+        62
+      ],
+      "monitor": [
+        476,
+        202,
+        96,
+        55
+      ],
+      "label": "Puesto Akira"
+    },
+    "Luna": {
+      "seat": [
+        790,
+        318
+      ],
+      "direction": "up",
+      "desk_rect": [
+        675,
+        180,
+        220,
+        120
+      ],
+      "occlusion": [
+        660,
+        270,
+        250,
+        62
+      ],
+      "monitor": [
+        770,
+        202,
+        96,
+        55
+      ],
+      "label": "Puesto Luna"
+    },
+    "Nexo": {
+      "seat": [
+        450,
+        488
+      ],
+      "direction": "up",
+      "desk_rect": [
+        330,
+        350,
+        235,
+        120
+      ],
+      "occlusion": [
+        315,
+        440,
+        265,
+        62
+      ],
+      "monitor": [
+        420,
+        375,
+        105,
+        55
+      ],
+      "label": "Puesto Nexo"
+    },
+    "Nova": {
+      "seat": [
+        1065,
+        488
+      ],
+      "direction": "up",
+      "desk_rect": [
+        980,
+        350,
+        235,
+        120
+      ],
+      "occlusion": [
+        965,
+        440,
+        265,
+        62
+      ],
+      "monitor": [
+        1075,
+        375,
+        105,
+        55
+      ],
+      "label": "Puesto Nova"
+    },
+    "Orion": {
+      "seat": [
+        450,
+        648
+      ],
+      "direction": "up",
+      "desk_rect": [
+        330,
+        520,
+        235,
+        115
+      ],
+      "occlusion": [
+        315,
+        605,
+        265,
+        62
+      ],
+      "monitor": [
+        420,
+        545,
+        105,
+        55
+      ],
+      "label": "Puesto Orion"
+    },
+    "Kaori": {
+      "seat": [
+        1065,
+        648
+      ],
+      "direction": "up",
+      "desk_rect": [
+        980,
+        520,
+        235,
+        115
+      ],
+      "occlusion": [
+        965,
+        600,
+        265,
+        65
+      ],
+      "monitor": [
+        1075,
+        545,
+        105,
+        55
+      ],
+      "label": "Puesto Kaori"
+    },
+    "Zeri": {
+      "seat": [
+        690,
+        865
+      ],
+      "direction": "up",
+      "desk_rect": [
+        620,
+        730,
+        140,
+        120
+      ],
+      "occlusion": [
+        605,
+        810,
+        170,
+        72
+      ],
+      "monitor": [
+        650,
+        760,
+        105,
+        50
+      ],
+      "label": "Puesto Zeri"
+    },
+    "Lyra": {
+      "seat": [
+        860,
+        865
+      ],
+      "direction": "up",
+      "desk_rect": [
+        790,
+        730,
+        140,
+        120
+      ],
+      "occlusion": [
+        775,
+        810,
+        170,
+        72
+      ],
+      "monitor": [
+        815,
+        760,
+        105,
+        50
+      ],
+      "label": "Puesto Lyra"
+    },
+    "Dante": {
+      "seat": [
+        1385,
+        245
+      ],
+      "direction": "up",
+      "desk_rect": [
+        1300,
+        125,
+        165,
+        105
+      ],
+      "occlusion": [
+        1288,
+        196,
+        190,
+        62
+      ],
+      "monitor": [
+        1330,
+        145,
+        105,
+        48
+      ],
+      "label": "Puesto Dante"
+    }
+  },
+  "ambient_routines": {
+    "enabled": true,
+    "initial_desk_dwell_ms": 3200,
+    "visit_min_ms": 3800,
+    "visit_max_ms": 6200,
+    "poll_ms": 2500,
+    "priority": "real_task_over_ambient",
+    "deterministic": true,
+    "per_agent": {
+      "Akira": [
+        "P21_MISSION",
+        "M06"
+      ],
+      "Luna": [
+        "P26_WEB",
+        "P24_MEMORY"
+      ],
+      "Nexo": [
+        "P25_DEVELOPMENT",
+        "P23_PRINTER"
+      ],
+      "Nova": [
+        "P26_WEB",
+        "P21_MISSION"
+      ],
+      "Orion": [
+        "P21_MISSION",
+        "P23_PRINTER"
+      ],
+      "Kaori": [
+        "P24_MEMORY",
+        "P23_PRINTER"
+      ],
+      "Zeri": [
+        "P27_MCP",
+        "P22_CAFE"
+      ],
+      "Lyra": [
+        "P26_WEB",
+        "P24_MEMORY"
+      ],
+      "Dante": [
+        "P27_MCP",
+        "M02"
+      ]
+    }
+  },
+  "thought_bubbles": {
+    "enabled": true,
+    "initial_delay_ms": 2600,
+    "show_ms": 4200,
+    "gap_min_ms": 7000,
+    "gap_max_ms": 12000,
+    "max_chars": 56,
+    "max_width_px": 210,
+    "deterministic": true,
+    "render_mode": "pixel-thought-bubble",
+    "priority": "visual-only-never-controls-agent",
+    "global": [
+      "¿Qué estará haciendo Akira ahora?",
+      "Un café y seguimos.",
+      "Hay que revisar eso dos veces.",
+      "Todo en orden por aquí.",
+      "Creo que esto puede quedar mejor.",
+      "La oficina nunca duerme del todo."
+    ],
+    "walking": [
+      "Voy para allá…",
+      "Cambio de estación.",
+      "Un momento, estoy revisando esto.",
+      "Ya casi llego."
+    ],
+    "station": [
+      "Comprobando el resultado.",
+      "Esto sí tiene sentido.",
+      "Un pequeño ajuste…",
+      "Listo, siguiente paso."
+    ],
+    "working": [
+      "Procesando la tarea…",
+      "Comprobando resultados.",
+      "Una cosa a la vez.",
+      "Casi listo."
+    ],
+    "per_agent": {
+      "Akira": [
+        "Pensando cómo mejorar Akira…",
+        "Tengo una idea para el sistema.",
+        "Voy a comprobar una cosa más.",
+        "Esto puede quedar más elegante."
+      ],
+      "Luna": [
+        "Revisando la web…",
+        "Creo que hay algo interesante aquí.",
+        "Voy a cruzar estas pistas.",
+        "Un detalle más y listo."
+      ],
+      "Nexo": [
+        "Compilando mentalmente.",
+        "Ese bug no se va a esconder.",
+        "Voy a revisar el desarrollo.",
+        "Una prueba más."
+      ],
+      "Nova": [
+        "Buscando una conexión útil.",
+        "Esto merece otra mirada.",
+        "Voy a ordenar estas pistas.",
+        "Creo que ya entendí."
+      ],
+      "Orion": [
+        "Revisando la misión.",
+        "Hay que verificar el objetivo.",
+        "Un paso a la vez.",
+        "Voy a comprobar el tablero."
+      ],
+      "Kaori": [
+        "Buscando el recuerdo correcto.",
+        "La memoria necesita contexto.",
+        "Voy a conectar estas piezas.",
+        "Esto encaja."
+      ],
+      "Zeri": [
+        "Comprobando una herramienta.",
+        "Ese MCP tiene potencial.",
+        "Voy a revisar la conexión.",
+        "Una prueba rápida."
+      ],
+      "Lyra": [
+        "Ordenando la información.",
+        "Hay una relación interesante.",
+        "Voy a cruzar contexto.",
+        "Esto podría servir."
+      ],
+      "Dante": [
+        "Observando el sistema.",
+        "Hay algo que revisar.",
+        "Voy a comprobar el entorno.",
+        "Todo bajo control."
+      ]
+    }
+  }
+}
