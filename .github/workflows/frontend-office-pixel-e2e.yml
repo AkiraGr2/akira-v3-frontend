@@ -171,6 +171,25 @@ jobs:
               throw new Error("Agent collision probe failed: "+JSON.stringify(collisionProbe));
             }
 
+            const deadlockProbe=await page.evaluate(() => window.akiraOfficePixelDebug.runCollisionDeadlockProbe());
+            if(!deadlockProbe || !deadlockProbe.ok || !deadlockProbe.yielded ||
+               !deadlockProbe.progressed || !deadlockProbe.separated ||
+               deadlockProbe.minGap<deadlockProbe.requiredGap){
+              throw new Error("Agent collision deadlock recovery failed: "+JSON.stringify(deadlockProbe));
+            }
+
+            const taskStationState=await page.evaluate(() => window.akiraOfficePixelDebug.agents);
+            const taskByName=Object.fromEntries((taskStationState||[]).map(a=>[a.name,a]));
+            if(taskByName.Luna?.taskStation!=="web" || taskByName.Nexo?.taskStation!=="development"){
+              throw new Error("Real-task station routing contract failed: "+JSON.stringify({
+                Luna:taskByName.Luna,
+                Nexo:taskByName.Nexo
+              }));
+            }
+            if((taskStationState||[]).filter(a=>a.name!=="Dante").some(a=>!a.roleStation)){
+              throw new Error("One or more active agents lack a deterministic role station: "+JSON.stringify(taskStationState));
+            }
+
             const allHomes=(domState.agents||[]).map(a=>a.name);
             if(allHomes.length!==9){
               throw new Error("Office roster is not 9 agents: "+JSON.stringify(allHomes));
@@ -252,6 +271,42 @@ jobs:
               return a ? {world:[...a.world],screen:[...a.screen],state:a.state,phase:a.phase} : null;
             });
             const pixelTravel=Math.hypot(after.screen[0]-before.screen[0],after.screen[1]-before.screen[1]);
+
+            // Selection contract: both the lower agent list and the avatar itself
+            // must populate the same detail panel, and the selection must survive
+            // the periodic backend refresh that rebuilds the list DOM.
+            const lunaRow=page.locator('#officeAgentList [data-office-agent="Luna"]');
+            await lunaRow.scrollIntoViewIfNeeded();
+            await lunaRow.click();
+            await page.waitForFunction(() => {
+              const detail=document.getElementById("officeAgentDetail");
+              return detail && detail.textContent.includes("Luna") &&
+                     document.querySelector('#officeAgentList [data-office-agent="Luna"].is-selected');
+            }, null, {timeout:5000});
+
+            await page.waitForTimeout(5200);
+            const persistedSelection=await page.evaluate(() => ({
+              detail:document.getElementById("officeAgentDetail")?.textContent||"",
+              selected:Boolean(document.querySelector('#officeAgentList [data-office-agent="Luna"].is-selected'))
+            }));
+            if(!persistedSelection.detail.includes("Luna") || !persistedSelection.selected){
+              throw new Error("Agent list selection did not persist: "+JSON.stringify(persistedSelection));
+            }
+
+            const lunaScreen=await page.evaluate(() => {
+              const a=(window.akiraOfficePixelDebug.agents||[]).find(x=>x.name==="Luna");
+              return a ? [...a.screen] : null;
+            });
+            const canvasBox=await page.locator("#officePixelCanvas").boundingBox();
+            if(!lunaScreen || !canvasBox) throw new Error("Could not resolve Luna canvas selection coordinates");
+            await page.mouse.click(
+              canvasBox.x + lunaScreen[0]/1536*canvasBox.width,
+              canvasBox.y + lunaScreen[1]/1024*canvasBox.height
+            );
+            await page.waitForFunction(() => {
+              const detail=document.getElementById("officeAgentDetail");
+              return detail && detail.textContent.includes("Luna");
+            }, null, {timeout:5000});
             if(pixelTravel>1200){
               throw new Error("Akira moved implausibly fast/far: "+pixelTravel);
             }
