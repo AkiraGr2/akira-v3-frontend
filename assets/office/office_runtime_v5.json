@@ -1460,13 +1460,19 @@
     ]
   },
   "object_interaction": {
-    "render_mode": "thumbnail_badge",
+    "render_mode": "live_sprite_overlay",
     "source": "asset_sheet",
     "active_distance_px": 92,
     "fade_seconds": 0.35,
     "working_home_monitor": true,
     "station_badges": true,
-    "static_scene_not_duplicated": true
+    "static_scene_not_duplicated": true,
+    "live_station_sprites": true,
+    "ambient_sprite_groups": [
+      "chairs",
+      "lighting",
+      "props"
+    ]
   },
   "directional_walk": {
     "path": "assets/office/02_akira_agents_walk_directional_v8_transparent.png",
@@ -1485,34 +1491,148 @@
     "vertical_front": {
       "start": 0,
       "count": 3,
-      "cycle": [0, 1, 2, 1]
+      "cycle": [
+        0,
+        1,
+        2,
+        1
+      ]
     },
     "vertical_back": {
       "start": 3,
       "count": 4,
-      "cycle": [0, 1, 2, 3]
+      "cycle": [
+        0,
+        1,
+        2,
+        3
+      ]
     },
     "horizontal_left": {
       "start": 7,
       "count": 3,
-      "cycle": [0, 1, 2, 1]
+      "cycle": [
+        0,
+        1,
+        2,
+        1
+      ]
     },
     "horizontal_right": {
       "start": 10,
       "count": 4,
-      "cycle": [0, 1, 2, 3]
+      "cycle": [
+        0,
+        1,
+        2,
+        3
+      ]
     },
     "frame_centers_x": [
-      98, 196, 294, 402, 501, 597, 694,
-      815, 919, 1022, 1148, 1248, 1346, 1446
+      98,
+      196,
+      294,
+      402,
+      501,
+      597,
+      694,
+      815,
+      919,
+      1022,
+      1148,
+      1248,
+      1346,
+      1446
     ],
     "row_centers_y": [
-      67, 178, 290, 404, 517, 634, 743, 851, 959
+      67,
+      178,
+      290,
+      404,
+      517,
+      634,
+      743,
+      851,
+      959
     ],
-    "frame_crop_px": [112, 112],
-    "frame_canvas_px": [112, 112],
+    "frame_crop_px": [
+      112,
+      112
+    ],
+    "frame_canvas_px": [
+      112,
+      112
+    ],
     "frame_canvas_offset_y": 0,
     "preprocessing": "nearest-center-isolated",
     "note": "Pixel-audited V8 layout. The published PNG contains 14 actual poses per row (3 front, 4 back, 3 left, 4 right); it is not a uniform 16-column sprite grid. Runtime uses calibrated frame centers and integer crop rectangles to preserve whole sprites."
+  },
+  "object_sprite_targets": {
+    "development": [
+      1188,
+      682,
+      250,
+      125
+    ],
+    "web": [
+      714,
+      188,
+      150,
+      112
+    ],
+    "memory": [
+      58,
+      314,
+      140,
+      110
+    ],
+    "printer": [
+      1322,
+      520,
+      92,
+      110
+    ],
+    "coffee": [
+      1332,
+      310,
+      94,
+      112
+    ],
+    "meeting": [
+      1025,
+      100,
+      175,
+      112
+    ],
+    "mission": [
+      995,
+      145,
+      155,
+      110
+    ],
+    "mcp": [
+      1188,
+      704,
+      205,
+      112
+    ],
+    "chairs": [
+      1048,
+      64,
+      120,
+      92
+    ],
+    "lighting": [
+      680,
+      44,
+      175,
+      115
+    ],
+    "props": [
+      585,
+      872,
+      300,
+      96
+    ]
   }
 }
