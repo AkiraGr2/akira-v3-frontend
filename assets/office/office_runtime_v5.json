@@ -1006,7 +1006,7 @@
       "name": "Dante",
       "backend": "selftest_agent",
       "role": "Desactivado",
-      "status": "disabled"
+      "status": "active"
     }
   ],
   "interactions": {
