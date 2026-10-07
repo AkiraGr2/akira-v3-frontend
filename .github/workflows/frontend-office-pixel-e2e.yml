@@ -228,6 +228,12 @@ jobs:
               throw new Error("Office object/furniture sprite catalog is incomplete: "+JSON.stringify(objectSprites));
             }
 
+            const spriteValidation=await page.evaluate(() => window.akiraOfficePixelDebug && window.akiraOfficePixelDebug.objectSpriteValidation);
+            if(!spriteValidation || !spriteValidation.ok || spriteValidation.count < 12 ||
+               (spriteValidation.items||[]).some(x=>!x.usable)){
+              throw new Error("Live object sprite validation failed: "+JSON.stringify(spriteValidation));
+            }
+
             const layout=await page.$eval("#officePixelCanvas",el=>{
               const r=el.getBoundingClientRect();
               const stage=document.getElementById("officePixelStage").getBoundingClientRect();
