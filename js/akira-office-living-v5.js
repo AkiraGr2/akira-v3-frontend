@@ -766,6 +766,43 @@
     }
   }
 
+  function dynamicDeadlockRoute(agent,targetId,dt){
+    if(!agent||!targetId||!Array.isArray(agent.screen))return null;
+    const blockers=agents
+      .filter(other=>other&&other!==agent&&other.status==="active"&&Array.isArray(other.screen))
+      .map(other=>({other,future:predictAgentNextPosition(other,Math.max(dt,1/60))}))
+      .filter(x=>Math.hypot(agent.screen[0]-x.future[0],agent.screen[1]-x.future[1])<96)
+      .sort((a,b)=>agentPriority(a.other)-agentPriority(b.other));
+    if(!blockers.length)return null;
+    const blocker=blockers[0].future;
+    const dx=blocker[0]-agent.screen[0],dy=blocker[1]-agent.screen[1];
+    const horizontal=Math.abs(dx)>=Math.abs(dy);
+    const side=agentPriority(agent)<agentPriority(blockers[0].other)?1:-1;
+    const target=interactionPoint(targetId);
+    if(!target)return null;
+    const candidates=[];
+    for(const d of [32,48,64,80]){
+      if(horizontal){
+        candidates.push([agent.screen[0],agent.screen[1]+side*d]);
+        candidates.push([agent.screen[0],agent.screen[1]-side*d]);
+      }else{
+        candidates.push([agent.screen[0]+side*d,agent.screen[1]]);
+        candidates.push([agent.screen[0]-side*d,agent.screen[1]]);
+      }
+    }
+    for(const candidate of candidates){
+      if(!navMap||!navMap.inside(...screenToGrid(candidate)))continue;
+      if(!segmentClear(agent.screen,candidate))continue;
+      if(!candidateIsSafeAgainstAgents(agent,candidate,Math.max(dt,1/60)))continue;
+      const first=findReachableRoute(agent.screen,candidate,128);
+      if(!first||!first.points.length)continue;
+      const second=findReachableRoute(candidate,target,160);
+      if(!second||!second.points.length)continue;
+      return first.points.concat(second.points);
+    }
+    return null;
+  }
+
   function updateAgent(a,dt,now){
     if(a.status==="disabled"){
       a.machine="disabled";
@@ -865,7 +902,36 @@
       // after a short deterministic threshold while the task/target remains
       // valid. This fixes the old "one agent keeps walking / never arrives"
       // class without inventing a new backend state.
-      if(a.stalledMs>2200 && !a.waitingForAgent && a.routeTargetId){
+      if(a.routeTargetId && a.waitingForAgent && a.stalledMs>1200){
+        const blockers=agents
+          .filter(other=>other&&other!==a&&other.status==="active"&&Array.isArray(other.screen))
+          .map(other=>({other,future:predictAgentNextPosition(other,dt)}))
+          .filter(x=>Math.hypot(a.screen[0]-x.future[0],a.screen[1]-x.future[1])<96)
+          .sort((x,y)=>agentPriority(x.other)-agentPriority(y.other));
+        const blocker=blockers[0]?.other||null;
+        const rightOfWay=!blocker || agentPriority(a)<agentPriority(blocker);
+
+        if(rightOfWay){
+          const detour=dynamicDeadlockRoute(a,a.routeTargetId,dt);
+          if(detour&&detour.length){
+            a.route=detour.map((p,i)=>({screen:[...p],id:i===detour.length-1?a.routeTargetId:null}));
+            a.routeIndex=0;
+            a.stalledMs=0;
+            a.waitingForAgent=false;
+            a.frameClock=0;
+            a.frame=0;
+          }
+        }else if(a.stalledMs>3200){
+          const replanned=routePoints(a,a.routeTargetId);
+          if(replanned&&replanned.length){
+            a.route=replanned.map((p,i)=>({screen:[...p],id:i===replanned.length-1?a.routeTargetId:null}));
+            a.routeIndex=0;
+            a.stalledMs=0;
+            a.frameClock=0;
+            a.frame=0;
+          }
+        }
+      }else if(a.stalledMs>2200 && !a.waitingForAgent && a.routeTargetId){
         const replanned=routePoints(a,a.routeTargetId);
         if(replanned&&replanned.length){
           a.route=replanned.map((p,i)=>({screen:[...p],id:i===replanned.length-1?a.routeTargetId:null}));
