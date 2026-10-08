@@ -247,8 +247,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
     min-height:430px;
   }
   #membraneCy,.brain-view{
-    width:100%;
-    height:100%;
+    width:100%;    height:100%;
   }
 }
 .brain-mobile-view-btn{display:none}
@@ -334,7 +333,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 @media(max-width:768px){.sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);width:280px;z-index:30}.sidebar.open{transform:translateX(0)}.hamburger{display:flex}.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:15}.overlay.open{display:block}.section-tools{max-height:50%}.mission-shell{padding:10px;overflow:hidden}.mission-input,.mission-select{width:100%;min-width:0}.mission-toolbar,.mission-create{align-items:stretch}.mission-toolbar .pixel-btn,.mission-create .pixel-btn{width:100%}.mission-grid{min-height:0;grid-template-columns:1fr;grid-template-rows:minmax(220px,38dvh) minmax(0,1fr);height:100%;overflow:hidden}.mission-grid .mission-pane{min-height:0}.mission-list{min-height:0;height:100%;overflow-y:auto}.mission-detail{min-height:0;height:100%;overflow-y:auto}.mission-grid:not(.mobile-detail-open) .mission-pane:nth-child(2){display:none}.mission-grid.mobile-detail-open{grid-template-rows:minmax(0,1fr)}.mission-grid.mobile-detail-open .mission-pane:first-child{display:none}.mission-mobile-back{display:block;width:100%;margin-bottom:10px}.mission-plan-step-head{flex-direction:column;align-items:flex-start}}
 </style>
   <link rel="stylesheet" href="./css/akira-cognitive-system-v1.css?v=akira-cognitive-v1">
-<link rel="stylesheet" href="./css/akira-reference-design-v2.css?v=akira-reference-design-v2">
+<link rel="stylesheet" href="./css/akira-reference-design-v5.css?v=akira-reference-design-v2">
 </head>
 <body>
 <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
@@ -497,7 +496,6 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
       </aside>
     </div>
   </div>
-
   <div id="missionsSection" class="section">
     <div class="section-header">
       <h2>🎯 Misiones</h2>
@@ -747,8 +745,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           </div>
           <div class="admin-v2-actions">
             <button class="admin-v2-action" onclick="f9ListAgents()">
-              <strong>👥 Ver todos los agentes y su estado</strong>
-              <small>Lista los agentes registrados, su función y su estado actual.</small>
+              <strong>👥 Ver todos los agentes y su estado</strong>              <small>Lista los agentes registrados, su función y su estado actual.</small>
             </button>
             <button class="admin-v2-action" onclick="f9RunResearcher()">
               <strong>🔎 Pedirle al agente investigador que busque algo</strong>
@@ -997,8 +994,7 @@ function showSection(name){
       }
     }catch(_){}
   };
-  requestAnimationFrame(()=>setTimeout(bootBrain,50));
-  setTimeout(bootBrain,300);
+  requestAnimationFrame(()=>setTimeout(bootBrain,50));  setTimeout(bootBrain,300);
   setTimeout(bootBrain,1000);
   setTimeout(()=>{try{window.akiraBootBrain2d && window.akiraBootBrain2d();}catch(_){}},1200);
 }
@@ -1247,8 +1243,7 @@ async function f14Start(){
       paths:["docs/F14_PRODUCTION_VERIFICATION.md"],
       instruction:"Crea únicamente el archivo docs/F14_PRODUCTION_VERIFICATION.md. Debe ser un documento Markdown muy pequeño, con un título y una breve nota que indique que esta ejecución es una verificación de Controlled Autonomy v1 y que requirió aprobación humana. No modifiques ningún otro archivo. No introduzcas código, dependencias, secretos, workflows ni cambios funcionales.",
       queries:["docs/F14_PRODUCTION_VERIFICATION.md"],
-      tests:["test_controlled_autonomy_contract","test_route_security_contract","test_authorization_contract"],
-      idempotency_key:"f14-production-ui-"+Date.now()
+      tests:["test_controlled_autonomy_contract","test_route_security_contract","test_authorization_contract"],      idempotency_key:"f14-production-ui-"+Date.now()
     };
     const d=await f14Request("/api/v8/autonomy",{
       method:"POST",
@@ -1408,7 +1403,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
 <script src="./js/obsidian_membrane.js?v=akira-membrane-v50-public-first-timeout"></script>
-<script src="./js/akira_entity.js?v=akira-entity-v1"></script>
+<script src="./js/akira_entity.js?v=akira-entity-v5"></script>
 <script src="./js/akira_reference_workspace_v2.js?v=akira-reference-design-v2"></script>
 <script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>
 <script src="./js/akira_brain.js?v=akira-brain-v7-stream-root"></script>
@@ -1497,8 +1492,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
       const r=await req("/api/v8/tools/audit/"+encodeURIComponent(runId),{method:"GET"},15000);
       if(!r.ok || !r.data || !r.data.ok){
         if(r.status===404) continue;
-        write({ok:false,reason:"audit_status_failed",status:r.status,error:r.error||null},true);
-        return;
+        write({ok:false,reason:"audit_status_failed",status:r.status,error:r.error||null},true);        return;
       }
       if(r.data.status==="running"){
         write({ok:true,estado:"en ejecución",run_id:runId,herramientas:start.data.tool_count,build_ref:start.data.build_ref},false);
@@ -1747,8 +1741,7 @@ document.addEventListener("DOMContentLoaded",function(){
       return;
     }
 
-    write({
-      ok:false,
+    write({      ok:false,
       reason:"agent_audit_timeout",
       run_id:runId,
       message:"La auditoría continúa en segundo plano; el servidor conserva el resultado y el run_id permite consultarlo."
