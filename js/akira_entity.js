@@ -133,22 +133,6 @@
       Math.sin(time*.31)*.075,
       seed,time,.26
     );
-
-    // Segunda "masa madre" tenue: rompe la lectura de esfera perfecta y
-    // hace que el cuerpo parezca una nube energética con profundidad.
-    ctx.save();
-    ctx.globalAlpha=.11;
-    blobPath(
-      ctx,
-      cx+Math.sin(time*.43+1.2)*rx*.07,
-      cy+Math.cos(time*.37+.6)*ry*.06,
-      rx*.90*(1+.055*Math.sin(time*.71)),
-      ry*.72*(1+.08*Math.cos(time*.63)),
-      -.20+Math.sin(time*.28)*.12,
-      seed+71,time,.20
-    );
-    ctx.fill();
-    ctx.restore();
   }
 
   function drawEye(ctx,x,y,w,h,open,tilt){
@@ -478,6 +462,36 @@
     ctx.fillStyle=mainGrad;
     ctx.fill();
     ctx.clip();
+
+    // Profundidad: una nube grande y tenue dentro del cuerpo para que
+    // el núcleo no se lea como una superficie plana.
+    {
+      const dg=ctx.createRadialGradient(
+        engine.cx-engine.lookX*r*.10,
+        engine.cy+engine.lookY*r*.06,
+        0,
+        engine.cx,
+        engine.cy,
+        r*.92
+      );
+      dg.addColorStop(0,"rgba(235,255,255,.32)");
+      dg.addColorStop(.28,"rgba(76,226,255,.22)");
+      dg.addColorStop(.58,"rgba(111,82,255,.14)");
+      dg.addColorStop(1,"rgba(255,70,186,0)");
+      ctx.globalCompositeOperation="lighter";
+      ctx.globalAlpha=.72;
+      ctx.fillStyle=dg;
+      blobPath(
+        ctx,
+        engine.cx+Math.sin(engine.time*.43+1.2)*rx*.07,
+        engine.cy+Math.cos(engine.time*.37+.6)*ry*.06,
+        rx*.90*(1+.055*Math.sin(engine.time*.71)),
+        ry*.72*(1+.08*Math.cos(engine.time*.63)),
+        -.20+Math.sin(engine.time*.28)*.12,
+        115,engine.time,.20
+      );
+      ctx.fill();
+    }
 
     // Corrientes internas: nubes fluidas sobrepuestas. No hay strokes.
     const innerCount=w<120 ? 5 : 10;
