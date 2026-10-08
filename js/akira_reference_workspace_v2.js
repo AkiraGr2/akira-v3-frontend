@@ -52,7 +52,8 @@
       nav.querySelectorAll("[data-ak-mobile-go]").forEach(btn=>{
         btn.addEventListener("click",()=>{
           const target=btn.getAttribute("data-ak-mobile-go");
-          clickSection(target==="more"?"admin":target);
+          if(target==="more"){toggleSidebar();return;}
+          clickSection(target);
         });
       });
       nav.dataset.wired="1";
@@ -61,7 +62,8 @@
     if(back&&!back.dataset.wired){
       back.addEventListener("click",()=>{
         const active=qsa(".section.active").find(x=>x.id);
-        clickSection(active&&active.id==="homeSection"?"admin":"home");
+        if(active&&active.id==="homeSection"){toggleSidebar();return;}
+        clickSection("home");
       });
       back.dataset.wired="1";
     }
@@ -138,9 +140,39 @@
     if(window.AkiraEntity&&window.AkiraEntity.mountAll)window.AkiraEntity.mountAll(intro);
   }
 
-  function setupNav(){const brand=qs(".brand");if(brand){brand.innerHTML='<div class="ak-ref-logo-mark" aria-hidden="true"><svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke-linecap="round"><path d="M22 4v10M22 30v10M4 22h10M30 22h10" stroke="#9b74ff" stroke-width="2"/><path d="M9 9l7 7M28 28l7 7M35 9l-7 7M16 28l-7 7" stroke="#43dfff" stroke-width="2"/><circle cx="22" cy="22" r="7" stroke="#ff63d7" stroke-width="2"/><circle cx="22" cy="22" r="2.5" fill="#fff" stroke="none"/></g></svg></div><div><h1>AKIRA</h1><p>Cognitive Workspace</p></div>';}const nav=qs("#sidebar .nav");if(!nav)return;navMap.forEach(([name,label])=>{let btn=qs("#btn-"+name,nav);if(!btn){btn=document.createElement("button");btn.className="nav-btn";btn.id="btn-"+name;btn.type="button";btn.addEventListener("click",()=>clickSection(name))}btn.textContent=label;nav.appendChild(btn)});const brandP=qs(".brand p");if(brandP)brandP.textContent="Cognitive Workspace";const brandH=qs(".brand h1");if(brandH)brandH.textContent="AKIRA";navMap.map(x=>qs("#btn-"+x[0],nav)).filter(Boolean).forEach(b=>nav.appendChild(b))}
+  function setupNav(){
+    const brand=qs(".brand");
+    if(brand){
+      brand.innerHTML='<div class="ak-ref-logo-mark" aria-hidden="true"><svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke-linecap="round"><path d="M22 4v10M22 30v10M4 22h10M30 22h10" stroke="#9b74ff" stroke-width="2"/><path d="M9 9l7 7M28 28l7 7M35 9l-7 7M16 28l-7 7" stroke="#43dfff" stroke-width="2"/><circle cx="22" cy="22" r="7" stroke="#ff63d7" stroke-width="2"/><circle cx="22" cy="22" r="2.5" fill="#fff" stroke="none"/></g></svg></div><div><h1>AKIRA</h1><p>Cognitive Workspace</p></div>';
+    }
+    const nav=qs("#sidebar .nav");
+    if(!nav)return;
+    nav.innerHTML="";
+    navMap.forEach(([name,label])=>{
+      const btn=document.createElement("button");
+      btn.className="nav-btn";
+      btn.id="btn-"+name;
+      btn.type="button";
+      btn.textContent=label;
+      btn.addEventListener("click",()=>clickSection(name));
+      nav.appendChild(btn);
+    });
+    const active=qsa(".section.active").find(x=>x.id);
+    const activeName=active&&active.id.endsWith("Section")?active.id.slice(0,-7):"home";
+    const activeBtn=qs("#btn-"+activeName,nav);
+    if(activeBtn)activeBtn.classList.add("active");
+  }
   function setupTopbar(){const model=qs(".topbar .model-pill");if(model)model.textContent="Pregunta algo a Akira..."}
   function mountHome(){const main=qs(".main");if(!main)return;let home=qs("#homeSection");if(!home){home=document.createElement("div");home.id="homeSection";home.className="section ak-reference-home";const chat=qs("#chatSection");if(chat)main.insertBefore(home,chat);else main.appendChild(home)}home.innerHTML=homeMarkup();qsa("[data-ak-ref-go]",home).forEach(el=>el.addEventListener("click",()=>clickSection(el.getAttribute("data-ak-ref-go"))));if(window.AkiraEntity&&window.AkiraEntity.mountAll)window.AkiraEntity.mountAll(home)}
    document.addEventListener("DOMContentLoaded",function(){document.body.classList.add("ak-reference-mode");ensureMobileChrome();setupNav();setupTopbar();mountHome();ensureMobileChatIntro();if(typeof window.showSection==="function" && !qsa(".section.active").some(s=>s.id && s.id!=="chatSection"))window.showSection("home")});
+    window.addEventListener("akira:section-shown",function(event){
+    if(!event||!event.detail||event.detail.section!=="office")return;
+    requestAnimationFrame(function(){
+      try{
+        if(typeof window.initAkiraOfficePixel==="function")window.initAkiraOfficePixel();
+        if(typeof window.resizeAkiraOfficePixel==="function")window.resizeAkiraOfficePixel();
+      }catch(_){}
+    });
+  });
   window.AkiraReferenceWorkspace={mountHome,setupNav};
 })();

@@ -85,7 +85,7 @@
 <link rel="stylesheet" href="./css/akira-brain-space.css?v=akira-brain-space-v1">
 <link rel="stylesheet" href="./css/akira-cognitive-workspace-v2.css?v=akira-cognitive-workspace-v2">
 <link rel="stylesheet" href="./css/akira-office-2p5d.css?v=akira-office-2p5d-v3-autonomous">
-<link rel="stylesheet" href="./css/akira-reference-design-v2.css?v=akira-reference-design-v6">
+<link rel="stylesheet" href="./css/akira-reference-design-v2.css?v=akira-reference-design-v7">
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -335,11 +335,11 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 @media(max-width:768px){.sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);width:280px;z-index:30}.sidebar.open{transform:translateX(0)}.hamburger{display:flex}.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:15}.overlay.open{display:block}.section-tools{max-height:50%}.mission-shell{padding:10px;overflow:hidden}.mission-input,.mission-select{width:100%;min-width:0}.mission-toolbar,.mission-create{align-items:stretch}.mission-toolbar .pixel-btn,.mission-create .pixel-btn{width:100%}.mission-grid{min-height:0;grid-template-columns:1fr;grid-template-rows:minmax(220px,38dvh) minmax(0,1fr);height:100%;overflow:hidden}.mission-grid .mission-pane{min-height:0}.mission-list{min-height:0;height:100%;overflow-y:auto}.mission-detail{min-height:0;height:100%;overflow-y:auto}.mission-grid:not(.mobile-detail-open) .mission-pane:nth-child(2){display:none}.mission-grid.mobile-detail-open{grid-template-rows:minmax(0,1fr)}.mission-grid.mobile-detail-open .mission-pane:first-child{display:none}.mission-mobile-back{display:block;width:100%;margin-bottom:10px}.mission-plan-step-head{flex-direction:column;align-items:flex-start}}
 </style>
   <link rel="stylesheet" href="./css/akira-cognitive-system-v1.css?v=akira-cognitive-v1">
-<link rel="stylesheet" href="./css/akira-reference-design-v2.css?v=akira-reference-design-v6">
+<link rel="stylesheet" href="./css/akira-reference-design-v2.css?v=akira-reference-design-v7">
 </head>
 <body class="ak-reference-mode">
 <header class="ak-mobile-reference-header" aria-label="Cabecera móvil">
-  <button class="ak-mobile-back" type="button" aria-label="Abrir menú" onclick="showSection('admin')">☰</button>
+  <button class="ak-mobile-back" type="button" aria-label="Abrir menú" onclick="toggleSidebar()">☰</button>
   <div class="ak-mobile-title">AKIRA</div>
   <button class="ak-mobile-bell" type="button" aria-label="Notificaciones">♧</button>
 </header>
@@ -348,7 +348,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
   <button type="button" data-ak-mobile-go="chat" onclick="showSection('chat')"><span>▢</span><small>Chat</small></button>
   <button type="button" data-ak-mobile-go="membrane" onclick="showSection('membrane')"><span>✣</span><small>Cerebro</small></button>
   <button type="button" data-ak-mobile-go="missions" onclick="showSection('missions')"><span>◎</span><small>Misiones</small></button>
-  <button type="button" data-ak-mobile-go="more" onclick="showSection('admin')"><span>•••</span><small>Más</small></button>
+  <button type="button" data-ak-mobile-go="more" onclick="toggleSidebar()"><span>•••</span><small>Más</small></button>
 </nav>
 <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
 <div class="sidebar" id="sidebar">
@@ -1446,8 +1446,8 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
 <script src="./js/obsidian_membrane.js?v=akira-membrane-v50-public-first-timeout"></script>
-<script src="./js/akira_entity.js?v=akira-entity-v1"></script>
-<script src="./js/akira_reference_workspace_v2.js?v=akira-reference-design-v2"></script>
+<script src="./js/akira_entity.js?v=akira-entity-v7"></script>
+<script src="./js/akira_reference_workspace_v2.js?v=akira-reference-v7"></script>
 <script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>
 <script src="./js/akira_brain.js?v=akira-brain-v7-stream-root"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
@@ -1560,7 +1560,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 })();
 </script>
 <script src="./js/akira_missions_panel.js?v=akira-missions-v5"></script>
-<script src="./js/akira-office-2p5d.js?v=akira-office-2p5d-v1"></script>
+<script src="./js/akira-office-2p5d.js?v=akira-office-v7"></script>
 <script>
 async function fetchRuntimeCapabilities(){
   const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";

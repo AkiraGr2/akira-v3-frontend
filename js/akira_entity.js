@@ -1,315 +1,354 @@
-/* AKIRA ENTITY V4 — living plasma core with autonomous expressions and burst-like tendrils */
+/* AKIRA PLASMA NUCLEUS V7
+ * One living entity shared by Home, Chat and compact surfaces.
+ * Continuous life is independent from cognitive states.
+ */
 (function(){
-"use strict";
+  "use strict";
 
-const STATES={
-  idle:{label:"En calma",speed:1},
-  thinking:{label:"Pensando",speed:1.35},
-  searching:{label:"Explorando",speed:1.55},
-  learning:{label:"Aprendiendo",speed:1.08},
-  remembering:{label:"Recordando",speed:.82},
-  executing:{label:"Ejecutando",speed:1.45},
-  success:{label:"Listo",speed:.9},
-  uncertain:{label:"Con cautela",speed:.68},
-  error:{label:"Atención",speed:.72},
-  playful:{label:"Juguetona",speed:1.2}
-};
+  const STATES={
+    idle:{label:"En calma",energy:1},
+    thinking:{label:"Pensando",energy:1.18},
+    searching:{label:"Explorando",energy:1.32},
+    learning:{label:"Aprendiendo",energy:1.08},
+    remembering:{label:"Recordando",energy:.92},
+    executing:{label:"Ejecutando",energy:1.28},
+    success:{label:"Listo",energy:1.05},
+    uncertain:{label:"Con cautela",energy:.82},
+    error:{label:"Atención",energy:.86},
+    playful:{label:"Juguetona",energy:1.24}
+  };
 
-const EXPRESSIONS=["happy","curious","surprised","wink","sleepy","playful","smileSoft","blink"];
-let uid=0;
+  const EXPRESSIONS=["smile","curious","surprised","wink","sleepy","playful","soft","blink"];
+  let uid=0;
 
-function norm(s){return STATES[s]?s:"idle";}
-function svgMarkup(){
-  const n="ak"+(++uid);
-  return '<svg class="akira-entity-reference" viewBox="0 0 420 420" role="presentation" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">'+
-  '<defs>'+
-    '<radialGradient id="'+n+'core" cx="36%" cy="24%" r="80%"><stop stop-color="#1b2757"/><stop offset=".34" stop-color="#0a1230"/><stop offset=".72" stop-color="#03081d"/><stop offset="1" stop-color="#01030d"/></radialGradient>'+
-    '<radialGradient id="'+n+'halo"><stop stop-color="#9a6cff" stop-opacity=".48"/><stop offset=".42" stop-color="#41dcff" stop-opacity=".16"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>'+
-    '<linearGradient id="'+n+'violet" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff66da"/><stop offset=".34" stop-color="#ad69ff"/><stop offset=".66" stop-color="#628aff"/><stop offset="1" stop-color="#3fe9ff"/></linearGradient>'+
-    '<linearGradient id="'+n+'warm" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#ff71ad"/><stop offset=".34" stop-color="#ff9e56"/><stop offset=".64" stop-color="#ffd35d"/><stop offset="1" stop-color="#9b6fff"/></linearGradient>'+
-    '<filter id="'+n+'blur" x="-90%" y="-90%" width="280%" height="280%"><feGaussianBlur stdDeviation="8"/></filter>'+
-    '<filter id="'+n+'glow" x="-90%" y="-90%" width="280%" height="280%"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'+
-    '<filter id="'+n+'strong" x="-120%" y="-120%" width="340%" height="340%"><feGaussianBlur stdDeviation="12" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'+
-    '<filter id="'+n+'spark" x="-160%" y="-160%" width="420%" height="420%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'+
-  '</defs>'+
-  '<ellipse cx="210" cy="365" rx="134" ry="24" fill="url(#'+n+'halo)" filter="url(#'+n+'blur)"/>'+
+  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+  const rand=(a,b)=>a+Math.random()*(b-a);
+  const normalizeState=s=>STATES[s]?s:"idle";
 
-  '<g class="akira-plasma-waves" fill="none" stroke-linecap="round">'+
-    '<circle class="plasma-wave wave-1" cx="210" cy="207" r="118" stroke="url(#'+n+'violet)" stroke-width="3" opacity=".15"/>'+
-    '<circle class="plasma-wave wave-2" cx="210" cy="207" r="128" stroke="url(#'+n+'warm)" stroke-width="2.5" opacity=".12"/>'+
-    '<circle class="plasma-wave wave-3" cx="210" cy="207" r="139" stroke="url(#'+n+'violet)" stroke-width="2" opacity=".08"/>'+
-    '<ellipse class="plasma-wave wave-4" cx="210" cy="207" rx="156" ry="94" stroke="url(#'+n+'warm)" stroke-width="2" opacity=".10"/>'+
-  '</g>'+
-  '<g class="akira-plasma-filaments" fill="none" stroke-linecap="round" filter="url(#'+n+'glow)">'+
-    '<path class="plasma-filament filament-1" d="M210 92 C188 72 172 51 184 25 C195 43 213 42 221 24 C229 49 244 63 266 78" stroke="url(#'+n+'violet)" stroke-width="3.5" opacity=".58"/>'+
-    '<path class="plasma-filament filament-2" d="M315 205 C341 190 367 181 397 194 C378 207 379 225 399 236 C367 241 344 232 320 219" stroke="url(#'+n+'warm)" stroke-width="3.2" opacity=".52"/>'+
-    '<path class="plasma-filament filament-3" d="M104 207 C77 191 52 183 23 196 C43 208 40 225 21 237 C52 242 76 232 100 220" stroke="url(#'+n+'violet)" stroke-width="3.2" opacity=".52"/>'+
-    '<path class="plasma-filament filament-4" d="M211 318 C190 340 178 364 189 393 C201 374 218 378 229 397 C234 366 244 344 263 327" stroke="url(#'+n+'warm)" stroke-width="3.5" opacity=".50"/>'+
-  '</g>'+
-  '<g class="akira-plasma-bursts" fill="none" stroke-linecap="round" filter="url(#'+n+'glow)">'+
-    '<path class="plasma-burst burst-a" d="M210 103 C207 81 205 61 210 34" stroke="url(#'+n+'violet)" stroke-width="4"/>'+
-    '<path class="plasma-burst burst-b" d="M290 131 C310 111 327 95 348 76" stroke="url(#'+n+'violet)" stroke-width="4"/>'+
-    '<path class="plasma-burst burst-c" d="M313 208 C342 205 366 198 392 187" stroke="url(#'+n+'warm)" stroke-width="4"/>'+
-    '<path class="plasma-burst burst-d" d="M298 284 C323 297 345 311 364 330" stroke="url(#'+n+'violet)" stroke-width="4"/>'+
-    '<path class="plasma-burst burst-e" d="M210 311 C211 334 212 354 210 385" stroke="url(#'+n+'warm)" stroke-width="4"/>'+
-    '<path class="plasma-burst burst-f" d="M130 284 C109 299 89 316 69 339" stroke="url(#'+n+'violet)" stroke-width="4"/>'+
-    '<path class="plasma-burst burst-g" d="M106 208 C80 206 56 199 31 190" stroke="url(#'+n+'warm)" stroke-width="4"/>'+
-    '<path class="plasma-burst burst-h" d="M130 132 C109 111 92 95 71 75" stroke="url(#'+n+'violet)" stroke-width="4"/>'+
-  '</g>'+
-  '<g class="akira-plasma-burst-sparks" filter="url(#'+n+'spark)" fill="#dffcff">'+
-    '<circle class="spark-1" cx="44" cy="148" r="3"/><circle class="spark-2" cx="79" cy="97" r="2.5"/><circle class="spark-3" cx="337" cy="103" r="3"/><circle class="spark-4" cx="369" cy="165" r="2.5"/>'+
-    '<circle class="spark-5" cx="352" cy="287" r="3"/><circle class="spark-6" cx="83" cy="313" r="3"/><circle class="spark-7" cx="116" cy="348" r="2.5"/><circle class="spark-8" cx="290" cy="351" r="2.5"/>'+
-  '</g>'+
-  '<g class="akira-reference-ribbons" fill="none" stroke-linecap="round" filter="url(#'+n+'glow)">'+
-    '<path d="M61 270 C14 231 31 178 79 188 C116 196 118 229 88 241 C61 252 49 215 68 181 C90 143 129 118 177 109" stroke="url(#'+n+'violet)" stroke-width="9" opacity=".88"/>'+
-    '<path d="M52 304 C17 328 22 365 61 361 C95 357 98 326 76 312 C53 298 37 330 52 355 C77 391 126 392 166 369" stroke="url(#'+n+'warm)" stroke-width="7" opacity=".78"/>'+
-    '<path d="M158 75 C195 23 255 30 249 72 C244 104 206 101 206 73 C206 48 232 30 270 38" stroke="url(#'+n+'violet)" stroke-width="8" opacity=".84"/>'+
-    '<path d="M255 78 C315 34 368 54 347 95 C331 126 296 111 300 82 C304 53 337 40 374 59" stroke="url(#'+n+'warm)" stroke-width="7" opacity=".76"/>'+
-    '<path d="M51 159 C97 105 152 79 199 111 C231 133 221 170 190 173 C157 176 143 142 159 119 C182 87 233 87 274 108 C319 131 349 171 359 216" stroke="url(#'+n+'violet)" stroke-width="8" opacity=".8"/>'+
-    '<path d="M48 250 C91 221 122 180 164 180 C210 180 233 219 209 247 C185 273 151 254 154 224 C158 193 191 176 236 169 C284 161 323 184 350 220" stroke="url(#'+n+'warm)" stroke-width="6" opacity=".68"/>'+
-    '<path d="M84 334 C130 294 165 285 202 306 C239 326 269 358 307 353 C338 348 359 326 368 296" stroke="url(#'+n+'violet)" stroke-width="7" opacity=".72"/>'+
-    '<path d="M111 117 C139 77 170 57 192 68 C208 76 197 99 180 101" stroke="url(#'+n+'violet)" stroke-width="4.5" opacity=".54"/>'+
-    '<path d="M228 347 C260 375 304 382 331 361 C344 350 339 336 323 335" stroke="url(#'+n+'warm)" stroke-width="4.5" opacity=".5"/>'+
-  '</g>'+
-  '<g class="akira-reference-particles" filter="url(#'+n+'strong)" fill="#98eeff">'+
-    '<circle cx="72" cy="153" r="4"/><circle cx="104" cy="95" r="3"/><circle cx="302" cy="119" r="4"/><circle cx="365" cy="194" r="3"/><circle cx="65" cy="283" r="3"/><circle cx="324" cy="294" r="4"/><circle cx="119" cy="337" r="3"/><circle cx="282" cy="342" r="3"/>'+
-  '</g>'+
-  '<g class="akira-reference-core">'+
-    '<circle cx="210" cy="207" r="114" fill="#6f56ff" opacity=".15" filter="url(#'+n+'strong)"/>'+
-    '<circle cx="210" cy="207" r="103" fill="url(#'+n+'core)" stroke="#8c7aff" stroke-opacity=".44" stroke-width="2.5"/>'+
-    '<ellipse cx="181" cy="165" rx="66" ry="43" fill="#8bb7ff" opacity=".055"/>'+
-    '<path d="M127 154 C146 125 175 111 208 111 C243 111 275 126 293 156" fill="none" stroke="url(#'+n+'violet)" stroke-width="4" opacity=".62"/>'+
-    '<path d="M128 257 C151 288 181 301 211 301 C247 301 278 285 294 255" fill="none" stroke="url(#'+n+'warm)" stroke-width="4" opacity=".5"/>'+
-  '</g>'+
-  '<g class="akira-reference-face face-happy" fill="none" stroke="#effcff" stroke-linecap="round">'+
-    '<path class="eye" d="M149 197 Q168 175 188 196" stroke-width="10"/><path class="eye" d="M232 196 Q252 175 271 197" stroke-width="10"/>'+
-    '<path d="M194 218 Q210 229 226 218" stroke="#73eaff" stroke-width="5"/><path d="M173 238 Q210 270 247 238" stroke-width="9"/>'+
-  '</g>'+
-  '<g class="akira-reference-face face-curious" fill="none" stroke="#effcff" stroke-linecap="round">'+
-    '<path d="M149 193 Q170 179 190 196" stroke-width="9"/><path d="M233 195 Q252 183 271 198" stroke-width="8"/>'+
-    '<path d="M204 219 Q214 226 223 218" stroke="#73eaff" stroke-width="5"/><path d="M185 246 Q207 258 231 243" stroke-width="7"/>'+
-  '</g>'+
-  '<g class="akira-reference-face face-surprised" fill="none" stroke="#effcff" stroke-linecap="round">'+
-    '<path d="M149 193 Q169 175 190 194" stroke-width="10"/><path d="M232 194 Q251 175 271 193" stroke-width="10"/>'+
-    '<circle cx="210" cy="245" r="13" stroke="#73eaff" stroke-width="5"/>'+
-  '</g>'+
-  '<g class="akira-reference-face face-wink" fill="none" stroke="#effcff" stroke-linecap="round">'+
-    '<path d="M150 196 Q170 178 190 196" stroke-width="10"/><path d="M232 198 Q249 187 270 196" stroke-width="10"/>'+
-    '<path d="M205 219 Q212 224 220 219" stroke="#73eaff" stroke-width="4"/><path d="M177 239 Q210 269 244 239" stroke-width="9"/>'+
-  '</g>'+
-  '<g class="akira-reference-face face-sleepy" fill="none" stroke="#effcff" stroke-linecap="round">'+
-    '<path d="M150 198 Q169 207 189 198" stroke-width="8"/><path d="M232 198 Q251 207 271 198" stroke-width="8"/>'+
-    '<path d="M191 240 Q210 247 229 240" stroke="#73eaff" stroke-width="4"/><path d="M183 247 Q210 260 237 247" stroke-width="7"/>'+
-  '</g>'+
-  '<g class="akira-reference-face face-playful" fill="none" stroke="#effcff" stroke-linecap="round">'+
-    '<path d="M150 196 Q169 180 188 195" stroke-width="9"/><path d="M232 195 Q252 181 271 199" stroke-width="10"/>'+
-    '<path d="M198 217 Q210 227 223 216" stroke="#73eaff" stroke-width="5"/><path d="M172 240 Q206 269 247 234" stroke-width="9"/><path d="M244 234 l10 5" stroke="#73eaff" stroke-width="4"/>'+
-  '</g>'+
-  '<g class="akira-reference-face face-smileSoft" fill="none" stroke="#effcff" stroke-linecap="round">'+
-    '<path d="M151 197 Q168 180 188 196" stroke-width="9"/><path d="M232 196 Q251 180 270 197" stroke-width="9"/>'+
-    '<path d="M193 218 Q210 229 227 218" stroke="#73eaff" stroke-width="5"/><path d="M179 242 Q210 260 241 242" stroke-width="8"/>'+
-  '</g>'+
-  '<g class="akira-reference-face face-blink" fill="none" stroke="#effcff" stroke-linecap="round">'+
-    '<path d="M149 198 Q168 205 189 198" stroke-width="8"/><path d="M231 198 Q251 205 271 198" stroke-width="8"/><path d="M181 246 Q210 259 239 246" stroke-width="8"/>'+
-  '</g>'+
-  '<g class="akira-gaze-dot" fill="#76eaff"><circle cx="189" cy="195" r="3"/><circle cx="231" cy="195" r="3"/></g>'+
-  '<ellipse cx="210" cy="355" rx="94" ry="13" fill="none" stroke="#9b68ff" stroke-opacity=".54" stroke-width="3"/>'+
-  '<ellipse cx="210" cy="355" rx="68" ry="8" fill="none" stroke="#45dfff" stroke-opacity=".62" stroke-width="2"/>'+
-  '</svg>';
-}
+  function markup(){
+    const id="akp"+(++uid);
+    return '<svg class="akira-plasma-nucleus" viewBox="0 0 440 440" role="presentation" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">'+
+      '<defs>'+
+        '<radialGradient id="'+id+'hotCore" cx="37%" cy="30%" r="75%">'+
+          '<stop offset="0" stop-color="#2c477c"/><stop offset=".34" stop-color="#14244b"/><stop offset=".72" stop-color="#070d22"/><stop offset="1" stop-color="#02040d"/>'+
+        '</radialGradient>'+
+        '<radialGradient id="'+id+'heat" cx="50%" cy="50%" r="50%">'+
+          '<stop offset="0" stop-color="#ffbf66" stop-opacity=".46"/><stop offset=".34" stop-color="#ff72c9" stop-opacity=".18"/><stop offset=".68" stop-color="#7c74ff" stop-opacity=".10"/><stop offset="1" stop-color="#000" stop-opacity="0"/>'+
+        '</radialGradient>'+
+        '<linearGradient id="'+id+'plasmaA" x1="0" y1="0" x2="1" y2="1">'+
+          '<stop stop-color="#ff6fc7"/><stop offset=".25" stop-color="#b06cff"/><stop offset=".55" stop-color="#5f8dff"/><stop offset=".78" stop-color="#42e7ff"/><stop offset="1" stop-color="#ffb15a"/>'+
+        '</linearGradient>'+
+        '<linearGradient id="'+id+'plasmaB" x1="1" y1="0" x2="0" y2="1">'+
+          '<stop stop-color="#ffb15a"/><stop offset=".26" stop-color="#ff6fc7"/><stop offset=".62" stop-color="#8a67ff"/><stop offset="1" stop-color="#3ee7ff"/>'+
+        '</linearGradient>'+
+        '<filter id="'+id+'glow" x="-100%" y="-100%" width="300%" height="300%">'+
+          '<feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>'+
+        '</filter>'+
+        '<filter id="'+id+'soft" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="12"/></filter>'+
+      '</defs>'+
+      '<g class="plasma-heat-field">'+
+        '<circle class="heat-blob" cx="220" cy="220" r="160" fill="url(#'+id+'heat)" filter="url(#'+id+'soft)"/>'+
+        '<ellipse class="heat-ring ring-a" cx="220" cy="220" rx="151" ry="108" fill="none" stroke="url(#'+id+'plasmaB)" stroke-width="3" stroke-dasharray="26 38" opacity=".42"/>'+
+        '<ellipse class="heat-ring ring-b" cx="220" cy="220" rx="170" ry="124" fill="none" stroke="url(#'+id+'plasmaA)" stroke-width="2.5" stroke-dasharray="15 48" opacity=".26"/>'+
+        '<ellipse class="heat-ring ring-c" cx="220" cy="220" rx="190" ry="142" fill="none" stroke="url(#'+id+'plasmaB)" stroke-width="2" stroke-dasharray="8 56" opacity=".18"/>'+
+      '</g>'+
+      '<g class="plasma-ripple-field" fill="none" stroke-linecap="round">'+
+        '<circle class="ripple ripple-1" cx="220" cy="220" r="118" stroke="url(#'+id+'plasmaA)" stroke-width="2" opacity=".18"/>'+
+        '<circle class="ripple ripple-2" cx="220" cy="220" r="132" stroke="url(#'+id+'plasmaB)" stroke-width="2" opacity=".14"/>'+
+        '<circle class="ripple ripple-3" cx="220" cy="220" r="146" stroke="url(#'+id+'plasmaA)" stroke-width="2" opacity=".10"/>'+
+      '</g>'+
+      '<g class="plasma-surge-lines" fill="none" stroke-linecap="round" filter="url(#'+id+'glow)">'+
+        '<path class="surge surge-1" d="M220 101 C188 85 156 62 150 25 C175 46 204 39 222 18 C241 45 266 61 300 72" stroke="url(#'+id+'plasmaA)" stroke-width="7" opacity=".7"/>'+
+        '<path class="surge surge-2" d="M320 139 C354 112 387 94 416 108 C394 129 397 157 418 171 C387 179 351 167 325 151" stroke="url(#'+id+'plasmaB)" stroke-width="6" opacity=".62"/>'+
+        '<path class="surge surge-3" d="M321 252 C356 265 390 284 407 316 C381 305 355 319 347 346 C322 322 306 291 311 263" stroke="url(#'+id+'plasmaA)" stroke-width="6" opacity=".62"/>'+
+        '<path class="surge surge-4" d="M220 323 C196 349 176 381 187 415 C204 391 230 396 245 420 C249 382 258 350 277 330" stroke="url(#'+id+'plasmaB)" stroke-width="7" opacity=".56"/>'+
+        '<path class="surge surge-5" d="M122 254 C90 266 57 284 42 317 C65 303 91 317 99 343 C124 318 138 289 132 262" stroke="url(#'+id+'plasmaA)" stroke-width="6" opacity=".58"/>'+
+        '<path class="surge surge-6" d="M118 142 C89 113 53 97 23 111 C46 127 43 154 22 171 C55 180 88 167 114 150" stroke="url(#'+id+'plasmaB)" stroke-width="7" opacity=".68"/>'+
+      '</g>'+
+      '<g class="plasma-filaments" fill="none" stroke-linecap="round" filter="url(#'+id+'glow)">'+
+        '<path d="M79 259 C33 234 37 193 72 186 C102 180 118 206 103 225 C91 240 67 232 69 208 C72 176 108 135 155 117" stroke="url(#'+id+'plasmaA)" stroke-width="9" opacity=".85"/>'+
+        '<path d="M83 309 C42 334 43 376 78 381 C109 385 127 354 108 334 C90 316 65 330 76 354 C94 394 143 401 178 374" stroke="url(#'+id+'plasmaB)" stroke-width="7" opacity=".72"/>'+
+        '<path d="M145 80 C168 35 209 23 226 42 C241 59 227 84 205 84 C184 83 177 61 191 48" stroke="url(#'+id+'plasmaA)" stroke-width="5" opacity=".64"/>'+
+        '<path d="M277 88 C323 56 365 61 360 91 C356 116 325 124 314 104 C303 85 323 67 348 69" stroke="url(#'+id+'plasmaB)" stroke-width="5" opacity=".60"/>'+
+        '<path d="M124 168 C163 127 206 112 243 126 C277 139 289 171 269 190 C250 208 221 190 230 164 C240 134 279 121 315 143 C349 165 362 198 367 227" stroke="url(#'+id+'plasmaA)" stroke-width="8" opacity=".62"/>'+
+        '<path d="M78 243 C112 218 140 180 174 177 C215 175 243 207 223 235 C202 263 165 250 170 222 C176 190 214 179 250 181 C299 185 325 207 349 235" stroke="url(#'+id+'plasmaB)" stroke-width="6" opacity=".54"/>'+
+        '<path d="M116 338 C156 300 190 288 223 302 C258 316 283 344 313 340 C340 336 359 317 369 286" stroke="url(#'+id+'plasmaA)" stroke-width="7" opacity=".60"/>'+
+      '</g>'+
+      '<g class="plasma-spark-field" fill="#dffcff" filter="url(#'+id+'glow)">'+
+        '<circle cx="46" cy="154" r="4"/><circle cx="73" cy="98" r="3"/><circle cx="105" cy="54" r="2.5"/><circle cx="321" cy="104" r="3.5"/><circle cx="384" cy="180" r="3"/><circle cx="367" cy="286" r="3.5"/><circle cx="319" cy="348" r="2.5"/><circle cx="84" cy="346" r="3"/><circle cx="55" cy="282" r="2.5"/>'+
+      '</g>'+
+      '<g class="plasma-core-shell">'+
+        '<circle cx="220" cy="220" r="118" fill="#7d63ff" opacity=".15" filter="url(#'+id+'soft)"/>'+
+        '<circle cx="220" cy="220" r="106" fill="url(#'+id+'hotCore)" stroke="#987cff" stroke-opacity=".44" stroke-width="2.5"/>'+
+        '<ellipse cx="188" cy="176" rx="72" ry="48" fill="#9cc9ff" opacity=".06"/>'+
+        '<path class="core-hot-line" d="M137 158 C160 131 190 119 222 120 C252 122 280 135 299 160" fill="none" stroke="url(#'+id+'plasmaA)" stroke-width="4" opacity=".62"/>'+
+        '<path class="core-hot-line lower" d="M135 277 C160 301 190 313 219 313 C251 312 281 299 300 274" fill="none" stroke="url(#'+id+'plasmaB)" stroke-width="4" opacity=".55"/>'+
+        '<circle class="core-pulse" cx="220" cy="220" r="91" fill="none" stroke="#7cefff" stroke-width="1.5" opacity=".12"/>'+
+      '</g>'+
+      '<g class="plasma-face face face-smile" fill="none" stroke="#effcff" stroke-linecap="round">'+
+        '<path d="M156 210 Q174 188 192 209" stroke-width="10"/><path d="M248 209 Q267 188 284 210" stroke-width="10"/><path d="M190 238 Q220 270 250 238" stroke="#71eaff" stroke-width="5"/><path d="M163 251 Q220 298 277 251" stroke-width="9"/>'+
+      '</g>'+
+      '<g class="plasma-face face face-curious" fill="none" stroke="#effcff" stroke-linecap="round">'+
+        '<path d="M157 207 Q176 190 194 208" stroke-width="9"/><path d="M247 205 Q267 194 284 211" stroke-width="8"/><path d="M205 234 Q220 244 234 234" stroke="#71eaff" stroke-width="5"/><path d="M188 254 Q218 268 248 251" stroke-width="7"/>'+
+      '</g>'+
+      '<g class="plasma-face face face-surprised" fill="none" stroke="#effcff" stroke-linecap="round">'+
+        '<path d="M156 207 Q175 186 194 207" stroke-width="10"/><path d="M247 207 Q266 186 284 207" stroke-width="10"/><circle cx="220" cy="253" r="13" stroke="#71eaff" stroke-width="5"/>'+
+      '</g>'+
+      '<g class="plasma-face face face-wink" fill="none" stroke="#effcff" stroke-linecap="round">'+
+        '<path d="M157 208 Q176 188 194 208" stroke-width="10"/><path d="M248 210 Q267 200 284 210" stroke-width="8"/><path d="M205 236 Q220 245 234 236" stroke="#71eaff" stroke-width="4"/><path d="M166 252 Q220 298 272 252" stroke-width="9"/>'+
+      '</g>'+
+      '<g class="plasma-face face face-sleepy" fill="none" stroke="#effcff" stroke-linecap="round">'+
+        '<path d="M157 210 Q176 219 194 210" stroke-width="8"/><path d="M247 210 Q266 219 284 210" stroke-width="8"/><path d="M188 252 Q220 264 252 252" stroke-width="7"/>'+
+      '</g>'+
+      '<g class="plasma-face face face-playful" fill="none" stroke="#effcff" stroke-linecap="round">'+
+        '<path d="M157 207 Q176 190 194 208" stroke-width="9"/><path d="M248 208 Q267 190 284 212" stroke-width="10"/><path d="M206 235 Q219 245 234 234" stroke="#71eaff" stroke-width="5"/><path d="M164 250 Q211 293 274 245" stroke-width="9"/><path d="M269 246 l12 5" stroke="#71eaff" stroke-width="4"/>'+
+      '</g>'+
+      '<g class="plasma-face face face-soft" fill="none" stroke="#effcff" stroke-linecap="round">'+
+        '<path d="M158 209 Q176 190 194 208" stroke-width="9"/><path d="M248 208 Q266 190 284 209" stroke-width="9"/><path d="M198 238 Q220 251 242 238" stroke="#71eaff" stroke-width="5"/><path d="M181 253 Q220 275 259 253" stroke-width="8"/>'+
+      '</g>'+
+      '<g class="plasma-face face face-blink" fill="none" stroke="#effcff" stroke-linecap="round">'+
+        '<path d="M156 210 Q175 218 194 210" stroke-width="8"/><path d="M247 210 Q266 218 284 210" stroke-width="8"/><path d="M188 253 Q220 267 252 253" stroke-width="8"/>'+
+      '</g>'+
+      '<g class="plasma-gaze" fill="#77eaff"><circle cx="188" cy="208" r="3.2"/><circle cx="252" cy="208" r="3.2"/></g>'+
+      '<ellipse class="plasma-base-ring" cx="220" cy="358" rx="104" ry="14" fill="none" stroke="#9c6cff" stroke-width="3" opacity=".55"/>'+
+      '<ellipse class="plasma-base-ring cool" cx="220" cy="358" rx="76" ry="8" fill="none" stroke="#48e7ff" stroke-width="2" opacity=".62"/>'+
+    '</svg>';
+  }
 
-function setExpression(host,expr){
-  const svg=host.querySelector(".akira-entity-reference");
-  if(!svg)return;
-  svg.dataset.expression=expr;
-  const faces=svg.querySelectorAll(".akira-reference-face");
-  faces.forEach(face=>face.classList.toggle("is-visible",face.classList.contains("face-"+expr)));
-}
+  function setExpression(host,expr){
+    const svg=host.querySelector(".akira-plasma-nucleus");
+    if(!svg)return;
+    svg.dataset.expression=expr;
+    svg.querySelectorAll(".face").forEach(f=>{
+      f.classList.toggle("is-active",f.classList.contains("face-"+expr));
+    });
+  }
 
-function randomBetween(a,b){return a+Math.random()*(b-a);}
-
-function startLife(host){
-  if(host.__akiraLife)return;
-  let alive=true, expressionTimer=0, blinkTimer=0, burstTimer=0, resumeTimer=0;
-  const svg=host.querySelector(".akira-entity-reference");
-  if(!svg)return;
-
-  function nextExpression(force){
-    if(!alive)return;
-    const expr=force||EXPRESSIONS[Math.floor(Math.random()*EXPRESSIONS.length)];
+  function emitReaction(host,expr="playful",duration=900){
+    if(!host||!host.__akiraEntity)return;
+    const svg=host.querySelector(".akira-plasma-nucleus");
+    if(!svg)return;
     setExpression(host,expr);
-    clearTimeout(expressionTimer);
-    const duration=(expr==="blink"?180:randomBetween(620,1450));
-    expressionTimer=setTimeout(()=>{
-      if(!alive)return;
-      setExpression(host,"happy");
-      scheduleExpression();
+    svg.classList.remove("reaction-now");
+    void svg.getBoundingClientRect();
+    svg.classList.add("reaction-now");
+    clearTimeout(host.__akiraEntity.__reactionTimer);
+    host.__akiraEntity.__reactionTimer=setTimeout(()=>{
+      if(host.__akiraEntity)setExpression(host,EXPRESSIONS[Math.floor(Math.random()*EXPRESSIONS.length)]);
     },duration);
   }
-  function scheduleExpression(){
-    clearTimeout(blinkTimer);
-    blinkTimer=setTimeout(()=>nextExpression(),randomBetween(1300,4300));
-  }
-  function scheduleBurst(){
-    if(!alive)return;
-    clearTimeout(burstTimer);
-    burstTimer=setTimeout(()=>{
-      const bursts=svg.querySelectorAll(".plasma-burst");
-      const filaments=svg.querySelectorAll(".plasma-filament");
-      const waves=svg.querySelectorAll(".plasma-wave");
-      const burstCount=Math.random()<.18?2:1;
-      for(let i=0;i<burstCount;i++){
-        const el=bursts[Math.floor(Math.random()*bursts.length)];
-        if(!el)continue;
-        el.classList.remove("burst-now");
-        void el.getBoundingClientRect();
-        el.classList.add("burst-now");
-        setTimeout(()=>el.classList.remove("burst-now"),760);
-      }
-      const filament=filaments[Math.floor(Math.random()*filaments.length)];
-      if(filament){
-        filament.classList.remove("filament-now");
-        void filament.getBoundingClientRect();
-        filament.classList.add("filament-now");
-        setTimeout(()=>filament.classList.remove("filament-now"),1100);
-      }
-      const wave=waves[Math.floor(Math.random()*waves.length)];
-      if(wave){
-        wave.classList.remove("wave-now");
-        void wave.getBoundingClientRect();
-        wave.classList.add("wave-now");
-        setTimeout(()=>wave.classList.remove("wave-now"),1200);
-      }
-      const sparks=svg.querySelectorAll(".akira-plasma-burst-sparks circle");
-      for(let i=0;i<sparks.length;i++)sparks[i].style.setProperty("--spark-delay",randomBetween(0,260)+"ms");
-      scheduleBurst();
-    },randomBetween(1700,4300));
-  }
 
-  const pointerMove=(event)=>{
-    const r=host.getBoundingClientRect();
-    if(!r.width||!r.height)return;
-    const x=(event.clientX-r.left)/r.width-.5;
-    const y=(event.clientY-r.top)/r.height-.5;
-    const gx=Math.max(-5,Math.min(5,x*10));
-    const gy=Math.max(-4,Math.min(4,y*7));
-    svg.style.setProperty("--gaze-x",gx+"px");
-    svg.style.setProperty("--gaze-y",gy+"px");
-    setExpression(host,Math.abs(x)>0.22?"curious":"happy");
-    clearTimeout(resumeTimer);
-    resumeTimer=setTimeout(scheduleExpression,1100);
-  };
-  const pointerLeave=()=>{
-    svg.style.setProperty("--gaze-x","0px");
-    svg.style.setProperty("--gaze-y","0px");
-    clearTimeout(resumeTimer);
-    resumeTimer=setTimeout(scheduleExpression,500);
-  };
-  const activate=()=>{
-    setExpression(host,"playful");
-    clearTimeout(resumeTimer);
-    resumeTimer=setTimeout(scheduleExpression,1150);
-  };
+  function startLife(host,controller){
+    if(host.__akiraLife)return;
+    const svg=host.querySelector(".akira-plasma-nucleus");
+    if(!svg)return;
+    let alive=true,exprTimer=0,blinkTimer=0,burstTimer=0,reactionTimer=0;
 
-  host.addEventListener("pointermove",pointerMove,{passive:true});
-  host.addEventListener("pointerleave",pointerLeave,{passive:true});
-  host.addEventListener("pointerdown",activate,{passive:true});
+    function chooseExpression(forced){
+      if(!alive)return;
+      const e=forced||EXPRESSIONS[Math.floor(Math.random()*EXPRESSIONS.length)];
+      setExpression(host,e);
+      clearTimeout(exprTimer);
+      exprTimer=setTimeout(()=>chooseExpression("soft"),rand(650,1450));
+    }
+    function scheduleExpressions(){
+      clearTimeout(blinkTimer);
+      blinkTimer=setTimeout(()=>{
+        chooseExpression();
+        if(Math.random()<.28){
+          clearTimeout(reactionTimer);
+          reactionTimer=setTimeout(()=>chooseExpression("blink"),rand(350,900));
+        }
+        scheduleExpressions();
+      },rand(1300,4300));
+    }
+    function scheduleBursts(){
+      if(!alive)return;
+      clearTimeout(burstTimer);
+      burstTimer=setTimeout(()=>{
+        const svgBursts=svg.querySelectorAll(".surge");
+        const ripples=svg.querySelectorAll(".ripple");
+        const rings=svg.querySelectorAll(".heat-ring");
+        const count=Math.random()<.2?2:1;
+        for(let i=0;i<count;i++){
+          const el=svgBursts[Math.floor(Math.random()*svgBursts.length)];
+          if(!el)continue;
+          el.classList.remove("surge-now");void el.getBoundingClientRect();el.classList.add("surge-now");
+          setTimeout(()=>el.classList.remove("surge-now"),900);
+        }
+        const r=ripples[Math.floor(Math.random()*ripples.length)];
+        if(r){r.classList.remove("ripple-now");void r.getBoundingClientRect();r.classList.add("ripple-now");setTimeout(()=>r.classList.remove("ripple-now"),1300);}
+        const h=rings[Math.floor(Math.random()*rings.length)];
+        if(h){h.classList.remove("heat-now");void h.getBoundingClientRect();h.classList.add("heat-now");setTimeout(()=>h.classList.remove("heat-now"),1050);}
+        scheduleBursts();
+      },rand(1600,4200));
+    }
 
-  setExpression(host,"happy");
-  scheduleExpression();
-  scheduleBurst();
+    const pointerMove=ev=>{
+      const rect=host.getBoundingClientRect();
+      if(!rect.width||!rect.height)return;
+      const x=clamp((ev.clientX-rect.left)/rect.width-.5,-.5,.5);
+      const y=clamp((ev.clientY-rect.top)/rect.height-.5,-.5,.5);
+      svg.style.setProperty("--gaze-x",(x*12).toFixed(2)+"px");
+      svg.style.setProperty("--gaze-y",(y*8).toFixed(2)+"px");
+      if(Math.abs(x)>.20||Math.abs(y)>.20)chooseExpression("curious");
+    };
+    const pointerLeave=()=>{
+      svg.style.setProperty("--gaze-x","0px");
+      svg.style.setProperty("--gaze-y","0px");
+    };
+    const touch=()=>emitReaction(host,Math.random()<.5?"playful":"surprised",1000);
 
-  host.__akiraLife={
-    destroy(){
+    host.addEventListener("pointermove",pointerMove,{passive:true});
+    host.addEventListener("pointerleave",pointerLeave,{passive:true});
+    host.addEventListener("pointerdown",touch,{passive:true});
+
+    setExpression(host,"smile");
+    scheduleExpressions();
+    scheduleBursts();
+
+    host.__akiraLife={destroy(){
       alive=false;
-      clearTimeout(expressionTimer);clearTimeout(blinkTimer);clearTimeout(burstTimer);clearTimeout(resumeTimer);
+      clearTimeout(exprTimer);clearTimeout(blinkTimer);clearTimeout(burstTimer);clearTimeout(reactionTimer);
       host.removeEventListener("pointermove",pointerMove);
       host.removeEventListener("pointerleave",pointerLeave);
-      host.removeEventListener("pointerdown",activate);
-    }
-  };
-}
-
-function apply(host,state){
-  host.dataset.state=state;
-  host.setAttribute("aria-label","Akira · "+STATES[state].label);
-  const svg=host.querySelector(".akira-entity-reference");
-  if(!svg)return;
-  svg.dataset.state=state;
-  svg.style.setProperty("--akira-speed",STATES[state].speed);
-  svg.classList.remove("state-thinking","state-searching","state-learning","state-remembering","state-executing","state-success","state-uncertain","state-error","state-playful");
-  if(state!=="idle")svg.classList.add("state-"+state);
-}
-
-function mountOne(host){
-  if(!host)return null;
-  if(host.__akiraEntity)return host.__akiraEntity;
-  host.classList.add("akira-entity-slot","is-akira-entity");
-  host.setAttribute("role","img");
-  const size=Number(host.dataset.size||0);
-  if(size){
-    host.style.width=host.style.width||size+"px";
-    host.style.height=host.style.height||size+"px";
+      host.removeEventListener("pointerdown",touch);
+    }};
   }
-  host.innerHTML=svgMarkup();
-  let state=norm(host.dataset.state||"idle");
-  let alive=true;
-  let stateTimer=0;
 
-  const setState=(next,opts)=>{
-    state=norm(next);apply(host,state);
-    if(state==="success"&&!(opts&&opts.persist)){
-      clearTimeout(stateTimer);
-      stateTimer=setTimeout(()=>alive&&setState("idle"),1500);
+  function applyState(host,state){
+    host.dataset.state=state;
+    host.setAttribute("aria-label","Akira · "+STATES[state].label);
+    const svg=host.querySelector(".akira-plasma-nucleus");
+    if(!svg)return;
+    svg.dataset.state=state;
+    svg.style.setProperty("--akira-energy",STATES[state].energy);
+  }
+
+  function mountOne(host){
+    if(!host)return null;
+    if(host.__akiraEntity)return host.__akiraEntity;
+    host.classList.add("akira-entity-slot","is-akira-entity");
+    host.setAttribute("role","img");
+    const size=Number(host.dataset.size||0);
+    if(size){
+      host.style.width=host.style.width||size+"px";
+      host.style.height=host.style.height||size+"px";
     }
-  };
+    host.innerHTML=markup();
+    let state=normalizeState(host.dataset.state||"idle");
+    let alive=true;
+    let timer=0;
+    const controller={
+      setState(next,opts){
+        state=normalizeState(next);applyState(host,state);
+        if(state==="success"&&!(opts&&opts.persist)){
+          clearTimeout(timer);
+          timer=setTimeout(()=>alive&&controller.setState("idle"),1500);
+        }
+      },
+      getState:()=>state,
+      react:(expr,duration)=>emitReaction(host,expr,duration),
+      resize:()=>{},
+      destroy(){
+        alive=false;
+        clearTimeout(timer);
+        if(host.__akiraLife){host.__akiraLife.destroy();host.__akiraLife=null;}
+        clearTimeout(controller.__reactionTimer);
+        host.__akiraEntity=null;
+        host.innerHTML="";
+      }
+    };
+    host.__akiraEntity=controller;
+    applyState(host,state);
+    startLife(host,controller);
+    return controller;
+  }
 
-  const c={
+  function mountAll(root){
+    const base=root||document;
+    const list=base.querySelectorAll?base.querySelectorAll("[data-akira-entity],.akira-entity-slot"):[];
+    list.forEach(mountOne);
+    return list.length;
+  }
+
+  function setState(next,target){
+    const list=typeof target==="string"
+      ?document.querySelectorAll(target)
+      :document.querySelectorAll("[data-akira-entity],.akira-entity-slot");
+    list.forEach(el=>{const c=mountOne(el);if(c)c.setState(next);});
+  }
+
+  function reactAll(expr,duration,target){
+    const list=target
+      ?document.querySelectorAll(target)
+      :document.querySelectorAll("[data-akira-entity],.akira-entity-slot");
+    list.forEach(el=>{const c=mountOne(el);if(c)c.react(expr,duration);});
+  }
+
+  function wireConversationReactions(){
+    if(document.__akiraConversationReactions)return;
+    document.__akiraConversationReactions=true;
+
+    const react=expr=>reactAll(expr,1100);
+
+    document.addEventListener("click",ev=>{
+      const send=ev.target&&ev.target.closest?ev.target.closest("#sendBtn"):null;
+      if(send)react("curious");
+    },true);
+
+    document.addEventListener("keydown",ev=>{
+      if(ev.key!=="Enter"||ev.shiftKey)return;
+      const msg=ev.target&&ev.target.closest?ev.target.closest("#msg"):null;
+      if(msg)react("curious");
+    },true);
+
+    const msgs=document.getElementById("msgsInner");
+    if(msgs){
+      const observer=new MutationObserver(mutations=>{
+        let user=false,akira=false;
+        mutations.forEach(m=>{
+          m.addedNodes&&Array.from(m.addedNodes).forEach(n=>{
+            if(!(n instanceof HTMLElement))return;
+            if(n.classList.contains("user")||n.querySelector(".msg-row.user"))user=true;
+            if(n.classList.contains("akira")||n.querySelector(".msg-row.akira"))akira=true;
+          });
+        });
+        if(user)react("surprised");
+        if(akira)react("smile");
+      });
+      observer.observe(msgs,{childList:true,subtree:true});
+    }
+
+    ["akira:chat-user-message","akira:chat-response-start","akira:chat-response-done","akira:chat-error"].forEach(eventName=>{
+      document.addEventListener(eventName,()=>{
+        const map={
+          "akira:chat-user-message":"curious",
+          "akira:chat-response-start":"curious",
+          "akira:chat-response-done":"smile",
+          "akira:chat-error":"surprised"
+        };
+        react(map[eventName]||"playful");
+      });
+    });
+  }
+
+  window.AkiraEntity={
+    states:Object.keys(STATES),
+    expressions:EXPRESSIONS.slice(),
+    mount:mountOne,
+    mountAll,
     setState,
-    getState:()=>state,
-    resize:()=>{},
-    destroy:()=>{
-      alive=false;
-      clearTimeout(stateTimer);
-      if(host.__akiraLife){host.__akiraLife.destroy();host.__akiraLife=null;}
-      host.__akiraEntity=null;
-      host.innerHTML="";
-    }
+    react:reactAll,
+    stateInfo:s=>STATES[normalizeState(s)]
   };
+  window.akiraEntitySetState=setState;
+  window.akiraEntityMount=mountOne;
+  window.akiraEntityReact=reactAll;
 
-  host.__akiraEntity=c;
-  apply(host,state);
-  startLife(host);
-  return c;
-}
-
-function mountAll(root){
-  const b=root||document;
-  const list=b.querySelectorAll?b.querySelectorAll("[data-akira-entity],.akira-entity-slot"):[];
-  list.forEach(mountOne);
-  return list.length;
-}
-
-function setState(next,target){
-  const list=typeof target==="string"
-    ?document.querySelectorAll(target)
-    :document.querySelectorAll("[data-akira-entity],.akira-entity-slot");
-  list.forEach(el=>{const c=mountOne(el);if(c)c.setState(next);});
-}
-
-window.AkiraEntity={
-  states:Object.keys(STATES),
-  expressions:EXPRESSIONS.slice(),
-  mount:mountOne,
-  mountAll,
-  setState,
-  stateInfo:s=>STATES[norm(s)]
-};
-window.akiraEntitySetState=setState;
-window.akiraEntityMount=mountOne;
-
-document.addEventListener("DOMContentLoaded",()=>{
-  mountAll(document);
-  window.dispatchEvent(new CustomEvent("akira:entity-ready"));
-});
+  document.addEventListener("DOMContentLoaded",()=>{
+    mountAll(document);
+    wireConversationReactions();
+    window.dispatchEvent(new CustomEvent("akira:entity-ready"));
+  });
 })();
