@@ -52,7 +52,8 @@
       nav.querySelectorAll("[data-ak-mobile-go]").forEach(btn=>{
         btn.addEventListener("click",()=>{
           const target=btn.getAttribute("data-ak-mobile-go");
-          clickSection(target==="more"?"admin":target);
+          if(target==="more"){toggleSidebar();return;}
+          clickSection(target);
         });
       });
       nav.dataset.wired="1";
@@ -61,7 +62,8 @@
     if(back&&!back.dataset.wired){
       back.addEventListener("click",()=>{
         const active=qsa(".section.active").find(x=>x.id);
-        clickSection(active&&active.id==="homeSection"?"admin":"home");
+        if(active&&active.id==="homeSection"){toggleSidebar();return;}
+        clickSection("home");
       });
       back.dataset.wired="1";
     }
@@ -142,5 +144,14 @@
   function setupTopbar(){const model=qs(".topbar .model-pill");if(model)model.textContent="Pregunta algo a Akira..."}
   function mountHome(){const main=qs(".main");if(!main)return;let home=qs("#homeSection");if(!home){home=document.createElement("div");home.id="homeSection";home.className="section ak-reference-home";const chat=qs("#chatSection");if(chat)main.insertBefore(home,chat);else main.appendChild(home)}home.innerHTML=homeMarkup();qsa("[data-ak-ref-go]",home).forEach(el=>el.addEventListener("click",()=>clickSection(el.getAttribute("data-ak-ref-go"))));if(window.AkiraEntity&&window.AkiraEntity.mountAll)window.AkiraEntity.mountAll(home)}
    document.addEventListener("DOMContentLoaded",function(){document.body.classList.add("ak-reference-mode");ensureMobileChrome();setupNav();setupTopbar();mountHome();ensureMobileChatIntro();if(typeof window.showSection==="function" && !qsa(".section.active").some(s=>s.id && s.id!=="chatSection"))window.showSection("home")});
+    window.addEventListener("akira:section-shown",function(event){
+    if(!event||!event.detail||event.detail.section!=="office")return;
+    requestAnimationFrame(function(){
+      try{
+        if(typeof window.initAkiraOfficePixel==="function")window.initAkiraOfficePixel();
+        if(typeof window.resizeAkiraOfficePixel==="function")window.resizeAkiraOfficePixel();
+      }catch(_){}
+    });
+  });
   window.AkiraReferenceWorkspace={mountHome,setupNav};
 })();
