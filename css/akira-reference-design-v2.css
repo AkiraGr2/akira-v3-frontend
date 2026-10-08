@@ -402,3 +402,165 @@ body.ak-reference-mode .brand p{font-family:system-ui,-apple-system,sans-serif!i
   .akira-reference-core,
   .akira-reference-particles{animation:none!important}
 }
+
+
+/* V5 — approved mobile Chat reference shell + living plasma */
+.akira-plasma-waves .plasma-wave{
+  transform-box:fill-box;transform-origin:center;opacity:.06;
+  animation:ak-plasma-wave-breathe 5.4s ease-in-out infinite;
+}
+.akira-plasma-waves .wave-2{animation-delay:.7s;animation-duration:6.1s}
+.akira-plasma-waves .wave-3{animation-delay:1.2s;animation-duration:6.8s}
+.akira-plasma-waves .wave-4{animation-delay:1.8s;animation-duration:7.2s}
+.akira-plasma-waves .plasma-wave.wave-now{animation:ak-plasma-wave-burst 1.15s cubic-bezier(.18,.7,.2,1) both}
+.akira-plasma-filaments .plasma-filament{transform-box:fill-box;transform-origin:center;animation:ak-filament-flow 5s ease-in-out infinite}
+.akira-plasma-filaments .filament-2{animation-delay:.8s}.akira-plasma-filaments .filament-3{animation-delay:1.4s}.akira-plasma-filaments .filament-4{animation-delay:2s}
+.akira-plasma-filaments .plasma-filament.filament-now{animation:ak-filament-burst 1.05s cubic-bezier(.12,.78,.16,1) both}
+@keyframes ak-plasma-wave-breathe{0%,100%{transform:scale(.93);opacity:.035}50%{transform:scale(1.03);opacity:.13}}
+@keyframes ak-plasma-wave-burst{0%{transform:scale(.82);opacity:.04}35%{transform:scale(1.06);opacity:.22}100%{transform:scale(1.2);opacity:0}}
+@keyframes ak-filament-flow{0%,100%{transform:translate(0,0) rotate(0deg);opacity:.42}50%{transform:translate(0,-4px) rotate(1deg);opacity:.82}}
+@keyframes ak-filament-burst{0%{transform:scale(.86);opacity:.15}25%{transform:scale(1.04);opacity:1}65%{transform:scale(1.12);opacity:.62}100%{transform:scale(1.18);opacity:0}}
+.akira-entity-reference .akira-gaze-dot{transform-box:fill-box;transform-origin:center;transition:transform .16s ease-out}
+
+.ak-mobile-reference-header,.ak-mobile-reference-nav{display:none}
+
+@media(max-width:768px){
+  body.ak-reference-mode .topbar{display:none!important}
+  body.ak-reference-mode .main{padding:0!important}
+  .ak-mobile-reference-header{
+    position:fixed;display:grid;grid-template-columns:46px 1fr 46px;align-items:center;
+    left:0;right:0;top:0;height:64px;z-index:500;
+    padding:0 10px;
+    background:rgba(3,7,18,.94);
+    border-bottom:1px solid rgba(135,122,219,.17);
+    box-shadow:0 12px 34px rgba(0,0,0,.38);
+    backdrop-filter:blur(18px);
+  }
+  .ak-mobile-reference-header button{
+    width:40px;height:40px;border:1px solid rgba(148,127,255,.20);
+    border-radius:12px;background:rgba(15,20,40,.62);color:#f4f0ff;
+    font:24px/1 system-ui,sans-serif;display:grid;place-items:center;cursor:pointer;
+  }
+  .ak-mobile-title{
+    justify-self:center;color:#f3efff;font:500 16px/1 system-ui,-apple-system,sans-serif;
+    letter-spacing:.30em;text-transform:uppercase;text-align:center;
+  }
+  .ak-mobile-reference-header .ak-mobile-bell{font-size:22px}
+  .ak-mobile-reference-nav{
+    position:fixed;left:9px;right:9px;bottom:8px;display:grid;grid-template-columns:repeat(5,1fr);
+    z-index:500;padding:6px;border-radius:18px;
+    background:rgba(7,11,22,.94);border:1px solid rgba(138,126,194,.20);
+    box-shadow:0 18px 40px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.04);
+    backdrop-filter:blur(18px);
+  }
+  .ak-mobile-reference-nav button{
+    min-height:48px;border:0;background:transparent;border-radius:12px;color:#919bb3;
+    font:12px/1 system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;
+    gap:4px;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .ak-mobile-reference-nav button span{font-size:18px;line-height:1}
+  .ak-mobile-reference-nav button small{font-size:9px}
+  .ak-mobile-reference-nav button.active{color:#fff;background:rgba(117,82,255,.16);box-shadow:inset 0 0 0 1px rgba(143,119,255,.20)}
+  #homeSection.ak-reference-home{padding-top:64px!important}
+  #chatSection{
+    padding-top:64px!important;
+    padding-bottom:74px!important;
+  }
+  #chatSection .chat-wrap{height:calc(100dvh - 138px)!important}
+  #chatSection .msgs{
+    background:
+      radial-gradient(420px 300px at 50% 6%,rgba(117,71,255,.18),transparent 72%),
+      linear-gradient(180deg,#070d1b 0%,#040712 82%,#03050c 100%);
+  }
+  #chatSection .msgs-inner{
+    max-width:none!important;
+    padding:18px 16px 30px!important;
+  }
+  .ak-chat-reference-intro{
+    display:flex;flex-direction:column;align-items:center;text-align:center;
+    min-height:610px;padding:16px 10px 8px;
+  }
+  .ak-chat-reference-orb{
+    width:min(72vw,300px);height:min(72vw,300px);margin:0 auto 8px;
+    display:flex;align-items:center;justify-content:center;
+    filter:drop-shadow(0 18px 38px rgba(58,68,255,.17));
+  }
+  .ak-chat-reference-orb .akira-entity-slot{width:100%!important;height:100%!important}
+  .ak-chat-reference-intro h2{
+    color:#fff;font:700 33px/1.02 system-ui,-apple-system,sans-serif;
+    letter-spacing:-.04em;margin:2px 0 10px;
+  }
+  .ak-chat-reference-intro h2 span{
+    background:linear-gradient(90deg,#c17dff,#60b3ff);
+    -webkit-background-clip:text;background-clip:text;color:transparent
+  }
+  .ak-chat-reference-intro>p{
+    margin:0 0 18px;color:#bbc3d6;font:400 14px/1.5 system-ui,-apple-system,sans-serif
+  }
+  .ak-chat-reference-actions{
+    width:100%;max-width:340px;display:grid;gap:9px;
+  }
+  .ak-chat-reference-actions button{
+    min-height:46px;width:100%;border-radius:15px;
+    border:1px solid rgba(134,123,186,.22);
+    background:rgba(14,20,37,.75);color:#eef1ff;text-align:left;padding:0 16px;
+    font:500 13px/1 system-ui,-apple-system,sans-serif;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.035);
+  }
+  .ak-chat-reference-actions button:first-child{
+    background:linear-gradient(135deg,#875bff,#5a73ff);
+    border-color:rgba(167,143,255,.46);
+    box-shadow:0 12px 28px rgba(105,78,255,.25)
+  }
+  .ak-ref-legacy-chat-intro{display:none!important}
+  #chatSection .msg-row.akira .avatar{
+    width:44px!important;height:44px!important;flex:0 0 44px!important;
+    overflow:visible!important;background:transparent!important;box-shadow:none!important;
+  }
+  #chatSection .msg-row.akira .bubble{
+    border-radius:18px!important;padding:12px 14px!important;
+    background:rgba(10,15,29,.72)!important;border:1px solid rgba(119,132,174,.14)!important;
+    color:#eef2ff!important;box-shadow:0 14px 32px rgba(0,0,0,.18)!important;
+    font:400 15px/1.65 system-ui,-apple-system,sans-serif!important;
+  }
+  #chatSection .msg-row.user .bubble{
+    border-radius:18px!important;padding:12px 14px!important;
+    background:rgba(23,31,51,.90)!important;border:1px solid rgba(116,130,174,.18)!important;
+    box-shadow:0 14px 32px rgba(0,0,0,.18)!important;
+    font:400 15px/1.55 system-ui,-apple-system,sans-serif!important;
+  }
+  #chatSection .input-bar{
+    position:fixed!important;left:0;right:0;bottom:74px;z-index:490;
+    padding:8px 10px!important;
+    background:rgba(3,6,15,.97)!important;
+    border-top:1px solid rgba(132,120,193,.18)!important;
+    box-shadow:0 -12px 32px rgba(0,0,0,.30)
+  }
+  #chatSection .input-inner{
+    max-width:none!important;gap:7px!important;align-items:center!important;
+  }
+  #chatSection .icon-btn{
+    width:46px!important;height:46px!important;border:1px solid rgba(134,125,173,.22)!important;
+    border-radius:14px!important;background:rgba(15,21,38,.85)!important;
+    box-shadow:none!important;font-size:19px!important;
+  }
+  #chatSection #msg{
+    min-height:46px!important;max-height:92px!important;
+    border:1px solid rgba(134,125,173,.22)!important;border-radius:14px!important;
+    background:rgba(14,19,34,.82)!important;padding:11px 12px!important;
+    font:400 13px/1.35 system-ui,-apple-system,sans-serif!important;
+  }
+  #chatSection .send-btn{
+    width:46px!important;height:46px!important;border:0!important;border-radius:14px!important;
+    background:linear-gradient(135deg,#8b5cff,#6579ff)!important;
+    box-shadow:0 10px 26px rgba(102,77,255,.25)!important;
+  }
+  #chatSection .quick-actions{display:none!important}
+}
+
+@media(max-width:420px){
+  .ak-mobile-title{font-size:15px;letter-spacing:.26em}
+  .ak-chat-reference-orb{width:78vw;height:78vw;max-height:290px;max-width:290px}
+  .ak-chat-reference-intro{min-height:590px;padding-top:6px}
+  .ak-chat-reference-intro h2{font-size:30px}
+}
