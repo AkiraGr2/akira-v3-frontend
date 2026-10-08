@@ -317,8 +317,8 @@ function mountOne(host){
   }
 
   function pointerLeave(){
-    motion.pointer.x=lerp(motion.pointer.x,0,.35);
-    motion.pointer.y=lerp(motion.pointer.y,0,.35);
+    motion.pointer.x=0;
+    motion.pointer.y=0;
   }
 
   function onVisibility(){
