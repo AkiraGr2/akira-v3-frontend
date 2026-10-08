@@ -134,3 +134,81 @@ body.ak-reference-mode .brand p{font-family:system-ui,-apple-system,sans-serif!i
 @media(prefers-reduced-motion:reduce){
  .akira-reference-ribbons,.akira-reference-particles,.akira-reference-core,.akira-reference-ribbons path{animation:none!important}
 }
+
+
+/* =========================================================
+   RESPONSIVE + TRUTHFUL HOME PASS
+   ========================================================= */
+body.ak-reference-mode .ak-mobile-reference-header,
+body.ak-reference-mode .ak-mobile-reference-nav{
+  display:none!important;
+}
+.ak-ref-truth-note{margin-top:12px!important;color:#7f8aa4!important;font-size:10px!important;line-height:1.5!important}
+.ak-ref-empty{padding:10px 0;color:#7f8aa4;font-size:10px;line-height:1.5}
+.ak-ref-pill.is-error{color:#ff9aa9!important;border-color:rgba(251,113,133,.30)!important;background:rgba(251,113,133,.06)!important}
+.ak-ref-stat .ring{background:rgba(255,255,255,.045)!important}
+.ak-ref-stat .ring::after{background:#0b1020!important}
+
+@media (max-width:1100px), (pointer:coarse){
+  body.ak-reference-mode{display:flex!important;min-width:0!important}
+  body.ak-reference-mode .sidebar{
+    position:fixed!important;left:0!important;top:0!important;bottom:0!important;
+    width:min(286px,86vw)!important;min-width:min(286px,86vw)!important;
+    transform:translateX(-105%)!important;z-index:60!important;overflow-y:auto!important;
+    transition:transform .22s ease!important;
+  }
+  body.ak-reference-mode .sidebar.open{transform:translateX(0)!important}
+  body.ak-reference-mode .main{width:100%!important;min-width:0!important;flex:1 1 auto!important}
+  body.ak-reference-mode .hamburger{
+    display:flex!important;width:40px!important;height:40px!important;flex:0 0 40px!important;
+    border:1px solid rgba(150,127,255,.25)!important;border-radius:11px!important;background:rgba(17,24,39,.76)!important;
+  }
+  body.ak-reference-mode .topbar{padding:0 12px!important;gap:8px!important}
+  body.ak-reference-mode .topbar .model-pill{
+    width:auto!important;min-width:0!important;max-width:none!important;flex:1 1 auto!important;padding:8px 11px!important;font-size:10px!important;
+  }
+  body.ak-reference-mode .topbar > div:first-child{min-width:0!important;flex:1 1 auto!important}
+  body.ak-reference-mode .ak-ref-scroll{padding:10px 10px 24px!important}
+  body.ak-reference-mode .ak-ref-hero{
+    min-height:0!important;display:grid!important;grid-template-columns:1fr 1fr!important;
+    gap:10px!important;padding:18px!important;overflow:hidden!important;
+  }
+  body.ak-reference-mode .ak-ref-greeting{
+    position:relative!important;left:auto!important;top:auto!important;width:auto!important;
+    grid-column:1/-1!important;padding:2px 2px 0!important;z-index:6!important;
+  }
+  body.ak-reference-mode .ak-ref-greeting h2{font-size:clamp(29px,5vw,38px)!important}
+  body.ak-reference-mode .ak-ref-greeting p{max-width:520px!important}
+  body.ak-reference-mode .ak-ref-orb-stage{
+    position:relative!important;left:auto!important;top:auto!important;transform:none!important;
+    width:min(68vw,390px)!important;justify-self:center!important;grid-column:1/-1!important;
+    aspect-ratio:1!important;min-height:260px!important;z-index:3!important;
+  }
+  body.ak-reference-mode .ak-ref-floating{
+    position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;
+    min-width:0!important;max-width:none!important;width:100%!important;padding:11px 12px!important;align-self:stretch!important;z-index:5!important;
+  }
+  body.ak-reference-mode .ak-ref-floating span{display:block!important;font-size:10px!important}
+  body.ak-reference-mode .ak-ref-date-card{display:none!important}
+  body.ak-reference-mode .ak-ref-lower{grid-template-columns:1fr 1fr!important;gap:10px!important}
+  body.ak-reference-mode .ak-ref-lower .ak-ref-card:last-child{grid-column:1/-1!important}
+  body.ak-reference-mode .ak-ref-stat-grid{grid-template-columns:repeat(4,1fr)!important}
+  body.ak-reference-mode .ak-ref-quick{grid-template-columns:repeat(2,1fr)!important}
+}
+@media (max-width:650px){
+  body.ak-reference-mode .ak-ref-hero{grid-template-columns:1fr!important;padding:14px!important}
+  body.ak-reference-mode .ak-ref-orb-stage{width:min(82vw,340px)!important;min-height:220px!important}
+  body.ak-reference-mode .ak-ref-floating{grid-column:1/-1!important}
+  body.ak-reference-mode .ak-ref-lower{grid-template-columns:1fr!important}
+  body.ak-reference-mode .ak-ref-lower .ak-ref-card:last-child{grid-column:auto!important}
+  body.ak-reference-mode .ak-ref-stat-grid{grid-template-columns:repeat(2,1fr)!important}
+  body.ak-reference-mode .ak-ref-quick{grid-template-columns:1fr 1fr!important}
+  body.ak-reference-mode .ak-ref-card{padding:13px!important}
+}
+@media(max-width:390px){
+  body.ak-reference-mode .ak-ref-scroll{padding:8px 8px 18px!important}
+  body.ak-reference-mode .ak-ref-hero{padding:12px!important;border-radius:16px!important}
+  body.ak-reference-mode .ak-ref-actions .ak-ref-btn{padding:8px 10px!important}
+  body.ak-reference-mode .ak-ref-quick{grid-template-columns:1fr!important}
+}
+@media(prefers-reduced-motion:reduce){body.ak-reference-mode .sidebar{transition:none!important}}
