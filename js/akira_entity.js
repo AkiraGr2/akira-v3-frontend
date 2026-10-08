@@ -128,11 +128,27 @@
   }
 
   function corePath(ctx,cx,cy,rx,ry,time,seed){
-    const squeeze=1+Math.sin(time*.67)*.028;
+    const squeeze=1+Math.sin(time*.67)*.035;
     blobPath(ctx,cx,cy,rx*squeeze,ry*(2-squeeze),
-      Math.sin(time*.31)*.06,
-      seed,time,.20
+      Math.sin(time*.31)*.075,
+      seed,time,.26
     );
+
+    // Segunda "masa madre" tenue: rompe la lectura de esfera perfecta y
+    // hace que el cuerpo parezca una nube energética con profundidad.
+    ctx.save();
+    ctx.globalAlpha=.11;
+    blobPath(
+      ctx,
+      cx+Math.sin(time*.43+1.2)*rx*.07,
+      cy+Math.cos(time*.37+.6)*ry*.06,
+      rx*.90*(1+.055*Math.sin(time*.71)),
+      ry*.72*(1+.08*Math.cos(time*.63)),
+      -.20+Math.sin(time*.28)*.12,
+      seed+71,time,.20
+    );
+    ctx.fill();
+    ctx.restore();
   }
 
   function drawEye(ctx,x,y,w,h,open,tilt){
@@ -388,10 +404,14 @@
     const r=Math.max(8,base*.375);
     engine.cx=w*.5 + engine.lookX*base*.018;
     engine.cy=h*.49 + engine.lookY*base*.012;
-    const energy=engine.energy*(1+engine.reaction*.055);
-    const pulse=1 + Math.sin(engine.time*1.35)*.016*energy;
-    const rx=r*1.07*pulse;
-    const ry=r*.95*(1+Math.sin(engine.time*.91+1.3)*.025);
+    const energy=engine.energy*(1+engine.reaction*.085);
+    const slowBreath=Math.sin(engine.time*.83+Math.sin(engine.time*.19)*.35);
+    const pulse=1
+      + slowBreath*.022*energy
+      + Math.sin(engine.time*1.35)*.012*energy
+      + engine.reaction*.030;
+    const rx=r*1.08*pulse;
+    const ry=r*.94*(1+Math.sin(engine.time*.91+1.3)*.034);
 
     ctx.save();
     ctx.globalCompositeOperation="lighter";
@@ -491,8 +511,8 @@
       {x:.16,y:-.28,s:.18,a:4.5,c:3}
     ];
     fluidMasses.forEach((m,i)=>{
-      const driftX=Math.sin(engine.time*(.42+.05*i)+i*1.7)*r*.08;
-      const driftY=Math.cos(engine.time*(.37+.04*i)+i)*r*.07;
+      const driftX=Math.sin(engine.time*(.42+.05*i)+i*1.7)*r*.08 + engine.lookX*r*.06;
+      const driftY=Math.cos(engine.time*(.37+.04*i)+i)*r*.07 + engine.lookY*r*.045;
       const rr=r*m.s*(1+.12*Math.sin(engine.time*.72+i));
       fillGradientBlob(
         ctx,
@@ -530,6 +550,30 @@
         .26
       );
     });
+
+    // Corriente superficial: grandes volúmenes muy transparentes que se
+    // desplazan cerca de la "piel" del plasma. Son rellenos, nunca líneas.
+    const surfaceCount=w<120?5:7;
+    for(let i=0;i<surfaceCount;i++){
+      const a=engine.time*(.055+.008*(i%3))+i*.92+Math.sin(engine.time*.29+i)*.22;
+      const surfaceRx=rx*(.66+.07*Math.sin(i*1.9));
+      const surfaceRy=ry*(.62+.06*Math.cos(i*1.4));
+      const px=engine.cx+Math.cos(a)*surfaceRx + engine.lookX*r*.05;
+      const py=engine.cy+Math.sin(a)*surfaceRy + engine.lookY*r*.035;
+      const ss=r*(.095+.028*Math.sin(engine.time*.6+i));
+      fillGradientBlob(
+        ctx,
+        px,py,
+        ss*(1.45+.18*Math.sin(engine.time*.8+i)),
+        ss*(.62+.14*Math.cos(engine.time*.73+i)),
+        a+.55,
+        590+i*21,
+        engine.time*.53+i,
+        PALETTE[(i+1)%PALETTE.length],
+        (.045+.018*(.5+.5*Math.sin(engine.time*.9+i)))*energy,
+        .50
+      );
+    }
 
     // Microplasma: pocas partículas blandas que pasan dentro del cuerpo.
     const microCount=w<120?9:15;
@@ -575,9 +619,9 @@
     // Puntos de evaporación alrededor: muy pocos y muy suaves.
     ctx.save();
     ctx.globalCompositeOperation="lighter";
-    for(let i=0;i<6;i++){
-      const a=i*1.37+engine.time*.10;
-      const dist=r*(1.0+.22*Math.sin(engine.time*.58+i));
+    for(let i=0;i<8;i++){
+      const a=i*1.37+engine.time*(.10+.012*Math.sin(i))+Math.sin(engine.time*.31+i)*.14;
+      const dist=r*(1.0+.25*Math.sin(engine.time*.58+i*1.3));
       const x=engine.cx+Math.cos(a)*dist;
       const y=engine.cy+Math.sin(a)*dist;
       const s=r*(.010+.006*((i+2)%3));
@@ -748,9 +792,10 @@
       engine.heartbeatTimer-=engine.dt;
       if(engine.heartbeatTimer<=0){
         // Un pulso orgánico ocasional; se siente como respiración/vida, no como UI.
-        engine.reaction=Math.max(engine.reaction,.30);
-        if(Math.random()<.72) spawnEmission(engine,false);
-        engine.heartbeatTimer=rand(4.6,8.5);
+        engine.reaction=Math.max(engine.reaction,.34);
+        if(Math.random()<.78) spawnEmission(engine,false);
+        if(Math.random()<.18) spawnEmission(engine,false);
+        engine.heartbeatTimer=rand(4.4,7.8);
       }
 
       draw(engine);
