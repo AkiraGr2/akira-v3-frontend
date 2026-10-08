@@ -71,3 +71,66 @@ body.ak-reference-mode .msgs-inner{max-width:900px!important}body.ak-reference-m
 @media(max-width:1180px){.ak-ref-lower{grid-template-columns:1fr 1fr}.ak-ref-lower .ak-ref-card:last-child{grid-column:1/-1}.ak-ref-quick{grid-template-columns:repeat(3,1fr)}.ak-ref-date-card{display:none}}
 @media(max-width:820px){body.ak-reference-mode .sidebar{width:286px!important;min-width:286px!important}.ak-ref-scroll{padding:12px}.ak-ref-hero{min-height:690px;border-radius:20px}.ak-ref-greeting{position:relative;left:auto;top:auto;width:auto;padding:26px 20px 0;z-index:6}.ak-ref-greeting h2{font-size:31px}.ak-ref-greeting p{font-size:12px;max-width:250px}.ak-ref-orb-stage{top:42%;width:min(96vw,460px)}.ak-ref-floating{min-width:142px;max-width:165px;padding:10px 11px}.ak-ref-floating.thinking{top:47%;left:3%;transform:none}.ak-ref-floating.memory{top:44%;right:3%}.ak-ref-floating.executing{bottom:100px;right:3%}.ak-ref-floating.learning{bottom:44px;left:3%}.ak-ref-lower{grid-template-columns:1fr}.ak-ref-lower .ak-ref-card:last-child{grid-column:auto}.ak-ref-quick{grid-template-columns:1fr 1fr}.ak-ref-mobile-nav{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:10px;padding:8px;border-radius:15px;background:rgba(8,12,22,.90);border:1px solid rgba(128,137,176,.16)}.ak-ref-mobile-nav button{border:0;background:transparent;color:#abb3c7;font-size:10px;padding:8px 3px}.ak-ref-stat-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:520px){body.ak-reference-mode .topbar{height:58px!important;min-height:58px!important}body.ak-reference-mode .topbar .model-pill{width:46vw!important;padding:8px 11px!important;font-size:10px!important}.ak-ref-hero{min-height:640px}.ak-ref-orb-stage{top:43%;width:min(105vw,390px)}.ak-ref-floating.thinking{top:46%}.ak-ref-floating.memory{top:43%}.ak-ref-floating.executing{bottom:88px}.ak-ref-floating.learning{bottom:38px}.ak-ref-floating span{display:none}.ak-ref-greeting{padding:21px 16px 0}.ak-ref-greeting h2{font-size:28px}.ak-ref-actions .ak-ref-btn{padding:9px 12px;font-size:11px}.ak-ref-quick{grid-template-columns:1fr}}
+
+
+/* V3 fidelity pass: cinematic room, reference logo, organic orb */
+body.ak-reference-mode .brand{display:flex!important;align-items:center!important}
+body.ak-reference-mode .brand .ak-ref-logo-mark{width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;filter:drop-shadow(0 0 12px rgba(127,101,255,.45))}
+body.ak-reference-mode .brand .ak-ref-logo-mark svg{width:44px;height:44px}
+body.ak-reference-mode .brand h1{font-family:system-ui,-apple-system,sans-serif!important;font-size:25px!important;letter-spacing:.11em!important;font-weight:500!important;color:#eef0ff!important}
+body.ak-reference-mode .brand p{font-family:system-ui,-apple-system,sans-serif!important;font-size:8px!important;letter-spacing:.14em!important;margin-top:2px!important}
+.ak-ref-hero{
+ background:
+ radial-gradient(ellipse 30% 34% at 50% 47%,rgba(96,63,255,.24),transparent 72%),
+ radial-gradient(ellipse 34% 48% at 13% 35%,rgba(255,143,54,.22),transparent 70%),
+ radial-gradient(ellipse 28% 44% at 91% 34%,rgba(27,157,255,.18),transparent 70%),
+ linear-gradient(90deg,rgba(255,151,70,.09),transparent 28%,rgba(77,106,255,.05) 72%,rgba(29,176,255,.09)),
+ linear-gradient(180deg,#0d1620 0%,#07101a 52%,#050911 100%)!important;
+}
+.ak-ref-hero::after{
+ content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+ background:
+ linear-gradient(90deg,transparent 18%,rgba(110,120,153,.15) 18.2%,transparent 18.5%,transparent 73%,rgba(103,118,158,.13) 73.2%,transparent 73.6%),
+ linear-gradient(180deg,transparent 61%,rgba(255,176,91,.16) 61.3%,transparent 62%),
+ radial-gradient(circle at 9% 18%,rgba(255,189,103,.65) 0 2px,transparent 3px),
+ radial-gradient(circle at 14% 25%,rgba(255,181,88,.4) 0 3px,transparent 5px),
+ radial-gradient(circle at 87% 21%,rgba(75,207,255,.55) 0 2px,transparent 4px),
+ radial-gradient(circle at 94% 47%,rgba(78,195,255,.34) 0 3px,transparent 5px);
+ opacity:.82;
+}
+.ak-ref-room-grid{z-index:1;opacity:.7!important;background:
+ linear-gradient(90deg,transparent 8%,rgba(255,184,102,.08) 8.3%,transparent 8.8%,transparent 22%,rgba(255,177,90,.08) 22.3%,transparent 22.7%,transparent 79%,rgba(83,147,214,.10) 79.3%,transparent 79.8%,transparent 91%,rgba(83,147,214,.09) 91.3%,transparent 91.8%),
+ linear-gradient(180deg,transparent 12%,rgba(255,177,90,.07) 12.3%,transparent 12.8%,transparent 55%,rgba(255,178,90,.13) 55.4%,transparent 56.2%),
+ radial-gradient(ellipse at 11% 48%,rgba(255,157,67,.18),transparent 17%),
+ radial-gradient(ellipse at 88% 44%,rgba(35,154,235,.13),transparent 18%);
+}
+.ak-ref-orb-stage{z-index:3!important;filter:drop-shadow(0 20px 32px rgba(41,57,255,.16))}
+.akira-entity-reference{filter:drop-shadow(0 0 24px rgba(103,76,255,.34)) drop-shadow(0 0 55px rgba(35,207,255,.13))}
+.akira-reference-ribbons{transform-box:fill-box;transform-origin:center;animation:ak-reference-orbit 20s linear infinite}
+.akira-reference-ribbons path:nth-child(2n){animation:ak-reference-flow 5.5s ease-in-out infinite}
+.akira-reference-particles{animation:ak-reference-particles 3.8s ease-in-out infinite}
+.akira-reference-core{transform-box:fill-box;transform-origin:center;animation:ak-reference-breathe 4s ease-in-out infinite}
+.akira-reference-face{filter:drop-shadow(0 0 7px rgba(210,248,255,.5))}
+@keyframes ak-reference-orbit{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes ak-reference-flow{0%,100%{opacity:.52;transform:translateY(0)}50%{opacity:1;transform:translateY(-5px)}}
+@keyframes ak-reference-particles{0%,100%{opacity:.55;transform:translateY(0)}50%{opacity:1;transform:translateY(-7px)}}
+@keyframes ak-reference-breathe{0%,100%{transform:scale(.985)}50%{transform:scale(1.035)}}
+.akira-entity-reference.state-thinking .akira-reference-ribbons{animation-duration:11s}
+.akira-entity-reference.state-searching .akira-reference-ribbons{animation-duration:8s}
+.akira-entity-reference.state-learning .akira-reference-ribbons{animation-duration:16s}
+.akira-entity-reference.state-executing .akira-reference-ribbons{animation-duration:7s}
+.akira-entity-reference.state-error{filter:drop-shadow(0 0 26px rgba(255,66,91,.42))}
+@media(max-width:820px){
+ body.ak-reference-mode .brand .ak-ref-logo-mark{width:38px;height:38px;flex-basis:38px}
+ body.ak-reference-mode .brand h1{font-size:20px!important}
+ .ak-ref-hero{background:
+ radial-gradient(ellipse 42% 36% at 50% 45%,rgba(100,65,255,.27),transparent 70%),
+ radial-gradient(ellipse 42% 44% at 10% 28%,rgba(255,145,56,.18),transparent 68%),
+ radial-gradient(ellipse 40% 45% at 90% 30%,rgba(29,167,255,.15),transparent 68%),
+ linear-gradient(180deg,#101727,#07101a 60%,#050912)!important}
+ .ak-ref-orb-stage{width:min(100vw,500px)!important;top:47%!important}
+ .ak-ref-floating{background:rgba(7,12,25,.82)!important;box-shadow:0 15px 36px rgba(0,0,0,.4)!important}
+}
+@media(prefers-reduced-motion:reduce){
+ .akira-reference-ribbons,.akira-reference-particles,.akira-reference-core,.akira-reference-ribbons path{animation:none!important}
+}
