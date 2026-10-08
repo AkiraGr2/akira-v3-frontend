@@ -1,4 +1,4 @@
-/* AKIRA LIVING SYNAPTIC GALACTIC ORB — CANVAS V2.4 / LIVING SPIRAL SAFE
+/* AKIRA LIVING SYNAPTIC GALACTIC ORB — CANVAS V2.6 / LIVING SPIRAL + MOBILE PERF SAFE
  * Visual rewrite based on the real browser video review.
  *
  * Goal:
@@ -50,6 +50,19 @@
   const lerp=(a,b,t)=>a+(b-a)*t;
   const rand=(a,b)=>a+Math.random()*(b-a);
   const finite=(n,fallback=0)=>Number.isFinite(n)?n:fallback;
+
+  // Un solo observer compartido: los avatares fuera de pantalla dejan de consumir
+  // requestAnimationFrame, sin alterar el aspecto del orbe que el usuario sí ve.
+  const entityVisibilityObserver = ("IntersectionObserver" in window)
+    ? new IntersectionObserver(entries=>{
+        entries.forEach(entry=>{
+          const engine=entry.target && entry.target.__akiraEntityEngine;
+          if(engine && typeof engine.setViewportVisible==="function"){
+            engine.setViewportVisible(entry.isIntersecting && entry.intersectionRatio>0);
+          }
+        });
+      },{threshold:[0,0.01]})
+    : null;
 
   function smooth(t){
     return t*t*(3-2*t);
@@ -688,7 +701,9 @@
       backgroundPulseTimer:0,
       reactionTimer:0,
       resizeObserver:null,
-      pointerHold:false
+      pointerHold:false,
+      inViewport:true,
+      visibilityObserver:entityVisibilityObserver
     };
 
     // Stable, irregular synaptic anchors keep the core coherent while their
@@ -783,6 +798,19 @@
     canvas.addEventListener("pointercancel",onPointerUp,{passive:true});
     canvas.style.touchAction="manipulation";
 
+    engine.setViewportVisible=function(visible){
+      const next=Boolean(visible);
+      engine.inViewport=next;
+      if(!engine.alive) return;
+      if(next){
+        engine.lastTs=0;
+        if(!engine.frame) engine.frame=requestAnimationFrame(frame);
+      }else if(engine.frame){
+        cancelAnimationFrame(engine.frame);
+        engine.frame=0;
+      }
+    };
+
     if("ResizeObserver" in window){
       engine.resizeObserver=new ResizeObserver(resize);
       engine.resizeObserver.observe(host);
@@ -797,6 +825,10 @@
 
     function frame(ts){
       if(!engine.alive)return;
+      if(!engine.inViewport){
+        engine.frame=0;
+        return;
+      }
 
       if(document.visibilityState==="hidden"){
         engine.lastTs=ts;
@@ -938,6 +970,10 @@
       react:(expr,duration)=>engine.react(expr,duration),
       resize:()=>engine.resize(),
       destroy(){
+        if(entityVisibilityObserver){
+          try{entityVisibilityObserver.unobserve(host);}catch(_){}
+        }
+        host.__akiraEntityEngine=null;
         engine.destroy();
         host.__akiraEntity=null;
         host.innerHTML="";
@@ -945,6 +981,10 @@
     };
 
     host.__akiraEntity=controller;
+    host.__akiraEntityEngine=engine;
+    if(entityVisibilityObserver){
+      try{entityVisibilityObserver.observe(host);}catch(_){}
+    }
     engine.energy=STATES[engine.state].energy;
     host.setAttribute(
       "aria-label",
