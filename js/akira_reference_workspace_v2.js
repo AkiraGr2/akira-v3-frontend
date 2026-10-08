@@ -196,7 +196,7 @@
   function setupNav(){
     const brand=qs(".brand");
     if(brand){
-      brand.innerHTML='<div class="ak-ref-logo-mark" aria-hidden="true"><svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke-linecap="round"><path d="M22 4v10M22 30v10M4 22h10M30 22h10" stroke="#9b74ff" stroke-width="2"/><path d="M9 9l7 7M28 28l7 7M35 9l-7 7M16 28l-7 7" stroke="#43dfff" stroke-width="2"/><circle cx="22" cy="22" r="7" stroke="#ff63d7" stroke-width="2"/><circle cx="22" cy="22" r="2.5" fill="#fff" stroke="none"/></g></svg></div><div><h1>AKIRA</h1><p>Cognitive Workspace</p></div>';
+      brand.innerHTML='<div class="ak-ref-logo-mark akira-entity-slot" data-akira-entity data-state="idle" data-size="44" aria-label="Akira · Núcleo vivo"></div><div><h1>AKIRA</h1><p>Cognitive Workspace</p></div>';
     }
     const nav=qs("#sidebar .nav"); if(!nav)return;
     navMap.forEach(function(item){
@@ -210,7 +210,7 @@
       btn.textContent=label; nav.appendChild(btn);
     });
     const brandP=qs(".brand p"); if(brandP)brandP.textContent="Cognitive Workspace";
-    const brandH=qs(".brand h1"); if(brandH)brandH.textContent="AKIRA";
+    const brandH=qs(".brand h1"); if(brandH)brandH.textContent="AKIRA";\n    if(window.AkiraEntity&&window.AkiraEntity.mountAll)window.AkiraEntity.mountAll(brand);
     navMap.map(function(x){return qs("#btn-"+x[0],nav)}).filter(Boolean).forEach(function(b){nav.appendChild(b)});
   }
 
@@ -236,7 +236,7 @@
 
   document.addEventListener("DOMContentLoaded",function(){
     document.body.classList.add("ak-reference-mode");
-    setupNav(); setupTopbar(); mountHome();
+    setupNav(); setupTopbar(); mountHome();\n    if(window.AkiraEntity&&window.AkiraEntity.mountAll)window.AkiraEntity.mountAll(document);
     if(typeof window.showSection==="function"&&!qsa(".section.active").some(function(s){return s.id&&s.id!=="chatSection"}))window.showSection("home");
   });
 
