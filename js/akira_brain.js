@@ -1,4 +1,4 @@
-// AKIRA ULTRA V2.3 - AUTO STREAM 100% INTERNO - SIN BOTON - AUTO-REPARABLE SEPT 2026
+// AKIRA ULTRA V2.4 - AUTO STREAM OPTIMIZADO - SIN BOTON - AUTO-REPARABLE SEPT 2026
 // B1: cabeceras con sesion firmada (usa akiraAuthHeaders de index.html; si no existe, cabecera basica)
 // V8-B5-fix (H-05): ya NO se envia is_owner desde el cliente. El backend lo resuelve
 // unicamente por sesion firmada. El residuo anterior era inofensivo pero confuso.
@@ -143,14 +143,8 @@ async function sendMsg(){
     await generateImageAkira(txt);
     return;
   }
-  // AUTO interno: si backend no sano, verifica antes de intentar stream
-  if(USE_STREAM && !BACKEND_HEALTHY){
-    const ok = await checkBackendHealth();
-    if(!ok){
-      USE_STREAM = false;
-      logAutoRepair("AUTO OFF - Render frio antes de enviar");
-    }
-  }
+  // Rendimiento: el primer envío no hace un health-check bloqueante.
+  // El propio /api/chat/stream o /api/chat es la prueba real y activa el fallback.
   if(USE_STREAM) return sendMsgStream();
   if(txt.length > 1500){ txt = txt.slice(0,1500); inp.value = txt; }
   const orb=document.getElementById('orb'); if(orb)orb.classList.add('thinking');
@@ -200,7 +194,7 @@ async function sendMsg(){
     addMsg(resp,'akira');
     // FASE 11.0 (2026-10-01): guardado de respuesta de Akira DESHABILITADO.
     // try{ await saveNeuronaHibrida(d.response || "", 'motora', 5, ['akira_response']); }catch(e){}
-    await countNeuronas();
+    Promise.resolve(countNeuronas()).catch(()=>{});
   }catch(e){
     removeTyping(tid); if(orb)orb.classList.remove('thinking');
     try{window.akiraEntitySetState&&window.akiraEntitySetState('error',".akira-global-entity");setTimeout(()=>window.akiraEntitySetState&&window.akiraEntitySetState('idle',".akira-global-entity"),1600);}catch(_){}
@@ -245,6 +239,22 @@ async function sendMsgStream(){
   if(inner) inner.appendChild(row);
   if(inner) inner.scrollTop = inner.scrollHeight;
   let fullText = "";
+  let streamRenderFrame = 0;
+  let streamFinished = false;
+  const scheduleStreamRender = ()=>{
+    if(streamFinished || streamRenderFrame) return;
+    streamRenderFrame = requestAnimationFrame(()=>{
+      streamRenderFrame = 0;
+      if(streamFinished) return;
+      const b = document.getElementById(bubbleId);
+      if(b){
+        // Durante el transporte usamos textContent: evita reparsar todo el HTML
+        // en cada fragmento y reduce trabajo de CPU/layout en móvil.
+        b.textContent = fullText + "▌";
+      }
+      if(inner) inner.scrollTop = inner.scrollHeight;
+    });
+  };
   try{
     // H-05: el cliente ya NO envia is_owner. El backend lo resuelve por sesion firmada.
     // Fase 10.7.2: envia conversation_id si hay una activa.
@@ -273,15 +283,16 @@ async function sendMsgStream(){
             let j = JSON.parse(dataStr);
             if(j.text){
               fullText += j.text;
-              const b = document.getElementById(bubbleId);
-              if(b){
-                b.innerHTML = escapeHtml(fullText).replace(/\n/g,'<br>') + '<span class="cursor">▌</span>';
-              }
-              if(inner) inner.scrollTop = inner.scrollHeight;
+              scheduleStreamRender();
             }
             if(j.done){
               try{const entity=row.querySelector("[data-akira-entity]");if(entity&&entity.__akiraEntity)entity.__akiraEntity.setState("success");}catch(_){}
               try{window.akiraEntitySetState&&window.akiraEntitySetState("success",".akira-global-entity");}catch(_){}
+              streamFinished = true;
+              if(streamRenderFrame){
+                cancelAnimationFrame(streamRenderFrame);
+                streamRenderFrame = 0;
+              }
               const b = document.getElementById(bubbleId);
               if(b){
                 let finalHtml = escapeHtml(fullText).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
@@ -294,7 +305,7 @@ async function sendMsgStream(){
               } catch(_){}
               // FASE 11.0 (2026-10-01): guardado de respuesta de Akira (stream) DESHABILITADO.
               // try{ await saveNeuronaHibrida(fullText, 'motora', 6, ['akira_response','stream']); }catch(e){}
-              await countNeuronas();
+              Promise.resolve(countNeuronas()).catch(()=>{});
               if(orb)orb.classList.remove('thinking');
               BACKEND_HEALTHY = true;
               STREAM_FAIL_COUNT = 0;
@@ -345,7 +356,7 @@ async function sendMsgStream(){
       if(orb)orb.classList.remove('thinking');
       // FASE 11.0 (2026-10-01): guardado de respuesta de Akira (fallback) DESHABILITADO.
       // try{ await saveNeuronaHibrida(d2.response||"", 'motora', 6, ['akira_response','fallback_auto']); }catch(e2){}
-      await countNeuronas();
+      Promise.resolve(countNeuronas()).catch(()=>{});
       return;
     }catch(e2){
       if(b) b.innerHTML = '⏳ Akira reconectando colmena... reintento automático en 3s';
@@ -450,18 +461,8 @@ async function generateImageAkira(prompt){
 }
 
 
-document.addEventListener("DOMContentLoaded", async ()=>{
-  countNeuronas();
-  logAutoRepair("Inicializando 100% AUTO interno Sept 2026");
-  const healthy = await checkBackendHealth();
-  if(!healthy){
-    logAutoRepair("Backend frio al iniciar -> OFF temporal");
-  } else {
-    logAutoRepair(`Backend listo latencia ${LAST_LATENCY}ms -> ON`);
-  }
-  setInterval(async ()=>{
-    await checkBackendHealth();
-  }, 60000);
+document.addEventListener("DOMContentLoaded", ()=>{
+  // UX-first: los controles del chat se conectan de inmediato, sin esperar a Render.
   const ta=document.getElementById('msg');
   if(ta){
     ta.addEventListener('keydown',e=>{
@@ -488,4 +489,19 @@ document.addEventListener("DOMContentLoaded", async ()=>{
       });
     }
   });
+
+  // Telemetría y salud quedan fuera del camino crítico de interacción.
+  setTimeout(()=>{ try{ countNeuronas(); }catch(_){} }, 1200);
+  setTimeout(async ()=>{
+    try{
+      const healthy = await checkBackendHealth();
+      logAutoRepair(healthy
+        ? `Backend listo latencia ${LAST_LATENCY}ms -> ON`
+        : "Backend frío/no listo al iniciar -> fallback disponible");
+    }catch(_){}
+  }, 350);
+
+  setInterval(async ()=>{
+    try{ await checkBackendHealth(); }catch(_){}
+  }, 60000);
 });
