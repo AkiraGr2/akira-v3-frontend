@@ -232,17 +232,17 @@
 
     // El universo entero nace de cuatro corrientes espirales anchas.
     // No son anillos: cada corriente avanza desde el corazón hacia afuera.
-    const arms=4;
+    const arms=6;
     for(let i=0;i<arms;i++){
       const pts=[];
-      const steps=22;
-      const start=engine.time*.10+i*(Math.PI*2/arms)+engine.spiralPhase;
+      const steps=24;
+      const start=engine.time*(.20+.10*engine.spiralBoost)+i*(Math.PI*2/arms)+engine.spiralPhase;
       for(let j=0;j<steps;j++){
         const u=j/(steps-1);
-        const ang=start+u*(Math.PI*2*1.18);
+        const ang=start+u*(Math.PI*2*1.28);
         const rr=r*(.055+.88*Math.pow(u,.92));
         const breathe=1+.055*Math.sin(engine.time*.52+i+u*5.4);
-        const twist=.035*Math.sin(engine.time*.84+i*1.4+u*7);
+        const twist=.045*Math.sin(engine.time*1.05+i*1.4+u*7);
         pts.push({
           x:cx+Math.cos(ang+twist)*rr*breathe,
           y:cy+Math.sin(ang+twist)*rr*.84*breathe
@@ -258,10 +258,10 @@
 
     // Segunda capa: corrientes interiores más finas que giran en sentido opuesto,
     // para producir profundidad de "universo en movimiento".
-    for(let i=0;i<3;i++){
+    for(let i=0;i<4;i++){
       const pts=[];
-      const steps=18;
-      const start=-engine.time*.075+i*(Math.PI*2/3)+engine.spiralPhase*.4;
+      const steps=20;
+      const start=-engine.time*(.125+.07*engine.spiralBoost)+i*(Math.PI*2/4)+engine.spiralPhase*.4;
       for(let j=0;j<steps;j++){
         const u=j/(steps-1);
         const ang=start-u*(Math.PI*2*.94);
@@ -311,7 +311,7 @@
   }
 
   function drawMembrane(ctx,engine,r,energy){
-    const breath=Math.sin(engine.time*.62+Math.sin(engine.time*.17)*.25);
+    const breath=Math.sin(engine.time*.72+Math.sin(engine.time*.21)*.25);
     const localPulse=engine.heartbeatPulse*.055+engine.reaction*.045;
 
     const rx=r*(1.00+breath*.012+localPulse);
@@ -449,7 +449,7 @@
     drawSynapticField(ctx,engine,r,energy);
 
     // Fine internal sparks: they obey the core's flow field.
-    const sparks=engine.mobile?12:24;
+    const sparks=engine.mobile?18:34;
     for(let i=0;i<sparks;i++){
       const phase=i*2.07+engine.time*(.39+.018*(i%4));
       const flow=engine.time*.17+i*.7;
@@ -469,7 +469,7 @@
   }
 
   function drawSynapticField(ctx,engine,r,energy){
-    const count=engine.mobile?10:18;
+    const count=engine.mobile?16:28;
     for(let i=0;i<count;i++){
       const n=engine.nodes[i];
 
@@ -491,7 +491,7 @@
         +Math.sin(ang+Math.PI*.5)*lateral*.78
         +engine.lookY*r*.032;
 
-      const activ=clamp((Math.sin(engine.time*1.75+n.phase)+1)*.5,0,1);
+      const activ=clamp((Math.sin(engine.time*2.15+n.phase)+1)*.5,0,1);
       const cascade=clamp(
         (Math.sin(engine.time*.88+n.phase*1.8)+1)*.5,
         0,1
@@ -613,11 +613,11 @@
   }
 
   function spawnParticle(engine,strong){
-    if(engine.particles.length>=28)return;
+    if(engine.particles.length>=48)return;
     const a=rand(0,Math.PI*2);
     engine.particles.push({
       age:0,
-      life:rand(1.4,3.2)*(strong?.82:1),
+      life:rand(1.25,3.6)*(strong?.82:1),
       angle:a,
       angularSpeed:rand(-.7,.85)*(strong?1.28:1),
       radius:rand(.52,.98),
@@ -647,9 +647,9 @@
       engine.heartbeatPulse=1;
       engine.growthPhase+=rand(.6,1.4);
       triggerLifeWave(engine,true);
-      for(let i=0;i<2;i++)spawnParticle(engine,true);
+      for(let i=0;i<4;i++)spawnParticle(engine,true);
       scheduleHeartbeat(engine);
-    },rand(3300,5700)/(engine.energy*.95));
+    },rand(2600,4600)/(engine.energy*.95));
   }
 
   function scheduleBackgroundPulse(engine){
@@ -660,7 +660,7 @@
       triggerLifeWave(engine,false);
       if(Math.random()<.68)spawnParticle(engine,false);
       scheduleBackgroundPulse(engine);
-    },rand(1600,3100));
+    },rand(1100,2400));
   }
 
   function createEngine(host,canvas){
@@ -812,7 +812,7 @@
       engine.lookX+=(engine.targetLookX-engine.lookX)*Math.min(1,engine.dt*4.2);
       engine.lookY+=(engine.targetLookY-engine.lookY)*Math.min(1,engine.dt*4.2);
       engine.reaction=Math.max(0,engine.reaction-engine.dt*.66);
-      engine.heartbeatPulse=Math.max(0,engine.heartbeatPulse-engine.dt*1.25);
+      engine.heartbeatPulse=Math.max(0,engine.heartbeatPulse-engine.dt*1.25);\n      engine.spiralBoost=Math.max(0,engine.spiralBoost-engine.dt*.80);
 
       for(let i=engine.lifeWaves.length-1;i>=0;i--){
         engine.lifeWaves[i].age+=engine.dt;
@@ -858,7 +858,7 @@
     ctx.clearRect(0,0,w,h);
 
     const base=Math.min(w,h);
-    const r=Math.max(16,base*.375);
+    const r=Math.max(16,base*.39);
     engine.cx=w*.5+engine.lookX*base*.015;
     engine.cy=h*.49+engine.lookY*base*.010;
     engine.radiusRef=r;
