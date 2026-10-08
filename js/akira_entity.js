@@ -812,7 +812,8 @@
       engine.lookX+=(engine.targetLookX-engine.lookX)*Math.min(1,engine.dt*4.2);
       engine.lookY+=(engine.targetLookY-engine.lookY)*Math.min(1,engine.dt*4.2);
       engine.reaction=Math.max(0,engine.reaction-engine.dt*.66);
-      engine.heartbeatPulse=Math.max(0,engine.heartbeatPulse-engine.dt*1.25);\n      engine.spiralBoost=Math.max(0,engine.spiralBoost-engine.dt*.80);
+      engine.heartbeatPulse=Math.max(0,engine.heartbeatPulse-engine.dt*1.25);
+      engine.spiralBoost=Math.max(0,engine.spiralBoost-engine.dt*.80);
 
       for(let i=engine.lifeWaves.length-1;i>=0;i--){
         engine.lifeWaves[i].age+=engine.dt;
