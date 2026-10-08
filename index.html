@@ -1015,7 +1015,7 @@ function showSection(name){
   setTimeout(bootBrain,1000);
   setTimeout(()=>{try{window.akiraBootBrain2d && window.akiraBootBrain2d();}catch(_){}},1200);
 }
-  else if(name==='office'){
+window.showSection=showSection;  else if(name==='office'){
     if(window.initAkiraOfficePixel) initAkiraOfficePixel();
     window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"office"}}));
     requestAnimationFrame(()=>{
