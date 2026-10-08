@@ -88,26 +88,51 @@ jobs:
           console.log("verified learning evaluation action guard OK");
           NODE
 
-      - name: Guard Cognitive Workspace V2 visual contract
+      - name: Guard historic Akira workspace visual contract
         run: |
           node - <<'NODE'
           const fs = require("fs");
           const index = fs.readFileSync("index.html", "utf8");
-          const css = fs.readFileSync("css/akira-cognitive-workspace-v2.css", "utf8");
-          const contract = fs.readFileSync("AKIRA_UI_CONTRACT_V2.md", "utf8");
-          if (!index.includes("css/akira-cognitive-workspace-v2.css")) throw new Error("Cognitive Workspace V2 stylesheet must be loaded");
-          if (!css.includes("--bg:#080b12")) throw new Error("V2 design token set missing");
-          if (!css.includes(".sidebar")) throw new Error("V2 workspace shell rules missing");
-          if (!css.includes("@media(max-width:768px)")) throw new Error("mobile-first rules missing");
-          if (!contract.includes("Akira Cognitive Workspace")) throw new Error("UI contract missing");
-          if (!contract.includes("Este rediseño es visual; no debe cambiar APIs, persistencia, permisos ni comportamiento de negocio.")) throw new Error("UI contract must protect backend contracts");
-          if (!index.includes("js/akira-office-2p5d.js")) throw new Error("Office 2.5D script must be loaded");
-          if (!index.includes("Oficina Cognitiva")) throw new Error("cognitive office surface missing");
-          if (index.includes("akira-office-floor-v3.js") || index.includes("office3dStage") || index.includes("office3dMode")) {
+          const forbidden = [
+            "akira-reborn",
+            "akira-cognitive-workspace-v2.css",
+            "akira-reference-design-v2.css",
+            "akira-reference-workspace-v2.js",
+            "akira-cognitive-ui.js",
+            "akira_entity.js",
+            "akira_reference_workspace_v2.js"
+          ];
+          for (const token of forbidden) {
+            if (index.includes(token)) throw new Error("Rejected visual shell reference returned: " + token);
+          }
+          const required = [
+            'id="sidebar"',
+            'id="historyList"',
+            'class="model-pill">Akira',
+            'id="chatSection"',
+            'id="membraneSection"',
+            'id="officeSection"',
+            'id="missionsSection"',
+            'id="adminSection"',
+            'id="btn-chat"',
+            'id="btn-membrane"',
+            'id="btn-office"',
+            'id="btn-missions"',
+            'id="btn-admin"',
+            'id="sendBtn"',
+            'id="msg"'
+          ];
+          for (const token of required) {
+            if (!index.includes(token)) throw new Error("Historic workspace marker missing: " + token);
+          }
+          if (!index.includes('class="topbar"')) throw new Error("Historic topbar missing");
+          if (!index.includes('class="pixel-btn"')) throw new Error("Historic action/button system missing");
+          if (!index.includes("js/akira-office-2p5d.js")) throw new Error("Current Pixel Office runtime must remain connected");
+          if (!index.includes('id="officePixelCanvas"')) throw new Error("Current Pixel Office canvas missing");
+          if (index.includes('id="office3dStage"') || index.includes('id="office3dMode"')) {
             throw new Error("Office 3D surface must not return");
           }
-          if (!css.includes(".office-v2-shell")) throw new Error("Office shell visual rules missing");
-          console.log("Cognitive Workspace V2 visual contract OK");
+          console.log("historic Akira workspace visual contract OK");
           NODE
 
       - name: Guard runtime capability truth surface
