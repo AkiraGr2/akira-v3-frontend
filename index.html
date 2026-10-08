@@ -948,23 +948,62 @@ function akiraAuthHeaders(){
   return h;
 }
 
+let akiraSessionCheckPromise=null;
+let akiraSessionCheckToken="";
+let akiraSessionCheckAt=0;
+
+function _akiraApplyVerifiedSession(d,status){
+  if(!d || d.authenticated!==true) return;
+  localStorage.setItem("akira_user_email",String(d.email||""));
+  window.akiraSessionState=d;
+  const result=Object.assign({ok:true,status:status||200},d);
+  const av=document.getElementById("userAvatar");
+  if(av){ av.textContent=d.is_owner ? "✓" : "●"; av.style.background=d.is_owner ? "rgba(16,185,129,.16)" : "rgba(59,130,246,.14)"; av.style.borderColor=d.is_owner ? "#10b981" : "#3b82f6"; av.title=d.is_owner ? "Cuenta · sesión verificada · propietario" : "Cuenta · sesión verificada"; av.setAttribute("aria-label",d.is_owner ? "Cuenta · sesión verificada · propietario" : "Cuenta · sesión verificada"); }
+  const sd=document.getElementById("accountSessionDot");
+  const st=document.getElementById("accountSessionText");
+  if(sd){sd.style.background=d.is_owner ? "#10b981" : "#3b82f6";}
+  if(st){st.textContent=d.is_owner ? "Sesión verificada · propietario" : "Sesión verificada"; st.style.color=d.is_owner ? "#10b981" : "#60a5fa";}
+  try{window.dispatchEvent(new CustomEvent("akira:session-valid",{detail:result}));}catch(e){}
+  return result;
+}
+
 async function akiraVerifySession(){
   const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
   const t=localStorage.getItem("akira_session_token");
   const exp=parseInt(localStorage.getItem("akira_session_exp")||"0",10);
-  if(!t || exp<=Math.floor(Date.now()/1000)){
+  const now=Math.floor(Date.now()/1000);
+  if(!t || exp<=now){
     akiraClearSession("missing_or_expired");
     return {ok:false,status:401,authenticated:false};
   }
-  try{
-    const r=await fetch(b+"/api/v8/me",{headers:akiraAuthHeaders(),cache:"no-store"});
-    let d=null;
-    try{d=await r.json();}catch(e){}
-    if(r.status===401){
-      akiraHandleAuthFailure(401);
-      return {ok:false,status:401,authenticated:false,data:d};
+  if(akiraSessionCheckPromise && akiraSessionCheckToken===t && (Date.now()-akiraSessionCheckAt)<10000){
+    return akiraSessionCheckPromise;
+  }
+  akiraSessionCheckToken=t;
+  akiraSessionCheckAt=Date.now();
+  akiraSessionCheckPromise=(async ()=>{
+    try{
+      const r=await fetch(b+"/api/v8/me",{headers:akiraAuthHeaders(),cache:"no-store"});
+      let d=null;
+      try{d=await r.json();}catch(e){}
+      if(r.status===401){
+        akiraHandleAuthFailure(401);
+        return {ok:false,status:401,authenticated:false,data:d};
+      }
+      if(r.ok && d && d.authenticated===true){
+        return _akiraApplyVerifiedSession(d,r.status);
+      }
+      return {ok:false,status:r.status,authenticated:Boolean(d&&d.authenticated),data:d};
+    }catch(e){
+      return {ok:false,status:0,authenticated:false,error:String((e&&e.message)||e)};
+    }finally{
+      setTimeout(()=>{
+        if(akiraSessionCheckToken===t) akiraSessionCheckPromise=null;
+      },10000);
     }
-    if(r.ok && d && d.authenticated===true){
+  })();
+  return akiraSessionCheckPromise;
+}
       localStorage.setItem("akira_user_email",String(d.email||""));
       window.akiraSessionState=d;
       const result=Object.assign({ok:true,status:r.status},d);
@@ -1119,20 +1158,31 @@ async function handleCredentialResponse(r){
     localStorage.removeItem("akira_is_owner");
     localStorage.setItem("akira_session_token",d.session_token);
     localStorage.setItem("akira_session_exp",String(d.expires_at||0));
-    const md=await akiraVerifySession();
-    if(!md || !md.ok || md.authenticated!==true){
-      akiraClearSession("login_verification_failed");
-      alert("La sesión no pudo verificarse en el backend.");
+    // /api/auth/google ya verificó la credencial y emitió la sesión firmada.
+    // No hacemos otro round-trip antes de dejar al usuario entrar al chat.
+    const sessionFromAuth={
+      authenticated:Boolean(d.verified),
+      is_owner:Boolean(d.is_owner),
+      email:String(d.email||""),
+      user_id:String(d.user_id||""),
+      owner_scope:String(d.owner_scope||""),
+      verified:Boolean(d.verified)
+    };
+    if(!sessionFromAuth.authenticated){
+      akiraClearSession("google_verification_failed");
+      alert("Google autenticó la identidad, pero el backend no confirmó la sesión.");
       return;
     }
-    const email=md.email||d.email||"";
-    const ver=md.is_owner ? " · 🔒 sesión verificada (propietario)" : " · 🔒 sesión verificada";
+    _akiraApplyVerifiedSession(sessionFromAuth,200);
+    const email=sessionFromAuth.email||"";
+    const ver=sessionFromAuth.is_owner ? " · 🔒 sesión verificada (propietario)" : " · 🔒 sesión verificada";
     const i=document.getElementById("userInfo");
     if(i){i.style.display="block";i.textContent="✅ "+email+ver;}
     const av=document.getElementById("userAvatar");
     if(av) av.textContent = email.charAt(0).toUpperCase();
     addMsg(`Bienvenido ${d.email} a Akira`,"akira");
     showSection('chat');
+    setTimeout(()=>{ try{ akiraVerifySession(); }catch(_){} },250);
   }catch(e){alert(e.message);}
 }
 window.handleCredentialResponse = handleCredentialResponse;
@@ -1416,14 +1466,22 @@ function testKeys(){
 
 async function generateUpwork(){const desc=document.getElementById("upworkDesc").value.trim();if(!desc){alert("Pega descripcion");return;}const out=document.getElementById("upworkResult");out.style.display="block";out.textContent="⏳ Generando...";try{const backend=localStorage.getItem("akira_backend_url");const r=await fetch(backend+"/api/chat",{method:"POST",headers:akiraAuthHeaders(),body:JSON.stringify({message:`Genera propuesta Upwork para: ${desc.slice(0,1000)}`})});const d=await r.json();out.textContent=d.response||"Sin respuesta";}catch(e){out.textContent="Error: "+e.message;}}
 
-document.addEventListener("DOMContentLoaded", async ()=>{
-  fetchRuntimeCapabilities();
-  checkBridgeSimple();
-  setInterval(checkBridgeSimple, 30000);
+document.addEventListener("DOMContentLoaded", ()=>{
+  // La app queda interactiva primero; salud/capacidades/niveles son secundarios.
+  setTimeout(()=>{ try{ fetchRuntimeCapabilities(); }catch(_){} },900);
+  setTimeout(()=>{ try{ checkBridgeSimple(); }catch(_){} },900);
+  setInterval(()=>{ try{ checkBridgeSimple(); }catch(_){} },60000);
   if('serviceWorker' in navigator){
-    try{const regs = await navigator.serviceWorker.getRegistrations();for(const r of regs){await r.unregister();console.log("SW desregistrado:",r.scope);}const keys = await caches.keys();for(const k of keys){await caches.delete(k);}}catch(e){console.log("SW cleanup error",e);}
+    setTimeout(async ()=>{
+      try{
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for(const r of regs){ await r.unregister(); }
+        const keys = await caches.keys();
+        for(const k of keys){ await caches.delete(k); }
+      }catch(e){ console.log("SW cleanup error",e); }
+    },2000);
   }
-  renderLevels();
+  setTimeout(()=>{ try{ renderLevels(); }catch(_){} },1200);
 });
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
