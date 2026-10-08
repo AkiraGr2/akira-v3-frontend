@@ -1622,6 +1622,8 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     }catch(_){}
   }
 
+  window.akiraBrainToggleOrbit=function(){ return false; };
+
   window.addEventListener("akira:section-shown",function(ev){
     if(ev && ev.detail && ev.detail.section==="membrane"){
       window.__akiraBrainCurrentMode="2d";
