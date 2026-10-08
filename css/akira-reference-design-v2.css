@@ -134,3 +134,271 @@ body.ak-reference-mode .brand p{font-family:system-ui,-apple-system,sans-serif!i
 @media(prefers-reduced-motion:reduce){
  .akira-reference-ribbons,.akira-reference-particles,.akira-reference-core,.akira-reference-ribbons path{animation:none!important}
 }
+
+/* V4 — mobile reference skin + always-alive Akira plasma behavior */
+.akira-entity-reference .akira-reference-face{display:none!important;opacity:0;transform:translate3d(var(--gaze-x,0),var(--gaze-y,0),0);transform-box:fill-box;transform-origin:center;transition:opacity .08s ease}
+.akira-entity-reference .akira-reference-face.is-visible{display:block!important;opacity:1}
+.akira-entity-reference .akira-gaze-dot{transform:translate3d(var(--gaze-x,0),var(--gaze-y,0),0);transition:transform .16s ease-out}
+.akira-plasma-bursts .plasma-burst{opacity:0;stroke-dasharray:0 110;stroke-dashoffset:0}
+.akira-plasma-bursts .plasma-burst.burst-now{animation:ak-plasma-burst .72s cubic-bezier(.18,.82,.22,1) both}
+@keyframes ak-plasma-burst{
+  0%{opacity:0;stroke-dasharray:0 110;filter:blur(1px)}
+  18%{opacity:.35}
+  42%{opacity:1;stroke-dasharray:86 18}
+  68%{opacity:.82;stroke-dasharray:110 0}
+  100%{opacity:0;stroke-dasharray:0 110;filter:blur(2px)}
+}
+.akira-plasma-burst-sparks circle{animation:ak-spark-pulse 2.8s ease-in-out infinite;animation-delay:var(--spark-delay,0ms)}
+@keyframes ak-spark-pulse{0%,100%{opacity:.28;transform:scale(.75)}45%{opacity:1;transform:scale(1.35)}62%{opacity:.48;transform:scale(.9)}}
+.akira-entity-reference .akira-reference-ribbons{animation-duration:18s!important}
+.akira-entity-reference .akira-reference-ribbons path:nth-child(2n){animation:ak-reference-flow 4.8s ease-in-out infinite}
+.akira-entity-reference .akira-reference-core{animation:ak-reference-breathe 3.7s ease-in-out infinite}
+.akira-entity-reference .akira-reference-particles{animation:ak-reference-particles 3.2s ease-in-out infinite}
+
+@media(max-width:768px){
+  body.ak-reference-mode{
+    display:block!important;
+    width:100vw;
+    min-height:100dvh;
+    overflow:hidden!important;
+    background:#040711!important;
+  }
+  body.ak-reference-mode .sidebar{
+    display:none!important;
+    transform:none!important;
+  }
+  body.ak-reference-mode .overlay{display:none!important}
+  body.ak-reference-mode .main{
+    width:100vw!important;
+    min-width:0!important;
+    height:100dvh!important;
+    overflow:hidden!important;
+    display:flex!important;
+    background:
+      radial-gradient(520px 360px at 50% -5%,rgba(99,74,255,.19),transparent 72%),
+      radial-gradient(330px 380px at 94% 48%,rgba(26,159,255,.08),transparent 72%),
+      #040711!important;
+  }
+  body.ak-reference-mode .topbar{
+    position:relative!important;
+    z-index:100!important;
+    height:64px!important;
+    min-height:64px!important;
+    padding:0 14px!important;
+    border-bottom:1px solid rgba(144,128,255,.15)!important;
+    background:rgba(4,7,17,.92)!important;
+    box-shadow:0 10px 28px rgba(0,0,0,.24)!important;
+  }
+  body.ak-reference-mode .topbar>div:first-child{width:100%!important;justify-content:flex-start!important}
+  body.ak-reference-mode .topbar .hamburger{
+    display:flex!important;
+    width:40px!important;height:40px!important;
+    border:1px solid rgba(141,124,255,.26)!important;
+    border-radius:12px!important;
+    background:rgba(17,20,42,.72)!important;
+    box-shadow:0 0 22px rgba(104,81,255,.12)!important;
+  }
+  body.ak-reference-mode .topbar>div:first-child>div{
+    flex:1!important;justify-content:center!important;
+  }
+  body.ak-reference-mode .topbar>div:first-child .orb{display:none!important}
+  body.ak-reference-mode .topbar .model-pill{
+    width:auto!important;
+    min-width:118px!important;
+    justify-content:center!important;
+    border:0!important;
+    background:transparent!important;
+    padding:0!important;
+    font-family:system-ui,-apple-system,sans-serif!important;
+    letter-spacing:.34em!important;
+    text-transform:uppercase!important;
+    color:#f4f0ff!important;
+    font-size:17px!important;
+    font-weight:500!important;
+  }
+  body.ak-reference-mode .topbar .model-pill::before{display:none!important}
+  body.ak-reference-mode .topbar .model-pill::after{content:"AKIRA"!important}
+  body.ak-reference-mode #userAvatar{
+    width:40px!important;height:40px!important;
+    border:0!important;
+    background:transparent!important;
+    font-size:0!important;
+    color:#e6eaff!important;
+  }
+  body.ak-reference-mode #userAvatar::after{
+    content:"♧"!important;
+    font-size:22px!important;
+    color:#f0efff!important;
+    text-shadow:0 0 14px rgba(171,149,255,.34)
+  }
+
+  #homeSection.ak-reference-home{
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    background:
+      radial-gradient(440px 280px at 50% 7%,rgba(126,77,255,.24),transparent 72%),
+      linear-gradient(180deg,#07101b 0%,#040711 62%,#03050c 100%)!important;
+  }
+  .ak-ref-scroll{
+    min-height:calc(100dvh - 64px)!important;
+    padding:0 12px 94px!important;
+  }
+  .ak-ref-hero{
+    min-height:742px!important;
+    height:auto!important;
+    border-radius:0 0 28px 28px!important;
+    border-top:0!important;
+    margin:0 -12px!important;
+    padding:0 18px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:flex-start!important;
+    background:
+      radial-gradient(ellipse 74% 44% at 50% 34%,rgba(115,59,255,.26),transparent 72%),
+      radial-gradient(ellipse 48% 54% at 4% 19%,rgba(255,147,55,.20),transparent 75%),
+      radial-gradient(ellipse 48% 58% at 96% 25%,rgba(29,160,255,.18),transparent 75%),
+      linear-gradient(180deg,#0c1523 0%,#07101b 58%,#040811 100%)!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 18px 46px rgba(0,0,0,.28)!important;
+  }
+  .ak-ref-hero::before{
+    background:
+      radial-gradient(circle at 15% 18%,rgba(255,185,95,.50) 0 2px,transparent 4px),
+      radial-gradient(circle at 84% 16%,rgba(71,211,255,.40) 0 2px,transparent 4px),
+      linear-gradient(90deg,transparent 12%,rgba(105,121,157,.10) 12.4%,transparent 12.8%,transparent 86%,rgba(95,126,180,.10) 86.4%,transparent 86.8%)!important;
+    opacity:.9!important;
+  }
+  .ak-ref-room-grid{opacity:.5!important}
+  .ak-ref-greeting{
+    position:relative!important;
+    inset:auto!important;
+    order:2!important;
+    width:100%!important;
+    padding:0 2px 20px!important;
+    margin-top:8px!important;
+  }
+  .ak-ref-kicker{font-size:9px!important;letter-spacing:.18em!important;margin-bottom:8px!important}
+  .ak-ref-greeting h2{
+    font-size:33px!important;
+    line-height:1.0!important;
+    margin-bottom:10px!important;
+  }
+  .ak-ref-greeting p{
+    font-size:13px!important;
+    line-height:1.45!important;
+    margin-bottom:15px!important;
+    max-width:280px!important;
+  }
+  .ak-ref-orb-stage{
+    position:relative!important;
+    order:1!important;
+    inset:auto!important;
+    left:auto!important;
+    top:auto!important;
+    transform:none!important;
+    width:min(100vw,410px)!important;
+    height:min(72vw,410px)!important;
+    min-height:300px!important;
+    margin:4px auto -6px!important;
+    z-index:3!important;
+  }
+  .ak-ref-orb-stage .akira-ref-orb{width:100%!important;height:100%!important}
+  .ak-ref-floating,.ak-ref-date-card{display:none!important}
+  .ak-ref-actions{display:flex!important;flex-direction:column!important;gap:9px!important;width:100%!important}
+  .ak-ref-btn{
+    min-height:48px!important;
+    width:100%!important;
+    padding:12px 16px!important;
+    border-radius:15px!important;
+    font-size:13px!important;
+    background:rgba(12,18,35,.70)!important;
+    border-color:rgba(145,120,255,.25)!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04)!important;
+  }
+  .ak-ref-btn.primary{
+    background:linear-gradient(135deg,#8658ff,#536dff)!important;
+    box-shadow:0 10px 30px rgba(111,76,255,.25)!important;
+  }
+
+  .ak-ref-lower{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:10px!important;
+    margin-top:12px!important;
+  }
+  .ak-ref-card{
+    border-radius:17px!important;
+    padding:14px!important;
+    background:linear-gradient(180deg,rgba(11,18,33,.90),rgba(5,9,18,.86))!important;
+  }
+  .ak-ref-lower .ak-ref-card:nth-child(n+4){display:none!important}
+  .ak-ref-stat-grid{grid-template-columns:repeat(4,1fr)!important;gap:5px!important}
+  .ak-ref-stat{padding:8px 3px!important}
+  .ak-ref-stat .ring{width:46px!important;height:46px!important}
+  .ak-ref-stat small{font-size:8px!important}
+  .ak-ref-card h3{font-size:13px!important}
+  .ak-ref-card p,.ak-ref-row .label{font-size:10px!important}
+  .ak-ref-row .value{font-size:9px!important}
+  .ak-ref-quick{
+    grid-template-columns:1fr!important;
+    gap:9px!important;
+    margin-top:10px!important;
+  }
+  .ak-ref-quick button{
+    min-height:58px!important;
+    border-radius:15px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+  }
+  .ak-ref-quick button strong{margin:0!important;font-size:12px!important}
+  .ak-ref-quick button small{font-size:9px!important}
+  .ak-ref-mobile-nav{
+    position:fixed!important;
+    left:10px!important;right:10px!important;bottom:8px!important;
+    z-index:120!important;
+    display:grid!important;
+    grid-template-columns:repeat(5,1fr)!important;
+    gap:2px!important;
+    margin:0!important;
+    padding:7px 5px!important;
+    border-radius:18px!important;
+    background:rgba(7,11,22,.93)!important;
+    border:1px solid rgba(138,126,194,.20)!important;
+    box-shadow:0 14px 34px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.04)!important;
+    backdrop-filter:blur(18px)!important;
+  }
+  .ak-ref-mobile-nav button{
+    min-height:48px!important;
+    border-radius:12px!important;
+    color:#929db7!important;
+    font-size:9px!important;
+  }
+  .ak-ref-mobile-nav button:first-child{color:#dcd4ff!important;background:rgba(119,84,255,.14)!important}
+  .ak-ref-mobile-nav button:active{background:rgba(121,92,255,.20)!important}
+
+  /* In mobile Chat the actual app remains functional, but keeps the same visual language. */
+  body.ak-reference-mode #chatSection .section-header,
+  body.ak-reference-mode #chatSection .input-bar{
+    border-color:rgba(132,120,193,.18)!important;
+    background:rgba(4,7,17,.94)!important;
+  }
+  body.ak-reference-mode #chatSection .input-bar{padding:9px!important}
+  body.ak-reference-mode #chatSection .msgs-inner{padding:14px 12px 10px!important}
+}
+
+@media(max-width:420px){
+  .ak-ref-hero{min-height:700px!important}
+  .ak-ref-orb-stage{width:104vw!important;height:96vw!important;min-height:295px!important;margin-top:0!important}
+  .ak-ref-greeting h2{font-size:31px!important}
+  .ak-ref-stat-grid{gap:3px!important}
+  .ak-ref-stat .ring{width:43px!important;height:43px!important;font-size:9px!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .akira-plasma-bursts .plasma-burst,
+  .akira-plasma-burst-sparks circle,
+  .akira-reference-ribbons,
+  .akira-reference-ribbons path,
+  .akira-reference-core,
+  .akira-reference-particles{animation:none!important}
+}
