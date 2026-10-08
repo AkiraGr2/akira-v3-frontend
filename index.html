@@ -1562,6 +1562,86 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 <script src="./js/akira_missions_panel.js?v=akira-missions-v5"></script>
 <script src="./js/akira-office-2p5d.js?v=akira-office-v7"></script>
 <script>
+/* BRAIN 2D COMPATIBILITY ADAPTER
+ * La referencia actual usa el motor Obsidian 2D como fuente real del Brain.
+ * Estos controles conservan la UX del workspace sin depender del renderer 3D.
+ */
+(function(){
+  function set2dButtonState(){
+    try{
+      const btn=document.getElementById("brainMode2d");
+      if(btn) btn.classList.add("active");
+      const status=document.getElementById("brainModeStatus");
+      if(status) status.textContent="BRAIN · 2D";
+    }catch(_){}
+  }
+
+  window.akiraBrainSetMode=function(mode){
+    if(String(mode||"2d").toLowerCase()!=="2d") return false;
+    window.__akiraBrainCurrentMode="2d";
+    set2dButtonState();
+    try{
+      if(window.AkiraMembrane && typeof window.AkiraMembrane.resizeMembrane==="function"){
+        window.AkiraMembrane.resizeMembrane();
+      }
+    }catch(_){}
+    return true;
+  };
+
+  window.akiraBrainFocus=function(){
+    const run=()=>{
+      try{
+        const graph=window.__akiraMembraneGraphData||{};
+        const nodes=Array.isArray(graph.nodes)?graph.nodes:[];
+        const akira=nodes.find(n=>String(n&&n.label||"").trim().toLowerCase()==="akira");
+        if(akira && akira.id!=null){
+          window.dispatchEvent(new CustomEvent("akira:brain-navigation",{
+            detail:{nodeId:String(akira.id),navigation:true}
+          }));
+          return true;
+        }
+        if(window.AkiraMembrane && typeof window.AkiraMembrane.refreshMembrane==="function"){
+          window.AkiraMembrane.refreshMembrane(true);
+        }
+      }catch(_){}
+      return false;
+    };
+    if(run()) return;
+    setTimeout(run,250);
+  };
+
+  /* Orbit belongs to the retired 3D renderer. Hide the stale control rather
+     than leaving a visible button that cannot truthfully operate in 2D. */
+  function suppressUnsupported3dControl(){
+    try{
+      const btn=document.getElementById("brainOrbitBtn");
+      if(btn){
+        btn.disabled=true;
+        btn.style.display="none";
+      }
+    }catch(_){}
+  }
+
+  window.addEventListener("akira:section-shown",function(ev){
+    if(ev && ev.detail && ev.detail.section==="membrane"){
+      window.__akiraBrainCurrentMode="2d";
+      set2dButtonState();
+      suppressUnsupported3dControl();
+    }
+  });
+
+  if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded",function(){
+      set2dButtonState();
+      suppressUnsupported3dControl();
+    },{once:true});
+  }else{
+    set2dButtonState();
+    suppressUnsupported3dControl();
+  }
+})();
+</script>
+<script>
 async function fetchRuntimeCapabilities(){
   const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
   try{
