@@ -1,83 +1,38 @@
-/* AKIRA WORKSPACE V1
- * Cloud-like workbench ergonomics with Akira's own identity.
- * Existing backend contracts and modules remain untouched.
- */
+
+/* AKIRA REFERENCE DESIGN V2 — desktop + Android workspace shell */
 (function(){
   "use strict";
-  const q=(s,r=document)=>r.querySelector(s);
-  const qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
-  const go=name=>{if(typeof window.showSection==="function")window.showSection(name)};
-  const backend=()=>localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
-  const nav=[
-    ["chat","💬","Chat","Habla con Akira"],["membrane","🧠","Cerebro","Memoria y conexiones"],
-    ["office","◇","Oficina","Agentes trabajando"],["missions","◎","Misiones","Objetivos y ejecución"],
-    ["levels","▥","Estado","Capacidades verificadas"],["upwork","◈","Trabajo","Upwork y proyectos"],
-    ["keys","♙","Cuenta","Sesión y proveedores"],["admin","⚙","Admin","Centro de control"]
-  ];
-  function logo(){return '<div class="ak-ref-logo-mark" aria-hidden="true"><svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke-linecap="round"><path d="M22 3v11M22 30v11M3 22h11M30 22h11" stroke="#a477ff" stroke-width="2"/><path d="M9 9l7 7M28 28l7 7M35 9l-7 7M16 28l-7 7" stroke="#48e2ff" stroke-width="2"/><circle cx="22" cy="22" r="7" stroke="#ff65d5" stroke-width="2"/><circle cx="22" cy="22" r="2.5" fill="#fff" stroke="none"/></g></svg></div>';}
-  function card(id,icon,title,desc,action){return '<article class="ak-ws-card"><h4>'+icon+' '+title+'</h4><p>'+desc+'</p><button type="button" data-ws-go="'+id+'">'+action+' →</button></article>';}
-  function homeMarkup(){
-    return '<div class="ak-ws-scroll"><div class="ak-ws-grid"><main class="ak-ws-main">'+
-      '<div class="ak-ws-eyebrow">AKIRA · COGNITIVE WORKSPACE</div><h1 class="ak-ws-title">Hola. Soy <span>Akira</span>.</h1>'+
-      '<p class="ak-ws-sub">Un espacio de trabajo cognitivo donde conversación, memoria, herramientas, agentes y misiones viven juntos. Pregunta, crea o continúa algo que ya estabas haciendo.</p>'+
-      '<section class="ak-ws-command" aria-label="Preguntar a Akira"><div class="ak-ws-command-top"><div class="ak-ws-command-orb"><div class="akira-entity-slot" data-akira-entity data-state="idle" data-size="64" aria-label="Akira · En calma"></div></div><textarea id="akWorkspacePrompt" placeholder="¿Qué quieres que hagamos juntos?"></textarea></div><div class="ak-ws-command-bottom"><div class="ak-ws-tools"><button class="ak-ws-tool" type="button" data-ws-go="missions">◎ Misión</button><button class="ak-ws-tool" type="button" data-ws-go="membrane">🧠 Cerebro</button><button class="ak-ws-tool" type="button" data-ws-go="office">◇ Agentes</button><button class="ak-ws-tool" type="button" id="akWorkspaceFile">＋ Archivo</button></div><button class="ak-ws-submit" type="button" id="akWorkspaceSend">Enviar a Akira ↗</button></div></section>'+
-      '<div class="ak-ws-prompts"><button class="ak-ws-prompt" type="button" data-ws-prompt="Analiza el estado actual de Akira y dime qué debería revisar primero."><strong>Auditar el sistema</strong><small>Usa el contexto real disponible y señala lo que aún necesita verificación.</small></button><button class="ak-ws-prompt" type="button" data-ws-prompt="Ayúdame a convertir esta idea en una misión clara y verificable."><strong>Crear una misión</strong><small>Pasar de una intención a un objetivo que Akira pueda ejecutar y supervisar.</small></button><button class="ak-ws-prompt" type="button" data-ws-prompt="Explícame qué sabe Akira actualmente sobre sí misma y qué cosas siguen sin estar verificadas."><strong>Conocer a Akira</strong><small>Separar capacidades verificadas, parciales y pendientes.</small></button></div>'+
-      '<section class="ak-ws-section"><div class="ak-ws-section-head"><h3>Espacios de Akira</h3><span>Los módulos reales de la aplicación</span></div><div class="ak-ws-cards>'+
-      card("chat","💬","Conversación","Habla con Akira y conserva el contexto de la conversación.","Abrir chat")+
-      card("membrane","🧠","Cerebro","Explora memoria, conocimiento y relaciones persistentes.","Explorar cerebro")+
-      card("missions","◎","Misiones","Convierte objetivos grandes en trabajo planificado y supervisable.","Abrir misiones")+
-      card("office","◇","Oficina","Observa a los agentes y sus tareas en el espacio cognitivo.","Ver agentes")+
-      card("levels","▥","Estado","Consulta el estado de las capacidades desde el registro real.","Ver estado")+
-      card("admin","⚙","Centro de control","Audita pensamiento, herramientas, agentes, datos y autonomía.","Abrir Admin")+
-      '</div></section></main>'+
-      '<aside class="ak-ws-side" aria-label="Contexto vivo de Akira">'+
-      '<section class="ak-ws-panel"><div class="ak-ws-identity"><div class="ak-ws-identity-orb"><div class="akira-entity-slot" data-akira-entity data-state="idle" data-size="52" aria-label="Akira · En calma"></div></div><div><strong>Akira</strong><small>Colmena cognitiva personal</small></div></div></section>'+
-      '<section class="ak-ws-panel"><h3>Estado vivo</h3><div id="akWorkspaceStatus"><div class="ak-ws-status"><span><i class="ak-ws-dot"></i>Conectando...</span><b>—</b></div></div></section>'+
-      '<section class="ak-ws-panel"><h3>Evidencia reciente</h3><div id="akWorkspaceEvidence" class="ak-ws-evidence">Consultando el registro de capacidades...</div></section>'+
-      '<section class="ak-ws-panel"><h3>Ir directamente</h3><div class="ak-ws-navgrid">'+nav.slice(0,6).map(x=>'<button type="button" data-ws-go="'+x[0]+'">'+x[1]+' '+x[2]+'</button>').join("")+'</div></section>'+
-      '</aside></div><nav class="ak-ws-mobile-bottom" aria-label="Navegación rápida"><button type="button" data-ws-go="chat">💬<br>Chat</button><button type="button" data-ws-go="membrane">🧠<br>Cerebro</button><button type="button" data-ws-go="missions">◎<br>Misiones</button><button type="button" data-ws-go="office">◇<br>Oficina</button></nav></div>';
-  }
-  function setupSidebar(){
-    const brand=q(".brand"),navEl=q("#sidebar .nav");
-    if(brand)brand.innerHTML=logo()+'<div><h1>AKIRA</h1><p>Cognitive Workspace</p></div>';
-    if(!navEl)return;
-    navEl.innerHTML="";
-    nav.forEach(([id,icon,title,desc])=>{const b=document.createElement("button");b.type="button";b.id="btn-"+id;b.className="nav-btn";b.textContent=icon+" "+title;b.title=desc;b.addEventListener("click",()=>go(id));navEl.appendChild(b);});
-  }
-  function setupTopbar(){const pill=q(".topbar .model-pill");if(pill)pill.textContent="Pregunta algo a Akira...";}
-  function sendPrompt(value){
-    const text=String(value||"").trim();if(!text)return;go("chat");
-    const input=q("#msg");if(!input)return;input.value=text;input.dispatchEvent(new Event("input",{bubbles:true}));
-    const btn=q("#sendBtn");if(btn)setTimeout(()=>btn.click(),40);
-  }
-  async function loadLiveContext(){
-    const status=q("#akWorkspaceStatus"),evidence=q("#akWorkspaceEvidence");if(!status||!evidence)return;
-    try{
-      const runtime=await fetch(backend()+"/api/v8/runtime/capabilities",{cache:"no-store"}).then(r=>r.ok?r.json():null);
-      const rows=[];
-      if(runtime)rows.push(["Runtime","ok","disponible"]);else rows.push(["Runtime","warn","no disponible"]);
-      let self=null;
-      try{const h=typeof window.akiraAuthHeaders==="function"?window.akiraAuthHeaders():{};const r=await fetch(backend()+"/api/v8/self",{headers:h,cache:"no-store"});if(r.ok)self=await r.json();}catch(_){}
-      if(self&&Array.isArray(self.capabilities_registry)){
-        ["persistent_memory","memory_recall","learning_persistent","graph_persistent","tool_registry","agents_persistent","missions","self_knowledge_runtime","repair_engine_v1","evolution_engine_v1","controlled_autonomy_v1","cognitive_cycle_persistent"].forEach(n=>{
-          const c=self.capabilities_registry.find(x=>x.name===n);if(c){const raw=c.effective_state||c.status||"unknown";rows.push([n,raw==="verified"?"ok":raw==="partial"||raw==="stale"?"warn":"bad",raw]);}
-        });
-      }else rows.push(["Sesión","warn","inicia sesión para contexto privado"]);
-      status.innerHTML=rows.slice(0,9).map(x=>'<div class="ak-ws-status"><span><i class="ak-ws-dot '+x[1]+'"></i>'+x[0]+'</span><b>'+x[2]+'</b></div>').join("");
-      const verified=rows.filter(x=>x[1]==="ok").length,warn=rows.filter(x=>x[1]==="warn").length;
-      evidence.innerHTML='<strong>'+verified+' señales operativas verificadas</strong><br>'+warn+' señales requieren atención o contexto adicional.<br><br>La interfaz no inventa porcentajes: el estado viene del runtime cuando está disponible.';
-    }catch(e){status.innerHTML='<div class="ak-ws-status"><span><i class="ak-ws-dot warn"></i>Backend</span><b>no disponible</b></div>';evidence.textContent="No se pudo consultar el estado vivo. Los módulos siguen disponibles.";}
-  }
-  function mountHome(){
-    const home=q("#homeSection");if(!home)return;home.classList.add("ak-workspace-home");home.innerHTML=homeMarkup();
-    qa("[data-ws-go]",home).forEach(b=>b.addEventListener("click",()=>go(b.getAttribute("data-ws-go"))));
-    qa("[data-ws-prompt]",home).forEach(b=>b.addEventListener("click",()=>sendPrompt(b.getAttribute("data-ws-prompt"))));
-    const send=q("#akWorkspaceSend"),ta=q("#akWorkspacePrompt");if(send)send.addEventListener("click",()=>sendPrompt(ta&&ta.value));
-    if(ta)ta.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send.click();}});
-    const file=q("#akWorkspaceFile");if(file)file.addEventListener("click",()=>{const input=q("#fileInput");if(input)input.click();else go("chat");});
-    if(window.AkiraEntity&&window.AkiraEntity.mountAll)window.AkiraEntity.mountAll(home);loadLiveContext();
-  }
-  document.addEventListener("DOMContentLoaded",function(){document.body.classList.add("ak-reference-mode");setupSidebar();setupTopbar();mountHome();});
-  window.addEventListener("akira:section-shown",function(e){if(e&&e.detail&&e.detail.section==="office")requestAnimationFrame(()=>{try{window.initAkiraOfficePixel&&window.initAkiraOfficePixel();window.resizeAkiraOfficePixel&&window.resizeAkiraOfficePixel();}catch(_){}});});
-  window.AkiraReferenceWorkspace={mountHome,loadLiveContext};
+  const navMap=[["home","⌂ Inicio"],["chat","▢ Chat"],["membrane","✣ Cerebro"],["office","◇ Oficina"],["missions","◎ Misiones"],["levels","▥ Niveles"],["upwork","▱ Upwork"],["keys","♙ Cuenta"],["admin","⚙ Admin"]];
+  function qs(s,r=document){return r.querySelector(s)}
+  function qsa(s,r=document){return Array.from(r.querySelectorAll(s))}
+  function clickSection(name){if(typeof window.showSection==="function")window.showSection(name)}
+  function homeMarkup(){return `
+    <div class="ak-ref-scroll">
+      <section class="ak-ref-hero" aria-label="Espacio de trabajo cognitivo de Akira">
+        <div class="ak-ref-room-grid"></div>
+        <div class="ak-ref-greeting"><div class="ak-ref-kicker">Cognitive Workspace</div><h2>Hola,<br>soy <span>Akira</span></h2><p>“Hoy es un buen día para explorar algo nuevo.”</p><div class="ak-ref-actions"><button class="ak-ref-btn primary" data-ak-ref-go="chat">Conversar</button><button class="ak-ref-btn" data-ak-ref-go="missions">Planificar</button><button class="ak-ref-btn" data-ak-ref-go="office">Ejecutar</button><button class="ak-ref-btn" data-ak-ref-go="membrane">Explorar</button></div></div>
+        <div class="ak-ref-orb-stage"><div class="akira-entity-slot akira-ref-orb" data-akira-entity data-state="idle" data-size="560" aria-label="Akira · En calma"></div></div>
+        <div class="ak-ref-floating thinking"><strong><span class="ak-ref-status purple"></span>Pensando...</strong><span>Analizando contexto<br>Buscando en memoria<br>Conectando ideas...</span></div>
+        <div class="ak-ref-floating memory"><strong><span class="ak-ref-status cyan"></span>Memoria</strong><span>3 conexiones encontradas</span></div>
+        <div class="ak-ref-floating executing"><strong><span class="ak-ref-status cyan"></span>Ejecutando</strong><span>Agentes trabajando<br>70% completado</span><div class="ak-ref-progress"><i style="width:70%"></i></div></div>
+        <div class="ak-ref-floating learning"><strong><span class="ak-ref-status yellow"></span>Aprendiendo</strong><span>Nuevo conocimiento<br>en proceso...</span></div>
+        <aside class="ak-ref-date-card"><div class="date">Martes, 7 de octubre de 2026</div><div class="time">18:24</div><p>“El conocimiento conecta ideas, las ideas crean oportunidades.”<br><br>— Akira</p></aside>
+      </section>
+      <div class="ak-ref-lower">
+        <article class="ak-ref-card"><h3>Estado del sistema <span class="ak-ref-pill">● Operativo</span></h3><div class="ak-ref-stat-grid"><div class="ak-ref-stat"><div class="ring" style="background:conic-gradient(#9b6dff 0 72%,rgba(255,255,255,.08) 72% 100%)"><b>72%</b></div><small>Memoria</small></div><div class="ak-ref-stat"><div class="ring" style="background:conic-gradient(#32c6ff 0 68%,rgba(255,255,255,.08) 68% 100%)"><b>68%</b></div><small>Agentes</small></div><div class="ak-ref-stat"><div class="ring" style="background:conic-gradient(#28e0af 0 54%,rgba(255,255,255,.08) 54% 100%)"><b>54%</b></div><small>Misiones</small></div><div class="ak-ref-stat"><div class="ring" style="background:conic-gradient(#ffb94c 0 81%,rgba(255,255,255,.08) 81% 100%)"><b>81%</b></div><small>Conocimiento</small></div></div></article>
+        <article class="ak-ref-card"><h3>Actividad reciente <span>Ver todo</span></h3><div class="ak-ref-row"><div class="label"><span class="dot" style="color:#9b6dff;background:#9b6dff"></span>Memoria actualizada</div><div class="value">Hace 5 min</div></div><div class="ak-ref-row"><div class="label"><span class="dot" style="color:#28e0af;background:#28e0af"></span>Agente completó tarea</div><div class="value">Hace 12 min</div></div><div class="ak-ref-row"><div class="label"><span class="dot" style="color:#ffb94c;background:#ffb94c"></span>Análisis de mercado</div><div class="value">Hace 28 min</div></div><div class="ak-ref-row"><div class="label"><span class="dot" style="color:#32c6ff;background:#32c6ff"></span>Nuevo conocimiento</div><div class="value">Hace 1 h</div></div></article>
+        <article class="ak-ref-card"><h3>Misiones en curso <span data-ak-ref-go="missions" style="cursor:pointer">Ver todas</span></h3><div class="ak-ref-row"><div class="label">Investigar oportunidades en Forex</div><div class="value">70%</div></div><div class="ak-ref-row"><div class="label">Guardar y recuperar recuerdo</div><div class="value">100%</div></div><div class="ak-ref-row"><div class="label">Analizar tendencias del mercado</div><div class="value">40%</div></div></article>
+        <article class="ak-ref-card ak-ref-chat-mini"><h3>Conversar con Akira <span data-ak-ref-go="chat" style="cursor:pointer">Abrir chat</span></h3><div class="ak-ref-chat-box">Escribe tu mensaje aquí...<br><br>La conversación real sigue en el módulo Chat; este panel es el acceso visual del workspace.</div><div class="ak-ref-chat-footer"><div class="ak-ref-mini-orb"><div class="akira-entity-slot" data-akira-entity data-state="idle" data-size="34" aria-label="Akira · En calma"></div></div><button class="ak-ref-btn primary" data-ak-ref-go="chat">Hablar con Akira</button></div></article>
+        <article class="ak-ref-card"><h3>Cerebro <span data-ak-ref-go="membrane" style="cursor:pointer">Explorar</span></h3><p>Mapa de conocimiento, conexiones y memoria de Akira.</p><div class="ak-ref-progress" style="margin-top:20px"><i style="width:78%"></i></div><p style="margin-top:6px">1.428 nodos de conocimiento</p></article>
+        <article class="ak-ref-card"><h3>Agentes activos <span data-ak-ref-go="office" style="cursor:pointer">Ver agentes</span></h3><div class="ak-ref-row"><div class="label">Researcher</div><div class="value">Analizando</div></div><div class="ak-ref-row"><div class="label">Developer</div><div class="value">En ejecución</div></div><div class="ak-ref-row"><div class="label">Analyst</div><div class="value">Procesando</div></div><div class="ak-ref-row"><div class="label">Strategist</div><div class="value">En espera</div></div></article>
+      </div>
+      <div class="ak-ref-quick"><button data-ak-ref-go="chat"><strong>＋ Nueva conversación</strong><small>Habla con Akira</small></button><button data-ak-ref-go="missions"><strong>◎ Crear misión</strong><small>Define un objetivo</small></button><button data-ak-ref-go="membrane"><strong>✣ Explorar cerebro</strong><small>Conocimiento y conexiones</small></button><button data-ak-ref-go="office"><strong>◇ Abrir oficina</strong><small>Ve a tus agentes</small></button><button data-ak-ref-go="levels"><strong>▥ Ver niveles</strong><small>Tu evolución</small></button></div>
+      <nav class="ak-ref-mobile-nav" aria-label="Navegación móvil"><button data-ak-ref-go="home">⌂<br>Inicio</button><button data-ak-ref-go="chat">▢<br>Chat</button><button data-ak-ref-go="membrane">✣<br>Cerebro</button><button data-ak-ref-go="missions">◎<br>Misiones</button><button data-ak-ref-go="admin">•••<br>Más</button></nav>
+    </div>
+  `}
+  function setupNav(){const brand=qs(".brand");if(brand){brand.innerHTML='<div class="ak-ref-logo-mark" aria-hidden="true"><svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke-linecap="round"><path d="M22 4v10M22 30v10M4 22h10M30 22h10" stroke="#9b74ff" stroke-width="2"/><path d="M9 9l7 7M28 28l7 7M35 9l-7 7M16 28l-7 7" stroke="#43dfff" stroke-width="2"/><circle cx="22" cy="22" r="7" stroke="#ff63d7" stroke-width="2"/><circle cx="22" cy="22" r="2.5" fill="#fff" stroke="none"/></g></svg></div><div><h1>AKIRA</h1><p>Cognitive Workspace</p></div>';}const nav=qs("#sidebar .nav");if(!nav)return;navMap.forEach(([name,label])=>{let btn=qs("#btn-"+name,nav);if(!btn){btn=document.createElement("button");btn.className="nav-btn";btn.id="btn-"+name;btn.type="button";btn.addEventListener("click",()=>clickSection(name))}btn.textContent=label;nav.appendChild(btn)});const brandP=qs(".brand p");if(brandP)brandP.textContent="Cognitive Workspace";const brandH=qs(".brand h1");if(brandH)brandH.textContent="AKIRA";navMap.map(x=>qs("#btn-"+x[0],nav)).filter(Boolean).forEach(b=>nav.appendChild(b))}
+  function setupTopbar(){const model=qs(".topbar .model-pill");if(model)model.textContent="Pregunta algo a Akira..."}
+  function mountHome(){const main=qs(".main");if(!main)return;let home=qs("#homeSection");if(!home){home=document.createElement("div");home.id="homeSection";home.className="section ak-reference-home";const chat=qs("#chatSection");if(chat)main.insertBefore(home,chat);else main.appendChild(home)}home.innerHTML=homeMarkup();qsa("[data-ak-ref-go]",home).forEach(el=>el.addEventListener("click",()=>clickSection(el.getAttribute("data-ak-ref-go"))));if(window.AkiraEntity&&window.AkiraEntity.mountAll)window.AkiraEntity.mountAll(home)}
+  document.addEventListener("DOMContentLoaded",function(){document.body.classList.add("ak-reference-mode");setupNav();setupTopbar();mountHome();if(typeof window.showSection==="function" && !qsa(".section.active").some(s=>s.id && s.id!=="chatSection"))window.showSection("home")});
+  window.AkiraReferenceWorkspace={mountHome,setupNav};
 })();
