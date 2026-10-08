@@ -1,4 +1,4 @@
-/* AKIRA LIVING SYNAPTIC GALACTIC ORB — CANVAS V2.0
+/* AKIRA LIVING SYNAPTIC GALACTIC ORB — CANVAS V2.1 / RUNTIME SAFE
  * Visual rewrite based on the real browser video review.
  *
  * Goal:
@@ -100,7 +100,10 @@
   }
 
   function fillBlob(ctx,x,y,rx,ry,rotation,seed,time,stops,alpha,warp){
-    if(rx<=.1||ry<=.1||alpha<=.001)return;
+    if(!Number.isFinite(x)||!Number.isFinite(y)||
+       !Number.isFinite(rx)||!Number.isFinite(ry)||
+       !Number.isFinite(rotation)||!Number.isFinite(alpha)||
+       !Number.isFinite(warp)||rx<=.1||ry<=.1||alpha<=.001)return;
     ctx.save();
     ctx.translate(x,y);
     ctx.rotate(rotation);
@@ -122,7 +125,9 @@
   }
 
   function glow(ctx,x,y,r,inner,mid,outer,alpha){
-    if(r<=.1||alpha<=.001)return;
+    if(!Number.isFinite(x)||!Number.isFinite(y)||
+       !Number.isFinite(r)||!Number.isFinite(alpha)||
+       r<=.1||alpha<=.001)return;
     const g=ctx.createRadialGradient(x,y,0,x,y,r);
     g.addColorStop(0,inner);
     g.addColorStop(.30,mid);
@@ -306,8 +311,8 @@
     });
 
     const shell=ctx.createRadialGradient(
-      engine.cx-r*.24,engine.cy-r*.26,0,
-      engine.cx,engine.cy,r*1.12
+      finite(engine.cx-r*.24),finite(engine.cy-r*.26),0,
+      finite(engine.cx),finite(engine.cy),Math.max(.1,finite(r*1.12,.1))
     );
     shell.addColorStop(0,"rgba(226,255,255,.88)");
     shell.addColorStop(.16,"rgba(56,220,244,.72)");
@@ -616,9 +621,9 @@
       const rect=host.getBoundingClientRect();
       const w=Math.max(1,rect.width||host.clientWidth||1);
       const h=Math.max(1,rect.height||host.clientHeight||w);
-      engine.cssW=w;
-      engine.cssH=h;
-      engine.dpr=dpr();
+      engine.cssW=finite(w,1);
+      engine.cssH=finite(h,1);
+      engine.dpr=finite(dpr(),1);
       engine.mobile=w<160||h<160;
       canvas.width=Math.max(1,Math.round(w*engine.dpr));
       canvas.height=Math.max(1,Math.round(h*engine.dpr));
@@ -660,8 +665,10 @@
     function onPointerMove(ev){
       const rect=canvas.getBoundingClientRect();
       if(!rect.width||!rect.height)return;
-      engine.targetLookX=clamp((ev.clientX-rect.left)/rect.width-.5,-.5,.5);
-      engine.targetLookY=clamp((ev.clientY-rect.top)/rect.height-.5,-.5,.5);
+      const px=(ev.clientX-rect.left)/rect.width-.5;
+      const py=(ev.clientY-rect.top)/rect.height-.5;
+      engine.targetLookX=clamp(finite(px,0),-.5,.5);
+      engine.targetLookY=clamp(finite(py,0),-.5,.5);
       if(engine.pointerHold)engine.reaction=Math.max(engine.reaction,.34);
     }
 
@@ -770,6 +777,13 @@
     engine.cx=w*.5+engine.lookX*base*.015;
     engine.cy=h*.49+engine.lookY*base*.010;
     engine.radiusRef=r;
+
+    engine.cx=finite(engine.cx,w*.5);
+    engine.cy=finite(engine.cy,h*.49);
+    engine.lookX=finite(engine.lookX,0);
+    engine.lookY=finite(engine.lookY,0);
+    engine.reaction=finite(engine.reaction,0);
+    engine.energy=finite(engine.energy,1);
 
     const energy=engine.energy*(1+engine.reaction*.10);
 
