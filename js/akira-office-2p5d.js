@@ -29,7 +29,7 @@
 
   let stage=null,canvas=null,ctx=null,scene=null,atlas=null,directionalAtlas=null,config=null;
   let directionalFrames=null;
-  let initialized=false,raf=0,last=0,paused=false,pollTimer=0;
+  let initialized=false,raf=0,last=0,paused=false,pollTimer=0,resizeObserver=null;
   let agents=[],tasks=[];
   let truth={loaded:false,total:0,working:0,idle:0,error:0,disabled:0};
   let selectedName="";
@@ -1995,12 +1995,31 @@
   function resize(){
     if(!stage||!canvas)return;
     const r=stage.getBoundingClientRect();
-    if(r.width<2||r.height<2)return;
-    canvas.width=1536;
-    canvas.height=1024;
-    canvas.style.width=r.width+"px";
-    canvas.style.height=r.height+"px";
+    const width=Math.round(r.width);
+    const height=Math.round(r.height);
+    if(width<2||height<2)return;
+
+    if(canvas.width!==1536)canvas.width=1536;
+    if(canvas.height!==1024)canvas.height=1024;
+
+    const cssWidth=width+"px";
+    const cssHeight=height+"px";
+    if(canvas.style.width!==cssWidth)canvas.style.width=cssWidth;
+    if(canvas.style.height!==cssHeight)canvas.style.height=cssHeight;
+
     if(ctx)ctx.imageSmoothingEnabled=false;
+  }
+
+  function watchStageSize(){
+    if(!stage)return;
+    if(resizeObserver){
+      try{resizeObserver.disconnect();}catch(_){}
+    }
+    if(typeof ResizeObserver==="function"){
+      resizeObserver=new ResizeObserver(()=>resize());
+      resizeObserver.observe(stage);
+    }
+    window.addEventListener("resize",resize,{passive:true});
   }
 
   function hitTest(ev){
@@ -2126,6 +2145,7 @@
       canvas.addEventListener("click",hitTest);
       initialized=true;
       resize();
+      watchStageSize();
       await pollTruth();
       render();
       say("Oficina 2.5D · profundidad + estaciones vivas + estados reales.");
@@ -2156,6 +2176,11 @@
     last=ts;
     raf=requestAnimationFrame(loop);
   }
+
+  window.addEventListener("beforeunload",()=>{
+    try{window.removeEventListener("resize",resize);}catch(_){}
+    try{if(resizeObserver)resizeObserver.disconnect();}catch(_){}
+  });
 
   window.initAkiraOfficePixel=init;
   window.resizeAkiraOfficePixel=resize;
