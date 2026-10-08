@@ -967,7 +967,13 @@ async function akiraVerifySession(){
     if(r.ok && d && d.authenticated===true){
       localStorage.setItem("akira_user_email",String(d.email||""));
       window.akiraSessionState=d;
-      const result=Object.assign({ok:true,status:r.status},d);\n      const av=document.getElementById("userAvatar");\n      if(av){ av.textContent=d.is_owner ? "✓" : "●"; av.style.background=d.is_owner ? "rgba(16,185,129,.16)" : "rgba(59,130,246,.14)"; av.style.borderColor=d.is_owner ? "#10b981" : "#3b82f6"; av.title=d.is_owner ? "Cuenta · sesión verificada · propietario" : "Cuenta · sesión verificada"; av.setAttribute("aria-label",d.is_owner ? "Cuenta · sesión verificada · propietario" : "Cuenta · sesión verificada"); }\n      const sd=document.getElementById("accountSessionDot");\n      const st=document.getElementById("accountSessionText");\n      if(sd){sd.style.background=d.is_owner ? "#10b981" : "#3b82f6";}\n      if(st){st.textContent=d.is_owner ? "Sesión verificada · propietario" : "Sesión verificada"; st.style.color=d.is_owner ? "#10b981" : "#60a5fa";}
+      const result=Object.assign({ok:true,status:r.status},d);
+      const av=document.getElementById("userAvatar");
+      if(av){ av.textContent=d.is_owner ? "✓" : "●"; av.style.background=d.is_owner ? "rgba(16,185,129,.16)" : "rgba(59,130,246,.14)"; av.style.borderColor=d.is_owner ? "#10b981" : "#3b82f6"; av.title=d.is_owner ? "Cuenta · sesión verificada · propietario" : "Cuenta · sesión verificada"; av.setAttribute("aria-label",d.is_owner ? "Cuenta · sesión verificada · propietario" : "Cuenta · sesión verificada"); }
+      const sd=document.getElementById("accountSessionDot");
+      const st=document.getElementById("accountSessionText");
+      if(sd){sd.style.background=d.is_owner ? "#10b981" : "#3b82f6";}
+      if(st){st.textContent=d.is_owner ? "Sesión verificada · propietario" : "Sesión verificada"; st.style.color=d.is_owner ? "#10b981" : "#60a5fa";}
       try{window.dispatchEvent(new CustomEvent("akira:session-valid",{detail:result}));}catch(e){}
       return result;
     }
