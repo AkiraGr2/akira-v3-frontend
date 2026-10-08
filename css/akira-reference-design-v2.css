@@ -212,3 +212,93 @@ body.ak-reference-mode .ak-mobile-reference-nav{
   body.ak-reference-mode .ak-ref-quick{grid-template-columns:1fr!important}
 }
 @media(prefers-reduced-motion:reduce){body.ak-reference-mode .sidebar{transition:none!important}}
+
+
+/* =========================================================
+   AKIRA LIVING PLASMA ENTITY V1
+   Organic presence: irregular plasma core + restrained
+   autonomous expressions. No orbit-ring silhouette.
+   ========================================================= */
+.akira-entity-reference{
+  overflow:visible!important;
+  filter:drop-shadow(0 0 22px rgba(123,91,255,.24)) drop-shadow(0 0 42px rgba(56,211,255,.10));
+}
+.akira-plasma-aura{transform-box:fill-box;transform-origin:center;animation:ak-plasma-aura 5.8s ease-in-out infinite}
+.akira-plasma-field{transform-box:fill-box;transform-origin:center;animation:ak-plasma-field 18s linear infinite}
+.akira-plasma-ribbon{transform-box:fill-box;transform-origin:center}
+.akira-plasma-ribbon.r1{animation:ak-plasma-r1 8.7s ease-in-out infinite}
+.akira-plasma-ribbon.r2{animation:ak-plasma-r2 11.5s ease-in-out infinite}
+.akira-plasma-ribbon.r3{animation:ak-plasma-r3 14s ease-in-out infinite}
+.akira-plasma-particles{animation:ak-plasma-particles 4.8s ease-in-out infinite}
+.akira-plasma-core{transform-box:fill-box;transform-origin:center;animation:ak-plasma-core 4.7s ease-in-out infinite}
+.akira-plasma-blob{transform-box:fill-box;transform-origin:center}
+.akira-plasma-current.c1{animation:ak-plasma-current 5.4s ease-in-out infinite}
+.akira-plasma-current.c2{animation:ak-plasma-current-rev 6.8s ease-in-out infinite}
+.akira-face{transform-box:fill-box;transform-origin:center}
+.akira-eye,.akira-brow,.akira-mouth,.akira-smile-accent,.akira-cheek{transform-box:fill-box;transform-origin:center;transition:opacity .65s ease,transform .65s cubic-bezier(.22,.61,.36,1),d .65s ease}
+.akira-ground{animation:ak-plasma-ground 4.2s ease-in-out infinite}
+.expr-neutral .akira-mouth{transform:translateY(0) scaleY(1)}
+.expr-soft-smile .akira-mouth{transform:translateY(-1px) scale(1.05,1.08)}
+.expr-soft-smile .akira-smile-accent{opacity:1}
+.expr-blink .akira-eye{transform:scaleY(.08);opacity:.2}
+.expr-wink .eye-left{transform:scaleY(.08);opacity:.18}
+.expr-wink .eye-right{transform:scaleY(1)}
+.expr-curious .eye-left{transform:translateY(1px) scaleY(.86)}
+.expr-curious .eye-right{transform:translateY(-5px) scaleY(1.10)}
+.expr-curious .brow-left{transform:translateY(2px) rotate(5deg)}
+.expr-curious .brow-right{transform:translateY(-4px) rotate(-7deg);opacity:.72}
+.expr-amused .akira-mouth{transform:translateY(-2px) scale(1.14,1.16)}
+.expr-amused .akira-smile-accent{transform:translateY(-1px) scaleX(1.08);opacity:1}
+.state-thinking .akira-plasma-core{animation-duration:4s}
+.state-searching .akira-plasma-ribbon{animation-duration:7s}
+.state-learning .akira-plasma-particles{animation-duration:3.8s}
+.state-executing .akira-plasma-field{animation-duration:12s}
+.state-error .akira-plasma-core{filter:saturate(1.12)}
+.state-playful .akira-plasma-field{animation-duration:10s}
+
+@keyframes ak-plasma-aura{
+  0%,100%{transform:scale(.96);opacity:.44}
+  50%{transform:scale(1.05);opacity:.72}
+}
+@keyframes ak-plasma-field{
+  0%{transform:rotate(-2deg) scale(.985)}
+  50%{transform:rotate(3deg) scale(1.018)}
+  100%{transform:rotate(-2deg) scale(.985)}
+}
+@keyframes ak-plasma-r1{
+  0%,100%{transform:translate3d(-3px,2px,0) rotate(-2deg)}
+  50%{transform:translate3d(5px,-5px,0) rotate(3deg)}
+}
+@keyframes ak-plasma-r2{
+  0%,100%{transform:translate3d(4px,-2px,0) rotate(2deg)}
+  50%{transform:translate3d(-4px,4px,0) rotate(-3deg)}
+}
+@keyframes ak-plasma-r3{
+  0%,100%{transform:translate3d(0,3px,0) scale(.99)}
+  50%{transform:translate3d(-5px,-4px,0) scale(1.03)}
+}
+@keyframes ak-plasma-particles{
+  0%,100%{opacity:.55;transform:translate3d(0,0,0)}
+  50%{opacity:1;transform:translate3d(0,-7px,0)}
+}
+@keyframes ak-plasma-core{
+  0%,100%{transform:translate3d(-1px,1px,0) scale(.985)}
+  35%{transform:translate3d(4px,-3px,0) scale(1.018)}
+  70%{transform:translate3d(-3px,-5px,0) scale(1.008)}
+}
+@keyframes ak-plasma-current{
+  0%,100%{opacity:.30;transform:translateX(-4px) scaleX(.96)}
+  50%{opacity:.70;transform:translateX(5px) scaleX(1.03)}
+}
+@keyframes ak-plasma-current-rev{
+  0%,100%{opacity:.18;transform:translateX(5px)}
+  50%{opacity:.52;transform:translateX(-5px)}
+}
+@keyframes ak-plasma-ground{
+  0%,100%{transform:scaleX(.92);opacity:.34}
+  50%{transform:scaleX(1.08);opacity:.58}
+}
+@media(prefers-reduced-motion:reduce){
+  .akira-plasma-aura,.akira-plasma-field,.akira-plasma-ribbon,.akira-plasma-particles,.akira-plasma-core,.akira-plasma-current,.akira-ground{animation:none!important}
+  .akira-eye,.akira-brow,.akira-mouth,.akira-smile-accent,.akira-cheek{transition:none!important}
+}
