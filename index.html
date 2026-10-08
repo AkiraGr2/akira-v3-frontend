@@ -333,12 +333,13 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 @media(max-width:900px){.mission-grid{grid-template-columns:1fr}.mission-kv{grid-template-columns:110px 1fr}}
 @media(max-width:768px){.sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);width:280px;z-index:30}.sidebar.open{transform:translateX(0)}.hamburger{display:flex}.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:15}.overlay.open{display:block}.section-tools{max-height:50%}.mission-shell{padding:10px;overflow:hidden}.mission-input,.mission-select{width:100%;min-width:0}.mission-toolbar,.mission-create{align-items:stretch}.mission-toolbar .pixel-btn,.mission-create .pixel-btn{width:100%}.mission-grid{min-height:0;grid-template-columns:1fr;grid-template-rows:minmax(220px,38dvh) minmax(0,1fr);height:100%;overflow:hidden}.mission-grid .mission-pane{min-height:0}.mission-list{min-height:0;height:100%;overflow-y:auto}.mission-detail{min-height:0;height:100%;overflow-y:auto}.mission-grid:not(.mobile-detail-open) .mission-pane:nth-child(2){display:none}.mission-grid.mobile-detail-open{grid-template-rows:minmax(0,1fr)}.mission-grid.mobile-detail-open .mission-pane:first-child{display:none}.mission-mobile-back{display:block;width:100%;margin-bottom:10px}.mission-plan-step-head{flex-direction:column;align-items:flex-start}}
 </style>
+  <link rel="stylesheet" href="./css/akira-cognitive-system-v1.css?v=akira-cognitive-v1">
 </head>
 <body>
 <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
 <div class="sidebar" id="sidebar">
   <div class="brand">
-    <div class="orb" id="orb" onclick="showSection('chat')" style="cursor:pointer"></div>
+    <div class="orb akira-entity-slot akira-global-entity" id="orb" data-akira-entity data-state="idle" data-size="36" aria-label="Akira · En calma" onclick="showSection('chat')" style="cursor:pointer"></div>
     <div><h1>Akira</h1><p>Grimm Hive</p></div>
   </div>
   <button class="btn-new pixel-btn" onclick="if(window.akiraConversations){akiraConversations.newChat()}else{newChat()}">+ Nuevo chat</button>
@@ -359,7 +360,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
     <div style="display:flex;align-items:center;gap:10px">
       <button class="hamburger" onclick="toggleSidebar()">☰</button>
       <div style="display:flex;align-items:center;gap:10px">
-        <div class="orb" style="width:28px;height:28px"></div>
+        <div class="orb akira-entity-slot akira-global-entity" data-akira-entity data-state="idle" data-size="30" aria-label="Akira · En calma"></div>
         <div class="model-pill">Akira</div>
       </div>
     </div>
@@ -372,7 +373,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
   <div id="chatSection" class="section active">
     <div class="chat-wrap">
       <div class="msgs" id="msgs"><div class="msgs-inner" id="msgsInner">
-        <div class="msg-row akira"><div class="avatar"></div><div class="bubble">Hola, soy Akira. ¿En qué te ayudo hoy?</div></div>
+        <div class="msg-row akira"><div class="avatar akira-entity-slot" data-akira-entity data-state="idle" data-size="42" aria-label="Akira · En calma"></div><div class="bubble">Hola, soy Akira. ¿En qué te ayudo hoy?</div></div>
       </div></div>
       <div class="input-bar">
         <div class="input-inner">
@@ -710,7 +711,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           </div>
           <div class="admin-v2-actions">
             <button class="admin-v2-action" onclick="f8AuditAllTools()">
-              <strong>🔬 Auditar individualmente las 16 herramientas</strong>
+              <strong>🔬 Auditar todas las herramientas registradas</strong>
               <small>Ejecuta una comprobación E2E de cada herramienta: permisos, entradas, ejecución, persistencia e idempotencia.</small>
             </button>
             <button class="admin-v2-action" onclick="f8ListTools()">
@@ -765,7 +766,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
               <small>Muestra la actividad reciente de los agentes.</small>
             </button>
             <button class="admin-v2-action" onclick="f9AuditAllAgents()">
-              <strong>🔬 Auditar individualmente los 9 agentes</strong>
+              <strong>🔬 Auditar todos los agentes registrados</strong>
               <small>Comprueba que cada agente exista, use solo sus capacidades permitidas, ejecute una tarea real, persista la evidencia y vuelva a quedar libre.</small>
             </button>
           </div>
@@ -1406,6 +1407,8 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
 <script src="./js/obsidian_membrane.js?v=akira-membrane-v50-public-first-timeout"></script>
+<script src="./js/akira_entity.js?v=akira-entity-v1"></script>
+<script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>
 <script src="./js/akira_brain.js?v=akira-brain-v7-stream-root"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
 <script src="./js/akira_conversations.js?v=akira-conv-v5"></script>

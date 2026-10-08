@@ -541,6 +541,59 @@
     }, false);
   };
 
+  window.f9AuditAllAgents = async function(){
+    if (window.__akiraF9AuditBusy) return _out("f9Output", "La auditoría de agentes ya está en curso.", false);
+    window.__akiraF9AuditBusy = true;
+    if (typeof window.akiraAdminSetUiState === "function") window.akiraAdminSetUiState("executing");
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const deadline = Date.now() + 10 * 60 * 1000;
+    try {
+      _out("f9Output", "Iniciando la auditoría real de los 9 agentes. Akira comprobará registro, capacidades, ejecución, persistencia y limpieza.", false);
+      const start = await _fetch("/api/v8/agents/audit", { method: "POST" }, 30000);
+      if (!start.ok || !start.data || !start.data.ok || !start.data.run_id) {
+        if (typeof window.akiraAdminSetUiState === "function") window.akiraAdminSetUiState("error");
+        return _out("f9Output", _errText(start), true);
+      }
+      const runId = String(start.data.run_id);
+      _out("f9Output", { estado:"Ejecutando…", run_id:runId, agentes:start.data.agent_count || 9, mensaje:"La auditoría corre en segundo plano para no bloquear la pantalla." }, false);
+      let wait = 1200;
+      while (Date.now() < deadline) {
+        const r = await _fetch("/api/v8/agents/audit/" + encodeURIComponent(runId), {}, 30000);
+        if (r.ok && r.data && r.data.ok) {
+          const status = String(r.data.status || "");
+          if (status === "running") {
+            const partial = r.data.report || {};
+            _out("f9Output", { estado:"Ejecutando…", run_id:runId, agentes:partial.agent_count || start.data.agent_count || 9, casos_completados:partial.case_count || 0, resumen_parcial:partial.summary || {}, mensaje:"Akira sigue comprobando los agentes." }, false);
+            await sleep(wait);
+            wait = Math.min(4000, Math.round(wait * 1.35));
+            continue;
+          }
+          const report = r.data.report || {};
+          const reports = Array.isArray(report.reports) ? report.reports : [];
+          const verified = reports.filter(x => x && x.verdict === "VERIFIED").length;
+          const failed = reports.length - verified;
+          _out("f9Output", { ok:report.ok === true, estado:status || "completed", run_id:runId, agentes_esperados:report.agent_count || start.data.agent_count || 9, casos:reports.length, verificados:verified, con_problemas:failed, resumen:report.summary || {}, limpieza:report.cleanup ? { ok:report.cleanup.ok, acciones:Array.isArray(report.cleanup.actions) ? report.cleanup.actions.length : 0 } : undefined, detalle:reports.map(x => ({ agente:x && x.agent, herramienta:x && x.tool, veredicto:x && x.verdict, checks:x && x.checks, error:x && x.error })) }, report.ok !== true);
+          if (typeof window.akiraAdminSetUiState === "function") window.akiraAdminSetUiState(report.ok === true ? "success" : "error");
+          return;
+        }
+        if (r.status === 404 || r.status === 0) {
+          await sleep(wait);
+          wait = Math.min(4000, Math.round(wait * 1.35));
+          continue;
+        }
+        if (typeof window.akiraAdminSetUiState === "function") window.akiraAdminSetUiState("error");
+        return _out("f9Output", _errText(r), true);
+      }
+      if (typeof window.akiraAdminSetUiState === "function") window.akiraAdminSetUiState("uncertain");
+      _out("f9Output", { ok:false, estado:"aún_en_ejecución", run_id:runId, mensaje:"La auditoría superó el tiempo de espera del panel, pero el backend puede seguir ejecutándola. El run_id permite consultarla de nuevo." }, false);
+    } catch (e) {
+      if (typeof window.akiraAdminSetUiState === "function") window.akiraAdminSetUiState("error");
+      _out("f9Output", "No se pudo completar la auditoría desde el panel: " + String((e && e.message) || e), true);
+    } finally {
+      window.__akiraF9AuditBusy = false;
+    }
+  };
+
   window.f9Reset = function(){ _out("f9Output", "Salida limpiada.", false); };
 
   // ============================================================
