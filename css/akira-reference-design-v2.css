@@ -61,7 +61,7 @@ body.ak-reference-mode #userAvatar::after{content:"✦";font-size:17px;color:#c8
 .ak-ref-quick{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:12px}.ak-ref-quick button{min-height:76px;text-align:left;padding:12px 13px;border-radius:15px;border:1px solid rgba(125,136,179,.16);background:rgba(10,15,27,.76);color:#eef1fa;cursor:pointer}.ak-ref-quick button strong{display:block;font-size:11px;margin-bottom:5px}.ak-ref-quick button small{color:#7f8aa4;font-size:10px}
 .ak-ref-mobile-nav{display:none}
 body.ak-reference-mode .msg-row.akira .avatar{background:transparent!important;box-shadow:none!important;border-radius:50%!important}
-body.ak-reference-mode .msgs-inner{max-width:900px!important}.body.ak-reference-mode .msg-row.akira .bubble{background:rgba(10,15,27,.52)!important;border:1px solid rgba(125,135,173,.14)!important;border-radius:16px!important;color:#e8ecf7!important;box-shadow:0 14px 32px rgba(0,0,0,.14)!important}
+body.ak-reference-mode .msgs-inner{max-width:900px!important}body.ak-reference-mode .msg-row.akira .bubble{background:rgba(10,15,27,.52)!important;border:1px solid rgba(125,135,173,.14)!important;border-radius:16px!important;color:#e8ecf7!important;box-shadow:0 14px 32px rgba(0,0,0,.14)!important}
 .akira-entity-slot.akira-ref-orb{overflow:visible!important;background:transparent!important;border:0!important;box-shadow:none!important}
 .akira-entity-reference{width:100%;height:100%;display:block;overflow:visible;filter:drop-shadow(0 0 20px rgba(116,92,255,.22))}
 .akira-entity-reference .akira-core{transform-box:fill-box;transform-origin:center;animation:ak-ref-breathe 4.1s ease-in-out infinite}
