@@ -1,280 +1,831 @@
-/* AKIRA PLASMA NUCLEUS V8
- * Rebuilt from zero from the approved plasma-nucleus concept.
- * The nucleus is the identity: fluid interior, heat, expelled plasma,
- * self-forming face, autonomous life and pointer/cognitive reactions.
+/* AKIRA LIVING PLASMA CORE — CANVAS V1
+ * Nueva identidad visual construida desde cero.
+ * No usa la arquitectura SVG de las versiones anteriores.
+ *
+ * Principio visual:
+ * - ninguna línea ornamental
+ * - ninguna órbita
+ * - ninguna malla ni anillo
+ * - el cuerpo ES una masa de plasma, hecha de volúmenes blandos
+ * - las emisiones son pequeñas masas calientes que se desprenden y se evaporan
+ * - la cara nace dentro de la luz del plasma, no como sticker
+ *
+ * Runtime:
+ * - Canvas 2D nativo del navegador
+ * - requestAnimationFrame con tiempo real (no depende del scroll)
+ * - ResizeObserver + DPR limitado para móviles
+ * - pausa solo cuando la pestaña está oculta
  */
 (function(){
   "use strict";
 
   const STATES={
-    idle:{label:"En calma",energy:1},
+    idle:{label:"En calma",energy:1.00},
     thinking:{label:"Pensando",energy:1.16},
-    searching:{label:"Explorando",energy:1.32},
+    searching:{label:"Explorando",energy:1.28},
     learning:{label:"Aprendiendo",energy:1.08},
-    remembering:{label:"Recordando",energy:.94},
-    executing:{label:"Ejecutando",energy:1.28},
+    remembering:{label:"Recordando",energy:0.94},
+    executing:{label:"Ejecutando",energy:1.24},
     success:{label:"Listo",energy:1.10},
-    uncertain:{label:"Con cautela",energy:.82},
-    error:{label:"Atención",energy:.90},
-    playful:{label:"Juguetona",energy:1.24}
+    uncertain:{label:"Con cautela",energy:0.84},
+    error:{label:"Atención",energy:0.92},
+    playful:{label:"Juguetona",energy:1.22}
   };
 
-  const EXPRESSIONS=["soft","curious","joy","surprised","wink","sleepy","playful","blink"];
-  let uid=0;
+  const EXPRESSIONS=[
+    "soft","curious","joy","surprised","wink","sleepy","playful","blink"
+  ];
+
+  const EXPRESSION_CONFIG={
+    soft:{left:.82,right:.82,mouth:"soft"},
+    curious:{left:.77,right:1.00,mouth:"small"},
+    joy:{left:.96,right:.96,mouth:"joy"},
+    surprised:{left:.93,right:.93,mouth:"open"},
+    wink:{left:.10,right:.92,mouth:"joy"},
+    sleepy:{left:.34,right:.34,mouth:"small"},
+    playful:{left:.84,right:.98,mouth:"playful"},
+    blink:{left:.08,right:.08,mouth:"small"}
+  };
+
+  const PALETTE=[
+    ["#d9ffff","#55ecff","#7369ff","#e54cff"],
+    ["#fff1bd","#ffb45e","#ff62c9","#8059ff"],
+    ["#e6ffff","#6cecff","#4d7dff","#c948ff"],
+    ["#fff3ca","#ff884f","#ff4fb4","#6a5cff"]
+  ];
+
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+  const lerp=(a,b,t)=>a+(b-a)*t;
   const rand=(a,b)=>a+Math.random()*(b-a);
   const normalizeState=s=>STATES[s]?s:"idle";
 
-  function markup(){
-    const id="akv8"+(++uid);
-    return '<svg class="akira-v8-nucleus" viewBox="0 0 520 520" role="presentation" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">'+
-      '<defs>'+
-        '<radialGradient id="'+id+'core" cx="38%" cy="28%" r="76%">'+
-          '<stop offset="0" stop-color="#eaffff" stop-opacity=".98"/><stop offset=".12" stop-color="#73f4ff" stop-opacity=".96"/><stop offset=".32" stop-color="#397fff" stop-opacity=".82"/><stop offset=".56" stop-color="#743fff" stop-opacity=".72"/><stop offset=".76" stop-color="#b52bff" stop-opacity=".52"/><stop offset="1" stop-color="#17143f" stop-opacity=".20"/>'+
-        '</radialGradient>'+
-        '<radialGradient id="'+id+'heat" cx="50%" cy="58%" r="50%">'+
-          '<stop offset="0" stop-color="#fff4b8" stop-opacity=".94"/><stop offset=".22" stop-color="#ffb45c" stop-opacity=".70"/><stop offset=".48" stop-color="#ff4fc5" stop-opacity=".34"/><stop offset=".72" stop-color="#7b54ff" stop-opacity=".14"/><stop offset="1" stop-color="#000" stop-opacity="0"/>'+
-        '</radialGradient>'+
-        '<linearGradient id="'+id+'flow" x1="0" y1="0" x2="1" y2="1">'+
-          '<stop stop-color="#fff8d6"/><stop offset=".15" stop-color="#ffb35c"/><stop offset=".34" stop-color="#ff55cf"/><stop offset=".56" stop-color="#9a5cff"/><stop offset=".76" stop-color="#36dfff"/><stop offset="1" stop-color="#b8ffff"/>'+
-        '</linearGradient>'+
-        '<linearGradient id="'+id+'cool" x1="1" y1="0" x2="0" y2="1">'+
-          '<stop stop-color="#c9ffff"/><stop offset=".28" stop-color="#44e8ff"/><stop offset=".58" stop-color="#5d6cff"/><stop offset=".82" stop-color="#d14cff"/><stop offset="1" stop-color="#ff9b67"/>'+
-        '</linearGradient>'+
-        '<radialGradient id="'+id+'cheek"><stop stop-color="#ff8bcb" stop-opacity=".95"/><stop offset=".45" stop-color="#ff4fa9" stop-opacity=".55"/><stop offset="1" stop-color="#ff4fa9" stop-opacity="0"/></radialGradient>'+
-        '<filter id="'+id+'glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'+
-        '<filter id="'+id+'hot" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="13"/></filter>'+
-        '<filter id="'+id+'warp" x="-25%" y="-25%" width="150%" height="150%"><feTurbulence type="fractalNoise" baseFrequency=".014" numOctaves="2" seed="17" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="B"/></filter>'+
-      '</defs>'+
-      '<g class="v8-aura">'+
-        '<circle cx="260" cy="260" r="188" fill="url(#'+id+'heat)" opacity=".22" filter="url(#'+id+'hot)"/>'+
-        '<circle class="v8-heat-core" cx="260" cy="285" r="122" fill="url(#'+id+'heat)" opacity=".44" filter="url(#'+id+'hot)"/>'+
-        '<ellipse class="v8-ground-glow" cx="260" cy="475" rx="112" ry="19" fill="url(#'+id+'heat)" opacity=".50" filter="url(#'+id+'hot)"/>'+
-      '</g>'+
-      '<g class="v8-ejected-plasma" fill="none" stroke-linecap="round" filter="url(#'+id+'glow)">'+
-        '<path class="tendril t1" d="M174 125 C126 91 91 65 92 27 C117 52 145 47 162 20 C171 57 198 73 219 84" stroke="url(#'+id+'flow)" stroke-width="13"/>'+
-        '<path class="tendril t2" d="M309 96 C342 57 384 39 415 57 C384 72 383 101 408 118 C372 129 337 119 318 108" stroke="url(#'+id+'cool)" stroke-width="11"/>'+
-        '<path class="tendril t3" d="M388 167 C430 139 475 143 489 175 C459 166 441 187 447 215 C414 208 397 191 382 179" stroke="url(#'+id+'flow)" stroke-width="12"/>'+
-        '<path class="tendril t4" d="M405 319 C451 310 484 332 481 365 C458 343 434 353 425 381 C399 363 392 341 400 324" stroke="url(#'+id+'cool)" stroke-width="13"/>'+
-        '<path class="tendril t5" d="M319 416 C346 448 384 465 408 445 C393 425 405 401 432 398 C424 433 399 461 366 473 C339 465 321 445 310 425" stroke="url(#'+id+'flow)" stroke-width="12"/>'+
-        '<path class="tendril t6" d="M183 421 C161 460 128 476 104 456 C122 439 115 414 90 405 C106 383 137 386 160 405" stroke="url(#'+id+'cool)" stroke-width="11"/>'+
-        '<path class="tendril t7" d="M116 330 C72 350 35 338 30 308 C55 318 74 301 72 275 C102 283 119 300 126 317" stroke="url(#'+id+'flow)" stroke-width="13"/>'+
-        '<path class="tendril t8" d="M118 192 C75 183 39 157 45 127 C66 145 90 135 97 109 C121 128 131 153 126 180" stroke="url(#'+id+'cool)" stroke-width="11"/>'+
-        '<path class="tendril t9" d="M221 91 C230 54 255 26 283 31 C263 51 270 75 295 87 C273 103 247 103 225 96" stroke="url(#'+id+'flow)" stroke-width="9"/>'+
-        '<path class="tendril t10" d="M338 381 C364 396 379 418 369 440 C348 425 328 432 317 449 C306 420 314 397 338 381" stroke="url(#'+id+'cool)" stroke-width="9"/>'+
-      '</g>'+
-      '<g class="v8-droplets" fill="url(#'+id+'flow)" filter="url(#'+id+'glow)">'+
-        '<circle class="drop d1" cx="72" cy="83" r="7"/><circle class="drop d2" cx="424" cy="93" r="6"/><circle class="drop d3" cx="466" cy="255" r="8"/><circle class="drop d4" cx="93" cy="382" r="6"/><circle class="drop d5" cx="266" cy="24" r="5"/><circle class="drop d6" cx="441" cy="414" r="7"/><circle class="drop d7" cx="48" cy="245" r="5"/><circle class="drop d8" cx="164" cy="474" r="6"/>'+
-      '</g>'+
-      '<g class="v8-shell" filter="url(#'+id+'warp)">'+
-        '<path class="shell-fill" d="M260 109 C314 99 370 122 398 162 C425 201 426 260 414 312 C401 369 362 408 311 425 C261 442 201 431 160 403 C116 373 94 323 99 270 C104 214 123 169 164 139 C191 119 224 108 260 109 Z" fill="url(#'+id+'core)" opacity=".82"/>'+
-        '<path class="shell-rim rim-a" d="M260 105 C320 96 379 123 407 168 C430 207 428 267 414 319 C397 378 354 416 305 430 C249 445 189 430 149 397 C109 364 92 314 99 263 C106 208 128 164 169 135 C194 117 228 106 260 105 Z" fill="none" stroke="url(#'+id+'flow)" stroke-width="8" opacity=".92"/>'+
-        '<path class="shell-rim rim-b" d="M253 118 C307 108 357 130 386 168 C411 202 414 254 402 305 C388 358 353 393 307 411 C255 431 204 417 166 390 C129 363 110 322 114 274 C118 226 136 184 174 153 C195 136 224 123 253 118 Z" fill="none" stroke="url(#'+id+'cool)" stroke-width="3" opacity=".72"/>'+
-      '</g>'+
-      '<g class="v8-currents" fill="none" stroke-linecap="round" filter="url(#'+id+'glow)">'+
-        '<path class="current c1" d="M131 260 C167 219 191 172 245 170 C299 168 329 198 314 229 C299 260 250 251 258 214 C265 180 315 158 358 188 C386 207 395 238 402 269" stroke="url(#'+id+'flow)" stroke-width="9" opacity=".86"/>'+
-        '<path class="current c2" d="M121 307 C155 273 192 256 227 270 C260 283 266 320 242 338 C218 356 183 339 193 308 C202 281 240 272 276 285 C312 298 334 324 365 316" stroke="url(#'+id+'cool)" stroke-width="8" opacity=".76"/>'+
-        '<path class="current c3" d="M170 151 C204 130 244 131 272 151 C296 169 292 194 270 205 C245 218 218 200 228 176 C239 151 279 142 314 155" stroke="url(#'+id+'flow)" stroke-width="7" opacity=".82"/>'+
-        '<path class="current c4" d="M158 355 C193 331 223 347 246 369 C272 394 313 393 347 363" stroke="url(#'+id+'cool)" stroke-width="7" opacity=".74"/>'+
-        '<path class="current c5" d="M146 218 C174 246 211 249 235 228 C263 203 291 204 321 224 C348 242 368 244 389 229" stroke="url(#'+id+'flow)" stroke-width="5" opacity=".70"/>'+
-        '<path class="current c6" d="M183 397 C207 369 240 362 270 378 C299 393 328 385 349 363" stroke="url(#'+id+'cool)" stroke-width="5" opacity=".68"/>'+
-      '</g>'+
-      '<g class="v8-microcurrents" fill="none" stroke-linecap="round" opacity=".72">'+
-        '<path d="M151 288 C175 300 179 326 162 342" stroke="#7af4ff" stroke-width="3"/>'+
-        '<path d="M286 135 C274 157 278 179 299 188" stroke="#ff75d2" stroke-width="3"/>'+
-        '<path d="M340 271 C318 255 313 232 328 213" stroke="#ffd06a" stroke-width="3"/>'+
-        '<path d="M214 390 C224 365 246 354 269 361" stroke="#6f8cff" stroke-width="3"/>'+
-      '</g>'+
-      '<g class="v8-particles" fill="#e9ffff" filter="url(#'+id+'glow)">'+
-        '<circle cx="125" cy="218" r="2.5"/><circle cx="146" cy="118" r="3"/><circle cx="332" cy="128" r="2.5"/><circle cx="407" cy="250" r="3"/><circle cx="367" cy="344" r="2.5"/><circle cx="210" cy="423" r="2.5"/><circle cx="112" cy="334" r="2"/><circle cx="287" cy="445" r="2"/>'+
-      '</g>'+
-      '<g class="v8-face" transform="translate(0 4)">'+
-        '<g class="v8-cheeks" filter="url(#'+id+'glow)">'+
-          '<circle class="cheek cheek-l" cx="178" cy="302" r="25" fill="url(#'+id+'cheek)" opacity=".88"/>'+
-          '<circle class="cheek cheek-r" cx="342" cy="302" r="25" fill="url(#'+id+'cheek)" opacity=".88"/>'+
-        '</g>'+
-        '<g class="face-expr expr-soft" fill="none" stroke="#f3ffff" stroke-linecap="round" stroke-linejoin="round">'+
-          '<path class="eye eye-l" d="M166 260 Q191 230 216 260" stroke-width="13"/><path class="eye eye-r" d="M304 260 Q329 230 354 260" stroke-width="13"/><path class="mouth" d="M210 296 Q260 333 310 296" stroke="#ffb6ef" stroke-width="9"/>'+
-        '</g>'+
-        '<g class="face-expr expr-curious" fill="none" stroke="#f3ffff" stroke-linecap="round" stroke-linejoin="round">'+
-          '<path class="eye eye-l" d="M166 263 Q191 239 216 258" stroke-width="12"/><path class="eye eye-r" d="M304 256 Q329 229 354 260" stroke-width="13"/><path class="mouth" d="M226 300 Q260 315 294 299" stroke="#ffb6ef" stroke-width="8"/>'+
-        '</g>'+
-        '<g class="face-expr expr-joy" fill="none" stroke="#f3ffff" stroke-linecap="round" stroke-linejoin="round">'+
-          '<path class="eye eye-l" d="M165 262 Q191 224 218 260" stroke-width="15"/><path class="eye eye-r" d="M302 260 Q329 224 356 262" stroke-width="15"/><path class="mouth" d="M204 294 Q260 350 316 294" stroke="#ffd1f4" stroke-width="10"/>'+
-        '</g>'+
-        '<g class="face-expr expr-surprised" fill="none" stroke="#f3ffff" stroke-linecap="round" stroke-linejoin="round">'+
-          '<path class="eye eye-l" d="M168 260 Q191 228 215 260" stroke-width="14"/><path class="eye eye-r" d="M305 260 Q329 228 352 260" stroke-width="14"/><ellipse class="mouth" cx="260" cy="306" rx="23" ry="29" stroke="#ffb6ef" stroke-width="8"/>'+
-        '</g>'+
-        '<g class="face-expr expr-wink" fill="none" stroke="#f3ffff" stroke-linecap="round" stroke-linejoin="round">'+
-          '<path class="eye eye-l" d="M167 260 Q192 229 216 260" stroke-width="13"/><path class="eye eye-r" d="M304 266 Q329 248 353 264" stroke-width="10"/><path class="mouth" d="M211 299 Q260 337 309 298" stroke="#ffb6ef" stroke-width="9"/>'+
-        '</g>'+
-        '<g class="face-expr expr-sleepy" fill="none" stroke="#f3ffff" stroke-linecap="round" stroke-linejoin="round">'+
-          '<path class="eye eye-l" d="M166 263 Q191 275 216 263" stroke-width="11"/><path class="eye eye-r" d="M304 263 Q329 275 354 263" stroke-width="11"/><path class="mouth" d="M220 304 Q260 321 300 304" stroke="#ffb6ef" stroke-width="8"/>'+
-        '</g>'+
-        '<g class="face-expr expr-playful" fill="none" stroke="#f3ffff" stroke-linecap="round" stroke-linejoin="round">'+
-          '<path class="eye eye-l" d="M167 261 Q191 230 216 259" stroke-width="13"/><path class="eye eye-r" d="M305 258 Q330 229 354 264" stroke-width="14"/><path class="mouth" d="M211 297 Q255 336 306 293" stroke="#ffb6ef" stroke-width="9"/>'+
-        '</g>'+
-        '<g class="face-expr expr-blink" fill="none" stroke="#f3ffff" stroke-linecap="round">'+
-          '<path class="eye eye-l" d="M166 264 Q191 275 216 264" stroke-width="11"/><path class="eye eye-r" d="M304 264 Q329 275 354 264" stroke-width="11"/><path class="mouth" d="M218 303 Q260 320 302 303" stroke="#ffb6ef" stroke-width="8"/>'+
-        '</g>'+
-        '<g class="v8-face-sparkles" fill="#fff4d0" filter="url(#'+id+'glow)"><circle cx="157" cy="291" r="3"/><circle cx="364" cy="291" r="3"/></g>'+
-      '</g>'+
-      '<ellipse class="v8-ground-ring" cx="260" cy="477" rx="98" ry="11" fill="none" stroke="url(#'+id+'cool)" stroke-width="3" opacity=".70"/>'+
-      '<ellipse class="v8-ground-ring inner" cx="260" cy="477" rx="54" ry="6" fill="none" stroke="#ff88dd" stroke-width="2" opacity=".55"/>'+
-    '</svg>';
+  function hashNoise(n){
+    const x=Math.sin(n*12.9898)*43758.5453123;
+    return x-Math.floor(x);
   }
 
-  function setExpression(host,expr){
-    const svg=host.querySelector(".akira-v8-nucleus");
-    if(!svg)return;
-    const normalized=EXPRESSIONS.includes(expr)?expr:"soft";
-    svg.dataset.expression=normalized;
-    svg.querySelectorAll(".face-expr").forEach(g=>g.classList.toggle("is-active",g.classList.contains("expr-"+normalized)));
+  function smoothNoise(t,seed){
+    const a=Math.floor(t);
+    const f=t-a;
+    const s=f*f*(3-2*f);
+    return lerp(hashNoise(a+seed),hashNoise(a+seed+1),s);
   }
 
-  function pulse(host,kind){
-    const svg=host&&host.querySelector(".akira-v8-nucleus");
-    if(!svg)return;
-    svg.classList.remove("v8-reaction");
-    svg.dataset.reaction=kind||"pulse";
-    void svg.getBoundingClientRect();
-    svg.classList.add("v8-reaction");
-    clearTimeout(host.__akiraEntity&&host.__akiraEntity.__pulseTimer);
-    if(host.__akiraEntity)host.__akiraEntity.__pulseTimer=setTimeout(()=>svg.classList.remove("v8-reaction"),1150);
+  function roundDpr(){
+    return clamp(window.devicePixelRatio||1,1,2.25);
   }
 
-  function startLife(host){
-    if(host.__akiraLife)return;
-    const svg=host.querySelector(".akira-v8-nucleus");
-    if(!svg)return;
-    let alive=true,exprTimer=0,burstTimer=0,particleTimer=0;
-
-    function nextExpression(forced){
-      if(!alive)return;
-      const e=forced||EXPRESSIONS[Math.floor(Math.random()*EXPRESSIONS.length)];
-      setExpression(host,e);
-      clearTimeout(exprTimer);
-      exprTimer=setTimeout(()=>nextExpression(Math.random()<.18?"blink":"soft"),rand(800,2200));
-    }
-    function burst(){
-      if(!alive)return;
-      const tendrils=[...svg.querySelectorAll(".tendril")];
-      const currents=[...svg.querySelectorAll(".current")];
-      const drops=[...svg.querySelectorAll(".drop")];
-      const t=tendrils[Math.floor(Math.random()*tendrils.length)];
-      if(t){t.classList.remove("v8-burst");void t.getBoundingClientRect();t.classList.add("v8-burst");setTimeout(()=>t.classList.remove("v8-burst"),1050);}
-      if(Math.random()<.62){const c=currents[Math.floor(Math.random()*currents.length)];if(c){c.classList.remove("v8-current-burst");void c.getBoundingClientRect();c.classList.add("v8-current-burst");setTimeout(()=>c.classList.remove("v8-current-burst"),1200);}}
-      if(Math.random()<.35){const d=drops[Math.floor(Math.random()*drops.length)];if(d){d.classList.remove("v8-drop-burst");void d.getBoundingClientRect();d.classList.add("v8-drop-burst");setTimeout(()=>d.classList.remove("v8-drop-burst"),1300);}}
-      burstTimer=setTimeout(burst,rand(900,2600));
-    }
-    function particlePulse(){
-      if(!alive)return;
-      svg.classList.remove("v8-particle-wave");void svg.getBoundingClientRect();svg.classList.add("v8-particle-wave");
-      particleTimer=setTimeout(particlePulse,rand(2800,5200));
+  function blobPath(ctx,cx,cy,rx,ry,rotation,seed,time,warp){
+    const count=18;
+    const points=[];
+    const c=Math.cos(rotation),s=Math.sin(rotation);
+    for(let i=0;i<count;i++){
+      const a=(Math.PI*2*i)/count;
+      const n1=smoothNoise(time*0.72+i*0.37,seed);
+      const n2=Math.sin(time*1.17+seed*0.61+i*1.73);
+      const ripple=1 + warp*((n1-.5)*1.35 + n2*.42);
+      const x=Math.cos(a)*rx*ripple;
+      const y=Math.sin(a)*ry*(1 + warp*.28*Math.sin(time*.91+i*1.11+seed))*ripple;
+      points.push({
+        x:cx + x*c - y*s,
+        y:cy + x*s + y*c
+      });
     }
 
-    const pointerMove=ev=>{
-      const rect=host.getBoundingClientRect();
-      if(!rect.width||!rect.height)return;
-      const x=clamp((ev.clientX-rect.left)/rect.width-.5,-.5,.5);
-      const y=clamp((ev.clientY-rect.top)/rect.height-.5,-.5,.5);
-      svg.style.setProperty("--v8-look-x",(x*13).toFixed(2)+"px");
-      svg.style.setProperty("--v8-look-y",(y*9).toFixed(2)+"px");
-      if(Math.abs(x)>.22||Math.abs(y)>.20)nextExpression("curious");
+    ctx.beginPath();
+    for(let i=0;i<count;i++){
+      const p=points[i];
+      const next=points[(i+1)%count];
+      const midX=(p.x+next.x)/2;
+      const midY=(p.y+next.y)/2;
+      if(i===0) ctx.moveTo(midX,midY);
+      ctx.quadraticCurveTo(p.x,p.y,midX,midY);
+    }
+    ctx.closePath();
+  }
+
+  function fillGradientBlob(ctx,x,y,rx,ry,rotation,seed,time,colors,alpha,warp){
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(rotation);
+    const g=ctx.createRadialGradient(
+      -rx*.28,-ry*.30,0,
+      0,0,Math.max(rx,ry)*1.08
+    );
+    g.addColorStop(0,colors[0]);
+    g.addColorStop(.25,colors[1]);
+    g.addColorStop(.58,colors[2]);
+    g.addColorStop(1,colors[3]);
+    ctx.globalAlpha=alpha;
+    ctx.fillStyle=g;
+    blobPath(ctx,0,0,rx,ry,0,seed,time,warp);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function corePath(ctx,cx,cy,rx,ry,time,seed){
+    blobPath(ctx,cx,cy,rx,ry,
+      Math.sin(time*.31)*.035,
+      seed,time,.11
+    );
+  }
+
+  function drawEye(ctx,x,y,w,h,open,tilt){
+    if(open<=.04) return;
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(tilt);
+    const oh=Math.max(h*.08,h*open);
+    const g=ctx.createRadialGradient(-w*.13,-oh*.18,0,0,0,Math.max(w,oh)*.72);
+    g.addColorStop(0,"rgba(255,255,255,.98)");
+    g.addColorStop(.42,"rgba(212,255,255,.97)");
+    g.addColorStop(1,"rgba(104,236,255,.40)");
+    ctx.globalCompositeOperation="lighter";
+    ctx.globalAlpha=.92;
+    ctx.fillStyle=g;
+    ctx.beginPath();
+    ctx.moveTo(-w*.52,0);
+    ctx.quadraticCurveTo(0,-oh*.72,w*.52,0);
+    ctx.quadraticCurveTo(0,oh*.72,-w*.52,0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.globalAlpha=.78;
+    ctx.fillStyle="rgba(255,255,255,.96)";
+    ctx.beginPath();
+    ctx.ellipse(-w*.10,-oh*.12,w*.14,oh*.18,0,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawMouth(ctx,x,y,w,h,type){
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.globalCompositeOperation="lighter";
+
+    if(type==="open"){
+      const g=ctx.createRadialGradient(0,-h*.12,0,0,0,w*.75);
+      g.addColorStop(0,"rgba(255,238,251,.96)");
+      g.addColorStop(.36,"rgba(255,173,229,.96)");
+      g.addColorStop(1,"rgba(255,74,188,.08)");
+      ctx.fillStyle=g;
+      ctx.beginPath();
+      ctx.ellipse(0,0,w*.42,h*.62,0,0,Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
+    const depth=type==="joy"?1.16:type==="playful"?1.03:type==="small"?.72:.88;
+    const rise=type==="joy"?-2:type==="playful"?-1:0;
+    const g=ctx.createRadialGradient(0,-h*.2,0,0,0,w*.82);
+    g.addColorStop(0,"rgba(255,235,250,.98)");
+    g.addColorStop(.34,"rgba(255,177,228,.96)");
+    g.addColorStop(1,"rgba(255,83,190,.08)");
+    ctx.fillStyle=g;
+    ctx.beginPath();
+    ctx.moveTo(-w*.48,0);
+    ctx.quadraticCurveTo(0,h*depth+rise,w*.48,0);
+    ctx.quadraticCurveTo(0,h*.42+rise,-w*.48,0);
+    ctx.closePath();
+    ctx.fill();
+
+    if(type==="joy" || type==="playful"){
+      ctx.globalAlpha=.68;
+      ctx.fillStyle="rgba(255,255,255,.90)";
+      ctx.beginPath();
+      ctx.ellipse(0,h*.05,w*.18,h*.10,0,0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawCheek(ctx,x,y,r){
+    const g=ctx.createRadialGradient(x-r*.15,y-r*.16,0,x,y,r);
+    g.addColorStop(0,"rgba(255,202,237,.74)");
+    g.addColorStop(.34,"rgba(255,92,190,.52)");
+    g.addColorStop(1,"rgba(255,54,170,0)");
+    ctx.globalCompositeOperation="lighter";
+    ctx.fillStyle=g;
+    ctx.beginPath();
+    ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  function chooseEmissionAngle(engine){
+    if(Math.abs(engine.lookX)+Math.abs(engine.lookY)>.32){
+      const toward=Math.atan2(engine.lookY,engine.lookX);
+      return toward + rand(-.8,.8);
+    }
+    return engine.time*0.17 + rand(-Math.PI,Math.PI);
+  }
+
+  function spawnEmission(engine,burst){
+    if(engine.emissions.length>=12) return;
+    const angle=chooseEmissionAngle(engine);
+    const thermal=Math.random()<.48;
+    engine.emissions.push({
+      angle,
+      age:0,
+      life:rand(.72,burst?1.28:1.14),
+      size:rand(.09,.17),
+      speed:rand(.21,.38)*(burst?1.24:1),
+      wobble:rand(.6,1.4),
+      phase:rand(0,Math.PI*2),
+      color:thermal?1:Math.random()<.5?0:2,
+      hot:thermal
+    });
+  }
+
+  function spawnBurst(engine,count){
+    for(let i=0;i<count;i++) spawnEmission(engine,true);
+    engine.reaction=1;
+  }
+
+  function drawEmission(ctx,engine,e,r){
+    const p=clamp(e.age/e.life,0,1);
+    const ease=p*p*(3-2*p);
+    const angle=e.angle + Math.sin(engine.time*e.wobble+e.phase)*.12;
+    const originR=r*.72;
+    const travel=r*(.58*e.speed + .18);
+    const dist=originR + travel*ease;
+    const x=engine.cx+Math.cos(angle)*dist;
+    const y=engine.cy+Math.sin(angle)*dist;
+    const s=r*e.size*(1 + .20*Math.sin(p*Math.PI));
+    const alpha=(1-p)*(p<.18?lerp(.2,1,p/.18):1);
+
+    const colors=PALETTE[e.color];
+    const hotColors=e.hot
+      ? ["#fff6c8","#ffcf69","#ff6aaf","#7d61ff"]
+      : colors;
+
+    fillGradientBlob(
+      ctx,x,y,
+      s*(1.10+.28*Math.sin(e.phase+p*7)),
+      s*(.86+.20*Math.cos(e.phase+p*6)),
+      angle+Math.sin(e.phase)*.2,
+      70+Math.round(e.phase*10),
+      engine.time*1.4+e.phase,
+      hotColors,
+      alpha,
+      .22
+    );
+
+    if(p>.34 && p<.88){
+      const haze=1-p;
+      fillGradientBlob(
+        ctx,
+        x-Math.cos(angle)*s*.62,
+        y-Math.sin(angle)*s*.62,
+        s*.55,s*.42,
+        angle,
+        190+Math.round(e.phase),
+        engine.time*1.6,
+        ["#f2ffff","#70eaff","#9c55ff","#ff4fbe"],
+        .18*haze,
+        .35
+      );
+    }
+
+    if(p>.72){
+      for(let i=0;i<2;i++){
+        const drift=(i?1:-1)*s*1.1;
+        fillGradientBlob(
+          ctx,
+          x+Math.cos(angle+1.4)*drift*(p-.7),
+          y+Math.sin(angle+1.4)*drift*(p-.7),
+          s*.22,s*.18,0,
+          240+i*19,
+          engine.time*1.9+i,
+          ["#ffffff","#9ff7ff","#c45bff","#ff55b7"],
+          .16*(1-p),
+          .25
+        );
+      }
+    }
+  }
+
+  function drawFace(ctx,engine,r){
+    const cfg=EXPRESSION_CONFIG[engine.expression]||EXPRESSION_CONFIG.soft;
+    const faceScale=r/112;
+    const fx=engine.cx+engine.lookX*r*.08;
+    const fy=engine.cy+engine.lookY*r*.05;
+
+    drawCheek(ctx,fx-r*.43,fy+r*.20,r*.16);
+    drawCheek(ctx,fx+r*.43,fy+r*.20,r*.16);
+
+    const eyeW=r*.35;
+    const eyeH=r*.18;
+    drawEye(ctx,fx-r*.27,fy-r*.04,eyeW,eyeH,cfg.left,engine.expression==="curious"?-.08:0);
+    drawEye(ctx,fx+r*.27,fy-r*.04,eyeW,eyeH,cfg.right,engine.expression==="curious"?.08:0);
+
+    const mouthW=r*.38;
+    const mouthH=r*.12*faceScale;
+    drawMouth(ctx,fx,fy+r*.23,mouthW,mouthH,cfg.mouth);
+
+    if(engine.expression==="playful"){
+      ctx.globalCompositeOperation="lighter";
+      ctx.fillStyle="rgba(255,255,255,.78)";
+      ctx.beginPath();
+      ctx.ellipse(fx-r*.18,fy+r*.08,r*.06,r*.03,0,0,Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(fx+r*.18,fy+r*.08,r*.045,r*.025,0,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function draw(engine){
+    const ctx=engine.ctx;
+    const w=engine.cssW,h=engine.cssH;
+    if(!ctx||w<=0||h<=0) return;
+
+    const dpr=engine.dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,w,h);
+
+    const base=Math.min(w,h);
+    const r=Math.max(8,base*.34);
+    engine.cx=w*.5 + engine.lookX*base*.018;
+    engine.cy=h*.49 + engine.lookY*base*.012;
+    const energy=engine.energy*(1+engine.reaction*.055);
+    const pulse=1 + Math.sin(engine.time*1.35)*.016*energy;
+    const rx=r*1.07*pulse;
+    const ry=r*.95*(1+Math.sin(engine.time*.91+1.3)*.025);
+
+    ctx.save();
+    ctx.globalCompositeOperation="lighter";
+
+    const aura=ctx.createRadialGradient(engine.cx,engine.cy,0,engine.cx,engine.cy,r*1.55);
+    aura.addColorStop(0,"rgba(87,225,255,.22)");
+    aura.addColorStop(.34,"rgba(146,73,255,.14)");
+    aura.addColorStop(.65,"rgba(255,71,188,.06)");
+    aura.addColorStop(1,"rgba(255,71,188,0)");
+    ctx.fillStyle=aura;
+    ctx.beginPath();
+    ctx.arc(engine.cx,engine.cy,r*1.55,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    // Masa periférica: 4 volúmenes superpuestos para evitar la silueta de esfera perfecta.
+    const lobes=[
+      {a:-2.35,rx:.22,ry:.15,c:2,off:.3},
+      {a:-.75,rx:.20,ry:.17,c:0,off:1.9},
+      {a:.20,rx:.24,ry:.15,c:1,off:2.6},
+      {a:2.65,rx:.21,ry:.16,c:3,off:4.4}
+    ];
+    lobes.forEach((l,i)=>{
+      const a=l.a + Math.sin(engine.time*.4+i)*.035;
+      const dist=r*.82;
+      fillGradientBlob(
+        ctx,
+        engine.cx+Math.cos(a)*dist,
+        engine.cy+Math.sin(a)*dist,
+        r*l.rx*(1+.06*Math.sin(engine.time*.9+l.off)),
+        r*l.ry*(1+.08*Math.cos(engine.time*.75+l.off)),
+        a+0.5*Math.sin(engine.time*.6+l.off),
+        20+i*11,
+        engine.time*.72+l.off,
+        PALETTE[l.c],
+        .42*energy,
+        .18
+      );
+    });
+
+    // Silueta principal irregular.
+    const mainColors=engine.state==="error"
+      ? ["#fff0dc","#ff9069","#ff4d9f","#6548d9"]
+      : ["#eaffff","#62eaff","#6e6dff","#b735ff"];
+
+    const mainGrad=ctx.createRadialGradient(
+      engine.cx-r*.24,engine.cy-r*.28,0,
+      engine.cx,engine.cy,r*1.18
+    );
+    mainGrad.addColorStop(0,"rgba(238,255,255,.96)");
+    mainGrad.addColorStop(.18,"rgba(100,232,255,.96)");
+    mainGrad.addColorStop(.40,engine.state==="error"?"rgba(255,120,103,.70)":"rgba(77,121,255,.80)");
+    mainGrad.addColorStop(.66,"rgba(144,61,255,.66)");
+    mainGrad.addColorStop(.86,"rgba(226,55,179,.40)");
+    mainGrad.addColorStop(1,"rgba(16,16,52,.08)");
+
+    ctx.save();
+    corePath(ctx,engine.cx,engine.cy,rx,ry,engine.time,44);
+    ctx.globalAlpha=.90;
+    ctx.fillStyle=mainGrad;
+    ctx.fill();
+    ctx.clip();
+
+    // Corrientes internas como VOLUMENES, nunca como trazos.
+    const innerCount=w<120 ? 5 : 8;
+    for(let i=0;i<innerCount;i++){
+      const n=smoothNoise(engine.time*.25+i*.63,300+i);
+      const ang=engine.time*(.18+.03*i)+i*1.82;
+      const band=r*(.30+.11*Math.sin(i*1.7));
+      const x=engine.cx+Math.cos(ang)*band + Math.sin(engine.time*.7+i)*r*.08;
+      const y=engine.cy+Math.sin(ang*1.17)*band*.74 + Math.cos(engine.time*.61+i)*r*.07;
+      const br=r*(.12+.055*n)*(i%3===0?1.22:1);
+      const palette=PALETTE[i%PALETTE.length];
+      fillGradientBlob(
+        ctx,x,y,
+        br*(1.18+.12*Math.sin(engine.time+i)),
+        br*(.68+.16*Math.cos(engine.time*.9+i)),
+        ang+.35,
+        420+i*17,
+        engine.time*(.55+.04*i)+i,
+        palette,
+        .18+.05*n,
+        .32
+      );
+    }
+
+    // Bolsas térmicas: el "calor" se siente por masa, no por líneas.
+    const heatPts=[
+      [-.18,-.24,.18,1.8],
+      [.18,-.10,.13,.7],
+      [.08,.18,.17,2.5],
+      [-.12,.24,.12,4.2],
+      [.28,.20,.10,5.1]
+    ];
+    heatPts.forEach((p,i)=>{
+      const x=engine.cx+p[0]*r + Math.sin(engine.time*.8+i)*r*.025;
+      const y=engine.cy+p[1]*r + Math.cos(engine.time*.67+i)*r*.022;
+      const rr=r*p[2]*(1+.11*Math.sin(engine.time*1.1+i));
+      fillGradientBlob(
+        ctx,x,y,rr*1.24,rr*.92,p[3],
+        510+i*13,
+        engine.time*1.05+i,
+        ["#fff5ca","#ffb866","#ff4fae","#784cff"],
+        (.14+.055*Math.sin(engine.time*1.2+i))*energy,
+        .26
+      );
+    });
+
+    // Microplasma: pocas partículas blandas que pasan dentro del cuerpo.
+    const microCount=w<120?9:15;
+    for(let i=0;i<microCount;i++){
+      const t=engine.time*(.28+.02*(i%4))+i*1.67;
+      const px=engine.cx + Math.sin(t*1.21+i*.27)*r*.64;
+      const py=engine.cy + Math.cos(t*.87+i*.41)*r*.54;
+      const s=r*(.012+.005*(i%3));
+      const col=i%4===0?["#fff7cf","#ffc16b","#ff5ac4","#704cff"]:["#dffeff","#71eaff","#736bff","#dd5aff"];
+      fillGradientBlob(
+        ctx,px,py,s*1.5,s,0,700+i,
+        t,col,.20+.08*Math.sin(t+i),.18
+      );
+    }
+    ctx.restore();
+
+    // Reacción/emisión: materia caliente que se desprende de la masa.
+    for(let i=engine.emissions.length-1;i>=0;i--){
+      const e=engine.emissions[i];
+      e.age+=engine.dt;
+      if(e.age>=e.life){engine.emissions.splice(i,1);continue;}
+      drawEmission(ctx,engine,e,r);
+    }
+
+    // Aura caliente local para que el plasma "respire".
+    ctx.save();
+    const heat=ctx.createRadialGradient(
+      engine.cx+r*.10,engine.cy+r*.18,0,
+      engine.cx+r*.10,engine.cy+r*.18,r*.72
+    );
+    heat.addColorStop(0,engine.state==="error"?"rgba(255,142,111,.28)":"rgba(255,198,105,.20)");
+    heat.addColorStop(.34,"rgba(255,76,180,.12)");
+    heat.addColorStop(1,"rgba(255,76,180,0)");
+    ctx.globalCompositeOperation="lighter";
+    ctx.fillStyle=heat;
+    ctx.beginPath();
+    ctx.arc(engine.cx+r*.10,engine.cy+r*.18,r*.72,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    drawFace(ctx,engine,r);
+
+    // Puntos de evaporación alrededor: muy pocos y muy suaves.
+    ctx.save();
+    ctx.globalCompositeOperation="lighter";
+    for(let i=0;i<6;i++){
+      const a=i*1.37+engine.time*.10;
+      const dist=r*(1.0+.22*Math.sin(engine.time*.58+i));
+      const x=engine.cx+Math.cos(a)*dist;
+      const y=engine.cy+Math.sin(a)*dist;
+      const s=r*(.010+.006*((i+2)%3));
+      const alpha=.13+.10*(.5+.5*Math.sin(engine.time*1.4+i));
+      const g=ctx.createRadialGradient(x,y,0,x,y,s*4);
+      g.addColorStop(0,"rgba(240,255,255,"+alpha+")");
+      g.addColorStop(1,"rgba(240,255,255,0)");
+      ctx.fillStyle=g;
+      ctx.beginPath();
+      ctx.arc(x,y,s*4,0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function scheduleExpression(engine,forced){
+    if(!engine.alive) return;
+    const next=forced||(
+      Math.random()<.16
+        ? "blink"
+        : Math.random()<.18
+          ? (Math.random()<.5?"curious":"playful")
+          : "soft"
+    );
+    engine.expression=EXPRESSIONS.includes(next)?next:"soft";
+    clearTimeout(engine.expressionTimer);
+    const wait=next==="blink"?rand(420,720):rand(2200,4800);
+    engine.expressionTimer=setTimeout(()=>{
+      scheduleExpression(engine, next==="blink" ? "soft" : undefined);
+    },wait);
+  }
+
+  function scheduleEmission(engine){
+    if(!engine.alive) return;
+    const base=engine.state==="thinking"||engine.state==="executing"?1.25:1;
+    spawnEmission(engine,false);
+    clearTimeout(engine.emissionTimer);
+    engine.emissionTimer=setTimeout(()=>scheduleEmission(engine),rand(1500,3600)/base);
+  }
+
+  function createEngine(host,canvas){
+    const ctx=canvas.getContext("2d",{alpha:true,desynchronized:true});
+    if(!ctx) return null;
+
+    const engine={
+      host,canvas,ctx,
+      cssW:0,cssH:0,dpr:1,
+      state:normalizeState(host.dataset.state||"idle"),
+      expression:"soft",
+      energy:1,
+      time:0,dt:.016,
+      cx:0,cy:0,
+      lookX:0,lookY:0,
+      targetLookX:0,targetLookY:0,
+      reaction:0,
+      emissions:[],
+      alive:true,
+      frame:0,
+      lastTs:0,
+      resizeObserver:null,
+      expressionTimer:0,
+      emissionTimer:0
     };
-    const pointerLeave=()=>{svg.style.setProperty("--v8-look-x","0px");svg.style.setProperty("--v8-look-y","0px");};
-    const pointerDown=()=>{pulse(host,"touch");nextExpression(Math.random()<.5?"joy":"surprised");};
 
-    host.addEventListener("pointermove",pointerMove,{passive:true});
-    host.addEventListener("pointerleave",pointerLeave,{passive:true});
-    host.addEventListener("pointerdown",pointerDown,{passive:true});
-    setExpression(host,"soft");
-    nextExpression("soft");
-    burst();
-    particlePulse();
+    function resize(){
+      const rect=host.getBoundingClientRect();
+      const w=Math.max(1,rect.width||host.clientWidth||1);
+      const h=Math.max(1,rect.height||host.clientHeight||w);
+      engine.cssW=w;
+      engine.cssH=h;
+      engine.dpr=roundDpr();
+      canvas.width=Math.max(1,Math.round(w*engine.dpr));
+      canvas.height=Math.max(1,Math.round(h*engine.dpr));
+      canvas.style.width=w+"px";
+      canvas.style.height=h+"px";
+    }
 
-    host.__akiraLife={destroy(){
-      alive=false;clearTimeout(exprTimer);clearTimeout(burstTimer);clearTimeout(particleTimer);
-      host.removeEventListener("pointermove",pointerMove);host.removeEventListener("pointerleave",pointerLeave);host.removeEventListener("pointerdown",pointerDown);
-    }};
-  }
+    engine.resize=resize;
+    engine.setState=function(next){
+      engine.state=normalizeState(next);
+      engine.energy=STATES[engine.state].energy;
+      engine.reaction=Math.max(engine.reaction,.35);
+      spawnBurst(engine,engine.state==="executing"||engine.state==="searching"?2:1);
+      host.dataset.state=engine.state;
+      host.setAttribute("aria-label","Akira · "+STATES[engine.state].label+" · núcleo de plasma vivo");
+    };
+    engine.react=function(expr,duration){
+      if(EXPRESSIONS.includes(expr)) engine.expression=expr;
+      engine.reaction=Math.max(engine.reaction,.85);
+      spawnBurst(engine,expr==="joy"||expr==="surprised"?2:1);
+      clearTimeout(engine.reactionTimer);
+      if(duration){
+        engine.reactionTimer=setTimeout(()=>{
+          if(engine.alive) engine.expression="soft";
+        },duration);
+      }
+    };
+    engine.destroy=function(){
+      engine.alive=false;
+      cancelAnimationFrame(engine.frame);
+      clearTimeout(engine.expressionTimer);
+      clearTimeout(engine.emissionTimer);
+      clearTimeout(engine.reactionTimer);
+      if(engine.resizeObserver){
+        try{engine.resizeObserver.disconnect();}catch(_){}
+        engine.resizeObserver=null;
+      }
+      window.removeEventListener("resize",resize);
+      canvas.removeEventListener("pointermove",onPointerMove);
+      canvas.removeEventListener("pointerleave",onPointerLeave);
+      canvas.removeEventListener("pointerdown",onPointerDown);
+    };
 
-  function applyState(host,state){
-    const info=STATES[state];
-    host.dataset.state=state;
-    host.setAttribute("aria-label","Akira · "+info.label+" · núcleo plasmático vivo");
-    const svg=host.querySelector(".akira-v8-nucleus");
-    if(!svg)return;
-    svg.dataset.state=state;
-    svg.style.setProperty("--v8-energy",info.energy);
+    function onPointerMove(ev){
+      const rect=canvas.getBoundingClientRect();
+      if(!rect.width||!rect.height) return;
+      engine.targetLookX=clamp((ev.clientX-rect.left)/rect.width-.5,-.5,.5);
+      engine.targetLookY=clamp((ev.clientY-rect.top)/rect.height-.5,-.5,.5);
+      if(Math.abs(engine.targetLookX)>.22||Math.abs(engine.targetLookY)>.20){
+        engine.expression="curious";
+      }
+    }
+    function onPointerLeave(){
+      engine.targetLookX=0;
+      engine.targetLookY=0;
+    }
+    function onPointerDown(){
+      engine.expression=Math.random()<.5?"joy":"surprised";
+      engine.reaction=.95;
+      spawnBurst(engine,2);
+    }
+
+    canvas.addEventListener("pointermove",onPointerMove,{passive:true});
+    canvas.addEventListener("pointerleave",onPointerLeave,{passive:true});
+    canvas.addEventListener("pointerdown",onPointerDown,{passive:true});
+    canvas.style.touchAction="manipulation";
+
+    if("ResizeObserver" in window){
+      engine.resizeObserver=new ResizeObserver(resize);
+      engine.resizeObserver.observe(host);
+    }else{
+      window.addEventListener("resize",resize,{passive:true});
+    }
+
+    resize();
+    scheduleExpression(engine,"soft");
+    scheduleEmission(engine);
+
+    function frame(ts){
+      if(!engine.alive) return;
+      if(document.visibilityState==="hidden"){
+        engine.lastTs=ts;
+        engine.frame=requestAnimationFrame(frame);
+        return;
+      }
+
+      if(!engine.lastTs) engine.lastTs=ts;
+      engine.dt=clamp((ts-engine.lastTs)/1000,.008,.05);
+      engine.lastTs=ts;
+      engine.time+=engine.dt;
+
+      engine.lookX += (engine.targetLookX-engine.lookX)*Math.min(1,engine.dt*5.5);
+      engine.lookY += (engine.targetLookY-engine.lookY)*Math.min(1,engine.dt*5.5);
+      engine.reaction=Math.max(0,engine.reaction-engine.dt*.82);
+
+      draw(engine);
+      engine.frame=requestAnimationFrame(frame);
+    }
+
+    engine.frame=requestAnimationFrame(frame);
+    return engine;
   }
 
   function mountOne(host){
-    if(!host)return null;
-    if(host.__akiraEntity)return host.__akiraEntity;
-    host.classList.add("akira-entity-slot","is-akira-entity","akira-v8-slot");
+    if(!host) return null;
+    if(host.__akiraEntity) return host.__akiraEntity;
+
+    host.classList.add("akira-entity-slot","is-akira-entity","akira-plasma-canvas-slot");
     host.setAttribute("role","img");
+
     const size=Number(host.dataset.size||0);
-    if(size){host.style.width=host.style.width||size+"px";host.style.height=host.style.height||size+"px";}
-    host.innerHTML=markup();
-    let state=normalizeState(host.dataset.state||"idle");
-    let alive=true,timer=0;
+    if(size){
+      host.style.width=host.style.width||size+"px";
+      host.style.height=host.style.height||size+"px";
+    }
+
+    const canvas=document.createElement("canvas");
+    canvas.className="akira-plasma-canvas";
+    canvas.setAttribute("aria-hidden","true");
+    canvas.setAttribute("draggable","false");
+    host.innerHTML="";
+    host.appendChild(canvas);
+
+    const engine=createEngine(host,canvas);
+    if(!engine) return null;
+
     const controller={
       setState(next,opts){
-        state=normalizeState(next);applyState(host,state);pulse(host,state);
-        if(state==="success"&&!(opts&&opts.persist)){clearTimeout(timer);timer=setTimeout(()=>alive&&controller.setState("idle"),1600);}
+        engine.setState(next);
+        if(normalizeState(next)==="success" && !(opts&&opts.persist)){
+          clearTimeout(controller.__successTimer);
+          controller.__successTimer=setTimeout(()=>{
+            if(engine.alive) controller.setState("idle");
+          },1600);
+        }
       },
-      getState:()=>state,
-      react:(expr,duration)=>{setExpression(host,expr);pulse(host,expr);if(duration){clearTimeout(controller.__reactionTimer);controller.__reactionTimer=setTimeout(()=>setExpression(host,"soft"),duration);}},
-      resize:()=>{},
+      getState:()=>engine.state,
+      react:(expr,duration)=>engine.react(expr,duration),
+      resize:()=>engine.resize(),
       destroy(){
-        alive=false;clearTimeout(timer);clearTimeout(controller.__reactionTimer);clearTimeout(controller.__pulseTimer);
-        if(host.__akiraLife){host.__akiraLife.destroy();host.__akiraLife=null;}
-        host.__akiraEntity=null;host.innerHTML="";
+        clearTimeout(controller.__successTimer);
+        engine.destroy();
+        host.__akiraEntity=null;
+        host.innerHTML="";
       }
     };
+
     host.__akiraEntity=controller;
-    applyState(host,state);startLife(host);
+    engine.energy=STATES[engine.state].energy;
+    host.setAttribute("aria-label","Akira · "+STATES[engine.state].label+" · núcleo de plasma vivo");
     return controller;
   }
 
   function mountAll(root){
     const base=root||document;
-    const list=base.querySelectorAll?base.querySelectorAll("[data-akira-entity],.akira-entity-slot"):[];
-    list.forEach(mountOne);return list.length;
+    const list=base.querySelectorAll
+      ? base.querySelectorAll("[data-akira-entity],.akira-entity-slot")
+      : [];
+    list.forEach(mountOne);
+    return list.length;
   }
+
   function setState(next,target){
-    const list=typeof target==="string"?document.querySelectorAll(target):document.querySelectorAll("[data-akira-entity],.akira-entity-slot");
-    list.forEach(el=>{const c=mountOne(el);if(c)c.setState(next);});
+    const list=typeof target==="string"
+      ? document.querySelectorAll(target)
+      : document.querySelectorAll("[data-akira-entity],.akira-entity-slot");
+    list.forEach(el=>{
+      const c=mountOne(el);
+      if(c) c.setState(next);
+    });
   }
+
   function reactAll(expr,duration,target){
-    const list=target?document.querySelectorAll(target):document.querySelectorAll("[data-akira-entity],.akira-entity-slot");
-    list.forEach(el=>{const c=mountOne(el);if(c)c.react(expr,duration);});
+    const list=target
+      ? document.querySelectorAll(target)
+      : document.querySelectorAll("[data-akira-entity],.akira-entity-slot");
+    list.forEach(el=>{
+      const c=mountOne(el);
+      if(c) c.react(expr,duration);
+    });
   }
 
   function wireConversationReactions(){
-    if(document.__akiraV8ConversationReactions)return;
-    document.__akiraV8ConversationReactions=true;
+    if(document.__akiraCanvasConversationReactions) return;
+    document.__akiraCanvasConversationReactions=true;
+
     const react=expr=>reactAll(expr,1100);
-    document.addEventListener("click",ev=>{if(ev.target&&ev.target.closest&&ev.target.closest("#sendBtn"))react("curious");},true);
-    document.addEventListener("keydown",ev=>{if(ev.key==="Enter"&&!ev.shiftKey&&ev.target&&ev.target.closest&&ev.target.closest("#msg"))react("curious");},true);
+
+    document.addEventListener("click",ev=>{
+      if(ev.target&&ev.target.closest&&ev.target.closest("#sendBtn")) react("curious");
+    },true);
+
+    document.addEventListener("keydown",ev=>{
+      if(ev.key==="Enter"&&!ev.shiftKey&&ev.target&&ev.target.closest&&ev.target.closest("#msg")) react("curious");
+    },true);
+
     const msgs=document.getElementById("msgsInner");
-    if(msgs){
+    if(msgs && window.MutationObserver){
       const observer=new MutationObserver(mutations=>{
         let user=false,akira=false;
-        mutations.forEach(m=>m.addedNodes&&Array.from(m.addedNodes).forEach(n=>{
-          if(!(n instanceof HTMLElement))return;
-          if(n.classList.contains("user")||n.querySelector(".msg-row.user"))user=true;
-          if(n.classList.contains("akira")||n.querySelector(".msg-row.akira"))akira=true;
-        }));
-        if(user)react("curious");if(akira)react("joy");
+        mutations.forEach(m=>{
+          if(!m.addedNodes) return;
+          Array.from(m.addedNodes).forEach(n=>{
+            if(!(n instanceof HTMLElement)) return;
+            if(n.classList.contains("user")||n.querySelector(".msg-row.user")) user=true;
+            if(n.classList.contains("akira")||n.querySelector(".msg-row.akira")) akira=true;
+          });
+        });
+        if(user) react("curious");
+        if(akira) react("joy");
       });
       observer.observe(msgs,{childList:true,subtree:true});
     }
-    ["akira:chat-user-message","akira:chat-response-start","akira:chat-response-done","akira:chat-error"].forEach(name=>document.addEventListener(name,()=>react(({"akira:chat-user-message":"curious","akira:chat-response-start":"curious","akira:chat-response-done":"joy","akira:chat-error":"surprised"})[name]||"soft")));
+
+    [
+      "akira:chat-user-message",
+      "akira:chat-response-start",
+      "akira:chat-response-done",
+      "akira:chat-error"
+    ].forEach(name=>{
+      document.addEventListener(name,()=>{
+        const map={
+          "akira:chat-user-message":"curious",
+          "akira:chat-response-start":"curious",
+          "akira:chat-response-done":"joy",
+          "akira:chat-error":"surprised"
+        };
+        react(map[name]||"soft");
+      });
+    });
   }
 
-  window.AkiraEntity={states:Object.keys(STATES),expressions:EXPRESSIONS.slice(),mount:mountOne,mountAll,setState,react:reactAll,stateInfo:s=>STATES[normalizeState(s)]};
-  window.akiraEntitySetState=setState;window.akiraEntityMount=mountOne;window.akiraEntityReact=reactAll;
-  document.addEventListener("DOMContentLoaded",()=>{mountAll(document);wireConversationReactions();window.dispatchEvent(new CustomEvent("akira:entity-ready"));});
+  window.AkiraEntity={
+    states:Object.keys(STATES),
+    expressions:EXPRESSIONS.slice(),
+    mount:mountOne,
+    mountAll,
+    setState,
+    react:reactAll,
+    stateInfo:s=>STATES[normalizeState(s)]
+  };
+
+  window.akiraEntitySetState=setState;
+  window.akiraEntityMount=mountOne;
+  window.akiraEntityReact=reactAll;
+
+  document.addEventListener("DOMContentLoaded",()=>{
+    mountAll(document);
+    wireConversationReactions();
+    window.dispatchEvent(new CustomEvent("akira:entity-ready"));
+  });
 })();
