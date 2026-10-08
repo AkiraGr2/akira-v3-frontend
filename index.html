@@ -1021,7 +1021,6 @@ async function akiraVerifySession(){
     return {ok:false,status:0,authenticated:false,error:String((e&&e.message)||e)};
   }
 }
-
 window.akiraClearSession=akiraClearSession;
 window.akiraHandleAuthFailure=akiraHandleAuthFailure;
 window.akiraAuthErrorText=akiraAuthErrorText;
