@@ -1,6 +1,6 @@
 {
-  "version": "akira-cache-v20261008-living-plasma-v1-2-personality",
-  "generated_at": "2026-10-08T19:11:06.326Z",
+  "version": "akira-cache-v20261008-living-plasma-v1-3-contrast",
+  "generated_at": "2026-10-08T19:30:00.000Z",
   "assets": {
     "js/akira_brain.js": "akira-brain-v7-stream-root",
     "js/obsidian_membrane.js": "akira-membrane-v49-public-fallback",
@@ -11,6 +11,6 @@
     "assets/office/office_runtime_2p5d.json": "office-autonomous-v3",
     "js/akira_reference_workspace_v2.js": "akira-reference-v9-home-fullscope",
     "css/akira-reference-design-v2.css": "akira-reference-design-v1-living-plasma-canvas",
-    "js/akira_entity.js": "akira-entity-v1-2-living-plasma-personality"
+    "js/akira_entity.js": "akira-entity-v1-3-living-plasma-contrast"
   }
 }
