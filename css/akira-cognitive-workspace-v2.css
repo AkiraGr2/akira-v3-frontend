@@ -428,6 +428,8 @@ body{
 .office-v2-shell{
   flex:1;
   min-height:0;
+  width:100%;
+  min-width:0;
   overflow:auto;
   padding:14px;
   display:grid;
@@ -436,12 +438,16 @@ body{
 }
 .office-v2-stage-wrap{
   min-height:0;
+  width:100%;
+  min-width:0;
   display:flex;
   flex-direction:column;
   gap:10px;
 }
 .office-v2-stage{
   position:relative;
+  width:100%;
+  min-width:0;
   min-height:520px;
   flex:1;
   overflow:hidden;

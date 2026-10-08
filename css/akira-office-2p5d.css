@@ -4,6 +4,9 @@
 #officeSection .office-pixel-stage{
   position:relative;
   width:100%;
+  min-width:0;
+  align-self:stretch;
+  flex:0 0 auto;
   aspect-ratio:1536 / 1024;
   overflow:hidden;
   background:#080b12;
