@@ -232,11 +232,11 @@
 
     // El universo entero nace de cuatro corrientes espirales anchas.
     // No son anillos: cada corriente avanza desde el corazón hacia afuera.
-    const arms=6;
+    const arms=7;
     for(let i=0;i<arms;i++){
       const pts=[];
-      const steps=24;
-      const start=engine.time*(.20+.10*engine.spiralBoost)+i*(Math.PI*2/arms)+engine.spiralPhase;
+      const steps=26;
+      const start=engine.time*(.23+.11*engine.spiralBoost)+i*(Math.PI*2/arms)+engine.spiralPhase;
       for(let j=0;j<steps;j++){
         const u=j/(steps-1);
         const ang=start+u*(Math.PI*2*1.28);
@@ -260,8 +260,8 @@
     // para producir profundidad de "universo en movimiento".
     for(let i=0;i<4;i++){
       const pts=[];
-      const steps=20;
-      const start=-engine.time*(.125+.07*engine.spiralBoost)+i*(Math.PI*2/4)+engine.spiralPhase*.4;
+      const steps=22;
+      const start=-engine.time*(.145+.08*engine.spiralBoost)+i*(Math.PI*2/4)+engine.spiralPhase*.4;
       for(let j=0;j<steps;j++){
         const u=j/(steps-1);
         const ang=start-u*(Math.PI*2*.94);
@@ -449,7 +449,7 @@
     drawSynapticField(ctx,engine,r,energy);
 
     // Fine internal sparks: they obey the core's flow field.
-    const sparks=engine.mobile?18:34;
+    const sparks=engine.mobile?24:42;
     for(let i=0;i<sparks;i++){
       const phase=i*2.07+engine.time*(.39+.018*(i%4));
       const flow=engine.time*.17+i*.7;
@@ -469,7 +469,7 @@
   }
 
   function drawSynapticField(ctx,engine,r,energy){
-    const count=engine.mobile?16:28;
+    const count=engine.mobile?20:34;
     for(let i=0;i<count;i++){
       const n=engine.nodes[i];
 
@@ -491,7 +491,7 @@
         +Math.sin(ang+Math.PI*.5)*lateral*.78
         +engine.lookY*r*.032;
 
-      const activ=clamp((Math.sin(engine.time*2.15+n.phase)+1)*.5,0,1);
+      const activ=clamp((Math.sin(engine.time*2.45+n.phase)+1)*.5,0,1);
       const cascade=clamp(
         (Math.sin(engine.time*.88+n.phase*1.8)+1)*.5,
         0,1
@@ -613,7 +613,7 @@
   }
 
   function spawnParticle(engine,strong){
-    if(engine.particles.length>=48)return;
+    if(engine.particles.length>=60)return;
     const a=rand(0,Math.PI*2);
     engine.particles.push({
       age:0,
@@ -649,7 +649,7 @@
       triggerLifeWave(engine,true);
       for(let i=0;i<4;i++)spawnParticle(engine,true);
       scheduleHeartbeat(engine);
-    },rand(2600,4600)/(engine.energy*.95));
+    },rand(2300,4100)/(engine.energy*.95));
   }
 
   function scheduleBackgroundPulse(engine){
@@ -660,7 +660,7 @@
       triggerLifeWave(engine,false);
       if(Math.random()<.68)spawnParticle(engine,false);
       scheduleBackgroundPulse(engine);
-    },rand(1100,2400));
+    },rand(950,2100));
   }
 
   function createEngine(host,canvas){
