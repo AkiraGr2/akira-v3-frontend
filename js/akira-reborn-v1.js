@@ -10,26 +10,55 @@
   const auth=()=>{try{return typeof window.akiraAuthHeaders==="function"?window.akiraAuthHeaders():{}}catch(_){return{}}};
   let originalShowSection=null;
   let gateway=null;
-  const go=name=>{try{if(typeof window.showSection==="function")window.showSection(name)}catch(e){console.warn(e)}};
-  function hideShell(){
-    const s=document.getElementById("akiraRebornShell");
-    if(s)s.classList.add("is-hidden");
-    document.body.classList.remove("ar-reborn-active");
-    if(gateway)gateway.hidden=false;
+  const MODULES=new Set(["chat","membrane","missions","office"]);
+  const TITLES={chat:"CONVERSACIÓN",membrane:"CEREBRO",missions:"MISIONES",office:"OFICINA"};
+  function moduleHost(){return document.getElementById("arModuleHost")}
+  function restoreModule(){
+    const host=moduleHost();
+    const current=host?.querySelector(".section");
+    if(!current)return;
+    const main=document.querySelector(".main");
+    if(main)main.appendChild(current);
+    current.classList.remove("ar-reborn-mounted");
   }
-  function showShell(){
+  function mountModule(name){
+    if(!MODULES.has(name))return;
+    const host=moduleHost(), sec=document.getElementById(name+"Section");
+    if(!host||!sec)return;
+    if(sec.parentElement!==host)host.appendChild(sec);
+    sec.classList.add("ar-reborn-mounted");
+    host.dataset.module=name;
+    host.querySelector("[data-ar-module-title]")?.replaceChildren(document.createTextNode(TITLES[name]||name.toUpperCase()));
+    document.getElementById("akiraRebornShell")?.classList.add("module-mode");
+    document.querySelectorAll("[data-ar-go]").forEach(x=>x.classList.toggle("active",x.getAttribute("data-ar-go")===name));
+    setTimeout(()=>{
+      try{
+        if(name==="membrane"&&window.resizeMembrane)window.resizeMembrane();
+        if(name==="office"&&window.resizeAkiraOfficePixel)window.resizeAkiraOfficePixel();
+      }catch(_){}
+    },80);
+  }
+  function showHome(){
+    restoreModule();
     const s=document.getElementById("akiraRebornShell");
-    if(s)s.classList.remove("is-hidden");
-    document.body.classList.add("ar-reborn-active");
-    if(gateway)gateway.hidden=true;
+    s?.classList.remove("module-mode");
+    document.querySelectorAll("[data-ar-go]").forEach(x=>x.classList.toggle("active",x.getAttribute("data-ar-go")==="home"));
     refreshTruth();
+  }
+  function go(name){
+    if(name==="home"){showHome();return}
+    try{
+      if(typeof window.showSection==="function")window.showSection(name);
+      else mountModule(name);
+    }catch(e){console.warn(e)}
   }
   function installSectionBridge(){
     if(typeof window.showSection!=="function" || window.showSection.__akiraRebornWrapped)return;
     originalShowSection=window.showSection;
     const wrapped=function(name){
-      hideShell();
-      return originalShowSection.apply(this,arguments);
+      const result=originalShowSection.apply(this,arguments);
+      if(MODULES.has(name))mountModule(name);
+      return result;
     };
     wrapped.__akiraRebornWrapped=true;
     window.showSection=wrapped;
@@ -50,13 +79,16 @@
         '<nav class="ar-rail" aria-label="Navegación">'+nav+'<div class="ar-spacer"></div><button type="button" data-ar-context="true" title="Contexto">＋</button></nav>'+
         '<section class="ar-stage">'+
           '<div class="ar-grid"></div>'+
-          '<div class="ar-content">'+
+          '<div class="ar-home-content ar-content">'+
             '<div class="ar-kicker">presencia / ahora</div>'+
             '<h1 class="ar-title">¿Qué vamos a <em>construir</em>?</h1>'+
             '<p class="ar-sub" id="arSub">Punto de entrada al sistema cognitivo de Akira: conversación, memoria, conocimiento y ejecución, según lo que el sistema puede verificar. Esta interfaz no inventa capacidades.</p>'+
             '<div class="ar-core-wrap" aria-label="Presencia de Akira"><div class="ar-orbit one"></div><div class="ar-orbit two"></div><div class="ar-orbit three"></div><div class="ar-core"></div><div class="ar-core-label" id="arState">presencia activa</div></div>'+
             '<div class="ar-actions"><button class="ar-action primary" data-ar-go="chat">Hablar con Akira</button><button class="ar-action" data-ar-go="missions">Abrir una misión</button><button class="ar-action" data-ar-go="membrane">Explorar memoria</button></div>'+
           '</div>'+
+        '<div class="ar-module-host" id="arModuleHost">'+
+          '<div class="ar-module-bar"><span>AKIRA /</span><strong data-ar-module-title>—</strong><button type="button" data-ar-go="home">Volver a presencia</button></div>'+
+        '</div>'+
         '</section>'+
         '<aside class="ar-context" id="arContext"><div class="ar-context-head"><div><h2>Contexto vivo</h2><small>solo información disponible</small></div><button class="ar-action" data-ar-context-close="true">Cerrar</button></div>'+
           '<div class="ar-context-box"><h3>Conexión</h3><p id="arConnectionDetail">Consultando el backend real de Akira.</p><div class="ar-truth" id="arTruth"><i></i><span>sin verificar</span></div></div>'+
@@ -76,7 +108,7 @@
     gateway.title="Volver a la presencia de Akira";
     gateway.setAttribute("aria-label","Volver a la presencia de Akira");
     gateway.hidden=true;
-    gateway.addEventListener("click",showShell);
+    gateway.addEventListener("click",showHome);
     document.body.appendChild(gateway);
     bind();
     installSectionBridge();
@@ -140,6 +172,21 @@
     }catch(_){document.getElementById("arSession").textContent="No se pudo consultar la sesión ahora."}
   }
 
+  let resizeFrame=0;
+  window.addEventListener("resize",()=>{
+    if(resizeFrame)cancelAnimationFrame(resizeFrame);
+    resizeFrame=requestAnimationFrame(()=>{
+      try{
+        const host=moduleHost();
+        if(host?.dataset.module==="office" && typeof window.resizeAkiraOfficePixel==="function"){
+          window.resizeAkiraOfficePixel();
+        }
+        if(host?.dataset.module==="membrane" && typeof window.resizeMembrane==="function"){
+          window.resizeMembrane();
+        }
+      }catch(_){}
+    });
+  });
   window.addEventListener("akira:session-valid",refreshTruth);
   window.addEventListener("akira:session-invalid",refreshTruth);
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",shell,{once:true});else shell();

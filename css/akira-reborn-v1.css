@@ -174,3 +174,44 @@ body{
   .sidebar .btn-new::before{margin-right:10px}
   .brain-shell,.office-v2-shell,.mission-shell,.levels-shell,.admin-v2-shell{padding:10px!important}
 }
+
+/* REBORN MODULE CONTINUITY — real runtime inside the new identity frame */
+#akiraRebornShell.module-mode .ar-home-content{display:none}
+#akiraRebornShell .ar-module-host{display:none;pointer-events:auto;position:absolute;inset:18px 20px 20px;z-index:4;min-height:0;overflow:hidden;
+  border:1px solid rgba(226,235,255,.10);border-radius:22px;background:rgba(7,9,13,.78);
+  box-shadow:0 24px 80px rgba(0,0,0,.32);backdrop-filter:blur(10px)}
+#akiraRebornShell.module-mode .ar-module-host{display:flex;flex-direction:column}
+.ar-module-bar{height:46px;min-height:46px;display:flex;align-items:center;gap:8px;padding:0 12px;
+  border-bottom:1px solid rgba(226,235,255,.08);background:rgba(255,255,255,.025);
+  color:#758096;font:600 9px Inter,system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase}
+.ar-module-bar strong{color:#e9f1ff}
+.ar-module-bar button{margin-left:auto;border:1px solid rgba(226,235,255,.11);background:rgba(255,255,255,.035);
+  color:#cdd8ec;border-radius:9px;padding:7px 10px;cursor:pointer;font:600 9px Inter,system-ui,sans-serif}
+.ar-module-bar button:hover{border-color:rgba(117,246,255,.28);background:rgba(117,246,255,.06)}
+#arModuleHost>.section{display:flex!important;position:relative!important;flex:1!important;width:100%!important;height:auto!important;
+  min-height:0!important;overflow:hidden!important;background:transparent!important;color:var(--ar-text)!important}
+#arModuleHost>.section .section-header{flex-shrink:0}
+#arModuleHost>.section .chat-wrap,
+#arModuleHost>.section .brain-shell,
+#arModuleHost>.section .office-v2-shell,
+#arModuleHost>.section .mission-shell,
+#arModuleHost>.section .levels-shell,
+#arModuleHost>.section .admin-v2-shell{min-height:0}
+#arModuleHost #chatSection{display:flex!important}
+#arModuleHost #chatSection .chat-wrap{height:100%;min-height:0}
+#arModuleHost #chatSection .msgs{min-height:0}
+#arModuleHost #membraneSection .brain-shell,
+#arModuleHost #officeSection .office-v2-shell,
+#arModuleHost #missionsSection .mission-shell{flex:1;min-height:0}
+#arModuleHost .section-header{background:transparent!important;border-bottom:1px solid rgba(226,235,255,.08)!important}
+#arModuleHost .section-header h2{color:#eef3ff!important}
+#arModuleHost .section-header p{color:#8995aa!important}
+#arModuleHost .brain-stage{background:#070a10!important}
+#arModuleHost .mission-pane,#arModuleHost .mission-grid{background:rgba(10,13,19,.72)!important}
+#arModuleHost .office-v2-stage-wrap{border-color:rgba(226,235,255,.10)!important}
+@media(max-width:768px){
+  #akiraRebornShell .ar-module-host{inset:10px 10px 12px;border-radius:18px}
+  .ar-module-bar{height:42px;min-height:42px}
+  #arModuleHost .section-header{padding:13px 14px 10px!important}
+  #arModuleHost .section-header h2{font-size:14px!important}
+}
