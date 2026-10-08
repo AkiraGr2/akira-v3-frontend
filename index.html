@@ -1015,7 +1015,7 @@ function showSection(name){
   setTimeout(bootBrain,1000);
   setTimeout(()=>{try{window.akiraBootBrain2d && window.akiraBootBrain2d();}catch(_){}},1200);
 }
-window.showSection=showSection;  else if(name==='office'){
+  else if(name==='office'){
     if(window.initAkiraOfficePixel) initAkiraOfficePixel();
     window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"office"}}));
     requestAnimationFrame(()=>{
@@ -1026,6 +1026,7 @@ window.showSection=showSection;  else if(name==='office'){
   else if(name==='levels'){renderLevels();}
   else if(name==='admin'){document.getElementById("adminLogin").style.display="block";document.getElementById("adminPanel").style.display="none";adminCheckSession();}
 }
+window.showSection=showSection;
 function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}
 function closeSidebar(){document.getElementById("sidebar").classList.remove("open");document.getElementById("overlay").classList.remove("open");}
 function setBrainMobileFullscreenGeometry(){
