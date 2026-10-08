@@ -45,7 +45,7 @@
     const nav=items.map((x,i)=>'<button type="button" class="'+(i===0?"active":"")+'" data-ar-go="'+x[0]+'" aria-label="'+x[2]+'" title="'+x[2]+'">'+x[1]+"</button>").join("");
     const html='<div id="akiraRebornShell" role="application" aria-label="Akira">'+
       '<div class="ar-noise"></div>'+
-      '<header class="ar-top"><div class="ar-brand"><div class="ar-mark"></div><strong>AKIRA</strong><span>/ cognitive system</span></div><div class="ar-top-status"><i class="ar-live-dot"></i><span id="arConnection">verificando conexión</span></div></header>'+
+      '<header class="ar-top"><div class="ar-brand"><div class="ar-mark"></div><strong>AKIRA</strong><span>/ living intelligence</span></div><div class="ar-top-status"><i class="ar-live-dot"></i><span id="arConnection">verificando conexión</span></div></header>'+
       '<main class="ar-main">'+
         '<nav class="ar-rail" aria-label="Navegación">'+nav+'<div class="ar-spacer"></div><button type="button" data-ar-context="true" title="Contexto">＋</button></nav>'+
         '<section class="ar-stage">'+
@@ -53,7 +53,7 @@
           '<div class="ar-content">'+
             '<div class="ar-kicker">presencia / ahora</div>'+
             '<h1 class="ar-title">¿Qué vamos a <em>construir</em>?</h1>'+
-            '<p class="ar-sub" id="arSub">Punto de entrada al sistema cognitivo de Akira: conversación, memoria, conocimiento y ejecución, según lo que el sistema puede verificar. Esta interfaz no inventa capacidades.</p>'+
+            '<p class="ar-sub" id="arSub">Akira está aquí para conversar, recordar, investigar y ejecutar. Esta interfaz no inventa capacidades: muestra lo que el sistema puede verificar.</p>'+
             '<div class="ar-core-wrap" aria-label="Presencia de Akira"><div class="ar-orbit one"></div><div class="ar-orbit two"></div><div class="ar-orbit three"></div><div class="ar-core"></div><div class="ar-core-label" id="arState">presencia activa</div></div>'+
             '<div class="ar-actions"><button class="ar-action primary" data-ar-go="chat">Hablar con Akira</button><button class="ar-action" data-ar-go="missions">Abrir una misión</button><button class="ar-action" data-ar-go="membrane">Explorar memoria</button></div>'+
           '</div>'+
