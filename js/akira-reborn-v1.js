@@ -172,6 +172,21 @@
     }catch(_){document.getElementById("arSession").textContent="No se pudo consultar la sesión ahora."}
   }
 
+  let resizeFrame=0;
+  window.addEventListener("resize",()=>{
+    if(resizeFrame)cancelAnimationFrame(resizeFrame);
+    resizeFrame=requestAnimationFrame(()=>{
+      try{
+        const host=moduleHost();
+        if(host?.dataset.module==="office" && typeof window.resizeAkiraOfficePixel==="function"){
+          window.resizeAkiraOfficePixel();
+        }
+        if(host?.dataset.module==="membrane" && typeof window.resizeMembrane==="function"){
+          window.resizeMembrane();
+        }
+      }catch(_){}
+    });
+  });
   window.addEventListener("akira:session-valid",refreshTruth);
   window.addEventListener("akira:session-invalid",refreshTruth);
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",shell,{once:true});else shell();
