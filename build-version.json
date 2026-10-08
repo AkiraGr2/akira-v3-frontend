@@ -1,5 +1,5 @@
 {
-  "version": "akira-cache-v20261008-dense-living-spiral-v2-5",
+  "version": "akira-cache-v20261008-dense-living-spiral-v2-5b",
   "generated_at": "2026-10-08T23:59:59.000Z",
   "assets": {
     "js/akira_brain.js": "akira-brain-v7-stream-root",
@@ -11,6 +11,6 @@
     "assets/office/office_runtime_2p5d.json": "office-autonomous-v3",
     "js/akira_reference_workspace_v2.js": "akira-reference-v9-home-fullscope",
     "css/akira-reference-design-v2.css": "akira-reference-design-v1-living-plasma-canvas",
-    "js/akira_entity.js": "akira-entity-v2-5-dense-living-spiral"
+    "js/akira_entity.js": "akira-entity-v2-5b-dense-living-spiral"
   }
 }
