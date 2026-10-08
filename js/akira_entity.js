@@ -1,4 +1,4 @@
-/* AKIRA LIVING SYNAPTIC GALACTIC ORB — CANVAS V2.2 / ORGANIC DEPTH
+/* AKIRA LIVING SYNAPTIC GALACTIC ORB — CANVAS V2.3 / LIVING SPIRAL
  * Visual rewrite based on the real browser video review.
  *
  * Goal:
@@ -195,87 +195,107 @@
   }
 
   function drawVortex(ctx,engine,r,energy){
-    const cx=engine.cx;
-    const cy=engine.cy;
-    const activity=.70+engine.heartbeatPulse*.95+engine.reaction*.42;
+    const cx=engine.cx, cy=engine.cy;
+    const activity=.72+engine.heartbeatPulse*.95+engine.reaction*.42;
 
-    // Deep chamber.
     glow(
-      ctx,cx,cy,r*.52,
-      "rgba(255,249,216,.34)",
-      "rgba(255,107,195,.18)",
+      ctx,cx,cy,r*.62,
+      "rgba(255,249,216,.28)",
+      "rgba(255,107,195,.16)",
       "rgba(104,67,255,0)",
-      .55*energy
+      .58*energy
     );
 
     const warm=[
-      "rgba(255,246,214,.92)",
-      "rgba(255,181,126,.72)",
-      "rgba(255,95,197,.48)",
+      "rgba(255,246,214,.94)",
+      "rgba(255,181,126,.70)",
+      "rgba(255,95,197,.46)",
       "rgba(119,64,255,0)"
     ];
-
     const cool=[
-      "rgba(205,255,255,.85)",
-      "rgba(82,226,255,.60)",
-      "rgba(105,93,255,.40)",
+      "rgba(205,255,255,.90)",
+      "rgba(82,226,255,.62)",
+      "rgba(105,93,255,.42)",
       "rgba(190,55,235,0)"
     ];
 
-    // Four broad, filled spiral masses. The gaps between them create the
-    // galaxy impression without drawing a geometric ring.
+    // El universo entero nace de cuatro corrientes espirales anchas.
+    // No son anillos: cada corriente avanza desde el corazón hacia afuera.
     const arms=4;
     for(let i=0;i<arms;i++){
-      const phase=engine.time*.16 + i*(Math.PI*2/arms);
       const pts=[];
-      const steps=11;
+      const steps=22;
+      const start=engine.time*.10+i*(Math.PI*2/arms)+engine.spiralPhase;
       for(let j=0;j<steps;j++){
         const u=j/(steps-1);
-        const ang=phase + u*2.25;
-        const rr=r*(.06+.56*u);
-        const wobble=1+.07*Math.sin(engine.time*.67+i+j*.8);
+        const ang=start+u*(Math.PI*2*1.18);
+        const rr=r*(.055+.88*Math.pow(u,.92));
+        const breathe=1+.055*Math.sin(engine.time*.52+i+u*5.4);
+        const twist=.035*Math.sin(engine.time*.84+i*1.4+u*7);
         pts.push({
-          x:cx+Math.cos(ang)*rr*wobble,
-          y:cy+Math.sin(ang)*rr*.78*wobble
+          x:cx+Math.cos(ang+twist)*rr*breathe,
+          y:cy+Math.sin(ang+twist)*rr*.84*breathe
         });
       }
       organicFilament(
-        ctx,
-        pts,
-        r*(.038+.012*activity)*(1+.08*Math.sin(engine.time+i)),
+        ctx,pts,
+        r*(.032+.016*activity)*(1+.08*Math.sin(engine.time*.65+i)),
         i%2===0?cool:warm,
-        .20+.06*activity
+        .23+.07*activity
       );
     }
 
-    // La contracción del núcleo se siente antes que la expansión del resto.
+    // Segunda capa: corrientes interiores más finas que giran en sentido opuesto,
+    // para producir profundidad de "universo en movimiento".
+    for(let i=0;i<3;i++){
+      const pts=[];
+      const steps=18;
+      const start=-engine.time*.075+i*(Math.PI*2/3)+engine.spiralPhase*.4;
+      for(let j=0;j<steps;j++){
+        const u=j/(steps-1);
+        const ang=start-u*(Math.PI*2*.94);
+        const rr=r*(.12+.55*u);
+        const wobble=1+.07*Math.sin(engine.time*.61+j*.8+i);
+        pts.push({
+          x:cx+Math.cos(ang)*rr*wobble,
+          y:cy+Math.sin(ang)*rr*.68*wobble
+        });
+      }
+      organicFilament(
+        ctx,pts,
+        r*(.014+.008*activity),
+        i===1?warm:cool,
+        .16+.05*activity
+      );
+    }
+
     if(engine.heartbeatPulse>.08){
       glow(
-        ctx,cx,cy,r*.42,
-        "rgba(255,249,220,.30)",
-        "rgba(255,113,187,.18)",
+        ctx,cx,cy,r*.46,
+        "rgba(255,249,220,.34)",
+        "rgba(255,113,187,.20)",
         "rgba(93,66,255,0)",
-        engine.heartbeatPulse*.65*energy
+        engine.heartbeatPulse*.72*energy
       );
     }
 
-    // The center itself behaves like a warm living heart.
-    const corePulse=1+.09*Math.sin(engine.time*1.18)+engine.heartbeatPulse*.16+engine.reaction*.18;
+    const corePulse=1+.09*Math.sin(engine.time*1.18)
+      +engine.heartbeatPulse*.18+engine.reaction*.20;
     fillBlob(
       ctx,cx,cy,
-      r*.18*corePulse,r*.15*corePulse,
+      r*.19*corePulse,r*.16*corePulse,
       engine.time*.04,
       710,engine.time,
       ["#fffce7","#ffd58a","#ff68c8","#6a47ee"],
-      .58*energy,.26
+      .60*energy,.27
     );
 
     glow(
-      ctx,cx,cy,r*.27*corePulse,
-      "rgba(255,252,226,.38)",
-      "rgba(255,117,192,.16)",
+      ctx,cx,cy,r*.29*corePulse,
+      "rgba(255,252,226,.40)",
+      "rgba(255,117,192,.17)",
       "rgba(125,70,255,0)",
-      .90*energy
+      .94*energy
     );
   }
 
@@ -438,47 +458,66 @@
   }
 
   function drawSynapticField(ctx,engine,r,energy){
-    const count=engine.mobile?11:18;
+    const count=engine.mobile?10:18;
     for(let i=0;i<count;i++){
       const n=engine.nodes[i];
-      const baseA=n.angle+Math.sin(engine.time*.19+n.phase)*.07;
-      const radial=r*(.30+.22*n.depth+.045*Math.sin(engine.time*.29+n.phase));
-      const drift=r*.055*Math.sin(engine.time*(.34+n.speed*.04)+n.phase);
-      const x=engine.cx+Math.cos(baseA)*radial+Math.cos(n.angle+1.7)*drift+engine.lookX*r*.045;
-      const y=engine.cy+Math.sin(baseA)*radial*.87+Math.sin(n.angle+.9)*drift*.82+engine.lookY*r*.035;
 
-      const fired=engine.time+n.phase;
-      const activ=clamp((Math.sin(fired*1.9)+1)*.5,0,1);
-      const cascade=clamp(1-Math.abs(Math.sin((engine.time*.72+n.phase)*1.35)),0,1);
-      const a=(.12+.18*activ+.14*cascade)*energy;
+      // Cada nodo vive en una posición distinta de una espiral. La fase y la
+      // profundidad evitan que parezca una rueda fija.
+      const u=.10+(i/(count-1))*.84;
+      const ang=n.angle+engine.time*.13
+        +u*(Math.PI*2*1.12)
+        +Math.sin(engine.time*.31+n.phase)*.055;
+      const radial=r*(.18+.72*u);
+      const lateral=r*.035*Math.sin(engine.time*(.46+n.speed*.04)+n.phase);
 
-      if(i< count-1){
-        const n2=engine.nodes[(i+1)%count];
-        const a2=n2.angle+Math.sin(engine.time*.17+n2.phase)*.07;
-        const r2=r*(.30+.22*n2.depth+.045*Math.sin(engine.time*.29+n2.phase));
-        const x2=engine.cx+Math.cos(a2)*r2+engine.lookX*r*.045;
-        const y2=engine.cy+Math.sin(a2)*r2*.87+engine.lookY*r*.035;
+      const x=engine.cx
+        +Math.cos(ang)*radial
+        +Math.cos(ang+Math.PI*.5)*lateral
+        +engine.lookX*r*.042;
+      const y=engine.cy
+        +Math.sin(ang)*radial*.84
+        +Math.sin(ang+Math.PI*.5)*lateral*.78
+        +engine.lookY*r*.032;
 
-        // Links appear only while a cascade passes; they are short filled
-        // organic masses, not permanent diagram lines.
-        const linkActivity=clamp((Math.sin(engine.time*.92+n.phase*1.7)+1)*.5,0,1);
-        if(linkActivity>.66){
+      const activ=clamp((Math.sin(engine.time*1.75+n.phase)+1)*.5,0,1);
+      const cascade=clamp(
+        (Math.sin(engine.time*.88+n.phase*1.8)+1)*.5,
+        0,1
+      );
+      const a=(.14+.20*activ+.16*cascade)*energy;
+
+      if(i<count-1){
+        const n2=engine.nodes[i+1];
+        const u2=.10+((i+1)/(count-1))*.84;
+        const ang2=n2.angle+engine.time*.13
+          +u2*(Math.PI*2*1.12)
+          +Math.sin(engine.time*.31+n2.phase)*.055;
+        const radial2=r*(.18+.72*u2);
+        const x2=engine.cx+Math.cos(ang2)*radial2+engine.lookX*r*.042;
+        const y2=engine.cy+Math.sin(ang2)*radial2*.84+engine.lookY*r*.032;
+
+        const linkActivity=clamp(
+          (Math.sin(engine.time*.96+n.phase*1.45+u*4.1)+1)*.5,
+          0,1
+        );
+        if(linkActivity>.60){
           const mid={
-            x:(x+x2)/2+Math.sin(engine.time*.84+n.phase)*r*.035,
-            y:(y+y2)/2+Math.cos(engine.time*.71+n.phase)*r*.028
+            x:(x+x2)/2+Math.sin(engine.time*.82+n.phase)*r*.026,
+            y:(y+y2)/2+Math.cos(engine.time*.73+n.phase)*r*.020
           };
           organicFilament(
-            ctx,[{x,y: y},{x:mid.x,y:mid.y},{x:x2,y:y2}],
-            r*(.008+.005*linkActivity),
+            ctx,[{x,y},{x:mid.x,y:mid.y},{x:x2,y:y2}],
+            r*(.007+.006*linkActivity),
             i%3===0
-              ? ["rgba(255,209,139,.75)","rgba(255,112,193,.65)","rgba(92,109,255,.48)","rgba(92,66,255,0)"]
-              : ["rgba(207,255,255,.72)","rgba(75,222,248,.56)","rgba(101,78,255,.46)","rgba(192,52,225,0)"],
-            .30*linkActivity*energy
+              ? ["rgba(255,209,139,.72)","rgba(255,112,193,.62)","rgba(92,109,255,.46)","rgba(92,66,255,0)"]
+              : ["rgba(207,255,255,.70)","rgba(75,222,248,.54)","rgba(101,78,255,.44)","rgba(192,52,225,0)"],
+            .24*linkActivity*energy
           );
         }
       }
 
-      const nodeR=r*(.015+.010*activ+(i%5===0?.009:0));
+      const nodeR=r*(.014+.012*activ+(i%5===0?.008:0));
       drawSynapseNode(ctx,x,y,nodeR,activ,cascade,i%5===0,energy);
     }
   }
@@ -518,13 +557,20 @@
       }
 
       const t=p.age/p.life;
-      p.angle+=p.angularSpeed*engine.dt;
-      p.radius+=p.radialSpeed*engine.dt;
-      p.radius*=.995;
-      p.radius=clamp(p.radius,.16,1.16);
-      p.x=engine.cx+Math.cos(p.angle)*engine.pxRadius*p.radius;
-      p.y=engine.cy+Math.sin(p.angle)*engine.pyRadius*p.radius;
-      p.alpha=(1-t)*(t<.14?lerp(.2,1,t/.14):1);
+      p.radius=clamp(p.radius+p.radialSpeed*engine.dt,.14,1.14);
+      p.angle += (
+        p.angularSpeed*
+        (1.10-p.radius*.36) +
+        Math.sin(engine.time*.5+p.phase)*.025
+      )*engine.dt;
+
+      // Curva espiral: al alejarse, la partícula también cambia su ángulo.
+      const spiralTurn=(1-p.radius)*.92;
+      const a=p.angle+spiralTurn*(p.radius<.72?1:0);
+      const rr=engine.radiusRef*p.radius;
+      p.x=engine.cx+Math.cos(a)*rr;
+      p.y=engine.cy+Math.sin(a)*rr*.86;
+      p.alpha=(1-t)*(t<.12?lerp(.16,1,t/.12):1);
     }
   }
 
