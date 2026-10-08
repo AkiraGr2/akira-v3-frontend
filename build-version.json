@@ -1,6 +1,6 @@
 {
-  "version": "akira-cache-v20261008-dense-living-spiral-v2-6-cognitive-workspace-perf-v1",
-  "generated_at": "2026-10-08T21:30:31.000Z",
+  "version": "akira-cache-v20261008-dense-living-spiral-v2-6-cognitive-workspace-perf-v2",
+  "generated_at": "2026-10-08T21:34:11.679Z",
   "assets": {
     "js/akira_brain.js": "akira-brain-v8-performance",
     "js/obsidian_membrane.js": "akira-membrane-v49-public-fallback",
