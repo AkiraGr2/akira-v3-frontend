@@ -70,4 +70,12 @@
   letter-spacing:.18em;font:600 10px Inter,ui-sans-serif,system-ui,sans-serif;cursor:pointer;box-shadow:0 12px 36px rgba(0,0,0,.35)}
 .ar-return-gateway:hover{border-color:rgba(117,246,255,.55);transform:translateY(-1px)}
 @media(max-width:900px){.ar-return-gateway{left:12px;top:12px;padding:9px 11px}}
-body.ar-reborn-active> :not(#akiraRebornShell){pointer-events:none!important}
+#akiraRebornShell{pointer-events:none}
+#akiraRebornShell .ar-top,
+#akiraRebornShell .ar-content,
+#akiraRebornShell .ar-dock,
+#akiraRebornShell .ar-context{pointer-events:auto}
+#akiraRebornShell .ar-rail{pointer-events:none}
+#akiraRebornShell .ar-rail button{pointer-events:auto}
+#akiraRebornShell .ar-context{pointer-events:auto}
+body.ar-reborn-active> :not(#akiraRebornShell){pointer-events:auto!important}
