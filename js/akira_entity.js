@@ -1,4 +1,4 @@
-/* AKIRA LIVING PLASMA CORE — CANVAS V1.1 BETA
+/* AKIRA LIVING PLASMA CORE — CANVAS V1.3 PERSONALITY / CONTRAST
  * Refinamiento visual a partir del video real de prueba: más vida, menos “bola”,
  * emisiones conectadas y evaporación orgánica.
  *
@@ -141,13 +141,21 @@
     ctx.translate(x,y);
     ctx.rotate(tilt);
     const oh=Math.max(h*.08,h*open);
-    const g=ctx.createRadialGradient(-w*.13,-oh*.18,0,0,0,Math.max(w,oh)*.72);
-    g.addColorStop(0,"rgba(255,255,255,.98)");
-    g.addColorStop(.42,"rgba(212,255,255,.97)");
-    g.addColorStop(1,"rgba(104,236,255,.40)");
-    ctx.globalCompositeOperation="lighter";
-    ctx.globalAlpha=.92;
-    ctx.fillStyle=g;
+
+    const socket=ctx.createRadialGradient(0,0,Math.max(w*.12,oh*.22),0,0,Math.max(w,oh)*.82);
+    socket.addColorStop(0,"rgba(22,7,36,.28)");
+    socket.addColorStop(.55,"rgba(15,4,28,.15)");
+    socket.addColorStop(1,"rgba(8,2,16,0)");
+    ctx.globalCompositeOperation="source-over";
+    ctx.globalAlpha=.72;
+    ctx.fillStyle=socket;
+    ctx.beginPath();
+    ctx.ellipse(0,0,w*.70,Math.max(oh*.78,h*.10),0,0,Math.PI*2);
+    ctx.fill();
+
+    // Negro sólido para recuperar el contraste perdido en el video real.
+    ctx.globalAlpha=.985;
+    ctx.fillStyle="#020107";
     ctx.beginPath();
     ctx.moveTo(-w*.52,0);
     ctx.quadraticCurveTo(0,-oh*.72,w*.52,0);
@@ -155,10 +163,14 @@
     ctx.closePath();
     ctx.fill();
 
-    ctx.globalAlpha=.78;
-    ctx.fillStyle="rgba(255,255,255,.96)";
+    // Borde interior mínimo: profundidad, sin perder la lectura de negro.
+    ctx.globalAlpha=.24;
+    ctx.fillStyle="#24103c";
     ctx.beginPath();
-    ctx.ellipse(-w*.10,-oh*.12,w*.14,oh*.18,0,0,Math.PI*2);
+    ctx.moveTo(-w*.48,oh*.02);
+    ctx.quadraticCurveTo(0,oh*.52,w*.48,oh*.02);
+    ctx.quadraticCurveTo(0,oh*.34,-w*.48,oh*.02);
+    ctx.closePath();
     ctx.fill();
     ctx.restore();
   }
@@ -166,28 +178,40 @@
   function drawMouth(ctx,x,y,w,h,type){
     ctx.save();
     ctx.translate(x,y);
-    ctx.globalCompositeOperation="lighter";
+    ctx.globalCompositeOperation="source-over";
+
+    const socket=ctx.createRadialGradient(0,0,Math.max(w*.08,h*.25),0,0,w*.74);
+    socket.addColorStop(0,"rgba(39,8,35,.24)");
+    socket.addColorStop(.52,"rgba(19,3,20,.13)");
+    socket.addColorStop(1,"rgba(8,1,10,0)");
+    ctx.globalAlpha=.72;
+    ctx.fillStyle=socket;
+    ctx.beginPath();
+    ctx.ellipse(0,0,w*.68,Math.max(h*.72,h*.13),0,0,Math.PI*2);
+    ctx.fill();
+
+    const depth=type==="joy"?1.16:type==="playful"?1.03:type==="small"?.72:.88;
+    const rise=type==="joy"?-2:type==="playful"?-1:0;
 
     if(type==="open"){
-      const g=ctx.createRadialGradient(0,-h*.12,0,0,0,w*.75);
-      g.addColorStop(0,"rgba(255,238,251,.96)");
-      g.addColorStop(.36,"rgba(255,173,229,.96)");
-      g.addColorStop(1,"rgba(255,74,188,.08)");
-      ctx.fillStyle=g;
+      ctx.globalAlpha=.985;
+      ctx.fillStyle="#020107";
       ctx.beginPath();
-      ctx.ellipse(0,0,w*.42,h*.62,0,0,Math.PI*2);
+      ctx.ellipse(0,0,w*.43,h*.64,0,0,Math.PI*2);
+      ctx.fill();
+
+      ctx.globalAlpha=.26;
+      ctx.fillStyle="#35102c";
+      ctx.beginPath();
+      ctx.ellipse(0,h*.10,w*.26,h*.26,0,0,Math.PI*2);
       ctx.fill();
       ctx.restore();
       return;
     }
 
-    const depth=type==="joy"?1.16:type==="playful"?1.03:type==="small"?.72:.88;
-    const rise=type==="joy"?-2:type==="playful"?-1:0;
-    const g=ctx.createRadialGradient(0,-h*.2,0,0,0,w*.82);
-    g.addColorStop(0,"rgba(255,235,250,.98)");
-    g.addColorStop(.34,"rgba(255,177,228,.96)");
-    g.addColorStop(1,"rgba(255,83,190,.08)");
-    ctx.fillStyle=g;
+    // Boca negra rellena: mantiene las expresiones sin volver a blanco.
+    ctx.globalAlpha=.985;
+    ctx.fillStyle="#020107";
     ctx.beginPath();
     ctx.moveTo(-w*.48,0);
     ctx.quadraticCurveTo(0,h*depth+rise,w*.48,0);
@@ -196,10 +220,10 @@
     ctx.fill();
 
     if(type==="joy" || type==="playful"){
-      ctx.globalAlpha=.68;
-      ctx.fillStyle="rgba(255,255,255,.90)";
+      ctx.globalAlpha=.30;
+      ctx.fillStyle="#37102f";
       ctx.beginPath();
-      ctx.ellipse(0,h*.05,w*.18,h*.10,0,0,Math.PI*2);
+      ctx.ellipse(0,h*.10,w*.18,h*.08,0,0,Math.PI*2);
       ctx.fill();
     }
     ctx.restore();
@@ -347,32 +371,48 @@
 
   function drawFace(ctx,engine,r){
     const cfg=EXPRESSION_CONFIG[engine.expression]||EXPRESSION_CONFIG.soft;
-    const faceScale=r/112;
-    const fx=engine.cx+engine.lookX*r*.08;
-    const fy=engine.cy+engine.lookY*r*.05;
+    const facePulse=1
+      +Math.sin(engine.time*.92+engine.reaction*.8)*.014
+      +engine.reaction*.030;
+    const fx=engine.cx+engine.lookX*r*.085;
+    const fy=engine.cy+engine.lookY*r*.055
+      +Math.sin(engine.time*.78)*r*.010;
+    const tilt=engine.lookX*.020 + Math.sin(engine.time*.46)*.008;
 
-    drawCheek(ctx,fx-r*.43,fy+r*.20,r*.16);
-    drawCheek(ctx,fx+r*.43,fy+r*.20,r*.16);
+    ctx.save();
+    ctx.translate(fx,fy);
+    ctx.rotate(tilt);
 
-    const eyeW=r*.35;
-    const eyeH=r*.18;
-    drawEye(ctx,fx-r*.27,fy-r*.04,eyeW,eyeH,cfg.left,engine.expression==="curious"?-.08:0);
-    drawEye(ctx,fx+r*.27,fy-r*.04,eyeW,eyeH,cfg.right,engine.expression==="curious"?.08:0);
+    // Cavidad interna blanda: el rostro se percibe "dentro" de la masa.
+    const pocket=ctx.createRadialGradient(0,-r*.02,r*.08,0,0,r*.66);
+    pocket.addColorStop(0,"rgba(10,2,20,.20)");
+    pocket.addColorStop(.42,"rgba(19,4,30,.10)");
+    pocket.addColorStop(1,"rgba(10,2,20,0)");
+    ctx.globalCompositeOperation="source-over";
+    ctx.globalAlpha=.62;
+    ctx.fillStyle=pocket;
+    ctx.beginPath();
+    ctx.ellipse(0,r*.05,r*.54,r*.43,0,0,Math.PI*2);
+    ctx.fill();
 
-    const mouthW=r*.38;
-    const mouthH=r*.12*faceScale;
-    drawMouth(ctx,fx,fy+r*.23,mouthW,mouthH,cfg.mouth);
+    const cheekR=r*.16*facePulse;
+    drawCheek(ctx,-r*.43,r*.20,cheekR);
+    drawCheek(ctx,r*.43,r*.20,cheekR);
 
-    if(engine.expression==="playful"){
-      ctx.globalCompositeOperation="lighter";
-      ctx.fillStyle="rgba(255,255,255,.78)";
-      ctx.beginPath();
-      ctx.ellipse(fx-r*.18,fy+r*.08,r*.06,r*.03,0,0,Math.PI*2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(fx+r*.18,fy+r*.08,r*.045,r*.025,0,0,Math.PI*2);
-      ctx.fill();
-    }
+    const eyeW=r*.33*facePulse;
+    const eyeH=r*.165*facePulse;
+    drawEye(ctx,-r*.27,-r*.04,eyeW,eyeH,cfg.left,
+      engine.expression==="curious"?-.09:
+      engine.expression==="playful"?.035:0);
+    drawEye(ctx,r*.27,-r*.04,eyeW,eyeH,cfg.right,
+      engine.expression==="curious"?.09:
+      engine.expression==="playful"?-.025:0);
+
+    const mouthW=r*.38*facePulse;
+    const mouthH=r*.12*facePulse;
+    drawMouth(ctx,0,r*.23,mouthW,mouthH,cfg.mouth);
+
+    ctx.restore();
   }
 
   function draw(engine){
@@ -424,7 +464,7 @@
     ];
     lobes.forEach((l,i)=>{
       const a=l.a + Math.sin(engine.time*(.32+.03*i)+i)*.08;
-      const dist=r*(.84+.035*Math.sin(engine.time*.51+l.off));
+      const dist=r*(.78+.030*Math.sin(engine.time*.51+l.off));
       fillGradientBlob(
         ctx,
         engine.cx+Math.cos(a)*dist,
@@ -435,7 +475,7 @@
         20+i*13,
         engine.time*.62+l.off,
         PALETTE[l.c],
-        (.17+.04*Math.sin(engine.time*.9+i))*energy,
+        (.12+.028*Math.sin(engine.time*.9+i))*energy,
         .28
       );
     });
@@ -602,6 +642,23 @@
         t,col,.20+.08*Math.sin(t+i),.18
       );
     }
+    // Corazón térmico: volumen cálido y profundo para darle riqueza cromática
+    // sin convertir el núcleo en una superficie plana.
+    const heartPulse=1+.045*Math.sin(engine.time*1.05)+engine.reaction*.07;
+    fillGradientBlob(
+      ctx,
+      engine.cx-engine.lookX*r*.06,
+      engine.cy+engine.lookY*r*.03,
+      r*.38*heartPulse,
+      r*.25*(1+.025*Math.cos(engine.time*.83))*heartPulse,
+      -.16+Math.sin(engine.time*.31)*.08,
+      980,
+      engine.time*.58,
+      ["#ffffff","#8ef5ff","#806bff","#ff55bd"],
+      (.105+.020*Math.sin(engine.time*.9))*energy,
+      .36
+    );
+
     ctx.restore();
 
     // Reacción/emisión: materia caliente que se desprende de la masa.
