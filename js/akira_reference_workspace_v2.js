@@ -99,15 +99,16 @@
   async function hydrateHome(home){
     renderDateTime(home);
     const signed=hasSession();
-    const graphPath=signed ? "/api/v8/graph/overview?limit_nodes=1&limit_edges=1&_=home" : "/api/v8/graph/public-overview";
+    const graphPath=signed ? "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now() : "/api/v8/graph/public-overview";
     const results=await Promise.all([
       apiGet("/health"),
       apiGet(graphPath),
+      signed ? apiGet("/api/v8/me") : Promise.resolve({ok:false,status:0,data:null}),
       apiGet("/api/v8/agents"),
       apiGet("/api/v8/missions/recent?limit=4"),
       apiGet("/api/v8/tasks?limit=4")
     ]);
-    const health=results[0], graph=results[1], agents=results[2], missions=results[3], tasks=results[4];
+    const health=results[0], graph=results[1], me=results[2], agents=results[3], missions=results[4], tasks=results[5];
     const serverOK=health.ok===true;
     setText(home,"akRefSystemPill",serverOK?"● servidor disponible":"● servidor no disponible");
     const pill=home.querySelector("#akRefSystemPill"); if(pill)pill.classList.toggle("is-error",!serverOK);
@@ -117,7 +118,9 @@
     const nodes=Number(counts.nodes), edges=Number(counts.edges);
     setText(home,"akRefMetricNodes",Number.isFinite(nodes)?count(nodes):"n/d");
     setText(home,"akRefMetricEdges",Number.isFinite(edges)?count(edges):"n/d");
-    setText(home,"akRefBrainNodes",Number.isFinite(nodes)?count(nodes)+" nodos · "+(signed?"vista de sesión":"vista pública"):"Nodos no disponibles");
+    const isOwner=Boolean(me&&me.ok&&me.data&&me.data.authenticated===true&&me.data.is_owner===true);
+    const scopeLabel=signed ? (isOwner?"vista del propietario · pública + privada":"vista de sesión") : "vista pública";
+    setText(home,"akRefBrainNodes",Number.isFinite(nodes)?count(nodes)+" nodos · "+scopeLabel:"Nodos no disponibles");
     const brainBar=home.querySelector("#akRefBrainBar");
     if(brainBar&&Number.isFinite(nodes)){
       const visual=Math.min(100,Math.max(8,Math.round(Math.log10(Math.max(nodes,1)+1)*24)));
@@ -183,7 +186,7 @@
     }
 
     setText(home,"akRefHeroBrain",Number.isFinite(nodes)
-      ? count(nodes)+" nodos · "+(Number.isFinite(edges)?count(edges):"n/d")+" relaciones"
+      ? count(nodes)+" nodos · "+(Number.isFinite(edges)?count(edges):"n/d")+" relaciones · "+scopeLabel
       : "Datos del Cerebro no disponibles.");
     setText(home,"akRefSystemNote",serverOK
       ? "Servidor consultado en tiempo real. El Cerebro usa datos públicos sin sesión y datos de sesión cuando están disponibles."
