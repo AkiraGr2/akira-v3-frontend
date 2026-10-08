@@ -1,4 +1,4 @@
-/* AKIRA LIVING SYNAPTIC GALACTIC ORB — CANVAS V2.3 / LIVING SPIRAL
+/* AKIRA LIVING SYNAPTIC GALACTIC ORB — CANVAS V2.4 / LIVING SPIRAL SAFE
  * Visual rewrite based on the real browser video review.
  *
  * Goal:
@@ -141,7 +141,16 @@
   }
 
   function organicFilament(ctx,points,width,stops,alpha){
-    if(points.length<2||alpha<=.001)return;
+    if(!Array.isArray(points)||points.length<2||
+       !Number.isFinite(width)||!Number.isFinite(alpha)||alpha<=.001)return;
+
+    const safe=[];
+    for(const p of points){
+      if(p&&Number.isFinite(p.x)&&Number.isFinite(p.y))safe.push(p);
+    }
+    if(safe.length<2)return;
+
+    points=safe;
 
     const left=[];
     const right=[];
@@ -163,6 +172,8 @@
     ctx.save();
     const first=points[0];
     const last=points[points.length-1];
+    if(!Number.isFinite(first.x)||!Number.isFinite(first.y)||
+       !Number.isFinite(last.x)||!Number.isFinite(last.y))return;
     const grad=ctx.createLinearGradient(first.x,first.y,last.x,last.y);
     grad.addColorStop(0,stops[0]);
     grad.addColorStop(.35,stops[1]);
