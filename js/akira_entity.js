@@ -33,6 +33,19 @@ function svgMarkup(){
     '<filter id="'+n+'spark" x="-160%" y="-160%" width="420%" height="420%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'+
   '</defs>'+
   '<ellipse cx="210" cy="365" rx="134" ry="24" fill="url(#'+n+'halo)" filter="url(#'+n+'blur)"/>'+
+
+  '<g class="akira-plasma-waves" fill="none" stroke-linecap="round">'+
+    '<circle class="plasma-wave wave-1" cx="210" cy="207" r="118" stroke="url(#'+n+'violet)" stroke-width="3" opacity=".15"/>'+
+    '<circle class="plasma-wave wave-2" cx="210" cy="207" r="128" stroke="url(#'+n+'warm)" stroke-width="2.5" opacity=".12"/>'+
+    '<circle class="plasma-wave wave-3" cx="210" cy="207" r="139" stroke="url(#'+n+'violet)" stroke-width="2" opacity=".08"/>'+
+    '<ellipse class="plasma-wave wave-4" cx="210" cy="207" rx="156" ry="94" stroke="url(#'+n+'warm)" stroke-width="2" opacity=".10"/>'+
+  '</g>'+
+  '<g class="akira-plasma-filaments" fill="none" stroke-linecap="round" filter="url(#'+n+'glow)">'+
+    '<path class="plasma-filament filament-1" d="M210 92 C188 72 172 51 184 25 C195 43 213 42 221 24 C229 49 244 63 266 78" stroke="url(#'+n+'violet)" stroke-width="3.5" opacity=".58"/>'+
+    '<path class="plasma-filament filament-2" d="M315 205 C341 190 367 181 397 194 C378 207 379 225 399 236 C367 241 344 232 320 219" stroke="url(#'+n+'warm)" stroke-width="3.2" opacity=".52"/>'+
+    '<path class="plasma-filament filament-3" d="M104 207 C77 191 52 183 23 196 C43 208 40 225 21 237 C52 242 76 232 100 220" stroke="url(#'+n+'violet)" stroke-width="3.2" opacity=".52"/>'+
+    '<path class="plasma-filament filament-4" d="M211 318 C190 340 178 364 189 393 C201 374 218 378 229 397 C234 366 244 344 263 327" stroke="url(#'+n+'warm)" stroke-width="3.5" opacity=".50"/>'+
+  '</g>'+
   '<g class="akira-plasma-bursts" fill="none" stroke-linecap="round" filter="url(#'+n+'glow)">'+
     '<path class="plasma-burst burst-a" d="M210 103 C207 81 205 61 210 34" stroke="url(#'+n+'violet)" stroke-width="4"/>'+
     '<path class="plasma-burst burst-b" d="M290 131 C310 111 327 95 348 76" stroke="url(#'+n+'violet)" stroke-width="4"/>'+
@@ -142,19 +155,35 @@ function startLife(host){
     clearTimeout(burstTimer);
     burstTimer=setTimeout(()=>{
       const bursts=svg.querySelectorAll(".plasma-burst");
-      const count=Math.random()<.22?2:1;
-      for(let i=0;i<count;i++){
+      const filaments=svg.querySelectorAll(".plasma-filament");
+      const waves=svg.querySelectorAll(".plasma-wave");
+      const burstCount=Math.random()<.18?2:1;
+      for(let i=0;i<burstCount;i++){
         const el=bursts[Math.floor(Math.random()*bursts.length)];
         if(!el)continue;
         el.classList.remove("burst-now");
         void el.getBoundingClientRect();
         el.classList.add("burst-now");
-        setTimeout(()=>el.classList.remove("burst-now"),720);
+        setTimeout(()=>el.classList.remove("burst-now"),760);
+      }
+      const filament=filaments[Math.floor(Math.random()*filaments.length)];
+      if(filament){
+        filament.classList.remove("filament-now");
+        void filament.getBoundingClientRect();
+        filament.classList.add("filament-now");
+        setTimeout(()=>filament.classList.remove("filament-now"),1100);
+      }
+      const wave=waves[Math.floor(Math.random()*waves.length)];
+      if(wave){
+        wave.classList.remove("wave-now");
+        void wave.getBoundingClientRect();
+        wave.classList.add("wave-now");
+        setTimeout(()=>wave.classList.remove("wave-now"),1200);
       }
       const sparks=svg.querySelectorAll(".akira-plasma-burst-sparks circle");
-      for(let i=0;i<sparks.length;i++)sparks[i].style.setProperty("--spark-delay",randomBetween(0,220)+"ms");
+      for(let i=0;i<sparks.length;i++)sparks[i].style.setProperty("--spark-delay",randomBetween(0,260)+"ms");
       scheduleBurst();
-    },randomBetween(1600,4200));
+    },randomBetween(1700,4300));
   }
 
   const pointerMove=(event)=>{
@@ -162,8 +191,8 @@ function startLife(host){
     if(!r.width||!r.height)return;
     const x=(event.clientX-r.left)/r.width-.5;
     const y=(event.clientY-r.top)/r.height-.5;
-    const gx=Math.max(-4,Math.min(4,x*9));
-    const gy=Math.max(-3,Math.min(3,y*6));
+    const gx=Math.max(-5,Math.min(5,x*10));
+    const gy=Math.max(-4,Math.min(4,y*7));
     svg.style.setProperty("--gaze-x",gx+"px");
     svg.style.setProperty("--gaze-y",gy+"px");
     setExpression(host,Math.abs(x)>0.22?"curious":"happy");
