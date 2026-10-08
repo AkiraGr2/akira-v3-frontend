@@ -693,9 +693,9 @@
 
     // Stable, irregular synaptic anchors keep the core coherent while their
     // activation changes continuously.
-    for(let i=0;i<24;i++){
+    for(let i=0;i<36;i++){
       engine.nodes.push({
-        angle:(Math.PI*2*i)/24+rand(-.16,.16),
+        angle:(Math.PI*2*i)/36+rand(-.16,.16),
         phase:rand(0,Math.PI*2),
         depth:rand(.15,.90),
         speed:rand(.7,1.2)
