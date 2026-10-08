@@ -1,24 +1,17 @@
-/* AKIRA LIVING PLASMA CORE — CANVAS V1.5 REAL EYES / SOFT BLINK
- * Refinamiento visual a partir del video real de prueba: más vida, menos “bola”,
- * emisiones conectadas y evaporación orgánica.
+/* AKIRA LIVING SYNAPTIC ORB — CANVAS V1.6
+ * New visual direction: compact living nucleus + synaptic activity + inner galaxy.
  *
- * AKIRA LIVING PLASMA CORE — CANVAS V1
- * Nueva identidad visual construida desde cero.
- * No usa la arquitectura SVG de las versiones anteriores.
- *
- * Principio visual:
- * - ninguna línea ornamental
- * - ninguna órbita
- * - ninguna malla ni anillo
- * - el cuerpo ES una masa de plasma, hecha de volúmenes blandos
- * - las emisiones son pequeñas masas calientes que se desprenden y se evaporan
- * - la cara nace dentro de la luz del plasma, no como sticker
+ * Design rule:
+ * - the object must read as ONE NUCLEUS first
+ * - life comes from internal circulation, synaptic firing, breathing and growth
+ * - no face, no horror, no black eye sockets
+ * - no geometric orbit decorations
  *
  * Runtime:
- * - Canvas 2D nativo del navegador
- * - requestAnimationFrame con tiempo real (no depende del scroll)
- * - ResizeObserver + DPR limitado para móviles
- * - pausa solo cuando la pestaña está oculta
+ * - Canvas 2D native
+ * - requestAnimationFrame with real dt
+ * - ResizeObserver + capped DPR
+ * - pauses only when document is hidden
  */
 (function(){
   "use strict";
@@ -26,821 +19,453 @@
   const STATES={
     idle:{label:"En calma",energy:1.00},
     thinking:{label:"Pensando",energy:1.16},
-    searching:{label:"Explorando",energy:1.28},
-    learning:{label:"Aprendiendo",energy:1.08},
-    remembering:{label:"Recordando",energy:0.94},
-    executing:{label:"Ejecutando",energy:1.24},
-    success:{label:"Listo",energy:1.10},
-    uncertain:{label:"Con cautela",energy:0.84},
-    error:{label:"Atención",energy:0.92},
+    searching:{label:"Explorando",energy:1.30},
+    learning:{label:"Aprendiendo",energy:1.10},
+    remembering:{label:"Recordando",energy:.96},
+    executing:{label:"Ejecutando",energy:1.25},
+    success:{label:"Listo",energy:1.15},
+    uncertain:{label:"Con cautela",energy:.88},
+    error:{label:"Atención",energy:.98},
     playful:{label:"Juguetona",energy:1.22}
   };
 
-  const EXPRESSIONS=[
-    "soft","curious","joy","surprised","wink","sleepy","playful","blink"
-  ];
-
-  const EXPRESSION_CONFIG={
-    soft:{left:.82,right:.82,mouth:"soft"},
-    curious:{left:.77,right:1.00,mouth:"small"},
-    joy:{left:.96,right:.96,mouth:"joy"},
-    surprised:{left:.93,right:.93,mouth:"open"},
-    wink:{left:.10,right:.92,mouth:"joy"},
-    sleepy:{left:.34,right:.34,mouth:"small"},
-    playful:{left:.84,right:.98,mouth:"playful"},
-    blink:{left:.08,right:.08,mouth:"small"}
-  };
-
-  const PALETTE=[
-    ["#d9ffff","#55ecff","#7369ff","#e54cff"],
-    ["#fff1bd","#ffb45e","#ff62c9","#8059ff"],
-    ["#e6ffff","#6cecff","#4d7dff","#c948ff"],
-    ["#fff3ca","#ff884f","#ff4fb4","#6a5cff"]
-  ];
+  const EXPRESSIONS=["soft","curious","joy","surprised","wink","sleepy","playful","blink"];
 
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
   const lerp=(a,b,t)=>a+(b-a)*t;
   const rand=(a,b)=>a+Math.random()*(b-a);
-  const normalizeState=s=>STATES[s]?s:"idle";
 
-  function hashNoise(n){
-    const x=Math.sin(n*12.9898)*43758.5453123;
+  const CORE_COLORS={
+    cyan:"#70efff",
+    cyan2:"#29bfe9",
+    blue:"#5e77ff",
+    violet:"#8b48ff",
+    pink:"#e656d7",
+    hot:"#ff76c7",
+    gold:"#ffc46b",
+    white:"#f7ffff"
+  };
+
+  function hash(n){
+    const x=Math.sin(n*127.1+311.7)*43758.5453123;
     return x-Math.floor(x);
   }
 
-  function smoothNoise(t,seed){
-    const a=Math.floor(t);
-    const f=t-a;
-    const s=f*f*(3-2*f);
-    return lerp(hashNoise(a+seed),hashNoise(a+seed+1),s);
+  function noise(t,seed){
+    const a=Math.floor(t), f=t-a, s=f*f*(3-2*f);
+    return lerp(hash(a+seed),hash(a+seed+1),s);
   }
 
-  function roundDpr(){
-    return clamp(window.devicePixelRatio||1,1,2.25);
+  function dpr(){
+    return clamp(window.devicePixelRatio||1,1,2.2);
   }
 
-  function blobPath(ctx,cx,cy,rx,ry,rotation,seed,time,warp){
-    const count=18;
-    const points=[];
-    const c=Math.cos(rotation),s=Math.sin(rotation);
+  function blobPath(ctx,cx,cy,rx,ry,rot,seed,t,warp){
+    const count=24;
+    const pts=[];
+    const c=Math.cos(rot),s=Math.sin(rot);
     for(let i=0;i<count;i++){
-      const a=(Math.PI*2*i)/count;
-      const n1=smoothNoise(time*0.72+i*0.37,seed);
-      const n2=Math.sin(time*1.17+seed*0.61+i*1.73);
-      const ripple=1 + warp*((n1-.5)*1.35 + n2*.42);
-      const x=Math.cos(a)*rx*ripple;
-      const y=Math.sin(a)*ry*(1 + warp*.28*Math.sin(time*.91+i*1.11+seed))*ripple;
-      points.push({
-        x:cx + x*c - y*s,
-        y:cy + x*s + y*c
-      });
+      const a=Math.PI*2*i/count;
+      const n=noise(t*.48+i*.31,seed);
+      const wave=Math.sin(t*.91+seed*.53+i*1.37);
+      const r=1+warp*((n-.5)*1.55+wave*.34);
+      const x=Math.cos(a)*rx*r;
+      const y=Math.sin(a)*ry*(1+warp*.22*Math.sin(t*.67+i*1.1+seed))*r;
+      pts.push({x:cx+x*c-y*s,y:cy+x*s+y*c});
     }
-
     ctx.beginPath();
     for(let i=0;i<count;i++){
-      const p=points[i];
-      const next=points[(i+1)%count];
-      const midX=(p.x+next.x)/2;
-      const midY=(p.y+next.y)/2;
-      if(i===0) ctx.moveTo(midX,midY);
-      ctx.quadraticCurveTo(p.x,p.y,midX,midY);
+      const p=pts[i], q=pts[(i+1)%count];
+      const mx=(p.x+q.x)/2,my=(p.y+q.y)/2;
+      if(i===0) ctx.moveTo(mx,my);
+      ctx.quadraticCurveTo(p.x,p.y,mx,my);
     }
     ctx.closePath();
   }
 
-  function fillGradientBlob(ctx,x,y,rx,ry,rotation,seed,time,colors,alpha,warp){
+  function fillBlob(ctx,x,y,rx,ry,rot,seed,t,stops,alpha,warp){
     ctx.save();
     ctx.translate(x,y);
-    ctx.rotate(rotation);
-    const g=ctx.createRadialGradient(
-      -rx*.28,-ry*.30,0,
-      0,0,Math.max(rx,ry)*1.08
-    );
-    g.addColorStop(0,colors[0]);
-    g.addColorStop(.25,colors[1]);
-    g.addColorStop(.58,colors[2]);
-    g.addColorStop(1,colors[3]);
+    ctx.rotate(rot);
+    const g=ctx.createRadialGradient(-rx*.24,-ry*.28,0,0,0,Math.max(rx,ry)*1.12);
+    g.addColorStop(0,stops[0]);
+    g.addColorStop(.26,stops[1]);
+    g.addColorStop(.58,stops[2]);
+    g.addColorStop(1,stops[3]);
     ctx.globalAlpha=alpha;
     ctx.fillStyle=g;
-    blobPath(ctx,0,0,rx,ry,0,seed,time,warp);
+    blobPath(ctx,0,0,rx,ry,0,seed,t,warp);
     ctx.fill();
     ctx.restore();
   }
 
-  function corePath(ctx,cx,cy,rx,ry,time,seed){
-    const squeeze=1+Math.sin(time*.67)*.035;
-    blobPath(ctx,cx,cy,rx*squeeze,ry*(2-squeeze),
-      Math.sin(time*.31)*.075,
-      seed,time,.26
-    );
-  }
-
-  function drawEye(ctx,x,y,w,h,open,tilt,gazeX,gazeY){
-    if(open<=.035) return;
-
-    ctx.save();
-    ctx.translate(x,y);
-    ctx.rotate(tilt);
-
-    const openness=clamp(open,0,1);
-    const eyeH=Math.max(h*.10,h*openness);
-    const socketW=w*.84;
-    const socketH=Math.max(eyeH*1.32,h*.22);
-
-    // Cuenca negra: se conserva como marco profundo del ojo.
-    ctx.globalCompositeOperation="source-over";
-    ctx.globalAlpha=.90;
-    const socket=ctx.createRadialGradient(
-      -w*.10,-eyeH*.12,0,
-      0,0,Math.max(socketW,socketH)*.86
-    );
-    socket.addColorStop(0,"rgba(5,1,10,.96)");
-    socket.addColorStop(.72,"rgba(2,1,7,.985)");
-    socket.addColorStop(1,"rgba(12,3,20,.34)");
-    ctx.fillStyle=socket;
-    ctx.beginPath();
-    ctx.ellipse(0,0,socketW,socketH,0,0,Math.PI*2);
-    ctx.fill();
-
-    // Globo ocular: blanco perlado ligeramente azulado, no blanco plano.
-    const sx=clamp((gazeX||0)*w*.10,-w*.055,w*.055);
-    const sy=clamp((gazeY||0)*eyeH*.10,-eyeH*.055,eyeH*.055);
-    const sclera=ctx.createRadialGradient(
-      -w*.13+sx,-eyeH*.20+sy,0,
-      0,0,Math.max(w,eyeH)*.72
-    );
-    sclera.addColorStop(0,"#ffffff");
-    sclera.addColorStop(.46,"#e9fbff");
-    sclera.addColorStop(.82,"#c7e8ee");
-    sclera.addColorStop(1,"#7ca4b0");
-    ctx.globalAlpha=.98;
-    ctx.fillStyle=sclera;
-    ctx.beginPath();
-    ctx.moveTo(-w*.43,sy);
-    ctx.quadraticCurveTo(-w*.18,-eyeH*.82,w*.03,-eyeH*.73);
-    ctx.quadraticCurveTo(w*.30,-eyeH*.62,w*.43,sy);
-    ctx.quadraticCurveTo(w*.20,eyeH*.62,-w*.03,eyeH*.73);
-    ctx.quadraticCurveTo(-w*.30,eyeH*.62,-w*.43,sy);
-    ctx.closePath();
-    ctx.fill();
-
-    // Iris: anillo cyan-violeta con pupila profunda, de tamaño humano.
-    const irisX=sx + clamp((gazeX||0)*w*.035,-w*.018,w*.018);
-    const irisY=sy + clamp((gazeY||0)*eyeH*.035,-eyeH*.018,eyeH*.018);
-    const irisR=Math.min(w,eyeH)*.34;
-    const iris=ctx.createRadialGradient(
-      irisX-irisR*.22,irisY-irisR*.28,0,
-      irisX,irisY,irisR
-    );
-    iris.addColorStop(0,"#d9ffff");
-    iris.addColorStop(.20,"#72e7ff");
-    iris.addColorStop(.52,"#5b7dff");
-    iris.addColorStop(.78,"#7c3fe1");
-    iris.addColorStop(1,"#24103b");
-    ctx.fillStyle=iris;
-    ctx.beginPath();
-    ctx.ellipse(irisX,irisY,irisR,irisR*.94,0,0,Math.PI*2);
-    ctx.fill();
-
-    // Pupila.
-    const pupilR=irisR*.42;
-    ctx.fillStyle="#020107";
-    ctx.beginPath();
-    ctx.arc(irisX,irisY,pupilR,0,Math.PI*2);
-    ctx.fill();
-
-    // Reflejos húmedos.
-    ctx.globalAlpha=.94;
-    ctx.fillStyle="#ffffff";
-    ctx.beginPath();
-    ctx.ellipse(irisX-irisR*.28,irisY-irisR*.30,irisR*.12,irisR*.15,0,0,Math.PI*2);
-    ctx.fill();
-
-    ctx.globalAlpha=.40;
-    ctx.beginPath();
-    ctx.ellipse(irisX+irisR*.22,irisY+irisR*.20,irisR*.055,irisR*.07,0,0,Math.PI*2);
-    ctx.fill();
-
-    // Párpado superior de plasma para las expresiones y el parpadeo.
-    if(openness<.75){
-      ctx.globalAlpha=(.75-openness)*1.1;
-      ctx.fillStyle="#10041b";
-      ctx.beginPath();
-      ctx.moveTo(-w*.48,-eyeH*.02);
-      ctx.quadraticCurveTo(0,-eyeH*(.70+.28*(1-openness)),w*.48,-eyeH*.02);
-      ctx.quadraticCurveTo(0,-eyeH*.10,-w*.48,-eyeH*.02);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    ctx.restore();
-  }
-
-  function drawMouth(ctx,x,y,w,h,type){
-    ctx.save();
-    ctx.translate(x,y);
-    ctx.globalCompositeOperation="source-over";
-
-    const socket=ctx.createRadialGradient(0,0,Math.max(w*.08,h*.25),0,0,w*.70);
-    socket.addColorStop(0,"rgba(39,8,35,.16)");
-    socket.addColorStop(.52,"rgba(19,3,20,.08)");
-    socket.addColorStop(1,"rgba(8,1,10,0)");
-    ctx.globalAlpha=.38;
-    ctx.fillStyle=socket;
-    ctx.beginPath();
-    ctx.ellipse(0,0,w*.62,Math.max(h*.62,h*.10),0,0,Math.PI*2);
-    ctx.fill();
-
-    if(type==="open"){
-      // Sorpresa: boca negra suave, más ancha que alta.
-      ctx.globalAlpha=.985;
-      ctx.fillStyle="#020107";
-      ctx.beginPath();
-      ctx.ellipse(0,0,w*.40,h*.72,0,0,Math.PI*2);
-      ctx.fill();
-
-      ctx.globalAlpha=.18;
-      ctx.fillStyle="#6b1d57";
-      ctx.beginPath();
-      ctx.ellipse(0,h*.12,w*.24,h*.22,0,0,Math.PI*2);
-      ctx.fill();
-      ctx.restore();
-      return;
-    }
-
-    // Sonrisa: sigue siendo una boca negra, pero con curva ascendente
-    // claramente amable en lugar de una cavidad ovalada.
-    const joy=type==="joy";
-    const playful=type==="playful";
-    const depth=joy?1.18:playful?1.04:type==="small"?.66:.82;
-    const lower=joy?.52:playful?.44:.34;
-
-    ctx.globalAlpha=.985;
-    ctx.fillStyle="#020107";
-    ctx.beginPath();
-    ctx.moveTo(-w*.50,0);
-    ctx.quadraticCurveTo(-w*.26,h*.28,0,h*depth);
-    ctx.quadraticCurveTo(w*.26,h*.28,w*.50,0);
-    ctx.quadraticCurveTo(w*.27,h*.52,0,h*.58);
-    ctx.quadraticCurveTo(-w*.27,h*.52,-w*.50,0);
-    ctx.closePath();
-    ctx.fill();
-
-    if(joy || playful){
-      ctx.globalAlpha=.24;
-      ctx.fillStyle="#5d1d56";
-      ctx.beginPath();
-      ctx.ellipse(0,h*.44,w*.16,h*.07,0,0,Math.PI*2);
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  function drawCheek(ctx,x,y,r){
-    const g=ctx.createRadialGradient(x-r*.15,y-r*.16,0,x,y,r);
-    g.addColorStop(0,"rgba(255,202,237,.74)");
-    g.addColorStop(.34,"rgba(255,92,190,.52)");
-    g.addColorStop(1,"rgba(255,54,170,0)");
-    ctx.globalCompositeOperation="lighter";
+  function drawGlow(ctx,x,y,r,inner,mid,outer,alpha){
+    const g=ctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,inner);
+    g.addColorStop(.28,mid);
+    g.addColorStop(1,outer);
+    ctx.globalAlpha=alpha;
     ctx.fillStyle=g;
     ctx.beginPath();
     ctx.arc(x,y,r,0,Math.PI*2);
     ctx.fill();
   }
 
-  function chooseEmissionAngle(engine){
-    if(Math.abs(engine.lookX)+Math.abs(engine.lookY)>.32){
-      const toward=Math.atan2(engine.lookY,engine.lookX);
-      return toward + rand(-.8,.8);
-    }
-    return engine.time*0.17 + rand(-Math.PI,Math.PI);
-  }
-
-  function spawnEmission(engine,burst){
-    if(engine.emissions.length>=12) return;
-    const angle=chooseEmissionAngle(engine);
-    const thermal=Math.random()<.48;
-    engine.emissions.push({
-      angle,
-      age:0,
-      life:rand(.72,burst?1.28:1.14),
-      size:rand(.09,.17),
-      speed:rand(.21,.38)*(burst?1.24:1),
-      wobble:rand(.6,1.4),
-      phase:rand(0,Math.PI*2),
-      color:thermal?1:Math.random()<.5?0:2,
-      hot:thermal
-    });
-  }
-
-  function spawnBurst(engine,count){
-    for(let i=0;i<count;i++) spawnEmission(engine,true);
-    engine.reaction=1;
-  }
-
-  function drawPlasmaTongue(ctx,engine,angle,r,p,s,colors,seed){
-    // Forma rellena, ancha y corta: parece materia caliente siendo expulsada.
-    // Nunca se dibuja un stroke ni una “línea” de conexión.
-    const edge=r*.82;
-    const len=r*(.20+.34*p);
-    const x0=engine.cx+Math.cos(angle)*edge;
-    const y0=engine.cy+Math.sin(angle)*edge;
-    const x1=engine.cx+Math.cos(angle)*(edge+len);
-    const y1=engine.cy+Math.sin(angle)*(edge+len);
-    const nx=-Math.sin(angle),ny=Math.cos(angle);
-
+  function drawRibbon(ctx,cx,cy,r,phase,energy,opacity){
+    // Ribbons are broad, filled and softly blurred in perception; they are
+    // intentionally organic rather than decorative geometric rings.
     ctx.save();
-    ctx.globalAlpha=(1-p)*.55;
-    ctx.translate((x0+x1)/2,(y0+y1)/2);
-    ctx.rotate(angle);
-    const g=ctx.createRadialGradient(-len*.12,0,0,0,0,Math.max(len,s)*.78);
-    g.addColorStop(0,colors[0]);
-    g.addColorStop(.26,colors[1]);
-    g.addColorStop(.62,colors[2]);
-    g.addColorStop(1,colors[3]);
-    ctx.fillStyle=g;
+    ctx.translate(cx,cy);
+    ctx.rotate(phase);
 
-    const neck=Math.max(s*.42,s*(1.05-p*.45));
-    const tip=s*(1.12+.22*Math.sin(engine.time*engine.wobble+engine.phase));
-    ctx.beginPath();
-    ctx.moveTo(-len*.55,-neck);
-    ctx.quadraticCurveTo(-len*.08,-neck*1.35,len*.20,-tip*.82);
-    ctx.quadraticCurveTo(len*.58,-tip*.48,len*.55,0);
-    ctx.quadraticCurveTo(len*.56,tip*.54,len*.18,tip*.84);
-    ctx.quadraticCurveTo(-len*.10,neck*1.24,-len*.55,neck);
-    ctx.quadraticCurveTo(-len*.68,0,-len*.55,-neck);
-    ctx.closePath();
-    ctx.fill();
+    const turns=1.55;
+    const pts=[];
+    const steps=18;
+    for(let i=0;i<=steps;i++){
+      const u=i/steps;
+      const a=u*Math.PI*2*turns;
+      const rad=r*(.10+.68*u);
+      const wobble=1+.045*Math.sin(u*9+phase*2.1);
+      pts.push({
+        x:Math.cos(a)*rad*wobble,
+        y:Math.sin(a)*rad*wobble*.92
+      });
+    }
 
-    // halo suave desprendido del cuello
-    ctx.globalAlpha=(1-p)*.14;
-    ctx.fillStyle="rgba(120,240,255,.8)";
+    ctx.globalCompositeOperation="screen";
+    ctx.globalAlpha=opacity;
+    ctx.lineWidth=Math.max(2,r*.055);
+    ctx.lineCap="round";
+    const grad=ctx.createLinearGradient(-r*.65,-r*.2,r*.70,r*.24);
+    grad.addColorStop(0,"rgba(57,213,255,0)");
+    grad.addColorStop(.22,"rgba(78,218,255,.55)");
+    grad.addColorStop(.52,"rgba(214,91,255,.70)");
+    grad.addColorStop(.76,"rgba(255,102,198,.48)");
+    grad.addColorStop(1,"rgba(255,189,91,0)");
+    ctx.strokeStyle=grad;
     ctx.beginPath();
-    ctx.ellipse(-len*.12,0,len*.42,neck*1.18,0,0,Math.PI*2);
-    ctx.fill();
+    pts.forEach((p,i)=>{
+      if(i===0) ctx.moveTo(p.x,p.y);
+      else ctx.lineTo(p.x,p.y);
+    });
+    ctx.stroke();
+
+    ctx.globalAlpha=opacity*.26;
+    ctx.lineWidth=Math.max(5,r*.09);
+    ctx.strokeStyle="rgba(103,235,255,.8)";
+    ctx.stroke();
     ctx.restore();
   }
 
-  function drawEmission(ctx,engine,e,r){
-    const p=clamp(e.age/e.life,0,1);
-    const ease=p*p*(3-2*p);
-    const angle=e.angle + Math.sin(engine.time*e.wobble+e.phase)*.11;
-    const originR=r*.80;
-    const travel=r*(.36*e.speed + .20);
-    const dist=originR + travel*ease;
-    const x=engine.cx+Math.cos(angle)*dist;
-    const y=engine.cy+Math.sin(angle)*dist;
-    const s=r*e.size*(1 + .28*Math.sin(p*Math.PI));
-    const alpha=(1-p)*(p<.16?lerp(.28,1,p/.16):1);
+  function drawSynapse(ctx,x,y,r,phase,hot,alpha){
+    const pulse=.75+.25*Math.sin(phase);
+    drawGlow(ctx,x,y,r*2.6,
+      hot?"rgba(255,238,194,.92)":"rgba(200,251,255,.88)",
+      hot?"rgba(255,132,90,.42)":"rgba(53,193,255,.30)",
+      "rgba(92,62,255,0)",alpha*.28);
 
-    const colors=PALETTE[e.color];
-    const hotColors=e.hot
-      ? ["#fff8d1","#ffd07b","#ff63b1","#7a5cff"]
-      : colors;
-
-    if(p<.76){
-      drawPlasmaTongue(ctx,engine,angle,r,p,s,hotColors,70+Math.round(e.phase*10));
-    }
-
-    fillGradientBlob(
-      ctx,x,y,
-      s*(1.08+.34*Math.sin(e.phase+p*8)),
-      s*(.76+.26*Math.cos(e.phase+p*7)),
-      angle+Math.sin(e.phase)*.22,
-      70+Math.round(e.phase*10),
-      engine.time*1.35+e.phase,
-      hotColors,
-      alpha,
-      .28
-    );
-
-    if(p>.52){
-      const evap=1-p;
-      for(let i=0;i<3;i++){
-        const side=(i-1)*s*.85;
-        const drift=(i-1)*s*.35*evap;
-        fillGradientBlob(
-          ctx,
-          x+Math.cos(angle+Math.PI/2)*side+Math.cos(angle)*drift,
-          y+Math.sin(angle+Math.PI/2)*side+Math.sin(angle)*drift,
-          s*(.22+.10*evap),
-          s*(.17+.07*evap),
-          angle+side*.08,
-          210+i*29+Math.round(e.phase),
-          engine.time*1.6+i,
-          ["#ffffff","#aaf8ff","#c45bff","#ff59b9"],
-          .20*evap,
-          .30
-        );
-      }
-    }
-  }
-
-  function drawFace(ctx,engine,r){
-    const cfg=EXPRESSION_CONFIG[engine.expression]||EXPRESSION_CONFIG.soft;
-    const facePulse=1
-      +Math.sin(engine.time*.92+engine.reaction*.8)*.018
-      +engine.reaction*.034;
-    const fx=engine.cx+engine.lookX*r*.090;
-    const fy=engine.cy+engine.lookY*r*.055
-      +Math.sin(engine.time*.78)*r*.011;
-    const tilt=engine.lookX*.022 + Math.sin(engine.time*.46)*.009;
-
-    let blink=1;
-    if(engine.expression==="blink"){
-      const t=clamp((engine.time-engine.blinkStart)/(engine.blinkDuration||.42),0,1);
-      blink=1-Math.sin(Math.PI*t)*.94;
-    }
-
-    ctx.save();
-    ctx.translate(fx,fy);
-    ctx.rotate(tilt);
-
-    const pocket=ctx.createRadialGradient(0,-r*.01,r*.08,0,0,r*.52);
-    pocket.addColorStop(0,"rgba(10,2,20,.08)");
-    pocket.addColorStop(.45,"rgba(19,4,30,.035)");
-    pocket.addColorStop(1,"rgba(10,2,20,0)");
-    ctx.globalCompositeOperation="source-over";
-    ctx.globalAlpha=.26;
-    ctx.fillStyle=pocket;
+    ctx.globalAlpha=alpha*(.72+.28*pulse);
+    ctx.fillStyle=hot?"#ffd77f":"#9ff7ff";
     ctx.beginPath();
-    ctx.ellipse(0,r*.03,r*.47,r*.34,0,0,Math.PI*2);
+    ctx.arc(x,y,r*(.72+.18*pulse),0,Math.PI*2);
     ctx.fill();
 
-    const cheekR=r*.175*facePulse;
-    drawCheek(ctx,-r*.43,r*.21,cheekR);
-    drawCheek(ctx,r*.43,r*.21,cheekR);
+    ctx.globalAlpha=alpha*.75;
+    ctx.fillStyle="#ffffff";
+    ctx.beginPath();
+    ctx.arc(x-r*.16,y-r*.18,r*.20,0,Math.PI*2);
+    ctx.fill();
+  }
 
-    const eyeW=r*.34*facePulse;
-    const eyeH=r*.205*facePulse;
-    drawEye(ctx,-r*.27,-r*.04,eyeW,eyeH,cfg.left*blink,
-      engine.expression==="curious"?-.085:
-      engine.expression==="playful"?.040:0,
-      engine.lookX,engine.lookY);
-    drawEye(ctx,r*.27,-r*.04,eyeW,eyeH,cfg.right*blink,
-      engine.expression==="curious"?.085:
-      engine.expression==="playful"?-.030:0,
-      engine.lookX,engine.lookY);
+  function chooseNodeAngle(engine,i){
+    // Semi-stable anchors keep the object coherent while their phase drifts.
+    return i*1.257 + engine.orbitSeed[i] + Math.sin(engine.time*.13+i)*.08;
+  }
 
-    const mouthW=r*.37*facePulse;
-    const mouthH=r*.115*facePulse;
-    drawMouth(ctx,0,r*.235,mouthW,mouthH,cfg.mouth);
+  function spawnPulse(engine,strong){
+    if(engine.pulses.length>14) return;
+    engine.pulses.push({
+      age:0,
+      life:strong?rand(.75,1.15):rand(.95,1.45),
+      radius:0,
+      speed:strong?1.08:0.72,
+      hue:Math.random(),
+      phase:rand(0,Math.PI*2),
+      strong:!!strong
+    });
+  }
 
+  function spawnParticle(engine,strong){
+    if(engine.particles.length>36) return;
+    const a=rand(0,Math.PI*2);
+    engine.particles.push({
+      age:0,
+      life:rand(1.8,3.8),
+      a,
+      dist:rand(.45,.96),
+      speed:rand(-.20,.22)*(strong?1.25:1),
+      size:rand(.008,.026),
+      hot:Math.random()<.28
+    });
+  }
+
+  function drawPulse(ctx,engine,r,p){
+    const t=clamp(p.age/p.life,0,1);
+    const ease=t*t*(3-2*t);
+    const rr=r*(.28+.70*ease);
+    ctx.save();
+    ctx.globalCompositeOperation="screen";
+    ctx.globalAlpha=(1-t)*(.16+(p.strong?.12:0));
+    ctx.strokeStyle=p.hue>.55?"rgba(229,86,215,.82)":"rgba(82,225,255,.86)";
+    ctx.lineWidth=Math.max(1.5,r*.018*(1-t*.5));
+    ctx.beginPath();
+    ctx.ellipse(engine.cx,engine.cy,rr,rr*(.78+.09*Math.sin(engine.time*1.1+p.phase)),0,0,Math.PI*2);
+    ctx.stroke();
     ctx.restore();
   }
 
   function draw(engine){
-    const ctx=engine.ctx;
-    const w=engine.cssW,h=engine.cssH;
-    if(!ctx||w<=0||h<=0) return;
+    const ctx=engine.ctx,w=engine.cssW,h=engine.cssH;
+    if(!ctx||w<=0||h<=0)return;
 
-    const dpr=engine.dpr;
-    ctx.setTransform(dpr,0,0,dpr,0,0);
+    const d=engine.dpr;
+    ctx.setTransform(d,0,0,d,0,0);
     ctx.clearRect(0,0,w,h);
 
     const base=Math.min(w,h);
-    const r=Math.max(8,base*.375);
-    engine.cx=w*.5 + engine.lookX*base*.018;
-    engine.cy=h*.49 + engine.lookY*base*.012;
-    const energy=engine.energy*(1+engine.reaction*.085);
-    const slowBreath=Math.sin(engine.time*.83+Math.sin(engine.time*.19)*.35);
-    const pulse=1
-      + slowBreath*.022*energy
-      + Math.sin(engine.time*1.35)*.012*energy
-      + engine.reaction*.030;
-    const rx=r*1.08*pulse;
-    const ry=r*.94*(1+Math.sin(engine.time*.91+1.3)*.034);
+    const r=Math.max(14,base*.34);
+    engine.cx=w*.5+engine.lookX*base*.018;
+    engine.cy=h*.49+engine.lookY*base*.012;
 
+    const reaction=engine.reaction;
+    const e=engine.energy*(1+reaction*.12);
+    const breath=Math.sin(engine.time*.74+Math.sin(engine.time*.21)*.35);
+    const pulseScale=1+breath*.028*e+Math.sin(engine.time*1.38)*.010*e+reaction*.042;
+    const rx=r*1.02*pulseScale;
+    const ry=r*.99*(1+Math.sin(engine.time*.81+1.6)*.025);
+
+    // Ambient field
     ctx.save();
-    ctx.globalCompositeOperation="lighter";
-
-    const aura=ctx.createRadialGradient(engine.cx,engine.cy,0,engine.cx,engine.cy,r*1.55);
-    aura.addColorStop(0,"rgba(87,225,255,.22)");
-    aura.addColorStop(.34,"rgba(146,73,255,.14)");
-    aura.addColorStop(.65,"rgba(255,71,188,.06)");
-    aura.addColorStop(1,"rgba(255,71,188,0)");
-    ctx.fillStyle=aura;
-    ctx.beginPath();
-    ctx.arc(engine.cx,engine.cy,r*1.55,0,Math.PI*2);
-    ctx.fill();
+    ctx.globalCompositeOperation="screen";
+    drawGlow(ctx,engine.cx,engine.cy,r*1.55,
+      "rgba(73,232,255,.18)","rgba(117,70,255,.13)",
+      "rgba(216,62,201,0)",.9);
     ctx.restore();
 
-    // Borde vivo: volúmenes anchos y muy transparentes que alteran la silueta
-    // sin convertirse en “piedras” visibles alrededor del núcleo.
-    const lobes=[
-      {a:-2.45,rx:.30,ry:.18,c:2,off:.3},
-      {a:-1.18,rx:.25,ry:.20,c:0,off:1.2},
-      {a:-.18,rx:.31,ry:.17,c:1,off:2.0},
-      {a:.78,rx:.27,ry:.20,c:3,off:2.9},
-      {a:2.05,rx:.28,ry:.18,c:2,off:4.0},
-      {a:2.88,rx:.24,ry:.17,c:1,off:4.8},
-      {a:-3.02,rx:.22,ry:.16,c:0,off:5.5}
-    ];
-    lobes.forEach((l,i)=>{
-      const a=l.a + Math.sin(engine.time*(.32+.03*i)+i)*.08;
-      const dist=r*(.74+.026*Math.sin(engine.time*.51+l.off));
-      fillGradientBlob(
-        ctx,
-        engine.cx+Math.cos(a)*dist,
-        engine.cy+Math.sin(a)*dist,
-        r*l.rx*(1+.10*Math.sin(engine.time*.83+l.off)),
-        r*l.ry*(1+.10*Math.cos(engine.time*.71+l.off)),
-        a+.55*Math.sin(engine.time*.43+l.off),
-        20+i*13,
-        engine.time*.62+l.off,
-        PALETTE[l.c],
-        (.085+.022*Math.sin(engine.time*.9+i))*energy,
-        .28
-      );
-    });
-
-    // Silueta principal irregular.
-    const mainColors=engine.state==="error"
-      ? ["#fff0dc","#ff9069","#ff4d9f","#6548d9"]
-      : ["#eaffff","#62eaff","#6e6dff","#b735ff"];
-
-    const mainGrad=ctx.createRadialGradient(
-      engine.cx-r*.24,engine.cy-r*.28,0,
-      engine.cx,engine.cy,r*1.18
+    // Soft outer membrane. One body, not a constellation of pieces.
+    const shellGrad=ctx.createRadialGradient(
+      engine.cx-r*.25,engine.cy-r*.28,0,
+      engine.cx,engine.cy,r*1.16
     );
-    mainGrad.addColorStop(0,"rgba(238,255,255,.96)");
-    mainGrad.addColorStop(.18,"rgba(100,232,255,.96)");
-    mainGrad.addColorStop(.40,engine.state==="error"?"rgba(255,120,103,.70)":"rgba(77,121,255,.80)");
-    mainGrad.addColorStop(.66,"rgba(144,61,255,.66)");
-    mainGrad.addColorStop(.86,"rgba(226,55,179,.40)");
-    mainGrad.addColorStop(1,"rgba(16,16,52,.08)");
+    shellGrad.addColorStop(0,"rgba(241,255,255,.92)");
+    shellGrad.addColorStop(.16,"rgba(91,236,255,.88)");
+    shellGrad.addColorStop(.38,"rgba(76,134,255,.78)");
+    shellGrad.addColorStop(.62,"rgba(133,75,255,.64)");
+    shellGrad.addColorStop(.82,"rgba(226,69,196,.45)");
+    shellGrad.addColorStop(1,"rgba(10,12,30,.12)");
 
     ctx.save();
-    corePath(ctx,engine.cx,engine.cy,rx,ry,engine.time,44);
-    ctx.globalAlpha=.90;
-    ctx.fillStyle=mainGrad;
+    ctx.globalCompositeOperation="source-over";
+    blobPath(ctx,engine.cx,engine.cy,rx,ry,
+      Math.sin(engine.time*.27)*.08,44,engine.time,.16);
+    ctx.globalAlpha=.92;
+    ctx.fillStyle=shellGrad;
     ctx.fill();
     ctx.clip();
 
-    // Profundidad: una nube grande y tenue dentro del cuerpo para que
-    // el núcleo no se lea como una superficie plana.
-    {
-      const dg=ctx.createRadialGradient(
-        engine.cx-engine.lookX*r*.10,
-        engine.cy+engine.lookY*r*.06,
-        0,
-        engine.cx,
-        engine.cy,
-        r*.92
-      );
-      dg.addColorStop(0,"rgba(235,255,255,.32)");
-      dg.addColorStop(.28,"rgba(76,226,255,.22)");
-      dg.addColorStop(.58,"rgba(111,82,255,.14)");
-      dg.addColorStop(1,"rgba(255,70,186,0)");
-      ctx.globalCompositeOperation="lighter";
-      ctx.globalAlpha=.72;
-      ctx.fillStyle=dg;
-      blobPath(
-        ctx,
-        engine.cx+Math.sin(engine.time*.43+1.2)*rx*.07,
-        engine.cy+Math.cos(engine.time*.37+.6)*ry*.06,
-        rx*.90*(1+.055*Math.sin(engine.time*.71)),
-        ry*.72*(1+.08*Math.cos(engine.time*.63)),
-        -.20+Math.sin(engine.time*.28)*.12,
-        115,engine.time,.20
-      );
-      ctx.fill();
-    }
-
-    // Corrientes internas: nubes fluidas sobrepuestas. No hay strokes.
-    const innerCount=w<120 ? 5 : 10;
-    for(let i=0;i<innerCount;i++){
-      const n=smoothNoise(engine.time*.22+i*.63,300+i);
-      const ang=engine.time*(.12+.018*i)+i*1.29 + Math.sin(engine.time*.37+i)*.38;
-      const band=r*(.16+.15*Math.sin(i*1.7));
-      const x=engine.cx+Math.cos(ang)*band + Math.sin(engine.time*.55+i)*r*.12;
-      const y=engine.cy+Math.sin(ang*1.13)*band*.82 + Math.cos(engine.time*.47+i)*r*.10;
-      const br=r*(.15+.065*n)*(i%4===0?1.34:1);
-      const palette=PALETTE[i%PALETTE.length];
-      fillGradientBlob(
-        ctx,x,y,
-        br*(1.48+.18*Math.sin(engine.time*.8+i)),
-        br*(.72+.22*Math.cos(engine.time*.64+i)),
-        ang+.55,
-        420+i*17,
-        engine.time*(.42+.025*i)+i,
-        palette,
-        (.09+.035*n)*energy,
-        .42
-      );
-    }
-
-    // Grandes bolsas de plasma: son el movimiento que el ojo percibe como
-    // “materia viva” desplazándose por dentro del núcleo.
-    const fluidMasses=[
-      {x:-.23,y:-.10,s:.24,a:2.6,c:2},
-      {x:.22,y:.05,s:.28,a:5.4,c:0},
-      {x:-.04,y:.26,s:.20,a:1.1,c:1},
-      {x:.16,y:-.28,s:.18,a:4.5,c:3}
-    ];
-    fluidMasses.forEach((m,i)=>{
-      const driftX=Math.sin(engine.time*(.42+.05*i)+i*1.7)*r*.08 + engine.lookX*r*.06;
-      const driftY=Math.cos(engine.time*(.37+.04*i)+i)*r*.07 + engine.lookY*r*.045;
-      const rr=r*m.s*(1+.12*Math.sin(engine.time*.72+i));
-      fillGradientBlob(
-        ctx,
-        engine.cx+m.x*r+driftX,
-        engine.cy+m.y*r+driftY,
-        rr*(1.35+.16*Math.sin(engine.time*.64+i)),
-        rr*(.74+.14*Math.cos(engine.time*.59+i)),
-        m.a+Math.sin(engine.time*.3+i)*.45,
-        860+i*23,
-        engine.time*.72+i,
-        PALETTE[m.c],
-        (.06+.018*Math.sin(engine.time+i))*energy,
-        .38
-      );
-    });
-
-    // Bolsas térmicas: el "calor" se siente por masa, no por líneas.
-    const heatPts=[
-      [-.18,-.24,.18,1.8],
-      [.18,-.10,.13,.7],
-      [.08,.18,.17,2.5],
-      [-.12,.24,.12,4.2],
-      [.28,.20,.10,5.1]
-    ];
-    heatPts.forEach((p,i)=>{
-      const x=engine.cx+p[0]*r + Math.sin(engine.time*.8+i)*r*.025;
-      const y=engine.cy+p[1]*r + Math.cos(engine.time*.67+i)*r*.022;
-      const rr=r*p[2]*(1+.11*Math.sin(engine.time*1.1+i));
-      fillGradientBlob(
-        ctx,x,y,rr*1.24,rr*.92,p[3],
-        510+i*13,
-        engine.time*1.05+i,
-        ["#fff5ca","#ffb866","#ff4fae","#784cff"],
-        (.14+.055*Math.sin(engine.time*1.2+i))*energy,
-        .26
-      );
-    });
-
-    // Corriente superficial: grandes volúmenes muy transparentes que se
-    // desplazan cerca de la "piel" del plasma. Son rellenos, nunca líneas.
-    const surfaceCount=w<120?5:7;
-    for(let i=0;i<surfaceCount;i++){
-      const a=engine.time*(.055+.008*(i%3))+i*.92+Math.sin(engine.time*.29+i)*.22;
-      const surfaceRx=rx*(.66+.07*Math.sin(i*1.9));
-      const surfaceRy=ry*(.62+.06*Math.cos(i*1.4));
-      const px=engine.cx+Math.cos(a)*surfaceRx + engine.lookX*r*.05;
-      const py=engine.cy+Math.sin(a)*surfaceRy + engine.lookY*r*.035;
-      const ss=r*(.095+.028*Math.sin(engine.time*.6+i));
-      fillGradientBlob(
-        ctx,
-        px,py,
-        ss*(1.45+.18*Math.sin(engine.time*.8+i)),
-        ss*(.62+.14*Math.cos(engine.time*.73+i)),
-        a+.55,
-        590+i*21,
-        engine.time*.53+i,
-        PALETTE[(i+1)%PALETTE.length],
-        (.045+.018*(.5+.5*Math.sin(engine.time*.9+i)))*energy,
-        .50
-      );
-    }
-
-    // Microplasma: pocas partículas blandas que pasan dentro del cuerpo.
-    const microCount=w<120?9:15;
-    for(let i=0;i<microCount;i++){
-      const t=engine.time*(.28+.02*(i%4))+i*1.67;
-      const px=engine.cx + Math.sin(t*1.21+i*.27)*r*.64;
-      const py=engine.cy + Math.cos(t*.87+i*.41)*r*.54;
-      const s=r*(.012+.005*(i%3));
-      const col=i%4===0?["#fff7cf","#ffc16b","#ff5ac4","#704cff"]:["#dffeff","#71eaff","#736bff","#dd5aff"];
-      fillGradientBlob(
-        ctx,px,py,s*1.5,s,0,700+i,
-        t,col,.20+.08*Math.sin(t+i),.18
-      );
-    }
-    // Corazón térmico: volumen cálido y profundo para darle riqueza cromática
-    // sin convertir el núcleo en una superficie plana.
-    const heartPulse=1+.045*Math.sin(engine.time*1.05)+engine.reaction*.07;
-    fillGradientBlob(
-      ctx,
-      engine.cx-engine.lookX*r*.06,
-      engine.cy+engine.lookY*r*.03,
-      r*.38*heartPulse,
-      r*.25*(1+.025*Math.cos(engine.time*.83))*heartPulse,
-      -.16+Math.sin(engine.time*.31)*.08,
-      980,
-      engine.time*.58,
-      ["#ffffff","#8ef5ff","#806bff","#ff55bd"],
-      (.105+.020*Math.sin(engine.time*.9))*energy,
-      .36
+    // Deep translucent tissue
+    fillBlob(ctx,
+      engine.cx+Math.sin(engine.time*.31)*r*.07,
+      engine.cy+Math.cos(engine.time*.27)*r*.05,
+      rx*.89,ry*.84,-.12,101,engine.time,
+      ["rgba(228,255,255,.90)","rgba(46,212,246,.68)","rgba(88,69,255,.53)","rgba(227,62,194,.12)"],
+      .74,.20
     );
+
+    // Inner galaxy: broad flowing ribbons, not a perfect geometric ring.
+    const ribbonCount=w<120?3:5;
+    for(let i=0;i<ribbonCount;i++){
+      drawRibbon(ctx,engine.cx,engine.cy,r*(.84+.035*i),
+        engine.time*(.045+.008*(i%2))+i*1.18,
+        e,.27-i*.025);
+    }
+
+    // Living chambers: soft internal masses that drift and breathe.
+    const chambers=[
+      [-.34,-.14,.26,2.6,1],
+      [.24,-.18,.25,5.2,2],
+      [.29,.16,.22,.6,0],
+      [-.18,.23,.24,4.1,3],
+      [.02,.02,.29,1.8,0]
+    ];
+    chambers.forEach((m,i)=>{
+      const driftX=Math.sin(engine.time*(.36+.04*i)+i)*r*.06+engine.lookX*r*.055;
+      const driftY=Math.cos(engine.time*(.31+.03*i)+i*.7)*r*.055+engine.lookY*r*.04;
+      const rr=r*m[2]*(1+.10*Math.sin(engine.time*.72+i));
+      const palette=m[4]===1
+        ? ["rgba(228,255,255,.82)","rgba(63,221,255,.56)","rgba(91,72,255,.38)","rgba(16,15,45,0)"]
+        : m[4]===2
+          ? ["rgba(255,238,205,.78)","rgba(255,136,205,.50)","rgba(103,69,255,.38)","rgba(16,15,45,0)"]
+          : ["rgba(215,255,255,.80)","rgba(49,197,245,.48)","rgba(192,75,245,.40)","rgba(16,15,45,0)"];
+      fillBlob(ctx,
+        engine.cx+m[0]*r+driftX,
+        engine.cy+m[1]*r+driftY,
+        rr*1.20,rr*.80,m[3]+Math.sin(engine.time*.23+i)*.25,
+        300+i*23,engine.time*.72+i,palette,.11*e,.36);
+    });
+
+    // Central life source / micro-galaxy
+    const centerR=r*(.23+.025*Math.sin(engine.time*1.05)+reaction*.045);
+    drawGlow(ctx,engine.cx,engine.cy,centerR*2.7,
+      "rgba(255,252,219,.96)","rgba(255,123,191,.43)",
+      "rgba(120,57,255,0)",.75);
+    fillBlob(ctx,
+      engine.cx-engine.lookX*r*.02,
+      engine.cy-engine.lookY*r*.01,
+      centerR*1.25,centerR*.98,
+      engine.time*.10,700,engine.time,
+      ["#fff9dd","#ffca82","#ff69c8","#7d4cff"],
+      .48,.30);
+
+    // Synaptic firing layer. Nodes stay close to the body and move subtly.
+    const nodeCount=w<120?10:16;
+    for(let i=0;i<nodeCount;i++){
+      const a=chooseNodeAngle(engine,i);
+      const radial=r*(.52+.11*Math.sin(engine.time*.34+i*1.7));
+      const wobble=1+.028*Math.sin(engine.time*.88+i);
+      const x=engine.cx+Math.cos(a)*radial*wobble;
+      const y=engine.cy+Math.sin(a)*radial*.92*wobble;
+      const hot=(i%5===0)||Math.sin(engine.time*.52+i*1.2)>.93;
+      const phase=engine.time*(1.7+.11*(i%4))+i*1.7;
+      drawSynapse(ctx,x,y,r*.022*(i%4===0?1.22:1),phase,hot,.72*e);
+
+      // Short organic neural link into the next node.
+      if(i<nodeCount-1){
+        const a2=chooseNodeAngle(engine,i+1);
+        const rad2=r*(.52+.11*Math.sin(engine.time*.34+(i+1)*1.7));
+        const x2=engine.cx+Math.cos(a2)*rad2;
+        const y2=engine.cy+Math.sin(a2)*rad2*.92;
+        ctx.save();
+        ctx.globalCompositeOperation="screen";
+        ctx.globalAlpha=.18*e;
+        ctx.strokeStyle=hot?"rgba(255,151,207,.80)":"rgba(94,221,255,.70)";
+        ctx.lineWidth=Math.max(1,r*.008);
+        ctx.beginPath();
+        ctx.moveTo(x,y);
+        ctx.quadraticCurveTo(engine.cx+(x+x2-engine.cx*2)*.18,
+          engine.cy+(y+y2-engine.cy*2)*.18,x2,y2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // Tiny internal sparks travel through the tissue.
+    const sparks=w<120?12:24;
+    for(let i=0;i<sparks;i++){
+      const t=engine.time*(.34+.018*(i%5))+i*2.19;
+      const x=engine.cx+Math.sin(t*1.11+i*.71)*r*.64;
+      const y=engine.cy+Math.cos(t*.83+i*.44)*r*.57;
+      const s=r*(.006+.004*(i%3));
+      const hot=i%7===0;
+      drawGlow(ctx,x,y,s*2.8,
+        hot?"rgba(255,234,190,.9)":"rgba(196,251,255,.8)",
+        hot?"rgba(255,116,173,.5)":"rgba(64,205,255,.38)",
+        "rgba(103,63,255,0)",.30*e);
+    }
 
     ctx.restore();
 
-    // Reacción/emisión: materia caliente que se desprende de la masa.
-    for(let i=engine.emissions.length-1;i>=0;i--){
-      const e=engine.emissions[i];
-      e.age+=engine.dt;
-      if(e.age>=e.life){engine.emissions.splice(i,1);continue;}
-      drawEmission(ctx,engine,e,r);
+    // A few living particles can leave the body and fade, rather than explode.
+    for(let i=engine.particles.length-1;i>=0;i--){
+      const p=engine.particles[i];
+      p.age+=engine.dt;
+      if(p.age>=p.life){engine.particles.splice(i,1);continue;}
+      const q=clamp(p.age/p.life,0,1);
+      const a=p.a+p.speed*engine.time;
+      const dist=r*(p.dist+.08*Math.sin(engine.time*1.1+p.a));
+      const x=engine.cx+Math.cos(a)*dist;
+      const y=engine.cy+Math.sin(a)*dist*.88;
+      drawSynapse(ctx,x,y,r*p.size*(1+q*.25),
+        engine.time*2+p.a,p.hot,(1-q)*.42);
     }
 
-    // Aura caliente local para que el plasma "respire".
+    // Pulse waves reveal that the whole nucleus is breathing.
+    for(let i=engine.pulses.length-1;i>=0;i--){
+      const p=engine.pulses[i];
+      p.age+=engine.dt;
+      if(p.age>=p.life){engine.pulses.splice(i,1);continue;}
+      drawPulse(ctx,engine,r,p);
+    }
+
+    // A very soft ground echo, only to anchor the orb spatially.
     ctx.save();
-    const heat=ctx.createRadialGradient(
-      engine.cx+r*.10,engine.cy+r*.18,0,
-      engine.cx+r*.10,engine.cy+r*.18,r*.72
-    );
-    heat.addColorStop(0,engine.state==="error"?"rgba(255,142,111,.28)":"rgba(255,198,105,.20)");
-    heat.addColorStop(.34,"rgba(255,76,180,.12)");
-    heat.addColorStop(1,"rgba(255,76,180,0)");
-    ctx.globalCompositeOperation="lighter";
-    ctx.fillStyle=heat;
+    ctx.globalCompositeOperation="screen";
+    ctx.globalAlpha=.12+.06*reaction;
+    const g=ctx.createRadialGradient(engine.cx,engine.cy+r*.78,0,
+      engine.cx,engine.cy+r*.78,r*.62);
+    g.addColorStop(0,"rgba(70,226,255,.65)");
+    g.addColorStop(.36,"rgba(157,78,255,.30)");
+    g.addColorStop(1,"rgba(0,0,0,0)");
+    ctx.fillStyle=g;
     ctx.beginPath();
-    ctx.arc(engine.cx+r*.10,engine.cy+r*.18,r*.72,0,Math.PI*2);
+    ctx.ellipse(engine.cx,engine.cy+r*.78,r*.58,r*.09,0,0,Math.PI*2);
     ctx.fill();
     ctx.restore();
+  }
 
-    drawFace(ctx,engine,r);
+  function schedulePulse(engine,strong){
+    if(!engine.alive)return;
+    spawnPulse(engine,strong);
+    clearTimeout(engine.pulseTimer);
+    const base=engine.state==="thinking"||engine.state==="executing"?1.35:
+      engine.state==="searching"||engine.state==="playful"?1.20:1;
+    engine.pulseTimer=setTimeout(()=>schedulePulse(engine,false),rand(1900,3600)/base);
+  }
 
-    // Puntos de evaporación alrededor: muy pocos y muy suaves.
-    ctx.save();
-    ctx.globalCompositeOperation="lighter";
-    for(let i=0;i<8;i++){
-      const a=i*1.37+engine.time*(.10+.012*Math.sin(i))+Math.sin(engine.time*.31+i)*.14;
-      const dist=r*(1.0+.25*Math.sin(engine.time*.58+i*1.3));
-      const x=engine.cx+Math.cos(a)*dist;
-      const y=engine.cy+Math.sin(a)*dist;
-      const s=r*(.010+.006*((i+2)%3));
-      const alpha=.13+.10*(.5+.5*Math.sin(engine.time*1.4+i));
-      const g=ctx.createRadialGradient(x,y,0,x,y,s*4);
-      g.addColorStop(0,"rgba(240,255,255,"+alpha+")");
-      g.addColorStop(1,"rgba(240,255,255,0)");
-      ctx.fillStyle=g;
-      ctx.beginPath();
-      ctx.arc(x,y,s*4,0,Math.PI*2);
-      ctx.fill();
-    }
-    ctx.restore();
+  function scheduleParticles(engine){
+    if(!engine.alive)return;
+    spawnParticle(engine,Math.random()<.28);
+    clearTimeout(engine.particleTimer);
+    engine.particleTimer=setTimeout(()=>scheduleParticles(engine),rand(240,720));
   }
 
   function scheduleExpression(engine,forced){
-    if(!engine.alive) return;
-    const next=forced||(
-      Math.random()<.16
-        ? "blink"
-        : Math.random()<.18
-          ? (Math.random()<.5?"curious":"playful")
-          : "soft"
-    );
-    engine.expression=EXPRESSIONS.includes(next)?next:"soft";
+    if(!engine.alive)return;
+    engine.expression=forced||"soft";
     clearTimeout(engine.expressionTimer);
-    const wait=next==="blink"?rand(420,720):rand(2200,4800);
     engine.expressionTimer=setTimeout(()=>{
-      scheduleExpression(engine, next==="blink" ? "soft" : undefined);
-    },wait);
-  }
-
-  function scheduleEmission(engine){
-    if(!engine.alive) return;
-    const base=engine.state==="thinking"||engine.state==="executing"?1.34:
-      engine.state==="searching"||engine.state==="playful"?1.18:1;
-    // En calma: una emisión cada ~2–4 s. Nunca hay una lluvia constante.
-    spawnEmission(engine,false);
-    clearTimeout(engine.emissionTimer);
-    engine.emissionTimer=setTimeout(()=>scheduleEmission(engine),rand(1900,4200)/base);
+      if(!engine.alive)return;
+      engine.expression=EXPRESSIONS[Math.floor(Math.random()*EXPRESSIONS.length)];
+      engine.expressionTimer=setTimeout(()=>scheduleExpression(engine,"soft"),
+        rand(900,2400));
+    },rand(1800,4200));
   }
 
   function createEngine(host,canvas){
     const ctx=canvas.getContext("2d",{alpha:true,desynchronized:true});
-    if(!ctx) return null;
+    if(!ctx)return null;
 
     const engine={
       host,canvas,ctx,
       cssW:0,cssH:0,dpr:1,
-      state:normalizeState(host.dataset.state||"idle"),
-      expression:"soft",
+      state:STATES[host.dataset.state]?host.dataset.state:"idle",
       energy:1,
-      time:0,dt:.016,
+      expression:"soft",
+      time:0,dt:.016,lastTs:0,frame:0,alive:true,
       cx:0,cy:0,
-      lookX:0,lookY:0,
-      targetLookX:0,targetLookY:0,
+      lookX:0,lookY:0,targetLookX:0,targetLookY:0,
       reaction:0,
-      emissions:[],
-      heartbeatTimer:rand(4.6,8.5),
-      alive:true,
-      frame:0,
-      lastTs:0,
-      resizeObserver:null,
-      expressionTimer:0,
-      emissionTimer:0
+      pulses:[],particles:[],
+      pulseTimer:0,particleTimer:0,expressionTimer:0,
+      reactionTimer:0,
+      orbitSeed:Array.from({length:24},(_,i)=>rand(-.12,.12))
     };
 
     function resize(){
       const rect=host.getBoundingClientRect();
       const w=Math.max(1,rect.width||host.clientWidth||1);
       const h=Math.max(1,rect.height||host.clientHeight||w);
-      engine.cssW=w;
-      engine.cssH=h;
-      engine.dpr=roundDpr();
+      engine.cssW=w;engine.cssH=h;engine.dpr=dpr();
       canvas.width=Math.max(1,Math.round(w*engine.dpr));
       canvas.height=Math.max(1,Math.round(h*engine.dpr));
       canvas.style.width=w+"px";
@@ -849,29 +474,35 @@
 
     engine.resize=resize;
     engine.setState=function(next){
-      engine.state=normalizeState(next);
+      engine.state=STATES[next]?next:"idle";
       engine.energy=STATES[engine.state].energy;
-      engine.reaction=Math.max(engine.reaction,.35);
-      spawnBurst(engine,engine.state==="executing"||engine.state==="searching"?2:1);
+      engine.reaction=Math.max(engine.reaction,.45);
+      spawnPulse(engine,true);
+      for(let i=0;i<Math.min(3,engine.particles.length<30?3:0);i++) spawnParticle(engine,true);
       host.dataset.state=engine.state;
-      host.setAttribute("aria-label","Akira · "+STATES[engine.state].label+" · núcleo de plasma vivo");
+      host.setAttribute("aria-label","Akira · "+STATES[engine.state].label+" · núcleo sináptico vivo");
     };
+
     engine.react=function(expr,duration){
       if(EXPRESSIONS.includes(expr)) engine.expression=expr;
-      engine.reaction=Math.max(engine.reaction,.85);
-      spawnBurst(engine,expr==="joy"||expr==="surprised"?2:1);
+      engine.reaction=Math.max(engine.reaction,.92);
+      spawnPulse(engine,true);
+      spawnPulse(engine,true);
+      for(let i=0;i<2;i++)spawnParticle(engine,true);
       clearTimeout(engine.reactionTimer);
       if(duration){
         engine.reactionTimer=setTimeout(()=>{
-          if(engine.alive) engine.expression="soft";
+          if(engine.alive)engine.expression="soft";
         },duration);
       }
     };
+
     engine.destroy=function(){
       engine.alive=false;
       cancelAnimationFrame(engine.frame);
+      clearTimeout(engine.pulseTimer);
+      clearTimeout(engine.particleTimer);
       clearTimeout(engine.expressionTimer);
-      clearTimeout(engine.emissionTimer);
       clearTimeout(engine.reactionTimer);
       if(engine.resizeObserver){
         try{engine.resizeObserver.disconnect();}catch(_){}
@@ -885,21 +516,17 @@
 
     function onPointerMove(ev){
       const rect=canvas.getBoundingClientRect();
-      if(!rect.width||!rect.height) return;
+      if(!rect.width||!rect.height)return;
       engine.targetLookX=clamp((ev.clientX-rect.left)/rect.width-.5,-.5,.5);
       engine.targetLookY=clamp((ev.clientY-rect.top)/rect.height-.5,-.5,.5);
-      if(Math.abs(engine.targetLookX)>.22||Math.abs(engine.targetLookY)>.20){
-        engine.expression="curious";
-      }
     }
     function onPointerLeave(){
-      engine.targetLookX=0;
-      engine.targetLookY=0;
+      engine.targetLookX=0;engine.targetLookY=0;
     }
     function onPointerDown(){
-      engine.expression=Math.random()<.72?"joy":"playful";
-      engine.reaction=.95;
-      spawnBurst(engine,2);
+      engine.reaction=1;
+      spawnPulse(engine,true);
+      for(let i=0;i<3;i++)spawnParticle(engine,true);
     }
 
     canvas.addEventListener("pointermove",onPointerMove,{passive:true});
@@ -915,33 +542,25 @@
     }
 
     resize();
+    schedulePulse(engine,false);
+    scheduleParticles(engine);
     scheduleExpression(engine,"soft");
-    scheduleEmission(engine);
 
     function frame(ts){
-      if(!engine.alive) return;
+      if(!engine.alive)return;
       if(document.visibilityState==="hidden"){
         engine.lastTs=ts;
         engine.frame=requestAnimationFrame(frame);
         return;
       }
-
-      if(!engine.lastTs) engine.lastTs=ts;
+      if(!engine.lastTs)engine.lastTs=ts;
       engine.dt=clamp((ts-engine.lastTs)/1000,.008,.05);
       engine.lastTs=ts;
       engine.time+=engine.dt;
 
-      engine.lookX += (engine.targetLookX-engine.lookX)*Math.min(1,engine.dt*5.5);
-      engine.lookY += (engine.targetLookY-engine.lookY)*Math.min(1,engine.dt*5.5);
-      engine.reaction=Math.max(0,engine.reaction-engine.dt*.82);
-      engine.heartbeatTimer-=engine.dt;
-      if(engine.heartbeatTimer<=0){
-        // Un pulso orgánico ocasional; se siente como respiración/vida, no como UI.
-        engine.reaction=Math.max(engine.reaction,.34);
-        if(Math.random()<.78) spawnEmission(engine,false);
-        if(Math.random()<.18) spawnEmission(engine,false);
-        engine.heartbeatTimer=rand(4.4,7.8);
-      }
+      engine.lookX+=(engine.targetLookX-engine.lookX)*Math.min(1,engine.dt*4.8);
+      engine.lookY+=(engine.targetLookY-engine.lookY)*Math.min(1,engine.dt*4.8);
+      engine.reaction=Math.max(0,engine.reaction-engine.dt*.72);
 
       draw(engine);
       engine.frame=requestAnimationFrame(frame);
@@ -952,8 +571,8 @@
   }
 
   function mountOne(host){
-    if(!host) return null;
-    if(host.__akiraEntity) return host.__akiraEntity;
+    if(!host)return null;
+    if(host.__akiraEntity)return host.__akiraEntity;
 
     host.classList.add("akira-entity-slot","is-akira-entity","akira-plasma-canvas-slot");
     host.setAttribute("role","img");
@@ -972,15 +591,15 @@
     host.appendChild(canvas);
 
     const engine=createEngine(host,canvas);
-    if(!engine) return null;
+    if(!engine)return null;
 
     const controller={
       setState(next,opts){
         engine.setState(next);
-        if(normalizeState(next)==="success" && !(opts&&opts.persist)){
+        if(STATES[next]&&next==="success"&&!(opts&&opts.persist)){
           clearTimeout(controller.__successTimer);
           controller.__successTimer=setTimeout(()=>{
-            if(engine.alive) controller.setState("idle");
+            if(engine.alive)controller.setState("idle");
           },1600);
         }
       },
@@ -997,67 +616,65 @@
 
     host.__akiraEntity=controller;
     engine.energy=STATES[engine.state].energy;
-    host.setAttribute("aria-label","Akira · "+STATES[engine.state].label+" · núcleo de plasma vivo");
+    host.setAttribute("aria-label","Akira · "+STATES[engine.state].label+" · núcleo sináptico vivo");
     return controller;
   }
 
   function mountAll(root){
     const base=root||document;
-    const list=base.querySelectorAll
-      ? base.querySelectorAll("[data-akira-entity],.akira-entity-slot")
-      : [];
+    const list=base.querySelectorAll?
+      base.querySelectorAll("[data-akira-entity],.akira-entity-slot"):[];
     list.forEach(mountOne);
     return list.length;
   }
 
   function setState(next,target){
     const list=typeof target==="string"
-      ? document.querySelectorAll(target)
-      : document.querySelectorAll("[data-akira-entity],.akira-entity-slot");
+      ?document.querySelectorAll(target)
+      :document.querySelectorAll("[data-akira-entity],.akira-entity-slot");
     list.forEach(el=>{
       const c=mountOne(el);
-      if(c) c.setState(next);
+      if(c)c.setState(next);
     });
   }
 
   function reactAll(expr,duration,target){
     const list=target
-      ? document.querySelectorAll(target)
-      : document.querySelectorAll("[data-akira-entity],.akira-entity-slot");
+      ?document.querySelectorAll(target)
+      :document.querySelectorAll("[data-akira-entity],.akira-entity-slot");
     list.forEach(el=>{
       const c=mountOne(el);
-      if(c) c.react(expr,duration);
+      if(c)c.react(expr,duration);
     });
   }
 
   function wireConversationReactions(){
-    if(document.__akiraCanvasConversationReactions) return;
-    document.__akiraCanvasConversationReactions=true;
+    if(document.__akiraSynapticOrbReactions)return;
+    document.__akiraSynapticOrbReactions=true;
 
     const react=expr=>reactAll(expr,1100);
 
     document.addEventListener("click",ev=>{
-      if(ev.target&&ev.target.closest&&ev.target.closest("#sendBtn")) react("curious");
+      if(ev.target&&ev.target.closest&&ev.target.closest("#sendBtn"))react("curious");
     },true);
 
     document.addEventListener("keydown",ev=>{
-      if(ev.key==="Enter"&&!ev.shiftKey&&ev.target&&ev.target.closest&&ev.target.closest("#msg")) react("curious");
+      if(ev.key==="Enter"&&!ev.shiftKey&&ev.target&&ev.target.closest&&ev.target.closest("#msg"))react("curious");
     },true);
 
     const msgs=document.getElementById("msgsInner");
-    if(msgs && window.MutationObserver){
+    if(msgs&&window.MutationObserver){
       const observer=new MutationObserver(mutations=>{
         let user=false,akira=false;
         mutations.forEach(m=>{
-          if(!m.addedNodes) return;
-          Array.from(m.addedNodes).forEach(n=>{
-            if(!(n instanceof HTMLElement)) return;
-            if(n.classList.contains("user")||n.querySelector(".msg-row.user")) user=true;
-            if(n.classList.contains("akira")||n.querySelector(".msg-row.akira")) akira=true;
+          Array.from(m.addedNodes||[]).forEach(n=>{
+            if(!(n instanceof HTMLElement))return;
+            if(n.classList.contains("user")||n.querySelector(".msg-row.user"))user=true;
+            if(n.classList.contains("akira")||n.querySelector(".msg-row.akira"))akira=true;
           });
         });
-        if(user) react("curious");
-        if(akira) react("joy");
+        if(user)react("curious");
+        if(akira)react("joy");
       });
       observer.observe(msgs,{childList:true,subtree:true});
     }
@@ -1087,9 +704,8 @@
     mountAll,
     setState,
     react:reactAll,
-    stateInfo:s=>STATES[normalizeState(s)]
+    stateInfo:s=>STATES[s]||STATES.idle
   };
-
   window.akiraEntitySetState=setState;
   window.akiraEntityMount=mountOne;
   window.akiraEntityReact=reactAll;
