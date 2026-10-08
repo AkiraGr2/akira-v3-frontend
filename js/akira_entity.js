@@ -48,7 +48,8 @@
 
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
   const lerp=(a,b,t)=>a+(b-a)*t;
-  const rand=(a,b)=>a+Math.random()*(b-a);\n  const finite=(n,fallback=0)=>Number.isFinite(n)?n:fallback;
+  const rand=(a,b)=>a+Math.random()*(b-a);
+  const finite=(n,fallback=0)=>Number.isFinite(n)?n:fallback;
 
   function smooth(t){
     return t*t*(3-2*t);
