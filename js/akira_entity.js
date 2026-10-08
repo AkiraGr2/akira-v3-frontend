@@ -1,4 +1,4 @@
-/* AKIRA LIVING PLASMA CORE — CANVAS V1.3 PERSONALITY / CONTRAST
+/* AKIRA LIVING PLASMA CORE — CANVAS V1.4 PERSONALITY / WARM FACE
  * Refinamiento visual a partir del video real de prueba: más vida, menos “bola”,
  * emisiones conectadas y evaporación orgánica.
  *
@@ -140,38 +140,42 @@
     ctx.save();
     ctx.translate(x,y);
     ctx.rotate(tilt);
-    const oh=Math.max(h*.08,h*open);
 
-    const socket=ctx.createRadialGradient(0,0,Math.max(w*.12,oh*.22),0,0,Math.max(w,oh)*.82);
-    socket.addColorStop(0,"rgba(22,7,36,.28)");
-    socket.addColorStop(.55,"rgba(15,4,28,.15)");
-    socket.addColorStop(1,"rgba(8,2,16,0)");
+    // Ojos negros, pero más redondos y blandos para conservar personalidad.
+    const oh=Math.max(h*.10,h*open);
+    const socket=ctx.createRadialGradient(
+      0,0,Math.max(w*.10,oh*.16),
+      0,0,Math.max(w,oh)*.78
+    );
+    socket.addColorStop(0,"rgba(25,5,34,.20)");
+    socket.addColorStop(.58,"rgba(14,3,24,.10)");
+    socket.addColorStop(1,"rgba(7,1,15,0)");
     ctx.globalCompositeOperation="source-over";
-    ctx.globalAlpha=.72;
+    ctx.globalAlpha=.45;
     ctx.fillStyle=socket;
     ctx.beginPath();
-    ctx.ellipse(0,0,w*.70,Math.max(oh*.78,h*.10),0,0,Math.PI*2);
+    ctx.ellipse(0,0,w*.76,Math.max(oh*.86,h*.12),0,0,Math.PI*2);
     ctx.fill();
 
-    // Negro sólido para recuperar el contraste perdido en el video real.
     ctx.globalAlpha=.985;
     ctx.fillStyle="#020107";
     ctx.beginPath();
-    ctx.moveTo(-w*.52,0);
-    ctx.quadraticCurveTo(0,-oh*.72,w*.52,0);
-    ctx.quadraticCurveTo(0,oh*.72,-w*.52,0);
+    ctx.moveTo(-w*.52,oh*.04);
+    ctx.quadraticCurveTo(-w*.38,-oh*.72,0,-oh*.82);
+    ctx.quadraticCurveTo(w*.38,-oh*.72,w*.52,oh*.04);
+    ctx.quadraticCurveTo(w*.34,oh*.72,0,oh*.82);
+    ctx.quadraticCurveTo(-w*.34,oh*.72,-w*.52,oh*.04);
     ctx.closePath();
     ctx.fill();
 
-    // Borde interior mínimo: profundidad, sin perder la lectura de negro.
-    ctx.globalAlpha=.24;
-    ctx.fillStyle="#24103c";
+    // Destello mínimo de color: el ojo sigue siendo negro, pero deja de verse muerto.
+    const spark=.42*open;
+    ctx.globalAlpha=.16*spark;
+    ctx.fillStyle="#72efff";
     ctx.beginPath();
-    ctx.moveTo(-w*.48,oh*.02);
-    ctx.quadraticCurveTo(0,oh*.52,w*.48,oh*.02);
-    ctx.quadraticCurveTo(0,oh*.34,-w*.48,oh*.02);
-    ctx.closePath();
+    ctx.ellipse(-w*.18,-oh*.28,w*.08,Math.max(oh*.08,w*.025),0,0,Math.PI*2);
     ctx.fill();
+
     ctx.restore();
   }
 
@@ -180,50 +184,56 @@
     ctx.translate(x,y);
     ctx.globalCompositeOperation="source-over";
 
-    const socket=ctx.createRadialGradient(0,0,Math.max(w*.08,h*.25),0,0,w*.74);
-    socket.addColorStop(0,"rgba(39,8,35,.24)");
-    socket.addColorStop(.52,"rgba(19,3,20,.13)");
+    const socket=ctx.createRadialGradient(0,0,Math.max(w*.08,h*.25),0,0,w*.70);
+    socket.addColorStop(0,"rgba(39,8,35,.16)");
+    socket.addColorStop(.52,"rgba(19,3,20,.08)");
     socket.addColorStop(1,"rgba(8,1,10,0)");
-    ctx.globalAlpha=.72;
+    ctx.globalAlpha=.38;
     ctx.fillStyle=socket;
     ctx.beginPath();
-    ctx.ellipse(0,0,w*.68,Math.max(h*.72,h*.13),0,0,Math.PI*2);
+    ctx.ellipse(0,0,w*.62,Math.max(h*.62,h*.10),0,0,Math.PI*2);
     ctx.fill();
 
-    const depth=type==="joy"?1.16:type==="playful"?1.03:type==="small"?.72:.88;
-    const rise=type==="joy"?-2:type==="playful"?-1:0;
-
     if(type==="open"){
+      // Sorpresa: boca negra suave, más ancha que alta.
       ctx.globalAlpha=.985;
       ctx.fillStyle="#020107";
       ctx.beginPath();
-      ctx.ellipse(0,0,w*.43,h*.64,0,0,Math.PI*2);
+      ctx.ellipse(0,0,w*.40,h*.72,0,0,Math.PI*2);
       ctx.fill();
 
-      ctx.globalAlpha=.26;
-      ctx.fillStyle="#35102c";
+      ctx.globalAlpha=.18;
+      ctx.fillStyle="#6b1d57";
       ctx.beginPath();
-      ctx.ellipse(0,h*.10,w*.26,h*.26,0,0,Math.PI*2);
+      ctx.ellipse(0,h*.12,w*.24,h*.22,0,0,Math.PI*2);
       ctx.fill();
       ctx.restore();
       return;
     }
 
-    // Boca negra rellena: mantiene las expresiones sin volver a blanco.
+    // Sonrisa: sigue siendo una boca negra, pero con curva ascendente
+    // claramente amable en lugar de una cavidad ovalada.
+    const joy=type==="joy";
+    const playful=type==="playful";
+    const depth=joy?1.18:playful?1.04:type==="small"?.66:.82;
+    const lower=joy?.52:playful?.44:.34;
+
     ctx.globalAlpha=.985;
     ctx.fillStyle="#020107";
     ctx.beginPath();
-    ctx.moveTo(-w*.48,0);
-    ctx.quadraticCurveTo(0,h*depth+rise,w*.48,0);
-    ctx.quadraticCurveTo(0,h*.42+rise,-w*.48,0);
+    ctx.moveTo(-w*.50,0);
+    ctx.quadraticCurveTo(-w*.26,h*.28,0,h*depth);
+    ctx.quadraticCurveTo(w*.26,h*.28,w*.50,0);
+    ctx.quadraticCurveTo(w*.27,h*.52,0,h*.58);
+    ctx.quadraticCurveTo(-w*.27,h*.52,-w*.50,0);
     ctx.closePath();
     ctx.fill();
 
-    if(type==="joy" || type==="playful"){
-      ctx.globalAlpha=.30;
-      ctx.fillStyle="#37102f";
+    if(joy || playful){
+      ctx.globalAlpha=.24;
+      ctx.fillStyle="#5d1d56";
       ctx.beginPath();
-      ctx.ellipse(0,h*.10,w*.18,h*.08,0,0,Math.PI*2);
+      ctx.ellipse(0,h*.44,w*.16,h*.07,0,0,Math.PI*2);
       ctx.fill();
     }
     ctx.restore();
@@ -372,45 +382,47 @@
   function drawFace(ctx,engine,r){
     const cfg=EXPRESSION_CONFIG[engine.expression]||EXPRESSION_CONFIG.soft;
     const facePulse=1
-      +Math.sin(engine.time*.92+engine.reaction*.8)*.014
-      +engine.reaction*.030;
-    const fx=engine.cx+engine.lookX*r*.085;
+      +Math.sin(engine.time*.92+engine.reaction*.8)*.018
+      +engine.reaction*.034;
+    const fx=engine.cx+engine.lookX*r*.090;
     const fy=engine.cy+engine.lookY*r*.055
-      +Math.sin(engine.time*.78)*r*.010;
-    const tilt=engine.lookX*.020 + Math.sin(engine.time*.46)*.008;
+      +Math.sin(engine.time*.78)*r*.011;
+    const tilt=engine.lookX*.022 + Math.sin(engine.time*.46)*.009;
 
     ctx.save();
     ctx.translate(fx,fy);
     ctx.rotate(tilt);
 
-    // Cavidad interna blanda: el rostro se percibe "dentro" de la masa.
-    const pocket=ctx.createRadialGradient(0,-r*.02,r*.08,0,0,r*.66);
-    pocket.addColorStop(0,"rgba(10,2,20,.20)");
-    pocket.addColorStop(.42,"rgba(19,4,30,.10)");
+    // Bolsillo de plasma pequeño: suficiente para separar el rostro,
+    // no tanto como para convertirlo en una cara oscura y tétrica.
+    const pocket=ctx.createRadialGradient(0,-r*.01,r*.08,0,0,r*.52);
+    pocket.addColorStop(0,"rgba(10,2,20,.13)");
+    pocket.addColorStop(.45,"rgba(19,4,30,.06)");
     pocket.addColorStop(1,"rgba(10,2,20,0)");
     ctx.globalCompositeOperation="source-over";
-    ctx.globalAlpha=.62;
+    ctx.globalAlpha=.40;
     ctx.fillStyle=pocket;
     ctx.beginPath();
-    ctx.ellipse(0,r*.05,r*.54,r*.43,0,0,Math.PI*2);
+    ctx.ellipse(0,r*.03,r*.47,r*.34,0,0,Math.PI*2);
     ctx.fill();
 
-    const cheekR=r*.16*facePulse;
-    drawCheek(ctx,-r*.43,r*.20,cheekR);
-    drawCheek(ctx,r*.43,r*.20,cheekR);
+    // Mejillas más vivas para introducir calidez y simpatía.
+    const cheekR=r*.175*facePulse;
+    drawCheek(ctx,-r*.43,r*.21,cheekR);
+    drawCheek(ctx,r*.43,r*.21,cheekR);
 
-    const eyeW=r*.33*facePulse;
-    const eyeH=r*.165*facePulse;
+    const eyeW=r*.34*facePulse;
+    const eyeH=r*.205*facePulse;
     drawEye(ctx,-r*.27,-r*.04,eyeW,eyeH,cfg.left,
-      engine.expression==="curious"?-.09:
-      engine.expression==="playful"?.035:0);
+      engine.expression==="curious"?-.085:
+      engine.expression==="playful"?.040:0);
     drawEye(ctx,r*.27,-r*.04,eyeW,eyeH,cfg.right,
-      engine.expression==="curious"?.09:
-      engine.expression==="playful"?-.025:0);
+      engine.expression==="curious"?.085:
+      engine.expression==="playful"?-.030:0);
 
-    const mouthW=r*.38*facePulse;
-    const mouthH=r*.12*facePulse;
-    drawMouth(ctx,0,r*.23,mouthW,mouthH,cfg.mouth);
+    const mouthW=r*.37*facePulse;
+    const mouthH=r*.115*facePulse;
+    drawMouth(ctx,0,r*.235,mouthW,mouthH,cfg.mouth);
 
     ctx.restore();
   }
@@ -464,7 +476,7 @@
     ];
     lobes.forEach((l,i)=>{
       const a=l.a + Math.sin(engine.time*(.32+.03*i)+i)*.08;
-      const dist=r*(.78+.030*Math.sin(engine.time*.51+l.off));
+      const dist=r*(.74+.026*Math.sin(engine.time*.51+l.off));
       fillGradientBlob(
         ctx,
         engine.cx+Math.cos(a)*dist,
@@ -475,7 +487,7 @@
         20+i*13,
         engine.time*.62+l.off,
         PALETTE[l.c],
-        (.12+.028*Math.sin(engine.time*.9+i))*energy,
+        (.085+.022*Math.sin(engine.time*.9+i))*energy,
         .28
       );
     });
@@ -823,7 +835,7 @@
       engine.targetLookY=0;
     }
     function onPointerDown(){
-      engine.expression=Math.random()<.5?"joy":"surprised";
+      engine.expression=Math.random()<.72?"joy":"playful";
       engine.reaction=.95;
       spawnBurst(engine,2);
     }
