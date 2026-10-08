@@ -79,7 +79,7 @@
           '<div id="akRefHeroBrain" class="ak-ref-floating memory"><strong><span class="ak-ref-status cyan"></span>Memoria</strong><span>Consultando datos del Cerebro…</span></div>',
           '<div id="akRefHeroMissions" class="ak-ref-floating executing"><strong><span class="ak-ref-status cyan"></span>Ejecución</strong><span>Consultando misiones reales…</span></div>',
           '<div id="akRefHeroSystem" class="ak-ref-floating thinking"><strong><span class="ak-ref-status purple"></span>Servidor</strong><span>Comprobando disponibilidad…</span></div>',
-          '<div id="akRefHeroLearning" class="ak-ref-floating learning"><strong><span class="ak-ref-status yellow"></span>Aprendizaje</strong><span>Las cifras solo aparecen cuando el runtime las confirma.</span></div>',
+          '<div id="akRefHeroLearning" class="ak-ref-floating learning"><strong><span class="ak-ref-status yellow"></span>Agentes</strong><span>El estado se muestra solo cuando el registro del backend responde.</span></div>',
           '<aside class="ak-ref-date-card"><div id="akRefDate" class="date">—</div><div id="akRefTime" class="time">—:—</div><p>Datos y estados mostrados desde el runtime cuando están disponibles.</p></aside>',
         '</section>',
         '<div class="ak-ref-lower">',
@@ -140,8 +140,8 @@
         : '<div class="ak-ref-empty">No hay datos de agentes disponibles.</div>');
     }
     setText(home,"akRefHeroLearning",(agents.status===401||agents.status===403)
-      ? "La información de agentes se muestra después de iniciar sesión."
-      : "Los estados de agentes se leen desde el registro del backend.");
+      ? "Inicia sesión para consultar los estados privados de los agentes."
+      : "Los estados visibles provienen del registro del backend.");
 
     const missionList=missions.ok&&missions.data
       ? (Array.isArray(missions.data.missions)?missions.data.missions:(Array.isArray(missions.data.items)?missions.data.items:(Array.isArray(missions.data.results)?missions.data.results:[])))
