@@ -1,4 +1,4 @@
-/* AKIRA LIVING PLASMA CORE — CANVAS V1.4 PERSONALITY / WARM FACE
+/* AKIRA LIVING PLASMA CORE — CANVAS V1.5 REAL EYES / SOFT BLINK
  * Refinamiento visual a partir del video real de prueba: más vida, menos “bola”,
  * emisiones conectadas y evaporación orgánica.
  *
@@ -135,46 +135,103 @@
     );
   }
 
-  function drawEye(ctx,x,y,w,h,open,tilt){
-    if(open<=.04) return;
+  function drawEye(ctx,x,y,w,h,open,tilt,gazeX,gazeY){
+    if(open<=.035) return;
+
     ctx.save();
     ctx.translate(x,y);
     ctx.rotate(tilt);
 
-    // Ojos negros, pero más redondos y blandos para conservar personalidad.
-    const oh=Math.max(h*.10,h*open);
-    const socket=ctx.createRadialGradient(
-      0,0,Math.max(w*.10,oh*.16),
-      0,0,Math.max(w,oh)*.78
-    );
-    socket.addColorStop(0,"rgba(25,5,34,.20)");
-    socket.addColorStop(.58,"rgba(14,3,24,.10)");
-    socket.addColorStop(1,"rgba(7,1,15,0)");
+    const openness=clamp(open,0,1);
+    const eyeH=Math.max(h*.10,h*openness);
+    const socketW=w*.84;
+    const socketH=Math.max(eyeH*1.32,h*.22);
+
+    // Cuenca negra: se conserva como marco profundo del ojo.
     ctx.globalCompositeOperation="source-over";
-    ctx.globalAlpha=.45;
+    ctx.globalAlpha=.90;
+    const socket=ctx.createRadialGradient(
+      -w*.10,-eyeH*.12,0,
+      0,0,Math.max(socketW,socketH)*.86
+    );
+    socket.addColorStop(0,"rgba(5,1,10,.96)");
+    socket.addColorStop(.72,"rgba(2,1,7,.985)");
+    socket.addColorStop(1,"rgba(12,3,20,.34)");
     ctx.fillStyle=socket;
     ctx.beginPath();
-    ctx.ellipse(0,0,w*.76,Math.max(oh*.86,h*.12),0,0,Math.PI*2);
+    ctx.ellipse(0,0,socketW,socketH,0,0,Math.PI*2);
     ctx.fill();
 
-    ctx.globalAlpha=.985;
-    ctx.fillStyle="#020107";
+    // Globo ocular: blanco perlado ligeramente azulado, no blanco plano.
+    const sx=clamp((gazeX||0)*w*.10,-w*.055,w*.055);
+    const sy=clamp((gazeY||0)*eyeH*.10,-eyeH*.055,eyeH*.055);
+    const sclera=ctx.createRadialGradient(
+      -w*.13+sx,-eyeH*.20+sy,0,
+      0,0,Math.max(w,eyeH)*.72
+    );
+    sclera.addColorStop(0,"#ffffff");
+    sclera.addColorStop(.46,"#e9fbff");
+    sclera.addColorStop(.82,"#c7e8ee");
+    sclera.addColorStop(1,"#7ca4b0");
+    ctx.globalAlpha=.98;
+    ctx.fillStyle=sclera;
     ctx.beginPath();
-    ctx.moveTo(-w*.52,oh*.04);
-    ctx.quadraticCurveTo(-w*.38,-oh*.72,0,-oh*.82);
-    ctx.quadraticCurveTo(w*.38,-oh*.72,w*.52,oh*.04);
-    ctx.quadraticCurveTo(w*.34,oh*.72,0,oh*.82);
-    ctx.quadraticCurveTo(-w*.34,oh*.72,-w*.52,oh*.04);
+    ctx.moveTo(-w*.43,sy);
+    ctx.quadraticCurveTo(-w*.18,-eyeH*.82,w*.03,-eyeH*.73);
+    ctx.quadraticCurveTo(w*.30,-eyeH*.62,w*.43,sy);
+    ctx.quadraticCurveTo(w*.20,eyeH*.62,-w*.03,eyeH*.73);
+    ctx.quadraticCurveTo(-w*.30,eyeH*.62,-w*.43,sy);
     ctx.closePath();
     ctx.fill();
 
-    // Destello mínimo de color: el ojo sigue siendo negro, pero deja de verse muerto.
-    const spark=.42*open;
-    ctx.globalAlpha=.16*spark;
-    ctx.fillStyle="#72efff";
+    // Iris: anillo cyan-violeta con pupila profunda, de tamaño humano.
+    const irisX=sx + clamp((gazeX||0)*w*.035,-w*.018,w*.018);
+    const irisY=sy + clamp((gazeY||0)*eyeH*.035,-eyeH*.018,eyeH*.018);
+    const irisR=Math.min(w,eyeH)*.34;
+    const iris=ctx.createRadialGradient(
+      irisX-irisR*.22,irisY-irisR*.28,0,
+      irisX,irisY,irisR
+    );
+    iris.addColorStop(0,"#d9ffff");
+    iris.addColorStop(.20,"#72e7ff");
+    iris.addColorStop(.52,"#5b7dff");
+    iris.addColorStop(.78,"#7c3fe1");
+    iris.addColorStop(1,"#24103b");
+    ctx.fillStyle=iris;
     ctx.beginPath();
-    ctx.ellipse(-w*.18,-oh*.28,w*.08,Math.max(oh*.08,w*.025),0,0,Math.PI*2);
+    ctx.ellipse(irisX,irisY,irisR,irisR*.94,0,0,Math.PI*2);
     ctx.fill();
+
+    // Pupila.
+    const pupilR=irisR*.42;
+    ctx.fillStyle="#020107";
+    ctx.beginPath();
+    ctx.arc(irisX,irisY,pupilR,0,Math.PI*2);
+    ctx.fill();
+
+    // Reflejos húmedos.
+    ctx.globalAlpha=.94;
+    ctx.fillStyle="#ffffff";
+    ctx.beginPath();
+    ctx.ellipse(irisX-irisR*.28,irisY-irisR*.30,irisR*.12,irisR*.15,0,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.globalAlpha=.40;
+    ctx.beginPath();
+    ctx.ellipse(irisX+irisR*.22,irisY+irisR*.20,irisR*.055,irisR*.07,0,0,Math.PI*2);
+    ctx.fill();
+
+    // Párpado superior de plasma para las expresiones y el parpadeo.
+    if(openness<.75){
+      ctx.globalAlpha=(.75-openness)*1.1;
+      ctx.fillStyle="#10041b";
+      ctx.beginPath();
+      ctx.moveTo(-w*.48,-eyeH*.02);
+      ctx.quadraticCurveTo(0,-eyeH*(.70+.28*(1-openness)),w*.48,-eyeH*.02);
+      ctx.quadraticCurveTo(0,-eyeH*.10,-w*.48,-eyeH*.02);
+      ctx.closePath();
+      ctx.fill();
+    }
 
     ctx.restore();
   }
@@ -389,36 +446,41 @@
       +Math.sin(engine.time*.78)*r*.011;
     const tilt=engine.lookX*.022 + Math.sin(engine.time*.46)*.009;
 
+    let blink=1;
+    if(engine.expression==="blink"){
+      const t=clamp((engine.time-engine.blinkStart)/(engine.blinkDuration||.42),0,1);
+      blink=1-Math.sin(Math.PI*t)*.94;
+    }
+
     ctx.save();
     ctx.translate(fx,fy);
     ctx.rotate(tilt);
 
-    // Bolsillo de plasma pequeño: suficiente para separar el rostro,
-    // no tanto como para convertirlo en una cara oscura y tétrica.
     const pocket=ctx.createRadialGradient(0,-r*.01,r*.08,0,0,r*.52);
-    pocket.addColorStop(0,"rgba(10,2,20,.13)");
-    pocket.addColorStop(.45,"rgba(19,4,30,.06)");
+    pocket.addColorStop(0,"rgba(10,2,20,.08)");
+    pocket.addColorStop(.45,"rgba(19,4,30,.035)");
     pocket.addColorStop(1,"rgba(10,2,20,0)");
     ctx.globalCompositeOperation="source-over";
-    ctx.globalAlpha=.40;
+    ctx.globalAlpha=.26;
     ctx.fillStyle=pocket;
     ctx.beginPath();
     ctx.ellipse(0,r*.03,r*.47,r*.34,0,0,Math.PI*2);
     ctx.fill();
 
-    // Mejillas más vivas para introducir calidez y simpatía.
     const cheekR=r*.175*facePulse;
     drawCheek(ctx,-r*.43,r*.21,cheekR);
     drawCheek(ctx,r*.43,r*.21,cheekR);
 
     const eyeW=r*.34*facePulse;
     const eyeH=r*.205*facePulse;
-    drawEye(ctx,-r*.27,-r*.04,eyeW,eyeH,cfg.left,
+    drawEye(ctx,-r*.27,-r*.04,eyeW,eyeH,cfg.left*blink,
       engine.expression==="curious"?-.085:
-      engine.expression==="playful"?.040:0);
-    drawEye(ctx,r*.27,-r*.04,eyeW,eyeH,cfg.right,
+      engine.expression==="playful"?.040:0,
+      engine.lookX,engine.lookY);
+    drawEye(ctx,r*.27,-r*.04,eyeW,eyeH,cfg.right*blink,
       engine.expression==="curious"?.085:
-      engine.expression==="playful"?-.030:0);
+      engine.expression==="playful"?-.030:0,
+      engine.lookX,engine.lookY);
 
     const mouthW=r*.37*facePulse;
     const mouthH=r*.115*facePulse;
