@@ -728,8 +728,37 @@ function showSection(name){
   if(sec)sec.classList.add('active');
   if(btn)btn.classList.add('active');
   closeSidebar();
-  if(name==='membrane'){window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"membrane"}}));}
-  else if(name==='office'){if(window.initOfficeFloor)initOfficeFloor();window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"office"}}));}
+  if(name==='membrane'){
+  window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"membrane"}}));
+  const bootBrain=async ()=>{
+    try{
+      const token=localStorage.getItem("akira_session_token");
+      const exp=Number(localStorage.getItem("akira_session_exp")||0);
+      if(token || exp){
+        await akiraVerifySession();
+      }
+    }catch(_){}
+    try{
+      if(window.AkiraMembrane && typeof window.AkiraMembrane.initMembraneGraph==="function"){
+        window.AkiraMembrane.initMembraneGraph();
+      }
+      if(window.AkiraMembrane && typeof window.AkiraMembrane.resizeMembrane==="function"){
+        window.AkiraMembrane.resizeMembrane();
+      }
+    }catch(_){}
+  };
+  requestAnimationFrame(()=>setTimeout(bootBrain,50));
+  setTimeout(bootBrain,300);
+  setTimeout(bootBrain,1000);
+  setTimeout(()=>{try{window.akiraBootBrain2d && window.akiraBootBrain2d();}catch(_){}},1200);
+}
+  else if(name==='office'){
+    if(window.initAkiraOfficePixel) initAkiraOfficePixel();
+    window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"office"}}));
+    requestAnimationFrame(()=>{
+      try{window.resizeAkiraOfficePixel && window.resizeAkiraOfficePixel();}catch(_){}
+    });
+  }
   else if(name==='missions'){if(window.missionPanelLoad)window.missionPanelLoad();}
   else if(name==='levels'){renderLevels();}
   else if(name==='admin'){document.getElementById("adminLogin").style.display="block";document.getElementById("adminPanel").style.display="none";adminCheckSession();}
