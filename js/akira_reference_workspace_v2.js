@@ -210,7 +210,8 @@
       btn.textContent=label; nav.appendChild(btn);
     });
     const brandP=qs(".brand p"); if(brandP)brandP.textContent="Cognitive Workspace";
-    const brandH=qs(".brand h1"); if(brandH)brandH.textContent="AKIRA";\n    if(window.AkiraEntity&&window.AkiraEntity.mountAll)window.AkiraEntity.mountAll(brand);
+    const brandH=qs(".brand h1"); if(brandH)brandH.textContent="AKIRA";
+    if(window.AkiraEntity&&window.AkiraEntity.mountAll)window.AkiraEntity.mountAll(brand);
     navMap.map(function(x){return qs("#btn-"+x[0],nav)}).filter(Boolean).forEach(function(b){nav.appendChild(b)});
   }
 
@@ -236,7 +237,8 @@
 
   document.addEventListener("DOMContentLoaded",function(){
     document.body.classList.add("ak-reference-mode");
-    setupNav(); setupTopbar(); mountHome();\n    if(window.AkiraEntity&&window.AkiraEntity.mountAll)window.AkiraEntity.mountAll(document);
+    setupNav(); setupTopbar(); mountHome();
+    if(window.AkiraEntity&&window.AkiraEntity.mountAll)window.AkiraEntity.mountAll(document);
     if(typeof window.showSection==="function"&&!qsa(".section.active").some(function(s){return s.id&&s.id!=="chatSection"}))window.showSection("home");
   });
 
