@@ -564,3 +564,6 @@ body.ak-reference-mode .brand p{font-family:system-ui,-apple-system,sans-serif!i
   .ak-chat-reference-intro{min-height:590px;padding-top:6px}
   .ak-chat-reference-intro h2{font-size:30px}
 }
+@media(max-width:768px){
+  body.ak-reference-mode .ak-ref-mobile-nav{display:none!important}
+}

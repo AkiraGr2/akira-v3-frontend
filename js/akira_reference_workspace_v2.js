@@ -32,29 +32,44 @@
   `}
 
   function ensureMobileChrome(){
-    if(document.querySelector(".ak-mobile-reference-header")) return;
-    const header=document.createElement("header");
-    header.className="ak-mobile-reference-header";
-    header.innerHTML='<button class="ak-mobile-back" type="button" aria-label="Volver">←</button><div class="ak-mobile-title">AKIRA</div><button class="ak-mobile-bell" type="button" aria-label="Notificaciones">♧</button>';
-    const nav=document.createElement("nav");
-    nav.className="ak-mobile-reference-nav";
-    nav.setAttribute("aria-label","Navegación móvil");
-    const items=[["home","⌂","Inicio"],["chat","▢","Chat"],["membrane","✣","Cerebro"],["missions","◎","Misiones"],["more","•••","Más"]];
-    nav.innerHTML=items.map(([name,icon,label])=>'<button type="button" data-ak-mobile-go="'+name+'"><span>'+icon+'</span><small>'+label+'</small></button>').join("");
-    document.body.appendChild(header);
-    document.body.appendChild(nav);
-    nav.querySelectorAll("[data-ak-mobile-go]").forEach(btn=>{
-      btn.addEventListener("click",()=>{
-        const target=btn.getAttribute("data-ak-mobile-go");
-        clickSection(target==="more"?"admin":target);
+    let header=document.querySelector(".ak-mobile-reference-header");
+    let nav=document.querySelector(".ak-mobile-reference-nav");
+    if(!header){
+      header=document.createElement("header");
+      header.className="ak-mobile-reference-header";
+      header.innerHTML='<button class="ak-mobile-back" type="button" aria-label="Volver">←</button><div class="ak-mobile-title">AKIRA</div><button class="ak-mobile-bell" type="button" aria-label="Notificaciones">♧</button>';
+      document.body.appendChild(header);
+    }
+    if(!nav){
+      nav=document.createElement("nav");
+      nav.className="ak-mobile-reference-nav";
+      nav.setAttribute("aria-label","Navegación móvil");
+      const items=[["home","⌂","Inicio"],["chat","▢","Chat"],["membrane","✣","Cerebro"],["missions","◎","Misiones"],["more","•••","Más"]];
+      nav.innerHTML=items.map(([name,icon,label])=>'<button type="button" data-ak-mobile-go="'+name+'"><span>'+icon+'</span><small>'+label+'</small></button>').join("");
+      document.body.appendChild(nav);
+    }
+    if(!nav.dataset.wired){
+      nav.querySelectorAll("[data-ak-mobile-go]").forEach(btn=>{
+        btn.addEventListener("click",()=>{
+          const target=btn.getAttribute("data-ak-mobile-go");
+          clickSection(target==="more"?"admin":target);
+        });
       });
-    });
-    header.querySelector(".ak-mobile-back").addEventListener("click",()=>{
-      const active=qsa(".section.active").find(x=>x.id);
-      clickSection(active&&active.id==="chatSection"?"home":"home");
-    });
-    const observer=new MutationObserver(syncMobileChrome);
-    observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:["class"]});
+      nav.dataset.wired="1";
+    }
+    const back=header.querySelector(".ak-mobile-back");
+    if(back&&!back.dataset.wired){
+      back.addEventListener("click",()=>{
+        const active=qsa(".section.active").find(x=>x.id);
+        clickSection(active&&active.id==="homeSection"?"admin":"home");
+      });
+      back.dataset.wired="1";
+    }
+    if(!document.body.__akiraMobileChromeObserved){
+      const observer=new MutationObserver(syncMobileChrome);
+      observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:["class"]});
+      document.body.__akiraMobileChromeObserved=true;
+    }
     syncMobileChrome();
   }
   function syncMobileChrome(){
