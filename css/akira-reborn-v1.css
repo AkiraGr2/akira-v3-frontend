@@ -64,4 +64,10 @@
   #akiraRebornShell{grid-template-rows:60px 1fr 82px}.ar-main{grid-template-columns:1fr}.ar-rail{position:absolute;left:12px;top:12px;border:1px solid var(--ar-line);background:rgba(8,10,14,.78);backdrop-filter:blur(16px);border-radius:16px;width:52px;padding:8px;z-index:8}.ar-rail .ar-spacer,.ar-rail button:nth-child(n+5){display:none}.ar-rail button{width:36px;height:36px}.ar-context{position:absolute;right:12px;top:12px;bottom:12px;width:min(330px,calc(100% - 24px));border:1px solid var(--ar-line);border-radius:18px;transform:translateX(calc(100% + 20px));transition:.25s;box-shadow:var(--ar-shadow)}.ar-context.open{transform:translateX(0)}.ar-stage{height:100%}.ar-content{width:90%}.ar-core-wrap{width:190px;height:190px;margin:24px auto 16px}.ar-core{width:94px;height:94px}.ar-title{font-size:clamp(32px,10vw,52px)}.ar-sub{font-size:13px}.ar-top{padding:0 16px 0 78px}.ar-top-status span{display:none}.ar-dock{padding:10px 12px}.ar-command{border-radius:16px}.ar-command input{font-size:13px}
 }
 @media(prefers-reduced-motion:reduce){.ar-core,.ar-orbit{animation:none!important}.ar-action{transition:none}}
+#akiraRebornShell.is-hidden{display:none!important}
+.ar-return-gateway{position:fixed;left:18px;top:18px;z-index:99998;border:1px solid rgba(117,246,255,.28);
+  background:rgba(8,10,14,.88);backdrop-filter:blur(16px);color:#eef3ff;border-radius:13px;padding:10px 13px;
+  letter-spacing:.18em;font:600 10px Inter,ui-sans-serif,system-ui,sans-serif;cursor:pointer;box-shadow:0 12px 36px rgba(0,0,0,.35)}
+.ar-return-gateway:hover{border-color:rgba(117,246,255,.55);transform:translateY(-1px)}
+@media(max-width:900px){.ar-return-gateway{left:12px;top:12px;padding:9px 11px}}
 body.ar-reborn-active> :not(#akiraRebornShell){pointer-events:none!important}
