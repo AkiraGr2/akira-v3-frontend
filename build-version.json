@@ -1,6 +1,6 @@
 {
-  "version": "akira-cache-v20261008-pixel-office-responsive-canvas-v1",
-  "generated_at": "2026-10-08T10:00:00-05:00",
+  "version": "akira-cache-v20261008-plasma-nucleus-v7-6-surges",
+  "generated_at": "2026-10-08T15:28:38.844Z",
   "assets": {
     "js/akira_brain.js": "akira-brain-v7-stream-root",
     "js/obsidian_membrane.js": "akira-membrane-v49-public-fallback",
@@ -10,7 +10,7 @@
     "css/akira-office-2p5d.css": "akira-office-2p5d-v4-responsive-canvas",
     "assets/office/office_runtime_2p5d.json": "office-autonomous-v3",
     "js/akira_reference_workspace_v2.js": "akira-reference-v9-home-fullscope",
-    "css/akira-reference-design-v2.css": "akira-reference-design-v9-plasma-truth",
-    "js/akira_entity.js": "akira-entity-v9-procedural-plasma"
+    "css/akira-reference-design-v2.css": "akira-reference-design-v7-plasma-nucleus-6-surges",
+    "js/akira_entity.js": "akira-entity-v7-plasma-nucleus-6-surges"
   }
 }
