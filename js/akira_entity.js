@@ -1,4 +1,4 @@
-/* AKIRA LIVING SYNAPTIC GALACTIC ORB — CANVAS V2.1 / RUNTIME SAFE
+/* AKIRA LIVING SYNAPTIC GALACTIC ORB — CANVAS V2.2 / ORGANIC DEPTH
  * Visual rewrite based on the real browser video review.
  *
  * Goal:
@@ -197,7 +197,7 @@
   function drawVortex(ctx,engine,r,energy){
     const cx=engine.cx;
     const cy=engine.cy;
-    const activity=.55+engine.heartbeatPulse*.85+engine.reaction*.38;
+    const activity=.70+engine.heartbeatPulse*.95+engine.reaction*.42;
 
     // Deep chamber.
     glow(
@@ -248,6 +248,17 @@
       );
     }
 
+    // La contracción del núcleo se siente antes que la expansión del resto.
+    if(engine.heartbeatPulse>.08){
+      glow(
+        ctx,cx,cy,r*.42,
+        "rgba(255,249,220,.30)",
+        "rgba(255,113,187,.18)",
+        "rgba(93,66,255,0)",
+        engine.heartbeatPulse*.65*energy
+      );
+    }
+
     // The center itself behaves like a warm living heart.
     const corePulse=1+.09*Math.sin(engine.time*1.18)+engine.heartbeatPulse*.16+engine.reaction*.18;
     fillBlob(
@@ -272,26 +283,26 @@
     const breath=Math.sin(engine.time*.62+Math.sin(engine.time*.17)*.25);
     const localPulse=engine.heartbeatPulse*.055+engine.reaction*.045;
 
-    const rx=r*(1.00+breath*.020+localPulse);
-    const ry=r*(.96-breath*.012+localPulse*.75);
+    const rx=r*(1.00+breath*.012+localPulse);
+    const ry=r*(.985-breath*.009+localPulse*.72);
 
     // Short organic buds are deliberately overlapped by the main membrane.
     const buds=[
-      [-2.45,.74,.17,2.6,2],
-      [-1.84,.87,.13,4.1,3],
-      [-1.18,.79,.16,1.4,0],
-      [-.55,.86,.14,5.0,1],
-      [.18,.80,.17,.4,2],
-      [.80,.86,.15,2.2,3],
-      [1.40,.79,.14,4.8,0],
-      [2.12,.84,.16,1.0,1],
-      [2.76,.76,.14,3.4,2]
+      [-2.42,.81,.12,2.6,2],
+      [-1.80,.90,.105,4.1,3],
+      [-1.18,.84,.12,1.4,0],
+      [-.54,.91,.10,5.0,1],
+      [.16,.84,.12,.4,2],
+      [.80,.90,.105,2.2,3],
+      [1.42,.84,.11,4.8,0],
+      [2.10,.89,.105,1.0,1],
+      [2.72,.82,.115,3.4,2]
     ];
 
     buds.forEach((b,i)=>{
       const a=b[0]+Math.sin(engine.time*.22+i)*.055;
       const dist=r*b[1];
-      const growth=1+.13*Math.sin(engine.time*.74+i*1.39+engine.growthPhase);
+      const growth=1+.10*Math.sin(engine.time*.74+i*1.39+engine.growthPhase);
       const bx=engine.cx+Math.cos(a)*dist;
       const by=engine.cy+Math.sin(a)*dist;
       fillBlob(
@@ -315,12 +326,12 @@
       finite(engine.cx-r*.24),finite(engine.cy-r*.26),0,
       finite(engine.cx),finite(engine.cy),Math.max(.1,finite(r*1.12,.1))
     );
-    shell.addColorStop(0,"rgba(226,255,255,.88)");
-    shell.addColorStop(.16,"rgba(56,220,244,.72)");
-    shell.addColorStop(.38,"rgba(77,130,255,.62)");
-    shell.addColorStop(.61,"rgba(132,73,255,.52)");
-    shell.addColorStop(.82,"rgba(232,69,193,.34)");
-    shell.addColorStop(1,"rgba(13,12,37,.08)");
+    shell.addColorStop(0,"rgba(235,255,255,.94)");
+    shell.addColorStop(.17,"rgba(75,226,245,.80)");
+    shell.addColorStop(.38,"rgba(76,133,255,.68)");
+    shell.addColorStop(.60,"rgba(124,74,255,.48)");
+    shell.addColorStop(.80,"rgba(226,72,194,.28)");
+    shell.addColorStop(1,"rgba(13,12,37,.05)");
 
     ctx.save();
     blobPath(
@@ -329,10 +340,26 @@
       40,engine.time,.20
     );
     ctx.globalCompositeOperation="source-over";
-    ctx.globalAlpha=.88;
+    ctx.globalAlpha=.92;
     ctx.fillStyle=shell;
     ctx.fill();
     ctx.clip();
+
+    // Cámara interna profunda: le da volumen real al orbe y hace que
+    // la actividad parezca ocurrir dentro del organismo.
+    const cavity=ctx.createRadialGradient(
+      engine.cx-r*.05,engine.cy-r*.02,r*.03,
+      engine.cx,engine.cy,r*.56
+    );
+    cavity.addColorStop(0,"rgba(7,11,35,.72)");
+    cavity.addColorStop(.46,"rgba(12,20,58,.52)");
+    cavity.addColorStop(.78,"rgba(29,21,79,.22)");
+    cavity.addColorStop(1,"rgba(10,8,30,0)");
+    ctx.globalAlpha=.62;
+    ctx.fillStyle=cavity;
+    ctx.beginPath();
+    ctx.ellipse(engine.cx,engine.cy,r*.54,r*.47,0,0,Math.PI*2);
+    ctx.fill();
 
     // Thick flowing tissue layers.
     const tissues=[
@@ -391,7 +418,7 @@
     drawSynapticField(ctx,engine,r,energy);
 
     // Fine internal sparks: they obey the core's flow field.
-    const sparks=engine.mobile?10:18;
+    const sparks=engine.mobile?12:24;
     for(let i=0;i<sparks;i++){
       const phase=i*2.07+engine.time*(.39+.018*(i%4));
       const flow=engine.time*.17+i*.7;
@@ -411,11 +438,11 @@
   }
 
   function drawSynapticField(ctx,engine,r,energy){
-    const count=engine.mobile?9:14;
+    const count=engine.mobile?11:18;
     for(let i=0;i<count;i++){
       const n=engine.nodes[i];
       const baseA=n.angle+Math.sin(engine.time*.19+n.phase)*.07;
-      const radial=r*(.43+.13*Math.sin(engine.time*.29+n.phase)*.5+n.depth*.05);
+      const radial=r*(.30+.22*n.depth+.045*Math.sin(engine.time*.29+n.phase));
       const drift=r*.055*Math.sin(engine.time*(.34+n.speed*.04)+n.phase);
       const x=engine.cx+Math.cos(baseA)*radial+Math.cos(n.angle+1.7)*drift+engine.lookX*r*.045;
       const y=engine.cy+Math.sin(baseA)*radial*.87+Math.sin(n.angle+.9)*drift*.82+engine.lookY*r*.035;
@@ -428,21 +455,21 @@
       if(i< count-1){
         const n2=engine.nodes[(i+1)%count];
         const a2=n2.angle+Math.sin(engine.time*.17+n2.phase)*.07;
-        const r2=r*(.43+.13*Math.sin(engine.time*.29+n2.phase)*.5+n2.depth*.05);
+        const r2=r*(.30+.22*n2.depth+.045*Math.sin(engine.time*.29+n2.phase));
         const x2=engine.cx+Math.cos(a2)*r2+engine.lookX*r*.045;
         const y2=engine.cy+Math.sin(a2)*r2*.87+engine.lookY*r*.035;
 
         // Links appear only while a cascade passes; they are short filled
         // organic masses, not permanent diagram lines.
-        const linkActivity=clamp((Math.sin(engine.time*.78+n.phase*1.7)+1)*.5,0,1);
-        if(linkActivity>.56){
+        const linkActivity=clamp((Math.sin(engine.time*.92+n.phase*1.7)+1)*.5,0,1);
+        if(linkActivity>.66){
           const mid={
             x:(x+x2)/2+Math.sin(engine.time*.84+n.phase)*r*.035,
             y:(y+y2)/2+Math.cos(engine.time*.71+n.phase)*r*.028
           };
           organicFilament(
             ctx,[{x,y: y},{x:mid.x,y:mid.y},{x:x2,y:y2}],
-            r*(.010+.006*linkActivity),
+            r*(.008+.005*linkActivity),
             i%3===0
               ? ["rgba(255,209,139,.75)","rgba(255,112,193,.65)","rgba(92,109,255,.48)","rgba(92,66,255,0)"]
               : ["rgba(207,255,255,.72)","rgba(75,222,248,.56)","rgba(101,78,255,.46)","rgba(192,52,225,0)"],
@@ -682,7 +709,7 @@
     function onPointerDown(){
       engine.pointerHold=true;
       engine.reaction=1;
-      engine.heartbeatPulse=Math.max(engine.heartbeatPulse,.8);
+      engine.heartbeatPulse=1;
       triggerLifeWave(engine,true);
       triggerLifeWave(engine,true);
       for(let i=0;i<3;i++)spawnParticle(engine,true);
@@ -774,7 +801,7 @@
     ctx.clearRect(0,0,w,h);
 
     const base=Math.min(w,h);
-    const r=Math.max(16,base*.36);
+    const r=Math.max(16,base*.375);
     engine.cx=w*.5+engine.lookX*base*.015;
     engine.cy=h*.49+engine.lookY*base*.010;
     engine.radiusRef=r;
