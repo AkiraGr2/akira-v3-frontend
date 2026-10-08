@@ -482,3 +482,62 @@ body.ak-reference-mode .ak-mobile-reference-nav{
 @keyframes v8-particle-wave{0%{transform:scale(.95);opacity:.4}50%{transform:scale(1.18);opacity:1}100%{transform:scale(1);opacity:.55}}
 @media (max-width:650px){.akira-v8-nucleus{filter:drop-shadow(0 0 14px rgba(79,222,255,.16)) drop-shadow(0 0 24px rgba(255,76,196,.10))}}
 @media (prefers-reduced-motion:reduce){.akira-v8-nucleus *{animation:none!important;transition:none!important}.akira-v8-nucleus{transform:scale(.99)}}
+
+
+/* =========================================================
+   AKIRA LIVING PLASMA CORE — CANVAS V1
+   Nueva identidad visual: masa de plasma orgánica.
+   No SVG, no anillos, no líneas, no orbitas.
+   ========================================================= */
+.akira-plasma-canvas-slot{
+  position:relative!important;
+  display:block!important;
+  overflow:visible!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  isolation:isolate;
+  contain:layout paint;
+  touch-action:manipulation;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.akira-plasma-canvas{
+  position:absolute!important;
+  inset:0!important;
+  width:100%;
+  height:100%;
+  display:block!important;
+  background:transparent!important;
+  border:0!important;
+  outline:0!important;
+  will-change:transform;
+  transform:translateZ(0);
+  pointer-events:auto;
+  user-select:none;
+  -webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+.akira-plasma-canvas-slot[data-state="thinking"] .akira-plasma-canvas{
+  transform:translateZ(0) scale(1.012);
+}
+.akira-plasma-canvas-slot[data-state="executing"] .akira-plasma-canvas{
+  transform:translateZ(0) scale(1.018);
+}
+.akira-plasma-canvas-slot[data-state="success"] .akira-plasma-canvas{
+  transform:translateZ(0) scale(1.01);
+}
+@media (max-width:650px){
+  .akira-plasma-canvas-slot{
+    contain:layout paint style;
+  }
+  .akira-plasma-canvas{
+    will-change:transform;
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  .akira-plasma-canvas{
+    /* El motor respeta esta preferencia sin depender de CSS paths. */
+    will-change:auto;
+  }
+}
