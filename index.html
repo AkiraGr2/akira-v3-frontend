@@ -587,7 +587,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
     </div>
     <div style="padding:22px;max-width:600px;margin:0 auto;width:100%;overflow-y:auto">
       <div style="background:#16161b;border:3px solid var(--border);padding:16px;">
-        <div id="g_id_onload" data-client_id="148150327312-7k5g3go06tat9gv61c8v0rbbedcusoqn.apps.googleusercontent.com" data-context="signin" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+        <div id="accountSessionBadge" style="margin-bottom:12px;padding:10px 12px;border:2px solid #2a2a36;background:#0e0e12;color:#8a8a93;font-size:12px;display:flex;align-items:center;gap:8px;"><span id="accountSessionDot" style="width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block"></span><span id="accountSessionText">Sesión no verificada</span></div><div id="g_id_onload" data-client_id="148150327312-7k5g3go06tat9gv61c8v0rbbedcusoqn.apps.googleusercontent.com" data-context="signin" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
         <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
         <div id="userInfo" style="margin-top:14px;font-size:13px;display:none;background:#0e0e12;border:3px solid var(--border);padding:12px;font-family:'Pixelify Sans', sans-serif;"></div>
       </div>
@@ -967,7 +967,7 @@ async function akiraVerifySession(){
     if(r.ok && d && d.authenticated===true){
       localStorage.setItem("akira_user_email",String(d.email||""));
       window.akiraSessionState=d;
-      const result=Object.assign({ok:true,status:r.status},d);
+      const result=Object.assign({ok:true,status:r.status},d);\n      const av=document.getElementById("userAvatar");\n      if(av){ av.textContent=d.is_owner ? "✓" : "●"; av.style.background=d.is_owner ? "rgba(16,185,129,.16)" : "rgba(59,130,246,.14)"; av.style.borderColor=d.is_owner ? "#10b981" : "#3b82f6"; av.title=d.is_owner ? "Cuenta · sesión verificada · propietario" : "Cuenta · sesión verificada"; av.setAttribute("aria-label",d.is_owner ? "Cuenta · sesión verificada · propietario" : "Cuenta · sesión verificada"); }\n      const sd=document.getElementById("accountSessionDot");\n      const st=document.getElementById("accountSessionText");\n      if(sd){sd.style.background=d.is_owner ? "#10b981" : "#3b82f6";}\n      if(st){st.textContent=d.is_owner ? "Sesión verificada · propietario" : "Sesión verificada"; st.style.color=d.is_owner ? "#10b981" : "#60a5fa";}
       try{window.dispatchEvent(new CustomEvent("akira:session-valid",{detail:result}));}catch(e){}
       return result;
     }
