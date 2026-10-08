@@ -8,7 +8,32 @@
   const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
   const backend=()=>{try{return localStorage.getItem("akira_backend_url")||BACKEND_FALLBACK}catch(_){return BACKEND_FALLBACK}};
   const auth=()=>{try{return typeof window.akiraAuthHeaders==="function"?window.akiraAuthHeaders():{}}catch(_){return{}}};
+  let originalShowSection=null;
+  let gateway=null;
   const go=name=>{try{if(typeof window.showSection==="function")window.showSection(name)}catch(e){console.warn(e)}};
+  function hideShell(){
+    const s=document.getElementById("akiraRebornShell");
+    if(s)s.classList.add("is-hidden");
+    document.body.classList.remove("ar-reborn-active");
+    if(gateway)gateway.hidden=false;
+  }
+  function showShell(){
+    const s=document.getElementById("akiraRebornShell");
+    if(s)s.classList.remove("is-hidden");
+    document.body.classList.add("ar-reborn-active");
+    if(gateway)gateway.hidden=true;
+    refreshTruth();
+  }
+  function installSectionBridge(){
+    if(typeof window.showSection!=="function" || window.showSection.__akiraRebornWrapped)return;
+    originalShowSection=window.showSection;
+    const wrapped=function(name){
+      hideShell();
+      return originalShowSection.apply(this,arguments);
+    };
+    wrapped.__akiraRebornWrapped=true;
+    window.showSection=wrapped;
+  }
   const items=[
     ["chat","⌁","Conversación"],["membrane","◈","Memoria"],["missions","◇","Misiones"],["office","✦","Oficina"]
   ];
@@ -43,7 +68,18 @@
       '<footer class="ar-dock"><form class="ar-command" id="arCommand"><span>↯</span><input id="arInput" autocomplete="off" placeholder="Escribe una intención para Akira…" /><button>Enviar</button></form></footer>'+
     '</div>';
     document.body.insertAdjacentHTML("afterbegin",html);
+    gateway=document.createElement("button");
+    gateway.id="akiraRebornReturn";
+    gateway.type="button";
+    gateway.className="ar-return-gateway";
+    gateway.textContent="AKIRA";
+    gateway.title="Volver a la presencia de Akira";
+    gateway.setAttribute("aria-label","Volver a la presencia de Akira");
+    gateway.hidden=true;
+    gateway.addEventListener("click",showShell);
+    document.body.appendChild(gateway);
     bind();
+    installSectionBridge();
     refreshTruth();
   }
 
