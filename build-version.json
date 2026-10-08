@@ -1,6 +1,6 @@
 {
-  "version": "akira-cache-v20261008-dense-living-spiral-v2-6c",
-  "generated_at": "2026-10-08T23:59:59.000Z",
+  "version": "akira-cache-v20261008-dense-living-spiral-v2-6-fixed",
+  "generated_at": "2026-10-09T00:10:00.000Z",
   "assets": {
     "js/akira_brain.js": "akira-brain-v7-stream-root",
     "js/obsidian_membrane.js": "akira-membrane-v49-public-fallback",
