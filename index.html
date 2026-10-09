@@ -867,11 +867,16 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
               <strong>🔄 Revisar última ejecución F14</strong>
               <small>Consulta el resultado persistente de la última prueba conocida en este navegador.</small>
             </button>
+            <button class="admin-v2-action" onclick="f14ShowHistory()">
+              <strong>📜 Ver historial F14</strong>
+              <small>Lista las últimas 50 ejecuciones guardadas en el servidor, incluidas las fallidas.</small>
+            </button>
             <button class="admin-v2-action" onclick="f14FindRecoverable()">
               <strong>♻️ Buscar recuperación de F14</strong>
               <small>Busca una ejecución anterior fallida tras crear un Draft PR, sin volver a escribir en GitHub.</small>
             </button>
           </div>
+          <div id="f14History" style="display:none;margin-top:12px;padding:12px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;gap:8px;" aria-live="polite"></div>
           <div id="f14ApprovalActions" class="admin-v2-actions" style="margin-top:12px;display:none;">
             <button id="f14ApproveBtn" class="admin-v2-action" onclick="f14Approve()">
               <strong>✅ Aprobar como propietario</strong>
@@ -1383,6 +1388,59 @@ async function f14Refresh(){
     f14RenderRun(rows[0]||null);
   }catch(e){
     f14SetOutput("❌ No se pudo consultar F14.\n\n"+String(e.message||e));
+  }
+}
+
+async function f14ShowHistory(){
+  const history=document.getElementById("f14History");
+  if(!history) return;
+  history.style.display="grid";
+  history.textContent="⏳ Consultando las últimas 50 ejecuciones F14 guardadas en el servidor...";
+  try{
+    const d=await f14Request("/api/v8/autonomy?limit=50");
+    const runs=Array.isArray(d.autonomy)?d.autonomy:[];
+    history.replaceChildren();
+    const heading=document.createElement("div");
+    heading.style.fontSize="12px";
+    heading.style.color="var(--muted)";
+    heading.textContent="Historial persistido · "+runs.length+" ejecución(es) · incluye fallidas y pendientes";
+    history.appendChild(heading);
+    if(!runs.length){
+      const empty=document.createElement("div");
+      empty.textContent="El servidor no devuelve ejecuciones para esta cuenta.";
+      history.appendChild(empty);
+      return;
+    }
+    runs.forEach(run=>{
+      const button=document.createElement("button");
+      button.type="button";
+      button.className="admin-v2-action";
+      button.style.textAlign="left";
+      button.style.width="100%";
+      const title=document.createElement("strong");
+      const status=String(run.status||"unknown");
+      let created="Fecha no disponible";
+      if(run.created_at){
+        const parsed=new Date(run.created_at);
+        if(!Number.isNaN(parsed.getTime())) created=parsed.toLocaleString();
+      }
+      title.textContent=created+" · "+status;
+      const detail=document.createElement("small");
+      const id=String(run.id||"ID desconocido");
+      const goal=String(run.goal||"Sin objetivo");
+      const failure=String(run.failure_reason||"").trim();
+      detail.textContent="ID: "+id+" · "+goal+(failure?" · Motivo: "+failure:"");
+      button.appendChild(title);
+      button.appendChild(detail);
+      button.addEventListener("click",()=>{
+        f14RenderRun(run);
+        const output=document.getElementById("f14Output");
+        if(output) output.scrollIntoView({behavior:"smooth",block:"nearest"});
+      });
+      history.appendChild(button);
+    });
+  }catch(e){
+    history.textContent="❌ No se pudo consultar el historial F14.\n"+String(e.message||e);
   }
 }
 
