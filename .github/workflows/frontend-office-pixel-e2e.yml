@@ -124,10 +124,6 @@ jobs:
               local_agent_available:false
             };
 
-            await page.addInitScript(() => {
-              localStorage.setItem("akira_session_token", "f15-e2e-owner-token");
-              localStorage.setItem("akira_session_exp", "4102444800");
-            });
             await page.route(/\/api\/v8\/me(?:\?.*)?$/, route => route.fulfill({
               status:200, contentType:"application/json",
               body:JSON.stringify({
@@ -182,6 +178,21 @@ jobs:
               waitUntil:"domcontentloaded",
               timeout:30000
             });
+
+            const f15Session = await page.evaluate(async () => {
+              localStorage.setItem("akira_session_token", "f15-e2e-owner-token");
+              localStorage.setItem("akira_session_exp", "4102444800");
+              const result = await window.akiraVerifySession();
+              return {
+                ok: Boolean(result && result.ok && result.authenticated === true),
+                isOwner: Boolean(window.akiraSessionState && window.akiraSessionState.is_owner),
+                authorization: (window.akiraAuthHeaders() || {}).Authorization || ""
+              };
+            });
+            if(!f15Session.ok || !f15Session.isOwner ||
+               f15Session.authorization!=="Bearer f15-e2e-owner-token"){
+              throw new Error("F15 owner session fixture failed: "+JSON.stringify(f15Session));
+            }
 
             await page.click("#btn-office");
             await page.waitForSelector("#officePixelCanvas", {state:"visible",timeout:10000});
