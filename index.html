@@ -851,7 +851,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
               </div>
               <div>
                 <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">PRUEBAS</div>
-                <code style="font-size:12px;word-break:break-word;">test_controlled_autonomy_contract (incluye test_production_verification_document_exists_and_content) · test_route_security_contract · test_authorization_contract</code>
+                <code style="font-size:12px;word-break:break-word;">test_controlled_autonomy_contract (incluye test_docs_F14_PRODUCTION_VERIFICATION_exists_and_contains_title_and_human_approval_note) · test_route_security_contract · test_authorization_contract</code>
               </div>
               <div style="font-size:12px;color:var(--muted);line-height:1.6;">
                 Seguridad: sin merge, sin force-push, sin escritura de <code>main</code>, sin workflows, sin secretos y con aprobación explícita del propietario antes de la acción externa.
@@ -1332,7 +1332,7 @@ async function f14Start(){
       repository:"AkiraGr2/akira-empresa",
       base_branch:"main",
       paths:["docs/F14_PRODUCTION_VERIFICATION.md","test_controlled_autonomy_contract.py"],
-      instruction:"Crea docs/F14_PRODUCTION_VERIFICATION.md como Markdown mínimo con el título exacto # F14 Production Verification y la frase exacta Esta ejecución es una verificación de Controlled Autonomy v1 y requirió aprobación humana. Además, modifica test_controlled_autonomy_contract.py añadiendo el método test_production_verification_document_exists_and_content a la clase ControlledAutonomyContractTests. La prueba debe usar Path(__file__).resolve().parent para localizar docs/F14_PRODUCTION_VERIFICATION.md, comprobar con assertTrue que target.is_file(), leerlo con encoding=utf-8 y comprobar con assertIn que contiene el título y la frase exactos anteriores. Mantén intactas las pruebas existentes. Limita los cambios a esos dos archivos; no introduzcas código de producción, dependencias, secretos ni workflows. La prueba debe ejecutarse dentro del sandbox después de que el documento se haya creado.",
+      instruction:"Crea docs/F14_PRODUCTION_VERIFICATION.md como Markdown mínimo con el título exacto # Production Verification - F14 y la frase exacta Esta ejecución es una verificación de Controlled Autonomy v1 y requirió aprobación humana. Además, modifica test_controlled_autonomy_contract.py añadiendo el método test_docs_F14_PRODUCTION_VERIFICATION_exists_and_contains_title_and_human_approval_note a la clase ControlledAutonomyContractTests. La prueba debe usar Path(__file__).resolve().parent para localizar docs/F14_PRODUCTION_VERIFICATION.md, comprobar con assertTrue que target.is_file(), leerlo con encoding=utf-8 y comprobar con assertIn que contiene el título y la frase exactos anteriores. Mantén intactas las pruebas existentes. Limita los cambios a esos dos archivos; no introduzcas código de producción, dependencias, secretos ni workflows. La prueba debe ejecutarse dentro del sandbox después de que el documento se haya creado.",
       queries:["docs/F14_PRODUCTION_VERIFICATION.md","test_controlled_autonomy_contract.py"],
       tests:["test_controlled_autonomy_contract","test_route_security_contract","test_authorization_contract"],
       idempotency_key:"f14-production-ui-"+Date.now()
