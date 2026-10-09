@@ -867,6 +867,10 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
               <strong>🔄 Revisar última ejecución F14</strong>
               <small>Consulta el resultado persistente de la última prueba conocida en este navegador.</small>
             </button>
+            <button class="admin-v2-action" onclick="f14FindRecoverable()">
+              <strong>♻️ Buscar recuperación de F14</strong>
+              <small>Busca una ejecución anterior fallida tras crear un Draft PR, sin volver a escribir en GitHub.</small>
+            </button>
           </div>
           <div id="f14ApprovalActions" class="admin-v2-actions" style="margin-top:12px;display:none;">
             <button id="f14ApproveBtn" class="admin-v2-action" onclick="f14Approve()">
@@ -1231,17 +1235,44 @@ function f14StoreRunId(run){
   }catch(e){}
 }
 
-function f14ShowActions(status){
+function f14IsRecoverable(run){
+  const decision=run && run.decision && typeof run.decision==="object" ? run.decision : {};
+  const action=run && run.action && typeof run.action==="object" ? run.action : {};
+  const evaluation=run && run.evaluation && typeof run.evaluation==="object" ? run.evaluation : {};
+  return Boolean(
+    run &&
+    run.status==="failed" &&
+    String(run.failure_reason||"").startsWith("capability_verification_failed:") &&
+    decision.status==="approved" &&
+    decision.mode==="human" &&
+    Boolean(action.pr_url) &&
+    action.pr_draft===true &&
+    action.merged===false &&
+    Boolean(String(run.learning_reference||"").trim()) &&
+    evaluation.external_action_verified===true
+  );
+}
+
+function f14ShowActions(status, run){
   const wrap=document.getElementById("f14ApprovalActions");
   const approve=document.getElementById("f14ApproveBtn");
   const act=document.getElementById("f14ActBtn");
   if(!wrap) return;
   const approval=status==="awaiting_approval";
   const acting=status==="acting";
-  const visible=approval||acting;
+  const recovery=f14IsRecoverable(run);
+  const visible=approval||acting||recovery;
   wrap.style.display=visible?"flex":"none";
   if(approve) approve.style.display=approval?"block":"none";
-  if(act) act.style.display=acting?"block":"none";
+  if(act){
+    act.style.display=(acting||recovery)?"block":"none";
+    const title=act.querySelector("strong");
+    const small=act.querySelector("small");
+    if(title) title.textContent=recovery?"♻️ Recuperar verificación final":"🚀 Ejecutar acción controlada";
+    if(small) small.textContent=recovery
+      ?"Verifica la rama y el Draft PR que ya existen; no repite la escritura."
+      :"Crea la rama aislada y el Draft PR después de la aprobación humana.";
+  }
 }
 
 function f14RenderRun(run){
@@ -1280,7 +1311,7 @@ function f14RenderRun(run){
     JSON.stringify(summary,null,2)
   ];
   f14SetOutput(lines.join("\n"));
-  f14ShowActions(status);
+  f14ShowActions(status,run);
 }
 
 async function f14Start(){
@@ -1355,6 +1386,32 @@ async function f14Refresh(){
   }
 }
 
+async function f14FindRecoverable(){
+  f14SetOutput("⏳ Buscando ejecuciones F14 anteriores que puedan recuperarse sin repetir una escritura...");
+  try{
+    const d=await f14Request("/api/v8/autonomy?limit=50");
+    const rows=Array.isArray(d.autonomy)?d.autonomy:[];
+    const candidate=rows.find(f14IsRecoverable);
+    if(!candidate){
+      f14SetOutput(
+        "No encontré una ejecución recuperable entre las últimas "+rows.length+" ejecuciones. "+
+        "Una ejecución solo se considera recuperable si ya tiene aprobación humana, Draft PR abierto, aprendizaje persistido y falló únicamente al verificar la capacidad."
+      );
+      return;
+    }
+    f14RenderRun(candidate);
+    f14SetOutput(
+      "✅ Encontré una ejecución anterior cuya acción externa ya existe.\n\n"+
+      "La próxima acción solo comprobará la misma rama y el Draft PR; no creará otra rama, commit ni PR.\n"+
+      "Draft PR: "+String((candidate.action||{}).pr_url||"—")+"\n"+
+      "Ejecución: "+String(candidate.id||"—")+"\n\n"+
+      JSON.stringify(candidate,null,2)
+    );
+  }catch(e){
+    f14SetOutput("❌ No se pudieron consultar las ejecuciones anteriores.\n\n"+String(e.message||e));
+  }
+}
+
 async function f14Approve(){
   const id=localStorage.getItem("akira_f14_run_id");
   if(!id){f14SetOutput("❌ No hay una ejecución F14 conocida.");return;}
@@ -1374,7 +1431,19 @@ async function f14Approve(){
 async function f14Act(){
   const id=localStorage.getItem("akira_f14_run_id");
   if(!id){f14SetOutput("❌ No hay una ejecución F14 conocida.");return;}
-  if(!confirm("¿Ejecutar la acción controlada de esta F14? Si es una recuperación tras un fallo de verificación final, revisará la rama y el Draft PR existentes sin repetir la escritura. En una ejecución aprobada normal, creará una rama aislada y un Draft PR. Nunca hará merge ni escribirá main.")) return;
+  let current;
+  try{
+    const latest=await f14Request("/api/v8/autonomy/"+encodeURIComponent(id));
+    current=latest.autonomy;
+  }catch(e){
+    f14SetOutput("❌ No pude verificar la ejecución seleccionada antes de actuar.\n\n"+String(e.message||e));
+    return;
+  }
+  const recovery=f14IsRecoverable(current);
+  const message=recovery
+    ?"¿Recuperar esta ejecución F14? Volverá a verificar la rama y el Draft PR existente sin repetir la escritura en GitHub. No hará merge ni escribirá main."
+    :"¿Ejecutar la acción controlada de esta F14? Creará una rama aislada y un Draft PR tras la aprobación humana; no hará merge ni escribirá main.";
+  if(!confirm(message)) return;
   f14SetOutput("⏳ Ejecutando la acción externa controlada...");
   try{
     const d=await f14Request("/api/v8/autonomy/"+encodeURIComponent(id)+"/act",{method:"POST"});
