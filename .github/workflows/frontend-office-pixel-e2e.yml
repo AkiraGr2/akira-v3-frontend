@@ -135,6 +135,13 @@ jobs:
                 email:"f15-owner@example.test", expires_at:4102444800
               })
             }));
+            // The existing mission panel loads on DOMContentLoaded even while hidden.
+            // Stub it so no unrelated unauthenticated production request can invalidate
+            // the synthetic owner session used exclusively by this isolated browser test.
+            await page.route("https://akira-empresa.onrender.com/api/v8/missions?limit=50", route => route.fulfill({
+              status:200, contentType:"application/json",
+              body:JSON.stringify({ok:true,missions:[]})
+            }));
             await page.route(/\/api\/v8\/hive\/status(?:\?.*)?$/, route => route.fulfill({
               status:200, contentType:"application/json", body:JSON.stringify(f15CapabilityStatus)
             }));
