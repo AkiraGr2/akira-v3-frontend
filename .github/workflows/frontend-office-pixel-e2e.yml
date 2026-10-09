@@ -91,6 +91,77 @@ jobs:
               });
             });
 
+            // F15 Hive is tested with isolated API fixtures: no production data is mutated.
+            let f15Knowledge = [
+              {
+                id:"know-f15-verified", concept:"F15 verified knowledge fixture", domain:"f15-test",
+                source:"manual_review", source_reference:"https://example.test/f15-source", source_id:"f15-source-1",
+                verification_status:"verified", evidence:[{type:"manual_verification",reference:"https://example.test/f15-evidence"}],
+                privacy_level:"PRIVATE", status:"active", version:2, owner_scope:"test-owner"
+              },
+              {
+                id:"know-f15-unverified", concept:"F15 unverified knowledge fixture", domain:"f15-test",
+                source:"manual_review", source_reference:"https://example.test/f15-unverified",
+                verification_status:"unverified", evidence:[], privacy_level:"PRIVATE",
+                status:"active", version:1, owner_scope:"test-owner"
+              }
+            ];
+            const f15MutationRequests = [];
+            const f15CapabilityStatus = {
+              ok:true,
+              contract:"hive_knowledge_sharing.v1",
+              scope_mode:"owner_scoped_export_view",
+              capability:{
+                name:"hive_knowledge_sharing_v1",
+                implementation_state:"partial",
+                verification_state:"unverified",
+                availability_state:"degraded"
+              },
+              cross_owner_propagation:false,
+              collective_sync_available:false,
+              conflict_resolution_available:false,
+              local_agent_available:false
+            };
+
+            await page.route(/\/api\/v8\/hive\/status(?:\?.*)?$/, route => route.fulfill({
+              status:200, contentType:"application/json", body:JSON.stringify(f15CapabilityStatus)
+            }));
+            await page.route(/\/api\/v8\/knowledge(?:\?limit=200)?$/, route => route.fulfill({
+              status:200, contentType:"application/json",
+              body:JSON.stringify({ok:true,count:f15Knowledge.length,knowledge:f15Knowledge})
+            }));
+            await page.route(/\/api\/v8\/hive\/knowledge(?:\?limit=50)?$/, route => route.fulfill({
+              status:200, contentType:"application/json",
+              body:JSON.stringify({
+                ok:true,scope_mode:"owner_scoped_export_view",
+                count:f15Knowledge.filter(r=>r.status==="active"&&r.privacy_level==="SHAREABLE"&&r.verification_status==="verified").length,
+                knowledge:f15Knowledge.filter(r=>r.status==="active"&&r.privacy_level==="SHAREABLE"&&r.verification_status==="verified"),
+                propagation_performed:false
+              })
+            }));
+            await page.route(/\/api\/v8\/hive\/knowledge\/[^/]+\/privacy$/, async route => {
+              const url = new URL(route.request().url());
+              const parts = url.pathname.split("/");
+              const recordId = decodeURIComponent(parts[parts.length-2]);
+              const payload = route.request().postDataJSON();
+              f15MutationRequests.push({id:recordId,payload});
+              const record = f15Knowledge.find(r=>r.id===recordId);
+              if(!record) {
+                await route.fulfill({status:404,contentType:"application/json",body:JSON.stringify({ok:false,reason:"not_found"})});
+                return;
+              }
+              if(payload.confirmed!==true || payload.expected_version!==record.version) {
+                await route.fulfill({status:409,contentType:"application/json",body:JSON.stringify({ok:false,reason:"conflict"})});
+                return;
+              }
+              record.privacy_level=payload.privacy_level;
+              record.version+=1;
+              await route.fulfill({
+                status:200,contentType:"application/json",
+                body:JSON.stringify({ok:true,knowledge:record,propagation_performed:false,scope_mode:"owner_scoped_export_view"})
+              });
+            });
+
             await page.goto("http://127.0.0.1:4173/", {
               waitUntil:"domcontentloaded",
               timeout:30000
@@ -98,6 +169,64 @@ jobs:
 
             await page.click("#btn-office");
             await page.waitForSelector("#officePixelCanvas", {state:"visible",timeout:10000});
+
+            // F15 Office contract: status is backend-authoritative, share is explicit,
+            // unverified knowledge cannot be shared, and the cycle never propagates externally.
+            await page.waitForFunction(() => {
+              const status=document.getElementById("officeHiveStatus");
+              const list=document.getElementById("officeHiveKnowledgeList");
+              return status && status.textContent.includes("parcial") &&
+                list && list.textContent.includes("F15 verified knowledge fixture");
+            }, null, {timeout:15000});
+
+            const hiveBefore=await page.evaluate(() => ({
+              capability:document.getElementById("officeHiveCapability")?.textContent||"",
+              propagation:document.getElementById("officeHivePropagation")?.textContent||"",
+              collective:document.getElementById("officeHiveCollective")?.textContent||"",
+              localAgent:document.getElementById("officeHiveLocalAgent")?.textContent||"",
+              share:document.querySelector('[data-hive-action="share"][data-hive-id="know-f15-verified"]')?.disabled,
+              unverifiedShare:document.querySelector('[data-hive-action="share"][data-hive-id="know-f15-unverified"]')?.disabled
+            }));
+            if(!hiveBefore.capability.includes("partial") ||
+               hiveBefore.propagation!=="No disponible" ||
+               hiveBefore.collective!=="No disponible" ||
+               hiveBefore.localAgent!=="No disponible" ||
+               hiveBefore.share!==false || hiveBefore.unverifiedShare!==true){
+              throw new Error("F15 Office capability/eligibility truth contract failed: "+JSON.stringify(hiveBefore));
+            }
+
+            page.on("dialog", dialog => dialog.accept());
+            await page.click('[data-hive-action="share"][data-hive-id="know-f15-verified"]');
+            await page.waitForFunction(() =>
+              document.getElementById("officeHiveNotice")?.textContent.includes("No se realizó propagación externa."),
+              null, {timeout:10000}
+            );
+            if(f15MutationRequests.length!==1 ||
+               f15MutationRequests[0].payload.privacy_level!=="SHAREABLE" ||
+               f15MutationRequests[0].payload.expected_version!==2 ||
+               f15MutationRequests[0].payload.confirmed!==true){
+              throw new Error("F15 explicit SHAREABLE transition contract failed: "+JSON.stringify(f15MutationRequests));
+            }
+
+            await page.waitForFunction(() => {
+              const count=document.getElementById("officeHiveExportCount");
+              return count && count.textContent==="1" &&
+                document.querySelector('[data-hive-action="revoke"][data-hive-id="know-f15-verified"]');
+            }, null, {timeout:10000});
+            await page.click('[data-hive-action="revoke"][data-hive-id="know-f15-verified"]');
+            await page.waitForFunction(() => {
+              const count=document.getElementById("officeHiveExportCount");
+              return count && count.textContent==="0" &&
+                document.getElementById("officeHiveNotice")?.textContent.includes("No se realizó propagación externa.");
+            }, null, {timeout:10000});
+            if(f15MutationRequests.length!==2 ||
+               f15MutationRequests[1].payload.privacy_level!=="PRIVATE" ||
+               f15MutationRequests[1].payload.expected_version!==3 ||
+               f15MutationRequests[1].payload.confirmed!==true){
+              throw new Error("F15 revocation/version contract failed: "+JSON.stringify(f15MutationRequests));
+            }
+
+
 
             // Now exercise the actual mobile layout after the section is open.
             await page.setViewportSize({width:390,height:844});
