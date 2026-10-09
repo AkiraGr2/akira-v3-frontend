@@ -69,3 +69,24 @@
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.05),0 10px 24px rgba(0,0,0,.22);
   }
 }
+
+
+/* F15 Hive owner-scoped panel; additive only, preserves the existing Office scene. */
+#officeSection .office-hive-card{display:flex;flex-direction:column;gap:9px}
+#officeSection .office-hive-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#officeSection .office-hive-head h3{margin:0}
+#officeSection .office-hive-head button{flex:0 0 auto}
+#officeSection .office-hive-status{font-size:12px;line-height:1.45;color:#d8e6fa}
+#officeSection .office-hive-meta{font-size:11px;line-height:1.45;color:#aab8cc;overflow-wrap:anywhere}
+#officeSection .office-hive-constraints{list-style:none;display:grid;gap:4px;padding:0;margin:0;font-size:11px;color:#b8c7db}
+#officeSection .office-hive-constraints strong{color:#e4edf8;font-weight:600}
+#officeSection .office-hive-list{display:grid;gap:8px;min-width:0}
+#officeSection .office-hive-item{display:grid;gap:5px;padding:9px;border:1px solid rgba(112,151,198,.28);background:rgba(7,15,28,.45);min-width:0}
+#officeSection .office-hive-item-title{font-size:12px;line-height:1.4;color:#f0f5fd;overflow-wrap:anywhere}
+#officeSection .office-hive-item-meta{font-size:10px;line-height:1.45;color:#9fb2cb;overflow-wrap:anywhere}
+#officeSection .office-hive-actions{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+#officeSection .office-hive-action{font-size:9px;padding:7px 8px;max-width:100%;overflow-wrap:anywhere}
+#officeSection .office-hive-action:disabled{opacity:.48;cursor:not-allowed}
+#officeSection .office-hive-note{font-size:11px;line-height:1.45;padding:8px;border-left:2px solid #7189aa;background:rgba(8,16,29,.55);overflow-wrap:anywhere}
+#officeSection .office-hive-note[data-state="error"]{border-left-color:#f4a2a2;color:#ffd0d0}
+#officeSection .office-hive-note[data-state="info"]{border-left-color:#79b7d9;color:#c9e5f6}
