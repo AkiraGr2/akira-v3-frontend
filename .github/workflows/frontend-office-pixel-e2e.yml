@@ -118,6 +118,7 @@ jobs:
             ];
             const f15MutationRequests = [];
             let f15ForceConflict = false;
+            let f15ForceStatusUnauthorized = false;
             const f15CapabilityStatus = {
               ok:true,
               contract:"hive_knowledge_sharing.v1",
@@ -149,7 +150,9 @@ jobs:
               body:JSON.stringify({ok:true,missions:[]})
             }));
             await page.route(/\/api\/v8\/hive\/status(?:\?.*)?$/, route => route.fulfill({
-              status:200, contentType:"application/json", body:JSON.stringify(f15CapabilityStatus)
+              status:f15ForceStatusUnauthorized ? 401 : 200,
+              contentType:"application/json",
+              body:JSON.stringify(f15ForceStatusUnauthorized ? {authenticated:false} : f15CapabilityStatus)
             }));
             await page.route(/\/api\/v8\/knowledge(?:\?limit=200)?$/, route => route.fulfill({
               status:200, contentType:"application/json",
@@ -337,6 +340,19 @@ jobs:
               document.querySelector('[data-hive-action="share"][data-hive-id="know-f15-verified"]')?.disabled === true,
               null, {timeout:10000}
             );
+
+            // Unauthorized backend responses must invalidate the shared session, not
+            // leave a stale bearer token in the browser. Hive mutation buttons stay disabled.
+            f15CapabilityStatus.capability.verification_state = "unverified";
+            f15CapabilityStatus.capability.availability_state = "degraded";
+            f15ForceStatusUnauthorized = true;
+            await page.click("#officeHiveRefresh");
+            await page.waitForFunction(() =>
+              !localStorage.getItem("akira_session_token") &&
+              document.querySelector('[data-hive-action="share"][data-hive-id="know-f15-verified"]')?.disabled === true,
+              null, {timeout:10000}
+            );
+
 
 
 
