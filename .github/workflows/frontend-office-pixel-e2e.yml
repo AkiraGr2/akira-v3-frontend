@@ -108,6 +108,12 @@ jobs:
                 source:"manual_review", source_reference:"https://example.test/f15-unverified",
                 verification_status:"unverified", evidence:[], privacy_level:"PRIVATE",
                 status:"active", version:1, owner_scope:"test-owner"
+              },
+              {
+                id:"know-f15-sensitive", concept:"F15 sensitive knowledge fixture", domain:"f15-test",
+                source:"manual_review", source_reference:"https://example.test/f15-sensitive", source_id:"f15-sensitive-source",
+                verification_status:"verified", evidence:[{type:"manual_verification",reference:"https://example.test/f15-sensitive-evidence"}],
+                privacy_level:"SENSITIVE", status:"active", version:3, owner_scope:"test-owner"
               }
             ];
             const f15MutationRequests = [];
@@ -253,13 +259,19 @@ jobs:
               collective:document.getElementById("officeHiveCollective")?.textContent||"",
               localAgent:document.getElementById("officeHiveLocalAgent")?.textContent||"",
               share:document.querySelector('[data-hive-action="share"][data-hive-id="know-f15-verified"]')?.disabled,
-              unverifiedShare:document.querySelector('[data-hive-action="share"][data-hive-id="know-f15-unverified"]')?.disabled
+              unverifiedShare:document.querySelector('[data-hive-action="share"][data-hive-id="know-f15-unverified"]')?.disabled,
+              sensitiveShareButtonPresent:Boolean(document.querySelector('[data-hive-action="share"][data-hive-id="know-f15-sensitive"]')),
+              sensitiveMessage:[...document.querySelectorAll(".office-hive-item")].some(item =>
+                item.textContent.includes("F15 sensitive knowledge fixture") &&
+                item.textContent.includes("No se puede compartir directamente")
+              )
             }));
             if(!hiveBefore.capability.includes("partial") ||
                hiveBefore.propagation!=="No disponible" ||
                hiveBefore.collective!=="No disponible" ||
                hiveBefore.localAgent!=="No disponible" ||
-               hiveBefore.share!==false || hiveBefore.unverifiedShare!==true){
+               hiveBefore.share!==false || hiveBefore.unverifiedShare!==true ||
+               hiveBefore.sensitiveShareButtonPresent!==false || hiveBefore.sensitiveMessage!==true){
               throw new Error("F15 Office capability/eligibility truth contract failed: "+JSON.stringify(hiveBefore));
             }
 
