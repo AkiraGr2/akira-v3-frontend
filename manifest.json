@@ -2,7 +2,7 @@
   "name": "Akira",
   "short_name": "Akira",
   "description": "Asistente cognitivo personal de Akira",
-  "start_url": "/akira-v3-frontend/?akira_build=akira-cache-v20261006-f1",
+  "start_url": "/akira-v3-frontend/?akira_build=akira-cache-v20261009-f15-hive-office-v1",
   "scope": "/akira-v3-frontend/",
   "display": "standalone",
   "background_color": "#0b0b0e",

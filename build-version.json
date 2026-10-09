@@ -1,16 +1,17 @@
 {
-  "version": "akira-cache-v20261008-dense-living-spiral-v2-6-cognitive-workspace-perf-v3",
-  "generated_at": "2026-10-08T21:35:30.819Z",
+  "version": "akira-cache-v20261009-f15-hive-office-v1",
+  "generated_at": "2026-10-09T15:17:28.939Z",
   "assets": {
     "js/akira_brain.js": "akira-brain-v8-performance",
     "js/obsidian_membrane.js": "akira-membrane-v49-public-fallback",
     "js/akira_learning.js": "akira-learning-v13-root-auth",
     "js/akira-office-living-v5.js": "akira-office-v11-visual-root-v7",
     "js/akira-office-2p5d.js": "akira-office-2p5d-v4-responsive-canvas",
-    "css/akira-office-2p5d.css": "akira-office-2p5d-v4-responsive-canvas",
+    "css/akira-office-2p5d.css": "akira-office-2p5d-v5-f15-hive-panel",
     "assets/office/office_runtime_2p5d.json": "office-autonomous-v3",
     "js/akira_reference_workspace_v2.js": "akira-reference-v10-cognitive-workspace",
     "css/akira-reference-design-v2.css": "akira-reference-design-v1-living-plasma-canvas",
-    "js/akira_entity.js": "akira-entity-v2-6-dense-living-spiral-mobile-perf"
+    "js/akira_entity.js": "akira-entity-v2-6-dense-living-spiral-mobile-perf",
+    "js/akira-hive-office-v1.js": "akira-hive-office-v1-f15"
   }
 }
