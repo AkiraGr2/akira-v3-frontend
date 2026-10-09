@@ -128,7 +128,7 @@ jobs:
               localStorage.setItem("akira_session_token", "f15-e2e-owner-token");
               localStorage.setItem("akira_session_exp", "4102444800");
             });
-            await page.route(/\\/api\\/v8\\/me(?:\\?.*)?$/, route => route.fulfill({
+            await page.route(/\/api\/v8\/me(?:\?.*)?$/, route => route.fulfill({
               status:200, contentType:"application/json",
               body:JSON.stringify({
                 ok:true, authenticated:true, is_owner:true,
