@@ -191,7 +191,7 @@
         revoke.disabled = !capabilityAvailable || mutationInProgress;
         revoke.addEventListener("click", () => transitionPrivacy(record, "PRIVATE"));
         actionRow.appendChild(revoke);
-      } else if (["PRIVATE", "SENSITIVE"].includes(record.privacy_level)) {
+      } else if (record.privacy_level === "PRIVATE") {
         const share = makeText("button", "office-v2-btn office-hive-action", "Autorizar SHAREABLE");
         share.type = "button";
         share.dataset.hiveAction = "share";
@@ -209,6 +209,12 @@
             "Requiere verificación, evidencia y referencia de procedencia."
           ));
         }
+      } else if (record.privacy_level === "SENSITIVE") {
+        actionRow.appendChild(makeText(
+          "span",
+          "office-hive-item-meta",
+          "No se puede compartir directamente un registro SENSITIVE. Crea una copia redactada nueva y verifícala como registro independiente."
+        ));
       } else {
         actionRow.appendChild(makeText(
           "span",
