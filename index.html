@@ -497,6 +497,26 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           <p style="margin-top:8px">Última sincronización: <strong id="officeSync">—</strong></p>
         </div>
 
+        <div class="office-v2-card office-hive-card" id="officeHiveCard">
+          <div class="office-hive-head">
+            <h3>Hive · conocimiento</h3>
+            <button id="officeHiveRefresh" class="office-v2-btn" type="button">Actualizar</button>
+          </div>
+          <p id="officeHiveStatus" class="office-hive-status" role="status" aria-live="polite">Estado Hive sin confirmar; no se presupone disponibilidad.</p>
+          <p class="office-hive-meta"><strong>Capability:</strong> <span id="officeHiveCapability">Sin confirmar</span></p>
+          <ul class="office-hive-constraints">
+            <li>Propagación entre propietarios: <strong id="officeHivePropagation">Sin confirmar</strong></li>
+            <li>Sincronización colectiva: <strong id="officeHiveCollective">Sin confirmar</strong></li>
+            <li>Resolución de conflictos: <strong id="officeHiveConflicts">Sin confirmar</strong></li>
+            <li>Local Agent: <strong id="officeHiveLocalAgent">No disponible / no verificado</strong></li>
+          </ul>
+          <p class="office-hive-meta">Knowledge en vista exportable del propietario: <strong id="officeHiveExportCount">Sin confirmar</strong></p>
+          <div id="officeHiveKnowledgeList" class="office-hive-list">
+            <p class="office-empty">Consultando datos autenticados del propietario…</p>
+          </div>
+          <p id="officeHiveNotice" class="office-hive-note" data-state="info">Marcar SHAREABLE solo autoriza una futura exportación. Esta versión no propaga contenido a otros propietarios.</p>
+        </div>
+
         <div class="office-v2-card">
           <h3>Agentes</h3>
           <p>Selecciona una estación para ver rol, estado, tarea reciente y herramientas autorizadas.</p>
@@ -1731,6 +1751,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 </script>
 <script src="./js/akira_missions_panel.js?v=akira-missions-v5"></script>
 <script src="./js/akira-office-2p5d.js?v=akira-office-v8-responsive-canvas"></script>
+<script src="./js/akira-hive-office-v1.js?v=akira-hive-office-v1-f15"></script>
 <script>
 /* BRAIN 2D COMPATIBILITY ADAPTER
  * La referencia actual usa el motor Obsidian 2D como fuente real del Brain.
