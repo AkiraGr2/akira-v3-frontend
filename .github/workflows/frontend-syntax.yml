@@ -27,6 +27,7 @@ jobs:
           node --check js/akira_entity.js
           node --check js/akira_admin.js
           node --check js/akira_extras.js
+          node --check js/akira-hive-office-v1.js
                     
       - name: Guard canonical public identity contract
         run: |
