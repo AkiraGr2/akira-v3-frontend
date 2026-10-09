@@ -46,6 +46,9 @@
       }, options);
       fetchOptions.headers = headers;
       const response = await fetch(backendUrl() + path, fetchOptions);
+      if (response.status === 401 && typeof window.akiraHandleAuthFailure === "function") {
+        window.akiraHandleAuthFailure(401);
+      }
       let data = null;
       try { data = await response.json(); } catch (_) {}
       return { ok: response.ok, status: response.status, data };
