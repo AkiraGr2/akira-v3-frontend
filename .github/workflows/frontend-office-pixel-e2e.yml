@@ -310,6 +310,23 @@ jobs:
               throw new Error("F15 conflict fail-closed contract failed: "+JSON.stringify({requests:f15MutationRequests,record:f15Knowledge[0]}));
             }
 
+            // Blocked or failed capability evidence must disable all privacy mutations.
+            f15CapabilityStatus.capability.availability_state = "blocked";
+            await page.click("#officeHiveRefresh");
+            await page.waitForFunction(() =>
+              document.querySelector('[data-hive-action="share"][data-hive-id="know-f15-verified"]')?.disabled === true,
+              null, {timeout:10000}
+            );
+
+            f15CapabilityStatus.capability.availability_state = "degraded";
+            f15CapabilityStatus.capability.verification_state = "failed";
+            await page.click("#officeHiveRefresh");
+            await page.waitForFunction(() =>
+              document.querySelector('[data-hive-action="share"][data-hive-id="know-f15-verified"]')?.disabled === true,
+              null, {timeout:10000}
+            );
+
+
 
 
             // Now exercise the actual mobile layout after the section is open.
