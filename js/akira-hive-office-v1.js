@@ -285,14 +285,29 @@
     );
   }
 
+  function officeIsVisible() {
+    const section = el("officeSection");
+    return Boolean(
+      section &&
+      section.classList.contains("active") &&
+      document.visibilityState === "visible"
+    );
+  }
+
   function init() {
     if (initialized || !el("officeHiveCard")) return;
     initialized = true;
     const refreshButton = el("officeHiveRefresh");
     if (refreshButton) refreshButton.addEventListener("click", () => refresh());
-    refresh();
+
+    // Do not poll private endpoints while the user is outside the Office.
+    // The existing navigation emits this event on every Office open.
+    window.addEventListener("akira:section-shown", event => {
+      if (event && event.detail && event.detail.section === "office") refresh();
+    });
+    if (officeIsVisible()) refresh();
     setInterval(() => {
-      if (document.visibilityState === "visible") refresh();
+      if (officeIsVisible()) refresh();
     }, 45000);
   }
 
