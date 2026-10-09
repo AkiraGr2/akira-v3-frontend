@@ -57,6 +57,10 @@ jobs:
               deviceScaleFactor:1
             });
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
+            const f15UnauthorizedResponses = [];
+            page.on("response", response => {
+              if(response.status()===401) f15UnauthorizedResponses.push(response.url());
+            });
 
             await page.route("https://akira-empresa.onrender.com/api/v8/agents", route => {
               route.fulfill({
@@ -189,6 +193,15 @@ jobs:
                 window.__f15SessionClearReasons.push(String(reason || "unspecified"));
                 return originalClear(reason);
               };
+              window.__f15AuthFailures = [];
+              const originalAuthFailure = window.akiraHandleAuthFailure;
+              window.akiraHandleAuthFailure = function(status) {
+                window.__f15AuthFailures.push({
+                  status,
+                  stack: String((new Error()).stack || "")
+                });
+                return originalAuthFailure(status);
+              };
               return {
                 ok: Boolean(result && result.ok && result.authenticated === true),
                 isOwner: Boolean(window.akiraSessionState && window.akiraSessionState.is_owner),
@@ -216,11 +229,15 @@ jobs:
               tokenPresent: Boolean(localStorage.getItem("akira_session_token")),
               exp: localStorage.getItem("akira_session_exp") || "",
               authorization: (window.akiraAuthHeaders() || {}).Authorization || "",
-              clearReasons: window.__f15SessionClearReasons || []
+              clearReasons: window.__f15SessionClearReasons || [],
+              authFailures: window.__f15AuthFailures || []
             }));
             if(!f15SessionAtOffice.tokenPresent ||
                f15SessionAtOffice.authorization!=="Bearer f15-e2e-owner-token"){
-              throw new Error("F15 owner session was lost before Hive mutations: "+JSON.stringify(f15SessionAtOffice));
+              throw new Error("F15 owner session was lost before Hive mutations: "+JSON.stringify({
+                session:f15SessionAtOffice,
+                unauthorizedResponses:f15UnauthorizedResponses
+              }));
             }
 
             const hiveBefore=await page.evaluate(() => ({
