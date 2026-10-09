@@ -288,9 +288,45 @@
       return;
     }
 
+    const persisted = result.data.knowledge;
+    if (
+      !persisted ||
+      persisted.privacy_level !== targetPrivacy ||
+      !Number.isInteger(persisted.version)
+    ) {
+      await refresh();
+      setNotice(
+        "La API no confirmó la privacidad y versión persistidas. No se marcará como éxito.",
+        true
+      );
+      return;
+    }
+
+    if (
+      persisted.version === record.version &&
+      persisted.privacy_level === record.privacy_level &&
+      targetPrivacy === record.privacy_level
+    ) {
+      await refresh();
+      setNotice(
+        "El registro ya estaba en ese nivel de privacidad; no hubo cambio ni nueva auditoría. No se realizó propagación externa.",
+        false
+      );
+      return;
+    }
+
+    if (persisted.version !== record.version + 1) {
+      await refresh();
+      setNotice(
+        "La versión devuelta no confirma una transición nueva. Se releyó el estado; verifica el registro antes de repetir la acción.",
+        true
+      );
+      return;
+    }
+
     await refresh();
     setNotice(
-      "Transición persistida y auditada. No se realizó propagación externa.",
+      "Transición de privacidad persistida y auditada. No se realizó propagación externa.",
       false
     );
   }
