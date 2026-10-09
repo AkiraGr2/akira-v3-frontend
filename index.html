@@ -1374,7 +1374,7 @@ async function f14Approve(){
 async function f14Act(){
   const id=localStorage.getItem("akira_f14_run_id");
   if(!id){f14SetOutput("❌ No hay una ejecución F14 conocida.");return;}
-  if(!confirm("¿Ejecutar ahora la acción externa controlada de esta F14? Creará una rama aislada y un Draft PR; no hará merge ni escribirá main.")) return;
+  if(!confirm("¿Ejecutar la acción controlada de esta F14? Si es una recuperación tras un fallo de verificación final, revisará la rama y el Draft PR existentes sin repetir la escritura. En una ejecución aprobada normal, creará una rama aislada y un Draft PR. Nunca hará merge ni escribirá main.")) return;
   f14SetOutput("⏳ Ejecutando la acción externa controlada...");
   try{
     const d=await f14Request("/api/v8/autonomy/"+encodeURIComponent(id)+"/act",{method:"POST"});
