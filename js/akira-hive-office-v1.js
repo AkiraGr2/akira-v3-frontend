@@ -40,11 +40,12 @@
     const timeout = setTimeout(() => controller.abort(), 15000);
     const headers = Object.assign({}, authHeaders(), options.headers || {});
     try {
-      const response = await fetch(backendUrl() + path, Object.assign({
+      const fetchOptions = Object.assign({
         cache: "no-store",
-        signal: controller.signal,
-        headers
-      }, options));
+        signal: controller.signal
+      }, options);
+      fetchOptions.headers = headers;
+      const response = await fetch(backendUrl() + path, fetchOptions);
       let data = null;
       try { data = await response.json(); } catch (_) {}
       return { ok: response.ok, status: response.status, data };
