@@ -107,6 +107,7 @@ jobs:
               }
             ];
             const f15MutationRequests = [];
+            let f15ForceConflict = false;
             const f15CapabilityStatus = {
               ok:true,
               contract:"hive_knowledge_sharing.v1",
@@ -123,6 +124,17 @@ jobs:
               local_agent_available:false
             };
 
+            await page.addInitScript(() => {
+              localStorage.setItem("akira_session_token", "f15-e2e-owner-token");
+              localStorage.setItem("akira_session_exp", "4102444800");
+            });
+            await page.route(/\\/api\\/v8\\/me(?:\\?.*)?$/, route => route.fulfill({
+              status:200, contentType:"application/json",
+              body:JSON.stringify({
+                ok:true, authenticated:true, is_owner:true,
+                email:"f15-owner@example.test", expires_at:4102444800
+              })
+            }));
             await page.route(/\/api\/v8\/hive\/status(?:\?.*)?$/, route => route.fulfill({
               status:200, contentType:"application/json", body:JSON.stringify(f15CapabilityStatus)
             }));
@@ -144,13 +156,17 @@ jobs:
               const parts = url.pathname.split("/");
               const recordId = decodeURIComponent(parts[parts.length-2]);
               const payload = route.request().postDataJSON();
-              f15MutationRequests.push({id:recordId,payload});
+              f15MutationRequests.push({
+                id:recordId,
+                payload,
+                authorization:route.request().headers()["authorization"]||""
+              });
               const record = f15Knowledge.find(r=>r.id===recordId);
               if(!record) {
                 await route.fulfill({status:404,contentType:"application/json",body:JSON.stringify({ok:false,reason:"not_found"})});
                 return;
               }
-              if(payload.confirmed!==true || payload.expected_version!==record.version) {
+              if(f15ForceConflict || payload.confirmed!==true || payload.expected_version!==record.version) {
                 await route.fulfill({status:409,contentType:"application/json",body:JSON.stringify({ok:false,reason:"conflict"})});
                 return;
               }
@@ -204,8 +220,9 @@ jobs:
             if(f15MutationRequests.length!==1 ||
                f15MutationRequests[0].payload.privacy_level!=="SHAREABLE" ||
                f15MutationRequests[0].payload.expected_version!==2 ||
-               f15MutationRequests[0].payload.confirmed!==true){
-              throw new Error("F15 explicit SHAREABLE transition contract failed: "+JSON.stringify(f15MutationRequests));
+               f15MutationRequests[0].payload.confirmed!==true ||
+               f15MutationRequests[0].authorization!=="Bearer f15-e2e-owner-token"){
+              throw new Error("F15 explicit SHAREABLE/authenticated transition contract failed: "+JSON.stringify(f15MutationRequests));
             }
 
             await page.waitForFunction(() => {
@@ -224,6 +241,21 @@ jobs:
                f15MutationRequests[1].payload.expected_version!==3 ||
                f15MutationRequests[1].payload.confirmed!==true){
               throw new Error("F15 revocation/version contract failed: "+JSON.stringify(f15MutationRequests));
+            }
+
+            // A real concurrency conflict must remain visible and must not fake success.
+            f15ForceConflict = true;
+            await page.click('[data-hive-action="share"][data-hive-id="know-f15-verified"]');
+            await page.waitForFunction(() =>
+              document.getElementById("officeHiveNotice")?.textContent.includes("Conflicto de versión/transición."),
+              null, {timeout:10000}
+            );
+            if(f15MutationRequests.length!==3 ||
+               f15MutationRequests[2].payload.privacy_level!=="SHAREABLE" ||
+               f15MutationRequests[2].payload.expected_version!==4 ||
+               f15MutationRequests[2].authorization!=="Bearer f15-e2e-owner-token" ||
+               f15Knowledge[0].privacy_level!=="PRIVATE" || f15Knowledge[0].version!==4){
+              throw new Error("F15 conflict fail-closed contract failed: "+JSON.stringify({requests:f15MutationRequests,record:f15Knowledge[0]}));
             }
 
 
