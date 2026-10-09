@@ -88,8 +88,9 @@
     capabilityAvailable = Boolean(
       statusResult && statusResult.ok && data && data.ok === true &&
       capability && capability.name === CAPABILITY_NAME &&
-      capability.implementation_state === "partial" &&
-      capability.availability_state !== "unavailable"
+      ["partial", "implemented"].includes(capability.implementation_state) &&
+      ["available", "degraded"].includes(capability.availability_state) &&
+      ["unverified", "verified"].includes(capability.verification_state)
     );
 
     if (!statusResult || !statusResult.ok || !data || data.ok !== true) {
