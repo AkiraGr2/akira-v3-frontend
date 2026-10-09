@@ -183,6 +183,12 @@ jobs:
               localStorage.setItem("akira_session_token", "f15-e2e-owner-token");
               localStorage.setItem("akira_session_exp", "4102444800");
               const result = await window.akiraVerifySession();
+              window.__f15SessionClearReasons = [];
+              const originalClear = window.akiraClearSession;
+              window.akiraClearSession = function(reason) {
+                window.__f15SessionClearReasons.push(String(reason || "unspecified"));
+                return originalClear(reason);
+              };
               return {
                 ok: Boolean(result && result.ok && result.authenticated === true),
                 isOwner: Boolean(window.akiraSessionState && window.akiraSessionState.is_owner),
@@ -205,6 +211,17 @@ jobs:
               return status && status.textContent.includes("parcial") &&
                 list && list.textContent.includes("F15 verified knowledge fixture");
             }, null, {timeout:15000});
+
+            const f15SessionAtOffice = await page.evaluate(() => ({
+              tokenPresent: Boolean(localStorage.getItem("akira_session_token")),
+              exp: localStorage.getItem("akira_session_exp") || "",
+              authorization: (window.akiraAuthHeaders() || {}).Authorization || "",
+              clearReasons: window.__f15SessionClearReasons || []
+            }));
+            if(!f15SessionAtOffice.tokenPresent ||
+               f15SessionAtOffice.authorization!=="Bearer f15-e2e-owner-token"){
+              throw new Error("F15 owner session was lost before Hive mutations: "+JSON.stringify(f15SessionAtOffice));
+            }
 
             const hiveBefore=await page.evaluate(() => ({
               capability:document.getElementById("officeHiveCapability")?.textContent||"",
