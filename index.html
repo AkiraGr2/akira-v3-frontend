@@ -1079,12 +1079,17 @@ function showSection(name){
 }
   else if(name==='office'){
     if(window.initAkiraOfficePixel) initAkiraOfficePixel();
+    if(window.AkiraHologramBridge && typeof window.AkiraHologramBridge.pollData === 'function') window.AkiraHologramBridge.pollData();
     window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"office"}}));
     requestAnimationFrame(()=>{
       try{window.resizeAkiraOfficePixel && window.resizeAkiraOfficePixel();}catch(_){}
     });
   }
-  else if(name==='missions'){if(window.missionPanelLoad)window.missionPanelLoad();}
+  else if(name==='missions'){
+    if(window.missionPanelLoad) window.missionPanelLoad();
+    if(window.AkiraMissionsModern && typeof window.AkiraMissionsModern.loadMissions === 'function') window.AkiraMissionsModern.loadMissions();
+    window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"missions"}}));
+  }
   else if(name==='levels'){renderLevels();}
   else if(name==='admin'){document.getElementById("adminLogin").style.display="block";document.getElementById("adminPanel").style.display="none";adminCheckSession();}
 }
@@ -1654,8 +1659,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_quantum_orb.js?v=akira-quantum-orb-v1"></script>
 <script src="./js/akira_voice_live.js?v=akira-voice-live-v1"></script>
 <script src="./js/akira_monetization.js?v=akira-monetize-v2"></script>
-<script src="./js/akira_office_hologram.js?v=akira-hologram-v1"></script>
-<script src="./js/akira_missions_modern.js?v=akira-missions-v2"></script>
+<script src="./js/akira_office_hologram.js?v=akira-hologram-v2"></script>
+<script src="./js/akira_missions_modern.js?v=akira-missions-v3"></script>
 <script src="./js/akira_admin_modern.js?v=akira-admin-v2"></script>
 <script src="./js/akira_reference_workspace_v2.js?v=akira-reference-v10-cognitive-workspace"></script>
 <script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>

@@ -78,7 +78,7 @@
                       <option value="critical">Crítica (Inmediata)</option>
                     </select>
                   </div>
-                  <button class="ak-btn primary" id="akBtnCreateMission" style="align-self:flex-end;">🚀 Crear y Planificar Misión</button>
+                  <button class="ak-btn primary" id="akBtnCreateMission" style="align-self:flex-end;">🚀 Crear y Ejecutar Inmediatamente</button>
                 </div>
               </div>
 
@@ -154,6 +154,20 @@
           data = await res.json();
           items = data.missions || data.items || [];
         }
+
+        // Incorporate zero-lag local mission if active
+        try {
+          const raw = localStorage.getItem("akira_last_active_mission");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && (Date.now() - (parsed.timestamp || 0)) < 15 * 60 * 1000) {
+              if (!items.some(m => m.id === parsed.id)) {
+                items.unshift(parsed);
+              }
+            }
+          }
+        } catch (_) {}
+
         this.missions = items;
 
         if (!items.length) {
@@ -195,7 +209,7 @@
     async createMission(goal, priority) {
       const btn = document.getElementById("akBtnCreateMission");
       btn.disabled = true;
-      btn.textContent = "⏳ Planificando con Akira...";
+      btn.textContent = "⏳ Planificando y Lanzando con Akira...";
 
       const priorityMap = { normal: 5, high: 8, critical: 10 };
       const priorityNum = priorityMap[priority] || 5;
@@ -218,10 +232,32 @@
         const data = await res.json();
 
         if (data.ok && (data.mission || data.plan)) {
-          alert("¡Misión creada y planificada exitosamente! Los agentes especialistas han generado los pasos de acción.");
+          const targetId = (data.mission && data.mission.id) || data.mission_id;
+          const planSteps = (data.plan && data.plan.steps) || (data.mission && data.mission.plan && data.mission.plan.steps) || [];
+          
+          // Cache locally for instantaneous multi-tab reactivity
+          const missionPayload = {
+            id: targetId,
+            title: title,
+            objective: goal,
+            status: "running",
+            steps: planSteps,
+            timestamp: Date.now()
+          };
+          try {
+            localStorage.setItem("akira_last_active_mission", JSON.stringify(missionPayload));
+          } catch (_) {}
+
+          // Automatically approve and execute immediately so agents start working
+          if (targetId) {
+            await this.approveAndExecute(targetId, true);
+          }
+
+          window.dispatchEvent(new CustomEvent("akira:mission-activity", { detail: missionPayload }));
+
+          alert("🚀 ¡Misión planificada y ejecutándose en tiempo real! Akira y sus agentes especialistas ya están operando. Puedes observarlos en vivo en el apartado de Oficina.");
           document.getElementById("akMissionGoal").value = "";
           await this.loadMissions();
-          const targetId = (data.mission && data.mission.id) || data.mission_id;
           if (targetId) {
             this.viewDetail(targetId);
           }
@@ -232,7 +268,7 @@
         alert("Error al conectar con el servidor: " + err.message);
       } finally {
         btn.disabled = false;
-        btn.textContent = "🚀 Crear y Planificar Misión";
+        btn.textContent = "🚀 Crear y Ejecutar Inmediatamente";
       }
     }
 
@@ -282,14 +318,17 @@
         ${stepsHtml}
       `;
 
-      let actionButtons = "";
+      let actionButtons = `
+        <button class="ak-btn secondary small" onclick="window.showSection('office')">⚡ Ver Agentes en Oficina</button>
+      `;
+
       if (m.status === "waiting_approval" || m.status === "awaiting_approval") {
-        actionButtons = `
+        actionButtons += `
           <button class="ak-btn primary small" onclick="window.AkiraMissionsModern.approveAndExecute('${m.id}')">⚡ Aprobar y Ejecutar Misión</button>
           <button class="ak-btn secondary small" onclick="window.AkiraMissionsModern.reject('${m.id}')">✕ Cancelar</button>
         `;
       } else if (m.status === "failed") {
-        actionButtons = `
+        actionButtons += `
           <button class="ak-btn secondary small" onclick="window.AkiraMissionsModern.diagnose('${m.id}')">🔍 Ver Diagnóstico de Fallo</button>
           <button class="ak-btn primary small" onclick="window.AkiraMissionsModern.retry('${m.id}')">↻ Reintentar</button>
         `;
@@ -300,7 +339,7 @@
       card.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
-    async approveAndExecute(id) {
+    async approveAndExecute(id, silent = false) {
       try {
         const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
         const headers = window.akiraAuthHeaders ? window.akiraAuthHeaders() : {};
@@ -313,11 +352,27 @@
         const execRes = await fetch(`${backend}/api/v8/missions/${id}/execute`, { method: "POST", headers });
         const execData = await execRes.json();
 
-        alert("¡Misión aprobada y en ejecución! Los agentes especialistas están trabajando en los pasos.");
-        await this.loadMissions();
-        this.viewDetail(id);
+        // Broadcast to office bridge
+        const m = this.missions.find(x => x.id === id);
+        const payload = {
+          id: id,
+          title: m ? m.title : `Misión #${id.slice(0, 8)}`,
+          status: "running",
+          steps: (m && m.plan && m.plan.steps) || [],
+          timestamp: Date.now()
+        };
+        try {
+          localStorage.setItem("akira_last_active_mission", JSON.stringify(payload));
+        } catch (_) {}
+        window.dispatchEvent(new CustomEvent("akira:mission-activity", { detail: payload }));
+
+        if (!silent) {
+          alert("¡Misión aprobada y en ejecución! Los agentes especialistas están trabajando en los pasos.");
+          await this.loadMissions();
+          this.viewDetail(id);
+        }
       } catch (err) {
-        alert("Error al aprobar misión: " + err.message);
+        if (!silent) alert("Error al aprobar misión: " + err.message);
       }
     }
 
