@@ -38,11 +38,14 @@
         if (!this.synthesis) return;
         const voices = this.synthesis.getVoices();
         const esVoices = voices.filter(v => v.lang.startsWith("es"));
-        this.selectedVoice = esVoices.find(v => v.lang === "es-CO" || v.name.toLowerCase().includes("colombia")) ||
-                             esVoices.find(v => v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("online")) ||
-                             esVoices.find(v => v.name.toLowerCase().includes("sabina") || v.name.toLowerCase().includes("helena") || v.name.toLowerCase().includes("monica") || v.name.toLowerCase().includes("paulina")) ||
-                             esVoices[0] ||
-                             voices[0];
+        this.selectedVoice = 
+          esVoices.find(v => v.lang === "es-CO" && (v.name.toLowerCase().includes("salome") || v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("online"))) ||
+          esVoices.find(v => v.lang === "es-CO") ||
+          esVoices.find(v => v.name.toLowerCase().includes("colombia")) ||
+          esVoices.find(v => v.name.toLowerCase().includes("sabina") || v.name.toLowerCase().includes("helena") || v.name.toLowerCase().includes("sofi") || v.name.toLowerCase().includes("monica") || v.name.toLowerCase().includes("paulina") || v.name.toLowerCase().includes("camila") || v.name.toLowerCase().includes("lucia")) ||
+          esVoices.find(v => v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("online")) ||
+          esVoices[0] ||
+          voices[0];
       };
 
       if (this.synthesis) {
@@ -311,7 +314,7 @@
         const headers = window.akiraAuthHeaders ? window.akiraAuthHeaders() : { "Content-Type": "application/json" };
         
         // Fast concise prompt for rapid oral turnaround
-        const fastVoicePrompt = `[MODO VOZ: Responde en español de forma conversacional, cálida, directa y breve (máximo 1 o 2 oraciones breves)]: ${query}`;
+        const fastVoicePrompt = `[MODO VOZ AKIRA LIVE: Eres Akira, colmena de Colombia creada por Jhon Grimm. Háblale a Jhon con la tranquilidad, calidez, frescura y acento natural de una chica colombiana (relajada, cercana, humana, usando giros naturales como 'parce', 'tranquilo', 'de una', 'claro que sí', sin sonar a robot ni dar rodeos, máximo 1 o 2 oraciones breves)]: ${query}`;
 
         const response = await fetch(backend + "/api/chat", {
           method: "POST",
@@ -353,8 +356,8 @@
       if (this.selectedVoice) {
         utterance.voice = this.selectedVoice;
       }
-      utterance.rate = 1.1; // Slightly faster for natural fluid rhythm
-      utterance.pitch = 1.0;
+      utterance.rate = 1.02; // Slightly faster for natural fluid rhythm
+      utterance.pitch = 1.05;
 
       let speakWaveInterval = setInterval(() => {
         if (!this.isSpeaking || !this.orbInstance) {
