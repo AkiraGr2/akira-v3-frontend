@@ -386,7 +386,51 @@
     }
   }
 
-  const api = {
+    const api = {
+    async autoConsolidateAll(){
+      const root = reviewRoot();
+      if(!confirm("¿Deseas que Akira evalúe y consolide automáticamente todos los conocimientos candidatos pendientes al Cerebro?")) return;
+      if(root) root.innerHTML = '<div class="learning-empty">⚡ Akira auto-evaluando y consolidando conocimientos pendientes...</div>';
+      
+      const results = await Promise.all([
+        request("/api/v8/learning?source=" + encodeURIComponent("explicit_user_teaching") + "&status=candidate&limit=50"),
+        request("/api/v8/learning?source=" + encodeURIComponent("experience_feedback") + "&status=candidate&limit=50"),
+        request("/api/v8/learning?source=" + encodeURIComponent("autonomous_experience") + "&status=candidate&limit=50")
+      ]);
+
+      const candidates = results.reduce(function(all, r){ 
+        return all.concat(Array.isArray(r.data && r.data.learning) ? r.data.learning : []); 
+      }, []);
+
+      if(!candidates.length){
+        alert("No hay candidatos pendientes por auto-consolidar.");
+        await api.load();
+        return;
+      }
+
+      let count = 0;
+      for(const item of candidates){
+        try {
+          let v = Number(item.version || 1);
+          const evalRes = await request("/api/v8/learning/" + encodeURIComponent(item.id) + "/evaluate", {
+            method: "POST",
+            body: JSON.stringify({expected_version: v})
+          });
+          if(evalRes.ok && evalRes.data && evalRes.data.learning){
+            v = Number(evalRes.data.learning.version || v);
+          }
+          const patchRes = await request("/api/v8/learning/" + encodeURIComponent(item.id) + "/status", {
+            method: "PATCH",
+            body: JSON.stringify({status: "consolidated", expected_version: v})
+          });
+          if(patchRes.ok) count++;
+        } catch(e) {
+          console.warn("Auto-consolidate error:", item.id, e);
+        }
+      }
+      alert("¡Auto-consolidación completada! Se integraron " + count + " de " + candidates.length + " conocimientos directamente en el Cerebro.");
+      await api.load();
+    },
     async load(){
       const root = reviewRoot();
       if(!root) return;

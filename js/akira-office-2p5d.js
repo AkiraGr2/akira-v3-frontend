@@ -980,7 +980,7 @@
         a.direction=dx<0?"left":"right";
         a.facing=dx<0?-1:1;
       }
-      if(a.machine==="returning" && a.returnFinalDirection && a.route.length-a.routeIndex<=2){
+      if(a.machine==="returning" && a.returnFinalDirection && a.routeIndex>=a.route.length-1){
         a.direction=a.returnFinalDirection;
         a.facing=1;
       }

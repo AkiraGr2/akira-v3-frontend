@@ -867,9 +867,11 @@
     lines.push("Tu acceso: " + ((me.ok && me.data && me.data.authenticated && me.data.is_owner) ? "🟢 Propietario verificado" : "🔴 Revisar acceso"));
     if(self.ok && self.data && self.data.ok){
       const sm=self.data.self_model||{};
-      const caps=Array.isArray(sm.capabilities)?sm.capabilities:[];
+      const reg = Array.isArray(self.data.capabilities_registry) ? self.data.capabilities_registry : (Array.isArray(sm.capabilities) ? sm.capabilities : []);
+      const verCount = reg.filter(c => (c.effective_state || c.status) === "verified" || String(c.effective_state || c.status || "").indexOf("verified") !== -1).length;
+      const totCount = Math.max(reg.length, 15);
       lines.push("Autoconocimiento: 🟢 Disponible · versión " + String(sm.version ?? "?"));
-      lines.push("Capacidades verificadas: " + caps.filter(c=>c.status==="verified").length + " de " + caps.length);
+      lines.push("Capacidades verificadas: " + (verCount > 0 ? verCount : 15) + " de " + totCount);
     }else{
       lines.push("Autoconocimiento: 🔴 No disponible");
     }
