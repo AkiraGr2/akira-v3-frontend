@@ -173,9 +173,7 @@
             pill.textContent = "Al día (0 pendientes)";
             pill.className = "ak-candidate-counter clean";
           }
-          alert(¡Auto-consolidación completada con éxito!
-
-);
+          alert("¡Auto-consolidación completada con éxito!\n\nAkira ha asimilado y verificado todos los conocimientos pendientes en su memoria persistente.");
           await this.refreshStatus();
           window.dispatchEvent(new CustomEvent("akira:brain-updated"));
           return;

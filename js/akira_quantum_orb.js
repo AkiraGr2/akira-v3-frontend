@@ -366,8 +366,8 @@
 
     resize() {
       if (!this.container || !this.renderer || !this.camera) return;
-      const w = this.container.clientWidth;
-      const h = this.container.clientHeight;
+      const w = this.container.clientWidth || this.options.size || 560;
+      const h = this.container.clientHeight || this.options.size || 560;
       if (w < 10 || h < 10) return;
       this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();

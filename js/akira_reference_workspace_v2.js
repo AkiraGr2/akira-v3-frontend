@@ -226,7 +226,12 @@
     }
     home.innerHTML=homeMarkup();
     qsa("[data-ak-ref-go]",home).forEach(function(el){el.addEventListener("click",function(){clickSection(el.getAttribute("data-ak-ref-go"))})});
-    if(window.AkiraEntity&&window.AkiraEntity.mountAll)window.AkiraEntity.mountAll(home);
+    if(window.AkiraQuantumOrb&&typeof window.AkiraQuantumOrb.mountAll==="function"){
+      window.AkiraQuantumOrb.mountAll(home);
+    }
+    if(window.AkiraEntity&&typeof window.AkiraEntity.mountAll==="function"){
+      window.AkiraEntity.mountAll(home);
+    }
     hydrateHome(home).catch(function(error){
       setText(home,"akRefSystemPill","● datos no disponibles");
       setText(home,"akRefSystemNote","No se pudieron consultar los datos del runtime; no se usa contenido de relleno.");
