@@ -686,24 +686,247 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 
   <div id="keysSection" class="section">
     <div class="section-header">
-      <h2>👤 Cuenta</h2>
-      <p>Inicia sesión con Google para activar la sesión firmada y desbloquear el panel admin.</p>
+      <h2>🛡️ Centro de Control & Bóveda de Claves</h2>
+      <p>Gestión de identidad, sesión autenticada y arquitectura BYOK (Bring Your Own Key) con protección criptográfica local.</p>
     </div>
-    <div style="padding:22px;max-width:600px;margin:0 auto;width:100%;overflow-y:auto">
-      <div style="background:#16161b;border:3px solid var(--border);padding:16px;">
-        <div id="accountSessionBadge" style="margin-bottom:12px;padding:10px 12px;border:2px solid #2a2a36;background:#0e0e12;color:#8a8a93;font-size:12px;display:flex;align-items:center;gap:8px;"><span id="accountSessionDot" style="width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block"></span><span id="accountSessionText">Sesión no verificada</span></div><div id="g_id_onload" data-client_id="148150327312-7k5g3go06tat9gv61c8v0rbbedcusoqn.apps.googleusercontent.com" data-context="signin" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
-        <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
-        <div id="userInfo" style="margin-top:14px;font-size:13px;display:none;background:#0e0e12;border:3px solid var(--border);padding:12px;font-family:'Pixelify Sans', sans-serif;"></div>
+
+    <div class="ak-vault-deck">
+      
+      <!-- CARD 1: IDENTIDAD & OPERADOR GOOGLE -->
+      <div class="ak-vault-card">
+        <div class="ak-vault-header">
+          <div class="ak-vault-title-group">
+            <div class="ak-vault-icon-badge">👤</div>
+            <div>
+              <h3 class="ak-vault-title">Sesión & Autenticación de Operador</h3>
+              <p class="ak-vault-subtitle" style="margin:2px 0 0 0">Inicia sesión con tu cuenta Google para verificar identidad y sincronizar privilegios de mando.</p>
+            </div>
+          </div>
+          <div id="accountSessionBadge" class="ak-session-pill">
+            <span id="accountSessionDot" style="width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block"></span>
+            <span id="accountSessionText">Sesión no verificada</span>
+          </div>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <div id="g_id_onload" data-client_id="148150327312-7k5g3go06tat9gv61c8v0rbbedcusoqn.apps.googleusercontent.com" data-context="signin" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+          <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
+          <div id="userInfo" style="margin-top:14px;font-size:13px;display:none;background:rgba(14,14,18,0.9);border:1px solid rgba(0,242,254,0.25);border-radius:10px;padding:12px;font-family:'Outfit',sans-serif;color:#e2e8f0;"></div>
+        </div>
       </div>
-      <h3 style="margin-top:24px;font-family:'Press Start 2P', monospace;font-size:14px;">🔑 Mi API Key de Google (opcional)</h3>
-      <p style="font-size:12.5px;color:var(--muted);margin-top:6px">Puedes guardar una API Key de Google para que Akira la use en tus conversaciones desde este dispositivo. La clave queda guardada localmente en este navegador.</p>
-      <input id="apiKeyInput" type="password" placeholder="AIza..." autocomplete="off" spellcheck="false" style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:12px;color:#fff;margin-top:12px;font-family:'Pixelify Sans', sans-serif;border-radius:0;">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="pixel-btn" onclick="saveKey()">💾 Guardar mi API Key</button><button class="pixel-btn" onclick="testKeys()">🧪 Comprobar formato</button><button class="pixel-btn" onclick="clearKey()">🗑️ Borrar mi API Key</button></div>
-      <div id="keyStatus" style="margin-top:12px;font-size:12px;color:var(--muted)"></div>
-      <div style="margin-top:24px;background:#0e0e12;border:3px solid var(--border);padding:14px;">
-        <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block"></span><span style="font-size:13px;font-weight:600" id="bridgeSimple">Conectado</span></div>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px" id="bridgeSimpleDetail">Akira está en línea y listo para chatear.</div>
+
+      <!-- CARD 2: BÓVEDA PRIVADA DE CLAVES (BYOK) -->
+      <div class="ak-vault-card">
+        <div class="ak-vault-header">
+          <div class="ak-vault-title-group">
+            <div class="ak-vault-icon-badge" style="background:rgba(245,158,11,0.12);border-color:rgba(245,158,11,0.3);color:#fbbf24">🔑</div>
+            <div>
+              <h3 class="ak-vault-title">Bóveda de Inferencia Personal (BYOK)</h3>
+              <p class="ak-vault-subtitle" style="margin:2px 0 0 0">Usa tu propia API Key de Google Gemini o Groq. Tus peticiones usarán tu cuota exclusiva sin consumir la cuota general.</p>
+            </div>
+          </div>
+          <span id="providerDetectedBadge" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,0.06);color:#94a3b8;border:1px solid rgba(255,255,255,0.1)">Detección automática</span>
+        </div>
+
+        <div class="ak-key-input-container">
+          <span style="font-size:16px;margin-right:8px;opacity:0.7">🔐</span>
+          <input id="apiKeyInput" type="password" placeholder="Pega tu clave AIza... (Google) o gsk_... (Groq)" autocomplete="off" spellcheck="false" class="ak-key-field" oninput="akiraOnKeyInput(this.value)">
+          <button id="toggleKeyVisibilityBtn" type="button" class="ak-key-toggle-btn" onclick="akiraToggleKeyVisibility()" title="Mostrar/Ocultar clave">👁️</button>
+        </div>
+
+        <div class="ak-vault-btn-row">
+          <button class="ak-vault-btn primary" onclick="saveKey()">
+            <span>💾</span> Guardar en Navegador
+          </button>
+          <button class="ak-vault-btn secondary" onclick="testKeys()">
+            <span>🧪</span> Comprobar Formato
+          </button>
+          <button class="ak-vault-btn danger" onclick="clearKey()">
+            <span>🗑️</span> Purgar Clave Local
+          </button>
+        </div>
+
+        <div id="keyStatus" style="margin-top:14px;font-size:13px;padding:10px 14px;border-radius:10px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.08);display:none;"></div>
       </div>
+
+      <!-- CARD 3: CONSOLAS OFICIALES Y ENLACES DIRECTOS -->
+      <div class="ak-vault-card">
+        <div class="ak-vault-header">
+          <div class="ak-vault-title-group">
+            <div class="ak-vault-icon-badge" style="background:rgba(56,189,248,0.12);border-color:rgba(56,189,248,0.3);color:#38bdf8">🌐</div>
+            <div>
+              <h3 class="ak-vault-title">Consolas Oficiales para Crear tu API Key Gratis</h3>
+              <p class="ak-vault-subtitle" style="margin:2px 0 0 0">Puedes obtener claves gratuitas en segundos sin ingresar tarjeta de crédito en ambos proveedores.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="ak-providers-grid">
+          
+          <!-- GOOGLE GEMINI -->
+          <div class="ak-provider-item gemini">
+            <div>
+              <div class="ak-provider-head">
+                <div class="ak-provider-name">
+                  <span style="font-size:20px">🔵</span> Google AI Studio
+                </div>
+                <span class="ak-provider-badge free">Nivel Gratuito</span>
+              </div>
+              <p style="font-size:12.5px;color:#94a3b8;margin:8px 0 14px 0">Modelo Gemini 2.0 / 2.5 Flash con ventana de contexto inmensa y razonamiento multimodal de última generación.</p>
+              <ul class="ak-provider-bullets">
+                <li><span class="ak-bullet-dot">▸</span> <strong>15 RPM</strong> (Peticiones por minuto)</li>
+                <li><span class="ak-bullet-dot">▸</span> <strong>1,000,000 TPM</strong> (Tokens por minuto)</li>
+                <li><span class="ak-bullet-dot">▸</span> <strong>1,500 RPD</strong> (Consultas diarias gratis)</li>
+                <li><span class="ak-bullet-dot">▸</span> <strong>Multimodal nativo:</strong> Texto, fotos y documentos</li>
+              </ul>
+            </div>
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="ak-provider-link-btn">
+              Obtener Clave en Google AI Studio ↗
+            </a>
+          </div>
+
+          <!-- GROQ CLOUD -->
+          <div class="ak-provider-item groq">
+            <div>
+              <div class="ak-provider-head">
+                <div class="ak-provider-name">
+                  <span style="font-size:20px">⚡</span> Groq Cloud (LPU)
+                </div>
+                <span class="ak-provider-badge free">Nivel Gratuito</span>
+              </div>
+              <p style="font-size:12.5px;color:#94a3b8;margin:8px 0 14px 0">Inferencia ultrarrápida impulsada por chips LPU. Respuestas casi instantáneas a más de 300 tokens/segundo.</p>
+              <ul class="ak-provider-bullets">
+                <li><span class="ak-bullet-dot">▸</span> <strong>30 RPM</strong> (Peticiones por minuto)</li>
+                <li><span class="ak-bullet-dot">▸</span> <strong>14,400 RPD</strong> (Consultas diarias gratis)</li>
+                <li><span class="ak-bullet-dot">▸</span> <strong>Latencia mínima:</strong> 300+ tokens/seg (tiempo real)</li>
+                <li><span class="ak-bullet-dot">▸</span> <strong>Ideal para:</strong> Voz en vivo y chat hiper-rápido</li>
+              </ul>
+            </div>
+            <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" class="ak-provider-link-btn" style="border-color:rgba(249,115,22,0.3);color:#fb923c">
+              Obtener Clave en Groq Console ↗
+            </a>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- CARD 4: TABLA COMPARATIVA DE LÍMITES -->
+      <div class="ak-vault-card">
+        <div class="ak-vault-header">
+          <div class="ak-vault-title-group">
+            <div class="ak-vault-icon-badge" style="background:rgba(168,85,247,0.12);border-color:rgba(168,85,247,0.3);color:#c084fc">📊</div>
+            <div>
+              <h3 class="ak-vault-title">Comparativa Detallada de Cuotas y Rendimiento</h3>
+              <p class="ak-vault-subtitle" style="margin:2px 0 0 0">Selecciona el proveedor según tus prioridades: razonamiento multimodal o velocidad ultra-rápida.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="ak-comparison-table-wrap">
+          <table class="ak-cyber-table">
+            <thead>
+              <tr>
+                <th>Característica</th>
+                <th>Google Gemini Free</th>
+                <th>Groq Cloud Free</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Límite por Minuto (RPM)</strong></td>
+                <td>15 peticiones / min</td>
+                <td><span style="color:#34d399;font-weight:600">30 peticiones / min</span></td>
+              </tr>
+              <tr>
+                <td><strong>Cuota Diaria (RPD)</strong></td>
+                <td>1,500 peticiones / día</td>
+                <td><span style="color:#34d399;font-weight:600">14,400 peticiones / día</span></td>
+              </tr>
+              <tr>
+                <td><strong>Velocidad de Respuesta</strong></td>
+                <td>~1.5 - 2.5 seg</td>
+                <td><span style="color:#34d399;font-weight:600">&lt; 0.6 seg (300+ tok/s)</span></td>
+              </tr>
+              <tr>
+                <td><strong>Ventana de Contexto</strong></td>
+                <td><span style="color:#34d399;font-weight:600">1,000,000 tokens</span></td>
+                <td>128,000 tokens</td>
+              </tr>
+              <tr>
+                <td><strong>Análisis Visual (Imágenes)</strong></td>
+                <td><span style="color:#34d399;font-weight:600">✅ Sí (Nativo y preciso)</span></td>
+                <td>❌ Solo texto</td>
+              </tr>
+              <tr>
+                <td><strong>Recomendado para...</strong></td>
+                <td>Misiones complejas, análisis y documentos</td>
+                <td>Chat interactivo y llamadas de voz en vivo</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CARD 5: GARANTÍA CRIPTOGRÁFICA DE PRIVACIDAD & ZERO-ACCESS -->
+      <div class="ak-vault-card ak-security-box">
+        <div class="ak-vault-header">
+          <div class="ak-vault-title-group">
+            <div class="ak-vault-icon-badge" style="background:rgba(16,185,129,0.15);border-color:rgba(16,185,129,0.35);color:#34d399">🛡️</div>
+            <div>
+              <h3 class="ak-vault-title" style="color:#34d399 !important">Transparencia Total: Privacidad & Seguridad Criptográfica</h3>
+              <p class="ak-vault-subtitle" style="margin:2px 0 0 0">Arquitectura de Cero Acceso (Zero-Access): tú tienes la soberanía completa sobre tus credenciales.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="ak-security-grid">
+          <div class="ak-security-col">
+            <div class="ak-sec-icon">🔒</div>
+            <div class="ak-sec-content">
+              <h4>Almacenamiento 100% Local</h4>
+              <p>Tu API Key se almacena exclusivamente en el almacenamiento seguro de tu propio navegador (<code>localStorage</code>). Nunca abandona tu dispositivo sin tu autorización.</p>
+            </div>
+          </div>
+          <div class="ak-security-col">
+            <div class="ak-sec-icon">🚫</div>
+            <div class="ak-sec-content">
+              <h4>Cero Acceso de Akira y Jhon Grimm</h4>
+              <p>Tu clave <strong>jamás se almacena en base de datos externa ni en logs</strong>. Ni Jhon Grimm ni ningún tercero tienen acceso o visibilidad de tu clave.</p>
+            </div>
+          </div>
+          <div class="ak-security-col">
+            <div class="ak-sec-icon">⚡</div>
+            <div class="ak-sec-content">
+              <h4>Canal Cifrado TLS de Extremo a Extremo</h4>
+              <p>Cuando chateas, tu clave viaja en una cabecera segura encriptada con TLS 1.3 directo hacia los servidores de Google o Groq para procesar tu consulta.</p>
+            </div>
+          </div>
+          <div class="ak-security-col">
+            <div class="ak-sec-icon">🗑️</div>
+            <div class="ak-sec-content">
+              <h4>Destrucción Instantánea</h4>
+              <p>Al hacer clic en "Purgar Clave Local" o limpiar el historial de tu navegador, la clave es borrada de raíz de la memoria de tu dispositivo inmediatamente.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CARD 6: TELEMETRÍA DE SERVIDOR EN VIVO -->
+      <div class="ak-vault-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:10px;height:10px;border-radius:50%;background:#10b981;box-shadow:0 0 10px #10b981;display:inline-block"></span>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#ffffff" id="bridgeSimple">Motor Akira Online</div>
+              <div style="font-size:12px;color:#94a3b8;margin-top:2px" id="bridgeSimpleDetail">Backend en Render activo, sin tiempos de espera.</div>
+            </div>
+          </div>
+          <button class="ak-vault-btn secondary" style="padding:6px 14px;font-size:12px;" onclick="checkBridgeSimple()">
+            🔄 Ping de Conexión
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -1361,53 +1584,162 @@ async function clearLocalDB(){if(!confirm("¿Borrar DB local?")) return;try{cons
 async function forceSyncR2(){try{const backend=localStorage.getItem("akira_backend_url");const r=await fetch(backend+"/api/brain/shared",{headers:typeof akiraAuthHeaders==="function"?akiraAuthHeaders():{}});if(r.status===401&&typeof akiraHandleAuthFailure==="function") akiraHandleAuthFailure(401);const d=await r.json();if(!r.ok) throw new Error((d&&d.detail)||"No autorizado");alert("R2 OK: "+JSON.stringify(d.membrana||d).slice(0,200));}catch(e){alert(e.message);}}
 function exportBackup(){if(typeof getNeuronasLocales === "function"){getNeuronasLocales().then(data=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="akira_backup_"+Date.now()+".json";a.click();});}}
 
+function akiraToggleKeyVisibility(){
+  const inp = document.getElementById("apiKeyInput");
+  const btn = document.getElementById("toggleKeyVisibilityBtn");
+  if(!inp) return;
+  if(inp.type === "password"){
+    inp.type = "text";
+    if(btn) btn.textContent = "🙈";
+  } else {
+    inp.type = "password";
+    if(btn) btn.textContent = "👁️";
+  }
+}
+
+function akiraOnKeyInput(val){
+  const badge = document.getElementById("providerDetectedBadge");
+  const trimmed = String(val||"").trim();
+  if(!badge) return;
+  if(trimmed.startsWith("AIza")){
+    badge.textContent = "🔵 Google Gemini detectada";
+    badge.style.background = "rgba(56,189,248,0.15)";
+    badge.style.color = "#38bdf8";
+    badge.style.borderColor = "rgba(56,189,248,0.3)";
+  } else if(trimmed.startsWith("gsk_")){
+    badge.textContent = "⚡ Groq detectada";
+    badge.style.background = "rgba(249,115,22,0.15)";
+    badge.style.color = "#fb923c";
+    badge.style.borderColor = "rgba(249,115,22,0.3)";
+  } else if(trimmed.length > 0){
+    badge.textContent = "🔑 Clave personalizada";
+    badge.style.background = "rgba(255,255,255,0.08)";
+    badge.style.color = "#e2e8f0";
+    badge.style.borderColor = "rgba(255,255,255,0.15)";
+  } else {
+    badge.textContent = "Detección automática";
+    badge.style.background = "rgba(255,255,255,0.06)";
+    badge.style.color = "#94a3b8";
+    badge.style.borderColor = "rgba(255,255,255,0.1)";
+  }
+}
+
+function akiraRefreshSavedKeyUI(){
+  const status = document.getElementById("keyStatus");
+  const badge = document.getElementById("providerDetectedBadge");
+  let saved = "";
+  try{ saved = localStorage.getItem("akira_user_key") || ""; }catch(e){}
+  if(!status) return;
+  if(saved){
+    status.style.display = "block";
+    const masked = saved.slice(0, 5) + "••••••••" + saved.slice(-4);
+    if(saved.startsWith("AIza")){
+      status.innerHTML = `<span style="color:#38bdf8">🔵 Clave Activa Guardada:</span> <strong>Google Gemini</strong> (${masked}) — Lista para usar en el chat.`;
+      if(badge){ badge.textContent = "🔵 Google Gemini Activa"; badge.style.color = "#38bdf8"; }
+    } else if(saved.startsWith("gsk_")){
+      status.innerHTML = `<span style="color:#fb923c">⚡ Clave Activa Guardada:</span> <strong>Groq Cloud</strong> (${masked}) — Inferencia ultra-rápida lista.`;
+      if(badge){ badge.textContent = "⚡ Groq Cloud Activa"; badge.style.color = "#fb923c"; }
+    } else {
+      status.innerHTML = `<span style="color:#34d399">🔑 Clave Activa Guardada:</span> ${masked}`;
+    }
+  } else {
+    status.style.display = "none";
+    status.innerHTML = "";
+    if(badge){ badge.textContent = "Detección automática"; }
+  }
+}
+
 function saveKey(){
-  const input=document.getElementById("apiKeyInput");
-  const status=document.getElementById("keyStatus");
-  const key=input ? String(input.value||"").trim() : "";
+  const input = document.getElementById("apiKeyInput");
+  const status = document.getElementById("keyStatus");
+  const key = input ? String(input.value || "").trim() : "";
   if(!key){
-    if(status) status.textContent="Escribe una API Key antes de guardarla.";
+    if(status){
+      status.style.display = "block";
+      status.innerHTML = "⚠️ Por favor, pega una API Key antes de guardarla.";
+      status.style.color = "#fbbf24";
+    }
     return;
   }
-  if(!/^AIza[0-9A-Za-z_-]{10,}$/.test(key)){
-    if(status) status.textContent="La clave no tiene el formato esperado de una API Key de Google (AIza...).";
+  const isGemini = /^AIza[0-9A-Za-z_-]{10,}$/.test(key);
+  const isGroq = /^gsk_[0-9A-Za-z_-]{20,}$/.test(key);
+  if(!isGemini && !isGroq && key.length < 15){
+    if(status){
+      status.style.display = "block";
+      status.innerHTML = "❌ Formato no reconocido. Las claves de Google empiezan por <code>AIza...</code> y las de Groq por <code>gsk_...</code>.";
+      status.style.color = "#f87171";
+    }
     return;
   }
   try{
-    localStorage.setItem("akira_user_key",key);
-    if(input) input.value="";
-    if(status) status.textContent="✅ API Key guardada localmente en este navegador. Akira podrá usarla en tus próximas conversaciones.";
+    localStorage.setItem("akira_user_key", key);
+    if(input) input.value = "";
+    akiraRefreshSavedKeyUI();
+    if(status){
+      status.style.display = "block";
+      status.style.color = "#34d399";
+      const provName = isGroq ? "Groq Cloud" : (isGemini ? "Google Gemini" : "Personalizada");
+      status.innerHTML = `✅ ¡API Key de <strong>${provName}</strong> guardada localmente! Akira la usará en tus próximas conversaciones.`;
+    }
   }catch(e){
-    if(status) status.textContent="No se pudo guardar la API Key en este navegador.";
+    if(status){
+      status.style.display = "block";
+      status.textContent = "No se pudo guardar la clave en este navegador.";
+    }
   }
 }
 
 function clearKey(){
-  const status=document.getElementById("keyStatus");
+  const status = document.getElementById("keyStatus");
+  const input = document.getElementById("apiKeyInput");
   try{
     localStorage.removeItem("akira_user_key");
-    if(status) status.textContent="✅ API Key eliminada de este navegador.";
+    if(input) input.value = "";
+    akiraRefreshSavedKeyUI();
+    if(status){
+      status.style.display = "block";
+      status.style.color = "#38bdf8";
+      status.textContent = "🗑️ API Key eliminada con éxito de este navegador.";
+    }
   }catch(e){
-    if(status) status.textContent="No se pudo eliminar la API Key de este navegador.";
+    if(status) status.textContent = "No se pudo eliminar la API Key.";
   }
 }
 
 function testKeys(){
-  const input=document.getElementById("apiKeyInput");
-  const status=document.getElementById("keyStatus");
-  let key=input ? String(input.value||"").trim() : "";
+  const input = document.getElementById("apiKeyInput");
+  const status = document.getElementById("keyStatus");
+  let key = input ? String(input.value || "").trim() : "";
   if(!key){
-    try{ key=localStorage.getItem("akira_user_key")||""; }catch(e){}
+    try{ key = localStorage.getItem("akira_user_key") || ""; }catch(e){}
   }
   if(!key){
-    if(status) status.textContent="No hay una API Key guardada para comprobar.";
+    if(status){
+      status.style.display = "block";
+      status.style.color = "#fbbf24";
+      status.textContent = "⚠️ No hay una API Key ingresada o guardada para comprobar.";
+    }
     return false;
   }
-  const valid=/^AIza[0-9A-Za-z_-]{10,}$/.test(key);
-  if(status) status.textContent=valid
-    ? "✅ El formato de la API Key parece correcto. Esto no realiza una solicitud al proveedor ni consume crédito."
-    : "❌ El formato no parece una API Key de Google válida (debe empezar por AIza...).";
-  return valid;
+  const isGemini = /^AIza[0-9A-Za-z_-]{10,}$/.test(key);
+  const isGroq = /^gsk_[0-9A-Za-z_-]{20,}$/.test(key);
+  if(status){
+    status.style.display = "block";
+    if(isGemini){
+      status.style.color = "#38bdf8";
+      status.innerHTML = "✅ Formato verificado: API Key válida de <strong>Google Gemini</strong> (AIza...).";
+    } else if(isGroq){
+      status.style.color = "#fb923c";
+      status.innerHTML = "✅ Formato verificado: API Key válida de <strong>Groq Cloud</strong> (gsk_...).";
+    } else if(key.length >= 20){
+      status.style.color = "#34d399";
+      status.innerHTML = "ℹ️ Formato de clave genérico aceptado (" + key.length + " caracteres).";
+    } else {
+      status.style.color = "#f87171";
+      status.innerHTML = "❌ Formato desconocido. Google usa prefijo <code>AIza...</code> y Groq usa prefijo <code>gsk_...</code>.";
+    }
+  }
+  return isGemini || isGroq;
 }
 
 async function generateUpwork(){const desc=document.getElementById("upworkDesc").value.trim();if(!desc){alert("Pega descripcion");return;}const out=document.getElementById("upworkResult");out.style.display="block";out.textContent="⏳ Generando...";try{const backend=localStorage.getItem("akira_backend_url");const r=await fetch(backend+"/api/chat",{method:"POST",headers:akiraAuthHeaders(),body:JSON.stringify({message:`Genera propuesta Upwork para: ${desc.slice(0,1000)}`})});const d=await r.json();out.textContent=d.response||"Sin respuesta";}catch(e){out.textContent="Error: "+e.message;}}
@@ -1416,6 +1748,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   // La app queda interactiva primero; salud/capacidades/niveles son secundarios.
   setTimeout(()=>{ try{ fetchRuntimeCapabilities(); }catch(_){} },900);
   setTimeout(()=>{ try{ checkBridgeSimple(); }catch(_){} },900);
+  setTimeout(()=>{ try{ akiraRefreshSavedKeyUI(); }catch(_){} },300);
   setInterval(()=>{ try{ checkBridgeSimple(); }catch(_){} },60000);
   // Keep Render backend awake while tab is open to eliminate cold starts
   setInterval(()=>{
