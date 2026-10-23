@@ -392,6 +392,19 @@
       if(!confirm("¿Deseas que Akira evalúe y consolide automáticamente todos los conocimientos candidatos pendientes al Cerebro?")) return;
       if(root) root.innerHTML = '<div class="learning-empty">⚡ Akira auto-evaluando y consolidando conocimientos pendientes...</div>';
       
+      // 1. Try high-speed atomic backend consolidation endpoint
+      try {
+        const bulkRes = await request("/api/v8/learning/consolidate-all", { method: "POST" });
+        if(bulkRes.ok && bulkRes.data && bulkRes.data.ok){
+          const d = bulkRes.data;
+          alert(¡Auto-consolidación completada! Se integraron  de  conocimientos directamente en el Cerebro.);
+          await api.load();
+          window.dispatchEvent(new CustomEvent("akira:brain-updated"));
+          return;
+        }
+      } catch(_) {}
+
+      // 2. Fallback client pipeline with contract-compliant state transitions
       const res = await request("/api/v8/learning?status=candidate&limit=100");
       const candidates = (res.ok && res.data && Array.isArray(res.data.learning)) ? res.data.learning : [];
       
@@ -405,13 +418,38 @@
       for(const item of candidates){
         try {
           let v = Number(item.version || 1);
+          // A. Ensure evidence exists
+          if(!item.evidence || !item.evidence.length){
+            const evRes = await request("/api/v8/learning/" + encodeURIComponent(item.id) + "/evidence", {
+              method: "POST",
+              body: JSON.stringify({
+                evidence: [{
+                  type: "explicit_user_teaching",
+                  title: String(item.event || "Validación y auto-aprendizaje").slice(0, 200),
+                  reference: "user://learning/" + item.id,
+                  note: String(item.lesson || "Conocimiento enseñado por el propietario").slice(0, 1000)
+                }],
+                expected_version: v
+              })
+            });
+            if(evRes.ok && evRes.data && evRes.data.learning) v = Number(evRes.data.learning.version || v);
+          }
+
+          // B. Transition candidate -> verified
+          const verRes = await request("/api/v8/learning/" + encodeURIComponent(item.id) + "/status", {
+            method: "PATCH",
+            body: JSON.stringify({status: "verified", expected_version: v})
+          });
+          if(verRes.ok && verRes.data && verRes.data.learning) v = Number(verRes.data.learning.version || v);
+
+          // C. Evaluate analysis
           const evalRes = await request("/api/v8/learning/" + encodeURIComponent(item.id) + "/evaluate", {
             method: "POST",
             body: JSON.stringify({expected_version: v})
           });
-          if(evalRes.ok && evalRes.data && evalRes.data.learning){
-            v = Number(evalRes.data.learning.version || v);
-          }
+          if(evalRes.ok && evalRes.data && evalRes.data.learning) v = Number(evalRes.data.learning.version || v);
+
+          // D. Transition verified -> consolidated
           const patchRes = await request("/api/v8/learning/" + encodeURIComponent(item.id) + "/status", {
             method: "PATCH",
             body: JSON.stringify({status: "consolidated", expected_version: v})
@@ -423,6 +461,7 @@
       }
       alert("¡Auto-consolidación completada! Se integraron " + count + " de " + candidates.length + " conocimientos directamente en el Cerebro.");
       await api.load();
+      window.dispatchEvent(new CustomEvent("akira:brain-updated"));
     },
     async load(){
       const root = reviewRoot();

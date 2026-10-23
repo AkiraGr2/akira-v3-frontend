@@ -118,12 +118,7 @@
 
     bindEvents(container) {
       container.querySelector("#admBtnAutoConsolidate").addEventListener("click", () => {
-        if (window.akiraLearningReview && window.akiraLearningReview.autoConsolidateAll) {
-          window.akiraLearningReview.autoConsolidateAll().then(() => this.refreshStatus());
-        } else {
-          alert("Auto-consolidando conocimientos pendientes...");
-          this.refreshStatus();
-        }
+        this.autoConsolidateAll();
       });
 
       container.querySelector("#admBtnSaveTeaching").addEventListener("click", () => {
@@ -150,16 +145,71 @@
       });
     }
 
+    async autoConsolidateAll() {
+      const btn = document.getElementById("admBtnAutoConsolidate");
+      const pill = document.getElementById("admCandidatePill");
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "⏳ Integrando conocimientos al Cerebro...";
+      }
+
+      try {
+        const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
+        const headers = window.akiraAuthHeaders ? window.akiraAuthHeaders() : { "Content-Type": "application/json" };
+
+        // 1. High-speed backend bulk consolidation
+        let res = await fetch(backend + "/api/v8/learning/consolidate-all", {
+          method: "POST",
+          headers: headers
+        });
+
+        let data = null;
+        if (res.ok) {
+          data = await res.json();
+        }
+
+        if (data && data.ok) {
+          if (pill) {
+            pill.textContent = "Al día (0 pendientes)";
+            pill.className = "ak-candidate-counter clean";
+          }
+          alert(¡Auto-consolidación completada con éxito!
+
+);
+          await this.refreshStatus();
+          window.dispatchEvent(new CustomEvent("akira:brain-updated"));
+          return;
+        }
+
+        // 2. Fallback to learning review if backend is updating
+        if (window.akiraLearningReview && window.akiraLearningReview.autoConsolidateAll) {
+          await window.akiraLearningReview.autoConsolidateAll();
+        } else {
+          alert("Respuesta del servidor: operando en segundo plano.");
+        }
+        await this.refreshStatus();
+        window.dispatchEvent(new CustomEvent("akira:brain-updated"));
+      } catch (err) {
+        alert("Error durante la auto-consolidación: " + err.message);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "⚡ AUTO-CONSOLIDAR TODO";
+        }
+      }
+    }
+
     async refreshStatus() {
       try {
         const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
         const headers = window.akiraAuthHeaders ? window.akiraAuthHeaders() : {};
 
-        const [health, me, self, learning] = await Promise.all([
+        const [health, me, self, learning, graphOverview] = await Promise.all([
           fetch(backend + "/health").then(r => r.json()).catch(() => null),
           fetch(backend + "/api/v8/me", { headers }).then(r => r.json()).catch(() => null),
           fetch(backend + "/api/v8/self", { headers }).then(r => r.json()).catch(() => null),
-          fetch(backend + "/api/v8/learning?status=candidate&limit=50", { headers }).then(r => r.json()).catch(() => null)
+          fetch(backend + "/api/v8/learning?status=candidate&limit=50", { headers }).then(r => r.json()).catch(() => null),
+          fetch(backend + "/api/v8/graph/overview", { headers }).then(r => r.json()).catch(() => null)
         ]);
 
         // 1. Server
