@@ -762,3 +762,643 @@ code, pre, .ak-mono {
   color: var(--accent-cyan);
   font-family: var(--font-display);
 }
+
+
+/* ==========================================================================
+   AGGRESSIVE PURGE OF ALL RETRO PIXEL FONTS & HARDENED STYLING
+   ========================================================================== */
+*, *::before, *::after {
+  font-family: var(--font-body) !important;
+}
+
+h1, h2, h3, h4, h5, h6,
+.brand h1, .section-header h2, .model-pill, .btn-new,
+.ak-missions-hero h2, .ak-admin-hero h2, .ak-monetize-hero h2,
+.ak-tab-btn, .akira-live-title {
+  font-family: var(--font-display) !important;
+}
+
+code, pre, .ak-mono, .badge, .status-pill, .step-num, .task-val, .ak-metric-label {
+  font-family: var(--font-mono) !important;
+}
+
+/* Eliminate all 3px pixel borders and hard 0px corners universally */
+.pixel-border, .pixel-btn, .admin-v2-action, .admin-v2-card, .learning-review, .learning-card,
+.section-tools, .section-tools pre, .msgs, .chat-wrap, .msgs-inner, #msg {
+  border-width: 1px !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: none !important;
+}
+
+/* ==========================================================================
+   HOLOGRAPHIC COMMAND BRIDGE (CYBER OPERATIONS CENTER)
+   ========================================================================== */
+.ak-bridge-wrap {
+  padding: 24px;
+  max-width: 1300px;
+  margin: 0 auto;
+  width: 100%;
+  overflow-y: auto;
+}
+
+.ak-bridge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.ak-bridge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 242, 254, 0.12);
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  margin-bottom: 8px;
+}
+
+.ak-bridge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 10px var(--accent-cyan);
+}
+
+.ak-bridge-header h2 {
+  font-size: 26px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.ak-bridge-header p {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  max-width: 600px;
+  margin-top: 4px;
+}
+
+.ak-bridge-quick-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.ak-stat-chip {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 8px 16px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ak-bridge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 18px;
+}
+
+.ak-agent-deck {
+  position: relative;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  overflow: hidden;
+  box-shadow: var(--shadow-glass);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.ak-agent-deck:hover {
+  transform: translateY(-2px);
+  border-color: var(--agent-color, var(--accent-cyan));
+}
+
+.ak-deck-glow {
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, var(--agent-color, var(--accent-cyan)) 0%, transparent 70%);
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.ak-deck-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.ak-avatar-pod {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid var(--agent-color, var(--accent-cyan));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 0 16px rgba(0, 242, 254, 0.15);
+}
+
+.ak-avatar-pod.large {
+  width: 64px;
+  height: 64px;
+  font-size: 28px;
+}
+
+.ak-pod-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px dashed var(--agent-color, var(--accent-cyan));
+  animation: rotatePodRing 14s linear infinite;
+  opacity: 0.5;
+}
+
+@keyframes rotatePodRing {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.ak-deck-info {
+  flex: 1;
+}
+
+.ak-deck-name-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ak-deck-name-row h4 {
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.ak-deck-role {
+  font-size: 12px;
+  color: var(--agent-color, var(--accent-cyan));
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.ak-deck-status-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ak-deck-status-badge.status-idle {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.ak-deck-status-badge.status-working {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  background: rgba(0, 242, 254, 0.1);
+  animation: liveWavePulse 1.8s infinite;
+}
+
+.ak-deck-status-badge.status-disabled {
+  border-color: #64748b;
+  color: #94a3b8;
+}
+
+.ak-thought-beacon {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(10, 13, 22, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.beacon-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--agent-color, var(--accent-cyan));
+  margin-top: 5px;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px var(--agent-color, var(--accent-cyan));
+}
+
+.beacon-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.ak-deck-desc {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.ak-deck-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 12px;
+}
+
+.ak-deck-task {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.ak-deck-inspect-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.ak-deck-inspect-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--agent-color, var(--accent-cyan));
+  color: #ffffff;
+}
+
+/* Inspector Drawer */
+.ak-inspector-drawer {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.ak-inspect-card {
+  width: 100%;
+  max-width: 540px;
+  background: var(--surface-card);
+  border: 1px solid var(--agent-color, var(--accent-cyan));
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+
+.ak-inspect-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.ak-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.ak-close-btn:hover {
+  color: #fff;
+}
+
+.ak-inspect-section {
+  margin-bottom: 16px;
+}
+
+.ak-inspect-section h5 {
+  font-size: 13px;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.ak-inspect-section p {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ==========================================================================
+   MODERN TACTICAL MISSIONS
+   ========================================================================== */
+.ak-missions-wrap {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  overflow-y: auto;
+}
+
+.ak-missions-hero {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.ak-missions-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid var(--accent-purple);
+  color: var(--accent-purple);
+  margin-bottom: 8px;
+}
+
+.ak-missions-hero h2 {
+  font-size: 26px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.ak-missions-hero p {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  max-width: 650px;
+  margin: 4px auto 0;
+}
+
+.ak-missions-layout {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 20px;
+}
+
+@media(max-width: 860px) {
+  .ak-missions-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ak-select {
+  background: rgba(7, 9, 14, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 9px 14px;
+  color: #ffffff;
+  font-size: 13.5px;
+  outline: none;
+}
+
+.ak-missions-history {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.ak-history-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.ak-history-head h4 {
+  font-size: 16px;
+  color: #ffffff;
+}
+
+.ak-missions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  max-height: 520px;
+}
+
+.ak-mission-item {
+  background: rgba(10, 13, 22, 0.75);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.ak-mission-item:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-glow);
+}
+
+.ak-mission-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.ak-item-goal {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #ffffff;
+  line-height: 1.4;
+}
+
+.ak-mission-item-meta {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.ak-timeline-step {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.step-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0, 242, 254, 0.15);
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   MODERN ADMIN DASHBOARD
+   ========================================================================== */
+.ak-admin-wrap {
+  padding: 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
+  overflow-y: auto;
+}
+
+.ak-admin-hero {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.ak-admin-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid var(--accent-gold);
+  color: var(--accent-gold);
+  margin-bottom: 8px;
+}
+
+.ak-admin-hero h2 {
+  font-size: 26px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.ak-admin-hero p {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  max-width: 600px;
+  margin: 4px auto 0;
+}
+
+.ak-admin-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.ak-metric-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: var(--shadow-glass);
+}
+
+.ak-metric-label {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ak-metric-card strong {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.ak-metric-card small {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ak-consolidate-banner {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15));
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.ak-btn.large {
+  padding: 14px 24px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  border-radius: var(--radius-pill) !important;
+}
+
+.ak-candidate-counter {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+}
+
+.ak-candidate-counter.clean {
+  color: var(--accent-green);
+  border-color: var(--accent-green);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.ak-candidate-counter.has-pending {
+  color: var(--accent-gold);
+  border-color: var(--accent-gold);
+  background: rgba(245, 158, 11, 0.15);
+  animation: liveWavePulse 2s infinite;
+}
+
+.ak-input {
+  background: rgba(7, 9, 14, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 11px 14px;
+  color: #ffffff;
+  font-size: 13.5px;
+  outline: none;
+}
+
+.ak-input:focus {
+  border-color: var(--border-glow);
+}
+
+.ak-console-box {
+  background: #05070a;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  font-size: 11.5px;
+  color: #94a3b8;
+  max-height: 220px;
+  overflow-y: auto;
+}

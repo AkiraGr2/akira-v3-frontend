@@ -1,12 +1,10 @@
 /**
- * AKIRA VOICE LIVE (Modo Conversacional Bidireccional en Vivo - $0.00)
- * Uses native Web Speech API (webkitSpeechRecognition) + Web SpeechSynthesis + Web Audio API.
- * Features:
- *  - Immersive full-screen quantum modal
- *  - Dynamic 3D Quantum Orb reacting to both user speech and Akira's synthesized voice
- *  - Seamless turn-taking with natural interruption support
- *  - Real-time subtitle HUD for user transcript and Akira response
- *  - Zero external paid APIs, 100% free browser native execution
+ * AKIRA VOICE LIVE (Ultra-Fast & Noise-Gated Conversational Loop - $0.00)
+ * Optimized for low-latency live oral conversation:
+ *  - 600ms adaptive silence detection
+ *  - Background noise gate (filters mic clicks and acoustic noise)
+ *  - Concise oral response mode (blazing fast backend turnaround)
+ *  - Fullscreen Celestial Quantum Orb audio synchronization
  */
 (function() {
   "use strict";
@@ -39,7 +37,6 @@
       const loadVoices = () => {
         if (!this.synthesis) return;
         const voices = this.synthesis.getVoices();
-        // Priority: Spanish voices (Colombia, Latin America, Spain, Mexico, US)
         const esVoices = voices.filter(v => v.lang.startsWith("es"));
         this.selectedVoice = esVoices.find(v => v.lang === "es-CO" || v.name.toLowerCase().includes("colombia")) ||
                              esVoices.find(v => v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("online")) ||
@@ -59,7 +56,7 @@
     initRecognition() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        console.warn("[AkiraVoiceLive] SpeechRecognition is not supported in this browser.");
+        console.warn("[AkiraVoiceLive] SpeechRecognition not supported.");
         return;
       }
 
@@ -75,7 +72,7 @@
       };
 
       this.recognition.onresult = (event) => {
-        // Natural interruption: If Akira is speaking and user speaks, stop Akira's voice immediately
+        // Natural interruption: user speaks -> cancel synthesis instantly
         if (this.isSpeaking) {
           this.stopSpeaking();
         }
@@ -93,24 +90,28 @@
         }
 
         const spoken = (final || interim).trim();
-        if (spoken) {
-          this.userSpeechBuffer = spoken;
-          this.setSubtitles("Tú: " + spoken);
 
-          // Reset silence timer: user is still speaking
-          clearTimeout(this.silenceTimer);
-          this.silenceTimer = setTimeout(() => {
-            if (this.userSpeechBuffer.length > 2 && !this.isSpeaking && !this.isThinking) {
-              this.processUserVoiceInput(this.userSpeechBuffer);
-              this.userSpeechBuffer = "";
-            }
-          }, 1100);
-        }
+        // Noise gate: ignore mic clicks, ambient pops, or single characters
+        if (spoken.length < 3) return;
+
+        this.userSpeechBuffer = spoken;
+        this.setSubtitles("Tú: " + spoken);
+
+        // Fast adaptive silence timeout: 600ms when sentence seems finished, 900ms otherwise
+        clearTimeout(this.silenceTimer);
+        const delay = (final.length > 0 || /[.?!]$/.test(spoken)) ? 600 : 900;
+
+        this.silenceTimer = setTimeout(() => {
+          if (this.userSpeechBuffer.length >= 3 && !this.isSpeaking && !this.isThinking) {
+            const queryToSend = this.userSpeechBuffer;
+            this.userSpeechBuffer = "";
+            this.processUserVoiceInput(queryToSend);
+          }
+        }, delay);
       };
 
       this.recognition.onerror = (event) => {
         if (event.error === "no-speech") return;
-        console.warn("[AkiraVoiceLive] Recognition error:", event.error);
         if (event.error === "not-allowed") {
           this.updateHUD("Micrófono no permitido", "idle");
         }
@@ -118,7 +119,6 @@
 
       this.recognition.onend = () => {
         this.isListening = false;
-        // Auto-restart if modal is still open and not speaking
         if (this.active && !this.isSpeaking && !this.isThinking) {
           try { this.recognition.start(); } catch(_) {}
         }
@@ -147,14 +147,16 @@
               sum += this.audioDataArray[i];
             }
             const avg = sum / (this.audioDataArray.length * 255);
+            // Threshold to ignore quiet room noise
+            const cleanLevel = avg > 0.08 ? (avg - 0.08) * 1.5 : 0;
             if (this.orbInstance) {
-              this.orbInstance.setAudioLevel(avg * 1.8);
+              this.orbInstance.setAudioLevel(cleanLevel);
             }
           }
         };
         pollAudio();
       } catch (e) {
-        console.warn("[AkiraVoiceLive] Audio analyser not available (will use simulated speech resonance):", e);
+        console.warn("[AkiraVoiceLive] Audio analyser fallback:", e);
       }
     }
 
@@ -173,9 +175,9 @@
             <div class="akira-live-brand">
               <span class="akira-live-dot"></span>
               <span class="akira-live-title">AKIRA LIVE</span>
-              <span class="akira-live-status-pill" id="akiraLiveStatusPill">Iniciando...</span>
+              <span class="akira-live-status-pill" id="akiraLiveStatusPill">En línea</span>
             </div>
-            <button class="akira-live-close-btn" id="akiraLiveCloseBtn" title="Salir de Modo Voz">✕</button>
+            <button class="akira-live-close-btn" id="akiraLiveCloseBtn" title="Salir">✕</button>
           </header>
 
           <main class="akira-live-stage-wrap">
@@ -183,12 +185,12 @@
           </main>
 
           <footer class="akira-live-footer">
-            <div class="akira-live-subtitles" id="akiraLiveSubtitles">Habla libremente con Akira...</div>
+            <div class="akira-live-subtitles" id="akiraLiveSubtitles">Habla con naturalidad, Akira te está escuchando...</div>
             <div class="akira-live-controls">
               <button class="akira-live-btn mic-btn" id="akiraLiveMicToggle" title="Silenciar / Activar Micrófono">
                 <span class="mic-icon">🎙️</span>
               </button>
-              <button class="akira-live-btn end-btn" id="akiraLiveEndBtn" title="Finalizar Sesión de Voz">
+              <button class="akira-live-btn end-btn" id="akiraLiveEndBtn">
                 Finalizar Voz
               </button>
             </div>
@@ -198,7 +200,6 @@
 
       document.body.appendChild(modal);
 
-      // Event listeners
       modal.querySelector("#akiraLiveCloseBtn").addEventListener("click", () => this.stop());
       modal.querySelector("#akiraLiveEndBtn").addEventListener("click", () => this.stop());
       modal.querySelector("#akiraLiveMicToggle").addEventListener("click", () => this.toggleMic());
@@ -213,11 +214,10 @@
       modal.classList.add("is-visible");
       document.body.classList.add("akira-live-active");
 
-      // Mount high-definition 3D Quantum Orb in the stage
       const stage = modal.querySelector("#akiraLiveOrbStage");
       if (window.AkiraQuantumOrb) {
         this.orbInstance = window.AkiraQuantumOrb.mount(stage, {
-          size: 420,
+          size: 440,
           interactive: true,
           enableRings: true,
           enableParticles: true,
@@ -227,13 +227,12 @@
 
       this.initAudioAnalyser();
 
-      // Start recognition
       if (this.recognition) {
         try { this.recognition.start(); } catch(_) {}
       }
 
       this.updateHUD("Escuchando...", "listening");
-      this.setSubtitles("Habla libremente... Akira te está escuchando.");
+      this.setSubtitles("Habla libremente... Akira te escucha.");
     }
 
     stop() {
@@ -250,19 +249,13 @@
 
       this.stopSpeaking();
 
-      if (this.audioAnimId) {
-        cancelAnimationFrame(this.audioAnimId);
-      }
-      if (this.micStream) {
-        this.micStream.getTracks().forEach(t => t.stop());
-      }
+      if (this.audioAnimId) cancelAnimationFrame(this.audioAnimId);
+      if (this.micStream) this.micStream.getTracks().forEach(t => t.stop());
       if (this.audioContext && this.audioContext.state !== "closed") {
         try { this.audioContext.close(); } catch(_) {}
       }
 
-      if (this.modalEl) {
-        this.modalEl.classList.remove("is-visible");
-      }
+      if (this.modalEl) this.modalEl.classList.remove("is-visible");
       document.body.classList.remove("akira-live-active");
 
       if (this.orbInstance) {
@@ -277,7 +270,7 @@
         if (this.recognition) try { this.recognition.stop(); } catch(_) {}
         this.isListening = false;
         btn.classList.add("muted");
-        this.updateHUD("Micrófono pausado", "idle");
+        this.updateHUD("Pausado", "idle");
       } else {
         if (this.recognition) try { this.recognition.start(); } catch(_) {}
         this.isListening = true;
@@ -307,7 +300,7 @@
     async processUserVoiceInput(query) {
       this.isThinking = true;
       this.updateHUD("Pensando...", "thinking");
-      this.setSubtitles("Procesando: \"" + query + "\"...");
+      this.setSubtitles("Procesando...");
 
       if (this.recognition) {
         try { this.recognition.stop(); } catch(_) {}
@@ -317,22 +310,24 @@
         const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
         const headers = window.akiraAuthHeaders ? window.akiraAuthHeaders() : { "Content-Type": "application/json" };
         
-        // Use conversational endpoint
+        // Fast concise prompt for rapid oral turnaround
+        const fastVoicePrompt = `[MODO VOZ: Responde en español de forma conversacional, cálida, directa y breve (máximo 1 o 2 oraciones breves)]: ${query}`;
+
         const response = await fetch(backend + "/api/chat", {
           method: "POST",
           headers: headers,
-          body: JSON.stringify({ message: query })
+          body: JSON.stringify({ message: fastVoicePrompt })
         });
 
         const data = await response.json();
-        const replyText = data.response || data.reply || "He procesado tu mensaje.";
+        const replyText = data.response || data.reply || "Te escuché perfectamente.";
 
         this.isThinking = false;
         this.speakReply(replyText);
       } catch (err) {
-        console.error("[AkiraVoiceLive] Error querying backend:", err);
+        console.error("[AkiraVoiceLive] Voice request error:", err);
         this.isThinking = false;
-        this.speakReply("Disculpa, hubo un problema al conectar con el servidor. ¿Me repites?");
+        this.speakReply("Te escucho un poco entrecortado, ¿me repites por favor?");
       }
     }
 
@@ -349,7 +344,6 @@
       this.updateHUD("Hablando...", "speaking");
       this.setSubtitles("Akira: " + text);
 
-      // Clean markdown tags for spoken audio
       const cleanVoiceText = text
         .replace(/[*_#`~\[\]]/g, "")
         .replace(/https?:\/\/\S+/g, "enlace")
@@ -359,10 +353,9 @@
       if (this.selectedVoice) {
         utterance.voice = this.selectedVoice;
       }
-      utterance.rate = 1.05;
+      utterance.rate = 1.1; // Slightly faster for natural fluid rhythm
       utterance.pitch = 1.0;
 
-      // Simulated voice wave pulsation if mic analyser is paused during speech
       let speakWaveInterval = setInterval(() => {
         if (!this.isSpeaking || !this.orbInstance) {
           clearInterval(speakWaveInterval);
@@ -370,7 +363,7 @@
         }
         const pseudoWave = 0.35 + Math.random() * 0.55;
         this.orbInstance.setAudioLevel(pseudoWave);
-      }, 90);
+      }, 80);
 
       utterance.onend = () => {
         clearInterval(speakWaveInterval);
@@ -384,7 +377,7 @@
         }
       };
 
-      utterance.onerror = (e) => {
+      utterance.onerror = () => {
         clearInterval(speakWaveInterval);
         this.isSpeaking = false;
         if (this.active && this.recognition) {
@@ -407,7 +400,6 @@
 
   window.AkiraVoiceLive = new AkiraVoiceLiveController();
 
-  // Global trigger helper
   window.toggleAkiraLiveVoice = function() {
     if (window.AkiraVoiceLive.active) {
       window.AkiraVoiceLive.stop();
@@ -416,5 +408,5 @@
     }
   };
 
-  console.log("[AkiraVoiceLive] Bidirectional Live Voice system ready.");
+  console.log("[AkiraVoiceLive] Ultra-fast voice live engine ready.");
 })();

@@ -1,89 +1,142 @@
 /**
- * AKIRA QUANTUM ORB 3D (WebGL / Three.js)
- * High-definition, reactive 3D quantum cognitive core.
+ * AKIRA CELESTIAL QUANTUM ORB (WebGL / Three.js)
+ * Transformed from a geometric polygon to a radiant, living celestial entity.
  * Features:
- *  - Volumetric noise-deformed energy core
- *  - Dual counter-rotating quantum orbital filament rings
- *  - 1000-particle dynamic magnetic nebula cloud
- *  - Interactive mouse tilt & audio-reactive frequency pulsation
- *  - 4 state behaviors: idle, listening, thinking, speaking
- *  - Auto-mounts to .akira-entity-slot and Akira Live Modal
+ *  - Ethereal Multi-Spectral Luminous Core with iridescent Fresnel Shading
+ *  - Pulsing Central Eye of Consciousness (Living Quantum Singularity)
+ *  - Fluid Atmospheric Aurora Ribbons (Magnetic Field Lines)
+ *  - 900 Cosmic Twinkle Stardust Particles
+ *  - Smooth Parallax & Audio Reactive Expansion
  */
 (function() {
   "use strict";
 
   if (typeof THREE === "undefined") {
-    console.warn("[AkiraQuantumOrb] Three.js not found, falling back to 2D entity.");
+    console.warn("[AkiraQuantumOrb] Three.js not found, falling back.");
     return;
   }
 
-  // Generate circular glow texture for particles procedurally (zero external image assets)
-  function createParticleTexture() {
+  // High-def celestial glow sprite
+  function createStardustTexture() {
     const canvas = document.createElement("canvas");
-    canvas.width = 64;
-    canvas.height = 64;
+    canvas.width = 128;
+    canvas.height = 128;
     const ctx = canvas.getContext("2d");
-    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
     grad.addColorStop(0, "rgba(255, 255, 255, 1.0)");
-    grad.addColorStop(0.2, "rgba(120, 220, 255, 0.85)");
-    grad.addColorStop(0.5, "rgba(140, 60, 255, 0.4)");
+    grad.addColorStop(0.15, "rgba(100, 240, 255, 0.9)");
+    grad.addColorStop(0.4, "rgba(140, 70, 255, 0.45)");
+    grad.addColorStop(0.7, "rgba(230, 50, 160, 0.15)");
     grad.addColorStop(1, "rgba(0, 0, 0, 0)");
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 64, 64);
+    ctx.fillRect(0, 0, 128, 128);
     return new THREE.CanvasTexture(canvas);
   }
 
-  const particleTexture = createParticleTexture();
+  const stardustTexture = createStardustTexture();
 
-  // Color palettes per state
+  // Ethereal Shader for the Living Plasma Core
+  const PlasmaShader = {
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+      varying vec2 vUv;
+      uniform float uTime;
+      uniform float uAudio;
+
+      void main() {
+        vNormal = normalize(normalMatrix * normal);
+        vPosition = position;
+        vUv = uv;
+
+        // Fluid organic ripple deformation
+        float wave = sin(position.x * 0.08 + uTime * 2.5) 
+                   * cos(position.y * 0.08 + uTime * 2.2) 
+                   * sin(position.z * 0.08 + uTime * 2.8);
+        
+        float displacement = 1.0 + wave * (0.05 + uAudio * 0.22);
+        vec3 newPos = position * displacement;
+
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+      varying vec2 vUv;
+      uniform float uTime;
+      uniform vec3 uColorA;
+      uniform vec3 uColorB;
+      uniform vec3 uColorRim;
+      uniform float uAudio;
+
+      void main() {
+        // Fresnel rim glow
+        vec3 viewDir = vec3(0.0, 0.0, 1.0);
+        float fresnel = 1.0 - max(dot(vNormal, viewDir), 0.0);
+        fresnel = pow(fresnel, 2.2);
+
+        // Internal chromatic plasma flow
+        float flow = sin(vPosition.y * 0.06 + uTime * 1.8) * 0.5 + 0.5;
+        vec3 plasma = mix(uColorA, uColorB, flow);
+
+        // Center brightness
+        float centerGlow = pow(max(dot(vNormal, viewDir), 0.0), 3.0);
+        vec3 finalColor = mix(plasma, uColorRim, fresnel) + vec3(centerGlow * (0.6 + uAudio * 0.6));
+
+        gl_FragColor = vec4(finalColor, 0.88 + fresnel * 0.12);
+      }
+    `
+  };
+
   const STATE_PALETTES = {
     idle: {
-      corePrimary: new THREE.Color(0x3b82f6),
-      coreSecondary: new THREE.Color(0x8b5cf6),
-      coreEmissive: new THREE.Color(0x06b6d4),
-      particles: new THREE.Color(0x60a5fa),
+      colorA: new THREE.Color(0x38bdf8),     // Celestial cyan
+      colorB: new THREE.Color(0x8b5cf6),     // Ethereal purple
+      colorRim: new THREE.Color(0xec4899),   // Soft magenta rim
+      particles: new THREE.Color(0x7dd3fc),
       rings: new THREE.Color(0xa78bfa),
-      light: new THREE.Color(0x38bdf8),
+      light: new THREE.Color(0x00f2fe),
       speed: 1.0,
-      scalePulse: 0.05
+      glowPulse: 0.06
     },
     listening: {
-      corePrimary: new THREE.Color(0x06b6d4),
-      coreSecondary: new THREE.Color(0xf59e0b),
-      coreEmissive: new THREE.Color(0x10b981),
-      particles: new THREE.Color(0x38bdf8),
-      rings: new THREE.Color(0xfbbf24),
-      light: new THREE.Color(0x22d3ee),
-      speed: 1.4,
-      scalePulse: 0.12
+      colorA: new THREE.Color(0x06b6d4),     // Bright cyan
+      colorB: new THREE.Color(0xf59e0b),     // Warm gold
+      colorRim: new THREE.Color(0x10b981),   // Emerald edge
+      particles: new THREE.Color(0xfbbf24),
+      rings: new THREE.Color(0x34d399),
+      light: new THREE.Color(0xf59e0b),
+      speed: 1.5,
+      glowPulse: 0.14
     },
     thinking: {
-      corePrimary: new THREE.Color(0x6366f1),
-      coreSecondary: new THREE.Color(0xd946ef),
-      coreEmissive: new THREE.Color(0xec4899),
+      colorA: new THREE.Color(0x6366f1),     // Indigo
+      colorB: new THREE.Color(0xd946ef),     // Neon fuchsia
+      colorRim: new THREE.Color(0x38bdf8),   // Electric blue
       particles: new THREE.Color(0xc084fc),
-      rings: new THREE.Color(0xf43f5e),
+      rings: new THREE.Color(0xe879f9),
       light: new THREE.Color(0xa855f7),
-      speed: 2.4,
-      scalePulse: 0.18
+      speed: 2.5,
+      glowPulse: 0.2
     },
     speaking: {
-      corePrimary: new THREE.Color(0x00f2fe),
-      coreSecondary: new THREE.Color(0x7f00ff),
-      coreEmissive: new THREE.Color(0xf43f5e),
+      colorA: new THREE.Color(0x00f2fe),     // Radiant aurora
+      colorB: new THREE.Color(0xec4899),     // Rose plasma
+      colorRim: new THREE.Color(0xffffff),   // Pure brilliance
       particles: new THREE.Color(0x38bdf8),
-      rings: new THREE.Color(0xec4899),
+      rings: new THREE.Color(0xf43f5e),
       light: new THREE.Color(0x00f2fe),
       speed: 1.8,
-      scalePulse: 0.25
+      glowPulse: 0.28
     }
   };
 
-  class QuantumOrbInstance {
+  class CelestialQuantumOrb {
     constructor(container, options = {}) {
       this.container = container;
       this.options = Object.assign({
-        size: options.size || container.clientWidth || 300,
+        size: options.size || container.clientWidth || 320,
         interactive: true,
         enableRings: true,
         enableParticles: true,
@@ -93,8 +146,6 @@
       this.state = this.options.state;
       this.audioLevel = 0.0;
       this.targetAudioLevel = 0.0;
-      this.mouseX = 0;
-      this.mouseY = 0;
       this.targetRotX = 0;
       this.targetRotY = 0;
       this.clock = new THREE.Clock();
@@ -107,18 +158,13 @@
       const w = this.container.clientWidth || this.options.size;
       const h = this.container.clientHeight || this.options.size;
 
-      // Scene & Camera
       this.scene = new THREE.Scene();
       this.camera = new THREE.PerspectiveCamera(45, (w || 1) / (h || 1), 0.1, 1000);
-      this.camera.position.z = 240;
+      this.camera.position.z = 230;
 
-      // Renderer
       this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
       this.renderer.setSize(w, h);
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      this.renderer.toneMappingExposure = 1.2;
 
       this.container.innerHTML = "";
       this.container.appendChild(this.renderer.domElement);
@@ -129,32 +175,28 @@
       this.group = new THREE.Group();
       this.scene.add(this.group);
 
-      // 1. Lighting
-      this.ambientLight = new THREE.AmbientLight(0x221144, 1.2);
-      this.scene.add(this.ambientLight);
-
-      this.pointLight = new THREE.PointLight(0x38bdf8, 3.5, 350);
-      this.pointLight.position.set(0, 0, 40);
+      // 1. Ambient & Point Lights
+      this.pointLight = new THREE.PointLight(0x00f2fe, 3.2, 350);
+      this.pointLight.position.set(0, 0, 50);
       this.group.add(this.pointLight);
 
-      this.rimLight = new THREE.DirectionalLight(0xd946ef, 2.0);
-      this.rimLight.position.set(-80, 80, -40);
-      this.scene.add(this.rimLight);
+      // 2. Living Plasma Core
+      this.createPlasmaCore();
 
-      // 2. Inner Quantum Plasma Core
-      this.createCore();
+      // 3. Central Singularity / Eye of Consciousness
+      this.createSingularity();
 
-      // 3. Orbital Energy Filament Rings
+      // 4. Aurora Magnetic Energy Ribbons
       if (this.options.enableRings) {
-        this.createRings();
+        this.createAuroraRibbons();
       }
 
-      // 4. Particle Nebula
+      // 5. Cosmic Stardust Cloud
       if (this.options.enableParticles) {
-        this.createParticleCloud();
+        this.createStardust();
       }
 
-      // Mouse events
+      // Events
       if (this.options.interactive) {
         this.bindEvents();
       }
@@ -162,112 +204,121 @@
       this.animate = this.animate.bind(this);
       this.rafId = requestAnimationFrame(this.animate);
 
-      // Auto-resize
       this.resizeObserver = new ResizeObserver(() => this.resize());
       this.resizeObserver.observe(this.container);
     }
 
-    createCore() {
-      const geom = new THREE.IcosahedronGeometry(42, 5);
-      this.coreGeomOriginalPos = geom.attributes.position.clone();
+    createPlasmaCore() {
+      const geom = new THREE.SphereGeometry(44, 64, 64);
+      const pal = STATE_PALETTES[this.state] || STATE_PALETTES.idle;
 
-      this.coreMat = new THREE.MeshPhysicalMaterial({
-        color: STATE_PALETTES.idle.corePrimary,
-        emissive: STATE_PALETTES.idle.coreEmissive,
-        emissiveIntensity: 0.9,
-        roughness: 0.15,
-        metalness: 0.1,
-        transmission: 0.75,
-        ior: 1.45,
-        thickness: 18,
-        wireframe: false,
+      this.plasmaUniforms = {
+        uTime: { value: 0 },
+        uAudio: { value: 0 },
+        uColorA: { value: pal.colorA.clone() },
+        uColorB: { value: pal.colorB.clone() },
+        uColorRim: { value: pal.colorRim.clone() }
+      };
+
+      this.plasmaMat = new THREE.ShaderMaterial({
+        vertexShader: PlasmaShader.vertexShader,
+        fragmentShader: PlasmaShader.fragmentShader,
+        uniforms: this.plasmaUniforms,
         transparent: true,
-        opacity: 0.92
+        blending: THREE.NormalBlending
       });
 
-      this.coreMesh = new THREE.Mesh(geom, this.coreMat);
+      this.coreMesh = new THREE.Mesh(geom, this.plasmaMat);
       this.group.add(this.coreMesh);
+    }
 
-      // Inner glowing crystalline nucleus
-      const nucGeom = new THREE.IcosahedronGeometry(22, 3);
-      this.nucMat = new THREE.MeshBasicMaterial({
+    createSingularity() {
+      // The radiant conscious pupil
+      const geom = new THREE.SphereGeometry(18, 32, 32);
+      this.singularityMat = new THREE.MeshBasicMaterial({
         color: 0xffffff,
-        wireframe: true,
+        transparent: true,
+        opacity: 0.85,
+        blending: THREE.AdditiveBlending
+      });
+      this.singularityMesh = new THREE.Mesh(geom, this.singularityMat);
+      this.group.add(this.singularityMesh);
+
+      // Inner corona halo
+      const haloGeom = new THREE.SphereGeometry(26, 32, 32);
+      this.haloMat = new THREE.MeshBasicMaterial({
+        color: 0x00f2fe,
         transparent: true,
         opacity: 0.35,
         blending: THREE.AdditiveBlending
       });
-      this.nucMesh = new THREE.Mesh(nucGeom, this.nucMat);
-      this.group.add(this.nucMesh);
+      this.haloMesh = new THREE.Mesh(haloGeom, this.haloMat);
+      this.group.add(this.haloMesh);
     }
 
-    createRings() {
-      this.rings = [];
+    createAuroraRibbons() {
+      this.ribbons = [];
       const configs = [
-        { radius: 64, tube: 0.8, tiltX: 0.7, tiltY: 0.3, speed: 0.9 },
-        { radius: 76, tube: 0.5, tiltX: -0.5, tiltY: 0.9, speed: -0.7 },
-        { radius: 88, tube: 0.4, tiltX: 1.1, tiltZ: 0.4, speed: 0.5 }
+        { radius: 68, tube: 0.6, rx: 0.8, ry: 0.2, speed: 1.1 },
+        { radius: 78, tube: 0.5, rx: -0.6, ry: 0.9, speed: -0.8 },
+        { radius: 88, tube: 0.4, rx: 1.3, rz: 0.4, speed: 0.6 }
       ];
 
       configs.forEach(cfg => {
-        const ringGeom = new THREE.TorusGeometry(cfg.radius, cfg.tube, 16, 90);
-        const ringMat = new THREE.MeshBasicMaterial({
+        const geom = new THREE.TorusGeometry(cfg.radius, cfg.tube, 16, 100);
+        const mat = new THREE.MeshBasicMaterial({
           color: STATE_PALETTES.idle.rings,
           transparent: true,
-          opacity: 0.65,
+          opacity: 0.55,
           blending: THREE.AdditiveBlending
         });
-        const ringMesh = new THREE.Mesh(ringGeom, ringMat);
-        ringMesh.rotation.x = cfg.tiltX;
-        ringMesh.rotation.y = cfg.tiltY || 0;
-        ringMesh.rotation.z = cfg.tiltZ || 0;
-        ringMesh.userData = { speed: cfg.speed };
-        this.group.add(ringMesh);
-        this.rings.push(ringMesh);
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.rotation.x = cfg.rx;
+        mesh.rotation.y = cfg.ry || 0;
+        mesh.rotation.z = cfg.rz || 0;
+        mesh.userData = { speed: cfg.speed };
+        this.group.add(mesh);
+        this.ribbons.push(mesh);
       });
     }
 
-    createParticleCloud() {
-      const count = 750;
+    createStardust() {
+      const count = 850;
       const positions = new Float32Array(count * 3);
       const velocities = [];
-      const scales = new Float32Array(count);
 
       for (let i = 0; i < count; i++) {
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos((Math.random() * 2) - 1);
-        const dist = 50 + Math.random() * 65;
+        const dist = 52 + Math.random() * 65;
 
         positions[i * 3] = dist * Math.sin(phi) * Math.cos(theta);
         positions[i * 3 + 1] = dist * Math.sin(phi) * Math.sin(theta);
         positions[i * 3 + 2] = dist * Math.cos(phi);
 
         velocities.push({
-          thetaSpeed: (Math.random() - 0.5) * 0.015,
-          phiSpeed: (Math.random() - 0.5) * 0.015,
-          radSpeed: (Math.random() - 0.5) * 0.2,
+          thetaSpeed: (Math.random() - 0.5) * 0.018,
+          phiSpeed: (Math.random() - 0.5) * 0.018,
           baseDist: dist
         });
-
-        scales[i] = Math.random() * 1.5 + 0.5;
       }
 
-      this.particleGeom = new THREE.BufferGeometry();
-      this.particleGeom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-      this.particleVelocities = velocities;
+      this.stardustGeom = new THREE.BufferGeometry();
+      this.stardustGeom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      this.stardustVelocities = velocities;
 
-      this.particleMat = new THREE.PointsMaterial({
-        size: 7.5,
-        map: particleTexture,
+      this.stardustMat = new THREE.PointsMaterial({
+        size: 8.5,
+        map: stardustTexture,
         transparent: true,
-        opacity: 0.75,
+        opacity: 0.78,
         color: STATE_PALETTES.idle.particles,
         blending: THREE.AdditiveBlending,
         depthWrite: false
       });
 
-      this.particleSystem = new THREE.Points(this.particleGeom, this.particleMat);
-      this.group.add(this.particleSystem);
+      this.stardustSystem = new THREE.Points(this.stardustGeom, this.stardustMat);
+      this.group.add(this.stardustSystem);
     }
 
     bindEvents() {
@@ -277,8 +328,8 @@
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         const x = (clientX - rect.left) / rect.width - 0.5;
         const y = (clientY - rect.top) / rect.height - 0.5;
-        this.targetRotY = x * 1.2;
-        this.targetRotX = y * 1.2;
+        this.targetRotY = x * 1.1;
+        this.targetRotX = y * 1.1;
       };
 
       window.addEventListener("mousemove", onMove, { passive: true });
@@ -290,18 +341,22 @@
       this.state = stateName;
       const pal = STATE_PALETTES[stateName];
 
-      if (this.coreMat) {
-        this.coreMat.color.lerp(pal.corePrimary, 0.4);
-        this.coreMat.emissive.lerp(pal.coreEmissive, 0.4);
+      if (this.plasmaUniforms) {
+        this.plasmaUniforms.uColorA.value.lerp(pal.colorA, 0.4);
+        this.plasmaUniforms.uColorB.value.lerp(pal.colorB, 0.4);
+        this.plasmaUniforms.uColorRim.value.lerp(pal.colorRim, 0.4);
       }
-      if (this.particleMat) {
-        this.particleMat.color.lerp(pal.particles, 0.4);
+      if (this.stardustMat) {
+        this.stardustMat.color.lerp(pal.particles, 0.4);
+      }
+      if (this.haloMat) {
+        this.haloMat.color.lerp(pal.light, 0.4);
       }
       if (this.pointLight) {
         this.pointLight.color.lerp(pal.light, 0.4);
       }
-      if (this.rings) {
-        this.rings.forEach(r => r.material.color.lerp(pal.rings, 0.4));
+      if (this.ribbons) {
+        this.ribbons.forEach(r => r.material.color.lerp(pal.rings, 0.4));
       }
     }
 
@@ -323,74 +378,54 @@
       if (!this.running) return;
       this.rafId = requestAnimationFrame(this.animate);
 
-      // Skip render if element is hidden or scrolled off screen
       if (document.hidden || !this.container.isConnected) return;
 
       const delta = this.clock.getDelta();
       const time = this.clock.getElapsedTime();
       const pal = STATE_PALETTES[this.state] || STATE_PALETTES.idle;
 
-      // Audio smooth lerp
-      this.audioLevel += (this.targetAudioLevel - this.audioLevel) * 0.2;
-      this.targetAudioLevel *= 0.94; // Decay
+      // Audio smooth interpolation
+      this.audioLevel += (this.targetAudioLevel - this.audioLevel) * 0.22;
+      this.targetAudioLevel *= 0.93;
 
-      const effectiveSpeed = pal.speed * (1.0 + this.audioLevel * 1.5);
+      const effectiveSpeed = pal.speed * (1.0 + this.audioLevel * 1.6);
 
-      // 1. Core mesh deformation with noise & audio
-      if (this.coreMesh && this.coreGeomOriginalPos) {
-        const pos = this.coreMesh.geometry.attributes.position;
-        const orig = this.coreGeomOriginalPos;
-        const count = pos.count;
-        const pulse = 1.0 + Math.sin(time * 2.2 * effectiveSpeed) * pal.scalePulse + (this.audioLevel * 0.35);
-
-        for (let i = 0; i < count; i++) {
-          const ox = orig.getX(i);
-          const oy = orig.getY(i);
-          const oz = orig.getZ(i);
-
-          const wave = Math.sin(ox * 0.08 + time * 3.5 * effectiveSpeed)
-                     * Math.cos(oy * 0.08 + time * 2.8 * effectiveSpeed)
-                     * Math.sin(oz * 0.08 + time * 3.1 * effectiveSpeed);
-
-          const displacement = 1.0 + wave * 0.12 * (1.0 + this.audioLevel * 1.2);
-          pos.setXYZ(i, ox * pulse * displacement, oy * pulse * displacement, oz * pulse * displacement);
-        }
-        pos.needsUpdate = true;
-
-        this.coreMesh.rotation.y += 0.008 * effectiveSpeed;
-        this.coreMesh.rotation.x += 0.004 * effectiveSpeed;
+      // 1. Plasma Core Uniforms
+      if (this.plasmaUniforms) {
+        this.plasmaUniforms.uTime.value = time * effectiveSpeed;
+        this.plasmaUniforms.uAudio.value = this.audioLevel;
+        this.coreMesh.rotation.y += 0.006 * effectiveSpeed;
+        this.coreMesh.rotation.z += 0.003 * effectiveSpeed;
       }
 
-      // 2. Inner nucleus rotation
-      if (this.nucMesh) {
-        this.nucMesh.rotation.y -= 0.015 * effectiveSpeed;
-        this.nucMesh.rotation.z += 0.012 * effectiveSpeed;
-        const nucScale = 1.0 + this.audioLevel * 0.45;
-        this.nucMesh.scale.set(nucScale, nucScale, nucScale);
+      // 2. Singularity Breathing
+      if (this.singularityMesh) {
+        const breathe = 1.0 + Math.sin(time * 3 * effectiveSpeed) * 0.08 + this.audioLevel * 0.4;
+        this.singularityMesh.scale.set(breathe, breathe, breathe);
+        this.haloMesh.scale.set(breathe * 1.15, breathe * 1.15, breathe * 1.15);
       }
 
-      // 3. Rings rotation
-      if (this.rings) {
-        this.rings.forEach((r, idx) => {
-          r.rotation.z += 0.012 * r.userData.speed * effectiveSpeed;
-          r.rotation.y += 0.006 * r.userData.speed * effectiveSpeed;
-          const ringPulse = 1.0 + Math.sin(time * 3 + idx) * 0.04 + this.audioLevel * 0.15;
-          r.scale.set(ringPulse, ringPulse, ringPulse);
+      // 3. Ribbon orbits
+      if (this.ribbons) {
+        this.ribbons.forEach((r, idx) => {
+          r.rotation.z += 0.01 * r.userData.speed * effectiveSpeed;
+          r.rotation.y += 0.005 * r.userData.speed * effectiveSpeed;
+          const rScale = 1.0 + Math.sin(time * 2.8 + idx) * 0.03 + this.audioLevel * 0.12;
+          r.scale.set(rScale, rScale, rScale);
         });
       }
 
-      // 4. Particle cloud orbiting & swirling
-      if (this.particleSystem && this.particleGeom) {
-        const pPos = this.particleGeom.attributes.position;
+      // 4. Stardust cloud
+      if (this.stardustSystem && this.stardustGeom) {
+        const pPos = this.stardustGeom.attributes.position;
         const pCount = pPos.count;
 
         for (let i = 0; i < pCount; i++) {
-          const vel = this.particleVelocities[i];
+          const vel = this.stardustVelocities[i];
           let x = pPos.getX(i);
           let y = pPos.getY(i);
           let z = pPos.getZ(i);
 
-          // Orbit around Y axis
           const cos = Math.cos(vel.thetaSpeed * effectiveSpeed);
           const sin = Math.sin(vel.thetaSpeed * effectiveSpeed);
           const nx = x * cos - z * sin;
@@ -398,10 +433,9 @@
           x = nx;
           z = nz;
 
-          // Gentle breathing displacement
           const r = Math.sqrt(x * x + y * y + z * z);
           if (r > 0.001) {
-            const desiredR = vel.baseDist + Math.sin(time * 2 + i) * 6 + (this.audioLevel * 25);
+            const desiredR = vel.baseDist + Math.sin(time * 2.5 + i) * 5 + (this.audioLevel * 20);
             const scale = desiredR / r;
             x *= scale;
             y *= scale;
@@ -411,10 +445,10 @@
           pPos.setXYZ(i, x, y, z);
         }
         pPos.needsUpdate = true;
-        this.particleSystem.rotation.y += 0.002 * effectiveSpeed;
+        this.stardustSystem.rotation.y += 0.0018 * effectiveSpeed;
       }
 
-      // 5. Parallax tilt interpolation
+      // 5. Parallax
       this.group.rotation.x += (this.targetRotX - this.group.rotation.x) * 0.08;
       this.group.rotation.y += (this.targetRotY - this.group.rotation.y) * 0.08;
 
@@ -431,7 +465,7 @@
     }
   }
 
-  // Global registry and mount helper
+  // Registry
   window.AkiraQuantumOrb = {
     instances: new Map(),
 
@@ -441,13 +475,12 @@
       }
       if (!container) return null;
 
-      // Clean existing instance
       if (this.instances.has(container)) {
         this.instances.get(container).destroy();
         this.instances.delete(container);
       }
 
-      const instance = new QuantumOrbInstance(container, options);
+      const instance = new CelestialQuantumOrb(container, options);
       this.instances.set(container, instance);
       return instance;
     },
@@ -460,25 +493,23 @@
       this.instances.forEach(inst => inst.setAudioLevel(level));
     },
 
-    // Bridge with existing AkiraEntity slots
     mountAll(root = document) {
       const slots = root.querySelectorAll("[data-akira-entity], .akira-entity-slot");
       slots.forEach(slot => {
         const size = parseInt(slot.dataset.size || "120", 10);
-        // Only mount 3D on medium/large slots (>= 60px) or hero to preserve mobile GPU
         if (size >= 60 || slot.classList.contains("akira-ref-orb") || slot.id === "akiraLiveOrbStage") {
           this.mount(slot, {
             size: size,
             state: slot.dataset.state || "idle",
-            enableRings: size > 150,
-            enableParticles: size > 100
+            enableRings: size > 140,
+            enableParticles: size > 90
           });
         }
       });
     }
   };
 
-  // Intercept AkiraEntity if already present
+  // Intercept AkiraEntity
   if (window.AkiraEntity) {
     const origMountAll = window.AkiraEntity.mountAll;
     window.AkiraEntity.mountAll = function(root) {
@@ -492,7 +523,6 @@
     };
   }
 
-  // Auto-mount on DOM ready and section navigation
   document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => {
       window.AkiraQuantumOrb.mountAll();
@@ -502,9 +532,9 @@
     if (e && e.detail && e.detail.section === "home") {
       setTimeout(() => {
         window.AkiraQuantumOrb.mountAll();
-      }, 120);
+      }, 100);
     }
   });
 
-  console.log("[AkiraQuantumOrb] Quantum 3D Core initialized successfully.");
+  console.log("[AkiraQuantumOrb] Celestial Living Plasma Core loaded.");
 })();
