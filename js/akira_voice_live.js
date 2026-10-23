@@ -37,13 +37,14 @@
       const loadVoices = () => {
         if (!this.synthesis) return;
         const voices = this.synthesis.getVoices();
-        const esVoices = voices.filter(v => v.lang.startsWith("es"));
+        const esVoices = voices.filter(v => (v.lang && (v.lang.startsWith("es") || v.lang.startsWith("spa"))));
+        // Strict priority for fluid neural/online human voices:
         this.selectedVoice = 
-          esVoices.find(v => v.lang === "es-CO" && (v.name.toLowerCase().includes("salome") || v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("online"))) ||
+          esVoices.find(v => (v.lang === "es-CO" || v.name.toLowerCase().includes("colombia")) && (v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("online") || v.name.toLowerCase().includes("neural"))) ||
+          esVoices.find(v => v.lang === "es-CO" && v.name.toLowerCase().includes("salome")) ||
           esVoices.find(v => v.lang === "es-CO") ||
-          esVoices.find(v => v.name.toLowerCase().includes("colombia")) ||
-          esVoices.find(v => v.name.toLowerCase().includes("sabina") || v.name.toLowerCase().includes("helena") || v.name.toLowerCase().includes("sofi") || v.name.toLowerCase().includes("monica") || v.name.toLowerCase().includes("paulina") || v.name.toLowerCase().includes("camila") || v.name.toLowerCase().includes("lucia")) ||
-          esVoices.find(v => v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("online")) ||
+          esVoices.find(v => (v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("online") || v.name.toLowerCase().includes("neural"))) ||
+          esVoices.find(v => v.name.toLowerCase().includes("sofi") || v.name.toLowerCase().includes("camila") || v.name.toLowerCase().includes("monica") || v.name.toLowerCase().includes("paulina") || v.name.toLowerCase().includes("lucia") || v.name.toLowerCase().includes("jimena")) ||
           esVoices[0] ||
           voices[0];
       };
@@ -347,17 +348,30 @@
       this.updateHUD("Hablando...", "speaking");
       this.setSubtitles("Akira: " + text);
 
-      const cleanVoiceText = text
+      let cleanVoiceText = text
         .replace(/[*_#`~\[\]]/g, "")
         .replace(/https?:\/\/\S+/g, "enlace")
         .trim();
+
+      // Colombian Phonetic Smoothing & Human Breathing Pauses:
+      // Translates "John" -> "Yhon" and "Grimm" -> "Grim" so it sounds natural and warm
+      cleanVoiceText = cleanVoiceText
+        .replace(/\bJohn\b/gi, "Yhon")
+        .replace(/\bJon\b/gi, "Yhon")
+        .replace(/\bGrimm\b/gi, "Grim")
+        .replace(/\bAI\b/g, "inteligencia artificial")
+        .replace(/\bAPI\b/g, "ápi")
+        .replace(/\bRender\b/gi, "Rénder")
+        .replace(/\bGroq\b/gi, "Groc")
+        .replace(/([.!?])\s+/g, "$1, "); // Micro-pause after punctuation for natural breath
 
       const utterance = new SpeechSynthesisUtterance(cleanVoiceText);
       if (this.selectedVoice) {
         utterance.voice = this.selectedVoice;
       }
-      utterance.rate = 1.02; // Slightly faster for natural fluid rhythm
-      utterance.pitch = 1.05;
+      // Relaxed, empathetic human cadence
+      utterance.rate = 0.98;
+      utterance.pitch = 1.02;
 
       let speakWaveInterval = setInterval(() => {
         if (!this.isSpeaking || !this.orbInstance) {

@@ -500,26 +500,26 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
       <p>Red neuronal 2D de Akira. Sin sesión se muestra la vista pública de arquitectura; con sesión se abre la red privada de conocimiento.</p>
     </div>
     <div class="brain-shell">
-      <div class="brain-toolbar">
-        <div class="brain-mode-group" role="tablist" aria-label="Vista del cerebro">
-          <button id="brainMode2d" class="brain-mode active" type="button" onclick="window.akiraBrainSetMode && akiraBrainSetMode('2d')">2D</button>
-          <button id="brainMobileViewBtn" class="brain-mode brain-mobile-view-btn" type="button" onclick="toggleBrainMobileView()" title="Ver la membrana a pantalla completa">⛶ MEMBRANA</button>
+      <div class="brain-toolbar ak-brain-cyber-toolbar">
+        <div class="ak-brain-controls-left">
+          <button id="brainFullscreenBtn" class="ak-brain-pill-btn active" type="button" onclick="akiraToggleBrainFullscreen()" title="Pantalla Completa">
+            <span id="brainFsIcon">⛶</span> <span id="brainFsText">Pantalla Completa</span>
+          </button>
+          <button id="brainFocusBtn" class="ak-brain-pill-btn" type="button" onclick="window.akiraBrainFocus && akiraBrainFocus()" title="Centrar Núcleo Akira">
+            <span>⌾</span> Centrar Akira
+          </button>
+          <button id="brainOrbitBtn" class="ak-brain-pill-btn" type="button" onclick="window.akiraBrainToggleOrbit && akiraBrainToggleOrbit()" title="Rotación suave">
+            <span>◉</span> Órbita
+          </button>
+          <button id="brainViewAllBtn" class="ak-brain-pill-btn" type="button" onclick="akiraToggleExploreAll()" title="Ver todos los nodos de la red">
+            <span>👁️</span> Toda la Red
+          </button>
         </div>
-        <div class="brain-toolbar-actions">
-          <button id="brainFocusBtn" class="brain-mode" type="button" onclick="window.akiraBrainFocus && akiraBrainFocus()" title="Centrar Akira">⌾ FOCO</button>
-          <button id="brainOrbitBtn" class="brain-mode" type="button" onclick="window.akiraBrainToggleOrbit && akiraBrainToggleOrbit()" title="Rotación automática">◉ ÓRBITA</button>
-          <button id="brainNavBack" class="brain-mode" type="button" onclick="window.akiraBrainNavigateBack && akiraBrainNavigateBack()" title="Volver al nodo anterior" disabled>←</button>
-          <button id="brainNavForward" class="brain-mode" type="button" onclick="window.akiraBrainNavigateForward && akiraBrainNavigateForward()" title="Avanzar al siguiente nodo" disabled>→</button>
-          <div id="brainNavStatus" class="brain-live">RECORRIDO · —</div>
-          <div id="brainNavTrail" class="brain-nav-trail" aria-label="Rastro del recorrido"></div>
-          <div id="brainTypeFilters" class="brain-type-filters" aria-label="Filtrar conocimiento"></div>
-          <div id="brainRelationFilters" class="brain-type-filters" aria-label="Filtrar relaciones"></div>
-          <button class="brain-mode brain-explore-btn" type="button" onclick="window.akiraBrainExploreDepth && akiraBrainExploreDepth(1)" title="Mostrar vecinos directos">1 SALTO</button>
-          <button class="brain-mode brain-explore-btn" type="button" onclick="window.akiraBrainExploreDepth && akiraBrainExploreDepth(2)" title="Expandir dos saltos">2 SALTOS</button>
-          <button class="brain-mode brain-explore-btn" type="button" onclick="window.akiraBrainExploreDepth && akiraBrainExploreDepth(3)" title="Expandir tres saltos">3 SALTOS</button>
-          <button class="brain-mode brain-explore-btn" type="button" onclick="window.akiraBrainExploreAll && akiraBrainExploreAll()" title="Mostrar toda la red">TODO</button>
-          <div id="brainModeStatus" class="brain-live">BRAIN · 2D</div>
-          <div id="brainExploreStatus" class="brain-live">MEMORIA · TODO</div>
+        <div class="ak-brain-controls-right">
+          <div id="brainStatsPill" class="ak-brain-stats-pill">
+            <span class="ak-pulse-dot"></span>
+            <span id="brainStatsText">Red Neuronal Activa</span>
+          </div>
         </div>
       </div>
       <div id="brainStage" class="brain-stage">
@@ -664,11 +664,11 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 
   <div id="levelsSection" class="section">
     <div class="section-header">
-      <h2>📊 Niveles del Proyecto</h2>
-      <p>Estado de las capacidades registradas de Akira. Cuando existe una verificación del sistema se muestra aquí; verde = verificado, amarillo = parcial, rojo = no implementado.</p>
+      <h2>📊 Niveles & Capacidades del Sistema</h2>
+      <p>Telemetría en tiempo real de los 19 subsistemas y protocolos cognitivos verificados de Akira.</p>
     </div>
-    <div style="padding:22px;max-width:800px;margin:0 auto;width:100%;overflow-y:auto">
-      <div id="levelsList" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div class="ak-levels-matrix-deck">
+      <div id="levelsList" class="ak-levels-hud-grid"></div>
     </div>
   </div>
 
@@ -1173,6 +1173,61 @@ function newChat(){if(confirm("¿Nuevo chat?")){document.getElementById('msgsInn
 
 async function handleCredentialResponse(r){
   window.handleCredentialResponse = handleCredentialResponse;
+
+function akiraToggleBrainFullscreen(){
+  const stage = document.getElementById("brainStage") || document.getElementById("brainSection");
+  if(!stage) return;
+  const isForced = stage.classList.contains("is-fullscreen-forced");
+  const fsBtnText = document.getElementById("brainFsText");
+  const fsBtnIcon = document.getElementById("brainFsIcon");
+
+  if(!isForced && !document.fullscreenElement){
+    if(stage.requestFullscreen){
+      stage.requestFullscreen().catch(()=>{
+        stage.classList.add("is-fullscreen-forced");
+      });
+    } else {
+      stage.classList.add("is-fullscreen-forced");
+    }
+    if(fsBtnText) fsBtnText.textContent = "Salir Pantalla Completa";
+    if(fsBtnIcon) fsBtnIcon.textContent = "✕";
+  } else {
+    if(document.exitFullscreen && document.fullscreenElement){
+      document.exitFullscreen().catch(()=>{});
+    }
+    stage.classList.remove("is-fullscreen-forced");
+    if(fsBtnText) fsBtnText.textContent = "Pantalla Completa";
+    if(fsBtnIcon) fsBtnIcon.textContent = "⛶";
+  }
+  setTimeout(()=>{
+    try{ if(window.cyMembrane) { window.cyMembrane.resize(); window.cyMembrane.fit(null, 30); } }catch(_){}
+  }, 150);
+}
+
+function akiraToggleExploreAll(){
+  try{
+    if(window.akiraBrainExploreAll) {
+      window.akiraBrainExploreAll();
+    }
+    if(window.cyMembrane) {
+      window.cyMembrane.elements().style("display", "element").removeClass("dimmed").removeClass("highlighted");
+      window.cyMembrane.fit(null, 40);
+    }
+  }catch(_){}
+}
+
+document.addEventListener("fullscreenchange", ()=>{
+  const stage = document.getElementById("brainStage");
+  const fsBtnText = document.getElementById("brainFsText");
+  const fsBtnIcon = document.getElementById("brainFsIcon");
+  if(!document.fullscreenElement && stage){
+    stage.classList.remove("is-fullscreen-forced");
+    if(fsBtnText) fsBtnText.textContent = "Pantalla Completa";
+    if(fsBtnIcon) fsBtnIcon.textContent = "⛶";
+    setTimeout(()=>{ try{ if(window.cyMembrane) { window.cyMembrane.resize(); } }catch(_){} }, 100);
+  }
+});
+
   try{
     const c=r.credential;
     const b=localStorage.getItem("akira_backend_url");
@@ -1216,6 +1271,61 @@ async function handleCredentialResponse(r){
   }catch(e){alert(e.message);}
 }
 window.handleCredentialResponse = handleCredentialResponse;
+
+function akiraToggleBrainFullscreen(){
+  const stage = document.getElementById("brainStage") || document.getElementById("brainSection");
+  if(!stage) return;
+  const isForced = stage.classList.contains("is-fullscreen-forced");
+  const fsBtnText = document.getElementById("brainFsText");
+  const fsBtnIcon = document.getElementById("brainFsIcon");
+
+  if(!isForced && !document.fullscreenElement){
+    if(stage.requestFullscreen){
+      stage.requestFullscreen().catch(()=>{
+        stage.classList.add("is-fullscreen-forced");
+      });
+    } else {
+      stage.classList.add("is-fullscreen-forced");
+    }
+    if(fsBtnText) fsBtnText.textContent = "Salir Pantalla Completa";
+    if(fsBtnIcon) fsBtnIcon.textContent = "✕";
+  } else {
+    if(document.exitFullscreen && document.fullscreenElement){
+      document.exitFullscreen().catch(()=>{});
+    }
+    stage.classList.remove("is-fullscreen-forced");
+    if(fsBtnText) fsBtnText.textContent = "Pantalla Completa";
+    if(fsBtnIcon) fsBtnIcon.textContent = "⛶";
+  }
+  setTimeout(()=>{
+    try{ if(window.cyMembrane) { window.cyMembrane.resize(); window.cyMembrane.fit(null, 30); } }catch(_){}
+  }, 150);
+}
+
+function akiraToggleExploreAll(){
+  try{
+    if(window.akiraBrainExploreAll) {
+      window.akiraBrainExploreAll();
+    }
+    if(window.cyMembrane) {
+      window.cyMembrane.elements().style("display", "element").removeClass("dimmed").removeClass("highlighted");
+      window.cyMembrane.fit(null, 40);
+    }
+  }catch(_){}
+}
+
+document.addEventListener("fullscreenchange", ()=>{
+  const stage = document.getElementById("brainStage");
+  const fsBtnText = document.getElementById("brainFsText");
+  const fsBtnIcon = document.getElementById("brainFsIcon");
+  if(!document.fullscreenElement && stage){
+    stage.classList.remove("is-fullscreen-forced");
+    if(fsBtnText) fsBtnText.textContent = "Pantalla Completa";
+    if(fsBtnIcon) fsBtnIcon.textContent = "⛶";
+    setTimeout(()=>{ try{ if(window.cyMembrane) { window.cyMembrane.resize(); } }catch(_){} }, 100);
+  }
+});
+
 
 async function checkBridgeSimple(){
   const simple=document.getElementById("bridgeSimple");
@@ -2052,13 +2162,30 @@ async function renderLevels(){
       {id:"F14", name:"Controlled Autonomy / Autonomía", desc:"Ejecución autónoma verificada y supervisada.", status: "verified"},
       {id:"F15", name:"Hive Collective Sync / Colmena", desc:"Sincronización multi-dispositivo descentralizada con criptografía Ed25519 y persistencia RLS.", status: "verified"},
     ];
-    listEl.innerHTML = levels.map(l => (
-      '<div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;box-shadow:var(--shadow-glass);">' +
-        '<div><div style="font-family:\'Outfit\', sans-serif;font-size:14.5px;font-weight:600;color:#fff;">'+l.id+' · '+l.name+'</div>' +
-        '<div style="font-size:12.5px;color:var(--text-muted);margin-top:3px;">'+l.desc+'</div></div>' +
-        '<div style="font-size:20px;">'+(l.status === "verified" ? "🟢" : (l.status === "partial" ? "🟡" : "🔴"))+'</div>' +
-      '</div>'
-    )).join("");
+    listEl.className = "ak-levels-hud-grid";
+    listEl.innerHTML = levels.map(l => {
+      const isVerified = l.status === "verified";
+      const statusText = isVerified ? "Verificado · 100%" : (l.status === "partial" ? "Parcial" : "En desarrollo");
+      const statusColor = isVerified ? "#34d399" : (l.status === "partial" ? "#fbbf24" : "#f87171");
+      const statusBg = isVerified ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)";
+      const statusBorder = isVerified ? "rgba(16,185,129,0.3)" : "rgba(245,158,11,0.3)";
+
+      return `
+        <div class="ak-level-hud-card">
+          <div class="ak-level-hud-header">
+            <div class="ak-level-hud-tag-group">
+              <span class="ak-level-hud-badge">${l.id}</span>
+              <h4 class="ak-level-hud-title">${l.name}</h4>
+            </div>
+            <div class="ak-level-hud-status-chip" style="background:${statusBg};border-color:${statusBorder};color:${statusColor}">
+              <span class="dot" style="background:${statusColor};box-shadow:0 0 6px ${statusColor}"></span>
+              <span>${statusText}</span>
+            </div>
+          </div>
+          <p class="ak-level-hud-desc">${l.desc}</p>
+        </div>
+      `;
+    }).join("");
   }catch(e){
     listEl.innerHTML = '<div style="color:#ef4444;text-align:center;padding:20px;">Error al cargar niveles: '+e.message+'</div>';
   }
