@@ -392,16 +392,9 @@
       if(!confirm("¿Deseas que Akira evalúe y consolide automáticamente todos los conocimientos candidatos pendientes al Cerebro?")) return;
       if(root) root.innerHTML = '<div class="learning-empty">⚡ Akira auto-evaluando y consolidando conocimientos pendientes...</div>';
       
-      const results = await Promise.all([
-        request("/api/v8/learning?source=" + encodeURIComponent("explicit_user_teaching") + "&status=candidate&limit=50"),
-        request("/api/v8/learning?source=" + encodeURIComponent("experience_feedback") + "&status=candidate&limit=50"),
-        request("/api/v8/learning?source=" + encodeURIComponent("autonomous_experience") + "&status=candidate&limit=50")
-      ]);
-
-      const candidates = results.reduce(function(all, r){ 
-        return all.concat(Array.isArray(r.data && r.data.learning) ? r.data.learning : []); 
-      }, []);
-
+      const res = await request("/api/v8/learning?status=candidate&limit=100");
+      const candidates = (res.ok && res.data && Array.isArray(res.data.learning)) ? res.data.learning : [];
+      
       if(!candidates.length){
         alert("No hay candidatos pendientes por auto-consolidar.");
         await api.load();

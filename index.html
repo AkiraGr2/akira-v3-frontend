@@ -1627,6 +1627,13 @@ document.addEventListener("DOMContentLoaded", ()=>{
   setTimeout(()=>{ try{ fetchRuntimeCapabilities(); }catch(_){} },900);
   setTimeout(()=>{ try{ checkBridgeSimple(); }catch(_){} },900);
   setInterval(()=>{ try{ checkBridgeSimple(); }catch(_){} },60000);
+  // Keep Render backend awake while tab is open to eliminate cold starts
+  setInterval(()=>{
+    try {
+      const b = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
+      fetch(b + "/health", { cache: "no-store" }).catch(()=>{});
+    } catch(_){}
+  }, 3 * 60 * 1000);
   if('serviceWorker' in navigator){
     setTimeout(async ()=>{
       try{

@@ -165,8 +165,9 @@
         // 1. Server
         const srvEl = document.getElementById("admStatusServer");
         if (srvEl) {
-          srvEl.textContent = (health && health.ok) ? "🟢 En línea" : "🔴 Desconectado";
-          srvEl.style.color = (health && health.ok) ? "var(--accent-green)" : "var(--accent-magenta)";
+          const isOnline = Boolean(health && (health.ok === true || health.status === "ok"));
+          srvEl.textContent = isOnline ? "🟢 En línea" : "🔴 Desconectado";
+          srvEl.style.color = isOnline ? "var(--accent-green)" : "var(--accent-magenta)";
         }
 
         // 2. Owner
@@ -185,7 +186,7 @@
         // 4. Candidate Pill
         const pill = document.getElementById("admCandidatePill");
         if (pill) {
-          const count = (learning && learning.items && learning.items.length) || 0;
+          const count = (learning && (learning.count !== undefined ? learning.count : (learning.learning && learning.learning.length))) || 0;
           pill.textContent = count > 0 ? `${count} pendientes por consolidar` : "Al día (0 pendientes)";
           pill.className = "ak-candidate-counter " + (count > 0 ? "has-pending" : "clean");
         }
