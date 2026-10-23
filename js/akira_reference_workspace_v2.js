@@ -193,29 +193,110 @@
       : "No se pudo verificar el servidor. No se muestran cifras de respaldo.");
   }
 
+  const navCategories = [
+    {
+      title: "Núcleo Principal",
+      items: [
+        ["home", "⌂ Inicio", "Centro de mando"],
+        ["chat", "💬 Chat", "Puente neuronal"],
+        ["membrane", "🧠 Cerebro", "Memoria & sinapsis"]
+      ]
+    },
+    {
+      title: "Colmena & Agentes",
+      items: [
+        ["office", "🏢 Oficina", "Telemetría en vivo"],
+        ["missions", "🎯 Misiones", "Operaciones autónomas"],
+        ["upwork", "💼 Upwork AI", "Monetización"]
+      ]
+    },
+    {
+      title: "Control & Sistema",
+      items: [
+        ["levels", "📊 Niveles", "15/15 capacidades"],
+        ["keys", "🔑 Cuenta", "Sesión & seguridad"],
+        ["admin", "⚙️ Admin", "Consola ejecutiva"]
+      ]
+    }
+  ];
+
   function setupNav(){
     const brand=qs(".brand");
     if(brand){
-      brand.innerHTML='<div class="ak-ref-logo-mark akira-entity-slot" data-akira-entity data-state="idle" data-size="44" aria-label="Akira · Núcleo vivo"></div><div><h1>AKIRA</h1><p>Cognitive Workspace</p></div>';
+      brand.innerHTML=`
+        <div class="ak-brand-block" onclick="window.showSection('home')" style="cursor:pointer;display:flex;align-items:center;gap:12px;">
+          <div class="ak-ref-logo-mark akira-entity-slot" data-akira-entity data-state="idle" data-size="40" aria-label="Akira Quantum Crest"></div>
+          <div class="ak-brand-text">
+            <h1 style="font-family:'Outfit',sans-serif;font-size:20px;font-weight:800;letter-spacing:0.16em;margin:0;background:linear-gradient(90deg,#00f2fe,#8b5cf6);-webkit-background-clip:text;background-clip:text;color:transparent;">AKIRA</h1>
+            <p style="font-size:9px;letter-spacing:0.14em;color:#64748b;margin:2px 0 0;font-weight:600;">COLMENA COGNITIVA // V8.2</p>
+          </div>
+        </div>
+      `;
     }
     const nav=qs("#sidebar .nav"); if(!nav)return;
-    navMap.forEach(function(item){
-      const name=item[0], label=item[1];
-      let btn=qs("#btn-"+name,nav);
-      if(!btn){
-        btn=document.createElement("button");
-        btn.className="nav-btn"; btn.id="btn-"+name; btn.type="button";
-        btn.addEventListener("click",function(){clickSection(name)});
-      }
-      btn.textContent=label; nav.appendChild(btn);
+    nav.innerHTML = "";
+    navCategories.forEach(function(cat){
+      const header = document.createElement("div");
+      header.className = "ak-nav-category-title";
+      header.textContent = cat.title;
+      nav.appendChild(header);
+
+      cat.items.forEach(function(item){
+        const name = item[0], label = item[1], desc = item[2];
+        const btn = document.createElement("button");
+        btn.className = "nav-btn" + (name === "home" ? " active" : "");
+        btn.id = "btn-" + name;
+        btn.type = "button";
+        btn.innerHTML = `<span class="nav-btn-label">${label}</span><small class="nav-btn-desc">${desc}</small>`;
+        btn.addEventListener("click", function(){ clickSection(name); });
+        nav.appendChild(btn);
+      });
     });
-    const brandP=qs(".brand p"); if(brandP)brandP.textContent="Cognitive Workspace";
-    const brandH=qs(".brand h1"); if(brandH)brandH.textContent="AKIRA";
+
+    // Add Live Sidebar Telemetry Card at bottom of sidebar if not present
+    let telem = qs("#sidebar .ak-sidebar-telemetry");
+    if(!telem){
+      telem = document.createElement("div");
+      telem.className = "ak-sidebar-telemetry";
+      telem.innerHTML = `
+        <div class="ak-telemetry-status">
+          <span class="ak-live-dot"></span>
+          <span>Colmena: Activa & Persistente</span>
+        </div>
+        <div class="ak-telemetry-sub">15/15 Verificadas · Render 0$</div>
+      `;
+      const sidebar = qs("#sidebar");
+      if(sidebar) sidebar.appendChild(telem);
+    }
+
     if(window.AkiraEntity&&window.AkiraEntity.mountAll)window.AkiraEntity.mountAll(brand);
-    navMap.map(function(x){return qs("#btn-"+x[0],nav)}).filter(Boolean).forEach(function(b){nav.appendChild(b)});
   }
 
-  function setupTopbar(){const model=qs(".topbar .model-pill");if(model)model.textContent="Pregunta algo a Akira..."}
+  function setupTopbar(){
+    const topbar = qs(".topbar");
+    if(!topbar) return;
+    topbar.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="hamburger" onclick="toggleSidebar()">☰</button>
+        <div class="ak-hud-breadcrumb">
+          <span class="ak-hud-prefix">AKIRA</span>
+          <span class="ak-hud-sep">//</span>
+          <span id="akHudCurrentSection" class="ak-hud-section">INICIO</span>
+        </div>
+      </div>
+      <div class="ak-hud-center-chip">
+        <span class="ak-hud-live-dot"></span>
+        <span id="akHudStatusText">✦ COLMENA ACTIVA · 58 NODOS · MEMORIA PERSISTENTE</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button class="akira-live-trigger-btn ak-hud-live-btn" onclick="toggleAkiraLiveVoice()" title="Conversar por voz en 3D con Akira">
+          <span class="live-wave-dot"></span>
+          <span>✨ Akira Live 3D</span>
+        </button>
+        <button id="userAvatar" onclick="showSection('keys')" class="ak-hud-avatar-btn" title="Mi Cuenta y Sesión">👑</button>
+      </div>
+    `;
+  }
 
   function mountHome(){
     const main=qs(".main"); if(!main)return;

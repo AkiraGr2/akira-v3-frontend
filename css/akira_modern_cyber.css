@@ -1675,3 +1675,359 @@ code, pre, .ak-mono, .badge, .status-pill, .step-num, .task-val, .ak-metric-labe
   display: block !important;
   position: relative !important;
 }
+
+/* ============================================================
+ * AKIRA CYBER COMMAND DECK & QUANTUM SIGIL SYSTEM
+ * ============================================================ */
+
+/* 1. AKIRA QUANTUM SIGIL (Vector Sharp, Living Holographic Crest) */
+.ak-quantum-sigil {
+  filter: drop-shadow(0 0 10px rgba(0, 242, 254, 0.45));
+  transition: transform 0.3s ease, filter 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+.ak-quantum-sigil:hover {
+  transform: scale(1.08);
+  filter: drop-shadow(0 0 16px rgba(0, 242, 254, 0.8));
+}
+.sigil-ring-orbit {
+  transform-origin: 22px 22px;
+  animation: sigilOrbitSpin 12s linear infinite;
+}
+.sigil-diamond {
+  transform-origin: 22px 22px;
+  animation: sigilDiamondPulse 3.5s ease-in-out infinite;
+}
+.sigil-singularity {
+  animation: sigilGlowBreathe 2.4s ease-in-out infinite;
+}
+@keyframes sigilOrbitSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes sigilDiamondPulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+@keyframes sigilGlowBreathe {
+  0%, 100% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+/* Sigil Reactive States */
+.ak-quantum-sigil.state-thinking {
+  filter: drop-shadow(0 0 14px rgba(217, 70, 239, 0.85));
+}
+.ak-quantum-sigil.state-thinking .sigil-ring-orbit {
+  animation-duration: 4s;
+  stroke: #d946ef;
+}
+.ak-quantum-sigil.state-listening {
+  filter: drop-shadow(0 0 14px rgba(245, 158, 11, 0.85));
+}
+.ak-quantum-sigil.state-listening .sigil-ring-orbit {
+  stroke: #f59e0b;
+}
+.ak-quantum-sigil.state-success {
+  filter: drop-shadow(0 0 14px rgba(39, 231, 162, 0.85));
+}
+.ak-quantum-sigil.state-success .sigil-ring-orbit {
+  stroke: #27e7a2;
+}
+
+/* 2. CHAT WELCOME CENTERPIECE (Eliminating the Void) */
+.ak-chat-welcome-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 440px;
+  text-align: center;
+  padding: 30px 16px;
+  margin: auto;
+  max-width: 820px;
+  animation: fadeInStage 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes fadeInStage {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ak-welcome-orb-slot {
+  width: 84px;
+  height: 84px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 30px rgba(0, 242, 254, 0.45));
+}
+
+.ak-welcome-title {
+  font-family: 'Outfit', sans-serif !important;
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.14em !important;
+  color: #ffffff !important;
+  margin: 0 0 8px 0 !important;
+  background: linear-gradient(90deg, #ffffff 0%, #00f2fe 50%, #c084fc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.ak-welcome-sub {
+  font-size: 13.5px !important;
+  color: var(--text-muted) !important;
+  max-width: 540px !important;
+  line-height: 1.6 !important;
+  margin: 0 0 28px 0 !important;
+}
+
+.ak-directive-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: 100%;
+}
+@media (max-width: 680px) {
+  .ak-directive-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ak-directive-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  padding: 14px 16px;
+  background: rgba(14, 18, 28, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(18px);
+  cursor: pointer;
+  transition: all 0.22s ease;
+}
+.ak-directive-card:hover {
+  background: rgba(0, 242, 254, 0.08);
+  border-color: rgba(0, 242, 254, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 242, 254, 0.18);
+}
+
+.ak-directive-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.ak-directive-content strong {
+  display: block;
+  font-size: 13.5px;
+  color: #ffffff;
+  margin-bottom: 2px;
+}
+.ak-directive-content small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* 3. CATEGORIZED CYBERDECK NAVIGATION */
+.ak-nav-category-title {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #64748b;
+  margin: 16px 8px 6px;
+}
+
+.sidebar .nav-btn {
+  border: 1px solid rgba(255, 255, 255, 0.03) !important;
+  border-radius: 12px !important;
+  margin-bottom: 3px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #94a3b8 !important;
+  padding: 10px 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: transparent !important;
+  transition: all 0.2s ease !important;
+}
+
+.sidebar .nav-btn:hover {
+  background: rgba(0, 242, 254, 0.06) !important;
+  color: #ffffff !important;
+  border-color: rgba(0, 242, 254, 0.2) !important;
+  transform: translateX(3px) !important;
+}
+
+.sidebar .nav-btn.active {
+  background: linear-gradient(90deg, rgba(0, 242, 254, 0.14), rgba(139, 92, 246, 0.05)) !important;
+  border-color: rgba(0, 242, 254, 0.4) !important;
+  color: #ffffff !important;
+  box-shadow: inset 3px 0 0 var(--accent-cyan), 0 0 16px rgba(0, 242, 254, 0.15) !important;
+}
+
+.nav-btn-desc {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+.sidebar .nav-btn.active .nav-btn-desc {
+  color: var(--accent-cyan);
+}
+
+/* Sidebar Live Telemetry Footer */
+.ak-sidebar-telemetry {
+  margin-top: auto;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.ak-telemetry-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.ak-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 8px var(--accent-green);
+  animation: liveWavePulse 2s infinite;
+}
+
+.ak-telemetry-sub {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 3px;
+  padding-left: 14px;
+}
+
+/* 4. NEURAL TELEMETRY HUD TOPBAR */
+.ak-hud-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.ak-hud-prefix {
+  color: var(--accent-cyan);
+  letter-spacing: 0.12em;
+}
+.ak-hud-sep {
+  color: rgba(255, 255, 255, 0.2);
+}
+.ak-hud-section {
+  color: #ffffff;
+  letter-spacing: 0.08em;
+}
+
+.ak-hud-center-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+@media (max-width: 900px) {
+  .ak-hud-center-chip {
+    display: none;
+  }
+}
+
+.ak-hud-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan);
+  animation: liveWavePulse 2s infinite;
+}
+
+.ak-hud-live-btn {
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.2), rgba(139, 92, 246, 0.2)) !important;
+  border: 1px solid var(--accent-cyan) !important;
+  border-radius: 999px !important;
+  padding: 8px 16px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  box-shadow: 0 0 16px rgba(0, 242, 254, 0.25) !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+.ak-hud-live-btn:hover {
+  transform: translateY(-1px) scale(1.02) !important;
+  box-shadow: 0 0 24px rgba(0, 242, 254, 0.45) !important;
+}
+
+.ak-hud-avatar-btn {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 15px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+.ak-hud-avatar-btn:hover {
+  border-color: var(--accent-cyan) !important;
+  box-shadow: 0 0 12px rgba(0, 242, 254, 0.3) !important;
+}
+
+/* 5. HIGH-TECH MESSAGE STREAM */
+.msg-row.user .bubble {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95)) !important;
+  border: 1px solid rgba(0, 242, 254, 0.25) !important;
+  border-radius: 18px 18px 4px 18px !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+.msg-row.akira .bubble {
+  background: rgba(11, 15, 25, 0.8) !important;
+  border: 1px solid rgba(139, 92, 246, 0.2) !important;
+  border-left: 3px solid var(--accent-cyan) !important;
+  border-radius: 4px 18px 18px 18px !important;
+  color: #f1f5f9 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
+}

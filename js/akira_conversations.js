@@ -37,7 +37,48 @@
   function _showEmptyChat(){
     const inner = document.getElementById('msgsInner');
     if (!inner) return;
-    inner.innerHTML = '<div class="msg-row akira"><div class="avatar"></div><div class="bubble">Nuevo chat. ¿En qué te ayudo?</div></div>';
+    inner.innerHTML = `
+      <div id="akiraChatWelcomeStage" class="ak-chat-welcome-stage">
+        <div class="ak-welcome-orb-slot">
+          <div class="akira-entity-slot" data-akira-entity data-state="idle" data-size="80" aria-label="Akira Core"></div>
+        </div>
+        <h2 class="ak-welcome-title">AKIRA // NEURAL NEXUS</h2>
+        <p class="ak-welcome-sub">Colmena cognitiva personal con memoria persistente verificada. Selecciona una directiva para comenzar:</p>
+        <div class="ak-directive-grid">
+          <div class="ak-directive-card" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('🤖 Analiza las mejores oportunidades para automatizar y aplicar en Upwork hoy.')">
+            <div class="ak-directive-icon">💼</div>
+            <div class="ak-directive-content">
+              <strong>Monetización Upwork</strong>
+              <small>Buscar nichos rentables y redactar propuestas ganadoras.</small>
+            </div>
+          </div>
+          <div class="ak-directive-card" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('🎯 Planifica una nueva misión táctica con tus agentes especialistas.')">
+            <div class="ak-directive-icon">🎯</div>
+            <div class="ak-directive-content">
+              <strong>Misión Autónoma</strong>
+              <small>Asignar objetivos tácticos a Luna, Nexo y especialistas.</small>
+            </div>
+          </div>
+          <div class="ak-directive-card" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('🧠 Muestra un resumen de tu autoconocimiento y memoria verificada.')">
+            <div class="ak-directive-icon">🧠</div>
+            <div class="ak-directive-content">
+              <strong>Auditoría de Memoria</strong>
+              <small>Explorar los 58 nodos del Cerebro y conexiones persistentes.</small>
+            </div>
+          </div>
+          <div class="ak-directive-card" onclick="toggleAkiraLiveVoice()">
+            <div class="ak-directive-icon">✨</div>
+            <div class="ak-directive-content">
+              <strong>Akira Live 3D (Voz)</strong>
+              <small>Iniciar diálogo por voz bidireccional en tiempo real.</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    if (window.AkiraEntity && window.AkiraEntity.mountAll) {
+      window.AkiraEntity.mountAll(inner);
+    }
   }
 
   function _showLoading(msg){

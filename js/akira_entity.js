@@ -939,6 +939,55 @@
     ctx.restore();
   }
 
+
+  function createQuantumSigil(host, size, initialState) {
+    const s = size || 42;
+    host.innerHTML = `
+      <div class="ak-quantum-sigil state-${initialState || 'idle'}" style="width:${s}px;height:${s}px;display:flex;align-items:center;justify-content:center;position:relative;">
+        <svg viewBox="0 0 44 44" style="width:100%;height:100%;display:block;overflow:visible;">
+          <defs>
+            <linearGradient id="akSigilGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#00f2fe"/>
+              <stop offset="50%" stop-color="#8b5cf6"/>
+              <stop offset="100%" stop-color="#ec4899"/>
+            </linearGradient>
+            <radialGradient id="akSigilGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ffffff"/>
+              <stop offset="45%" stop-color="#00f2fe"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </radialGradient>
+          </defs>
+          <circle cx="22" cy="22" r="18" fill="none" stroke="url(#akSigilGrad)" stroke-width="1.8" stroke-dasharray="6 3" class="sigil-ring-orbit"/>
+          <polygon points="22,5 37,22 22,39 7,22" fill="rgba(139, 92, 246, 0.22)" stroke="url(#akSigilGrad)" stroke-width="1.6" class="sigil-diamond"/>
+          <circle cx="22" cy="22" r="5" fill="url(#akSigilGlow)" class="sigil-singularity"/>
+        </svg>
+      </div>
+    `;
+
+    let currentState = initialState || "idle";
+    const sigilContainer = host.querySelector(".ak-quantum-sigil");
+
+    return {
+      setState(next) {
+        currentState = next;
+        if (sigilContainer) {
+          sigilContainer.className = `ak-quantum-sigil state-${next}`;
+        }
+      },
+      getState: () => currentState,
+      react(expr, duration) {
+        if (sigilContainer) {
+          sigilContainer.classList.add("sigil-react");
+          setTimeout(() => sigilContainer && sigilContainer.classList.remove("sigil-react"), duration || 800);
+        }
+      },
+      resize() {},
+      destroy() {
+        host.__akiraEntity = null;
+        host.innerHTML = "";
+      }
+    };
+  }
   function mountOne(host){
     if(!host)return null;
     if(host.__akiraEntity)return host.__akiraEntity;
@@ -950,6 +999,14 @@
     if(size){
       host.style.width=host.style.width||size+"px";
       host.style.height=host.style.height||size+"px";
+    }
+
+    // For all smaller avatars/icons (< 140px), render the crisp Akira Quantum Sigil
+    // instead of the legacy 2D moonwalking spiral canvas
+    if (!host.classList.contains("akira-ref-orb") && size < 140 && host.id !== "akiraLiveOrbStage") {
+      const sigilCtrl = createQuantumSigil(host, size, host.dataset.state || "idle");
+      host.__akiraEntity = sigilCtrl;
+      return sigilCtrl;
     }
 
     const canvas=document.createElement("canvas");

@@ -114,6 +114,8 @@ function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').repla
 function addTyping(){
   const inner=document.getElementById('msgsInner');
   if(!inner) return 'typing';
+  const welcome = document.getElementById('akiraChatWelcomeStage');
+  if (welcome) welcome.style.display = 'none';
   const row=document.createElement('div');
   row.className='msg-row akira';
   const id='typing_'+Date.now();
@@ -386,6 +388,8 @@ async function sendMsgStream(){
 function addMsg(t,who,imgBase64=null){
   const inner=document.getElementById('msgsInner');
   if(!inner) return;
+  const welcome = document.getElementById('akiraChatWelcomeStage');
+  if (welcome) welcome.style.display = 'none';
   const row=document.createElement('div');
   row.className='msg-row '+who;
   let imgHtml='';

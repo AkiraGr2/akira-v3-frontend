@@ -86,7 +86,7 @@
 <link rel="stylesheet" href="./css/akira-cognitive-workspace-v2.css?v=akira-cognitive-workspace-v2">
 <link rel="stylesheet" href="./css/akira-office-2p5d.css?v=akira-office-2p5d-v5-f15-hive-panel">
 <link rel="stylesheet" href="./css/akira-reference-design-v2.css?v=akira-reference-design-v1-living-plasma-canvas">
-  <link rel="stylesheet" href="./css/akira_modern_cyber.css?v=akira-quantum-v2">
+  <link rel="stylesheet" href="./css/akira_modern_cyber.css?v=akira-quantum-v3">
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -403,9 +403,44 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
       </div>
 
       <div class="msgs" id="msgs"><div class="msgs-inner" id="msgsInner">
-        <div class="msg-row akira">
-          <div class="avatar akira-entity-slot" data-akira-entity data-state="idle" data-size="42" aria-label="Akira · En calma"></div>
-          <div class="bubble">Hola, soy Akira. Mi colmena cognitiva y memoria persistente están listas. ¿En qué objetivo o proyecto trabajamos hoy?</div>
+        <!-- Akira Central Neural Nexus Stage (Eliminates the empty void) -->
+        <div id="akiraChatWelcomeStage" class="ak-chat-welcome-stage">
+          <div class="ak-welcome-orb-slot">
+            <div class="akira-entity-slot" data-akira-entity data-state="idle" data-size="80" aria-label="Akira Quantum Core"></div>
+          </div>
+          <h2 class="ak-welcome-title">AKIRA // NEURAL NEXUS</h2>
+          <p class="ak-welcome-sub">Colmena cognitiva personal con memoria persistente verificada y agentes autónomos. Selecciona una directiva para comenzar:</p>
+          
+          <div class="ak-directive-grid">
+            <div class="ak-directive-card" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('🤖 Analiza las mejores oportunidades para automatizar y aplicar en Upwork hoy.')">
+              <div class="ak-directive-icon">💼</div>
+              <div class="ak-directive-content">
+                <strong>Monetización Upwork</strong>
+                <small>Buscar nichos rentables y generar propuestas ganadoras.</small>
+              </div>
+            </div>
+            <div class="ak-directive-card" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('🎯 Planifica una nueva misión táctica con tus agentes especialistas.')">
+              <div class="ak-directive-icon">🎯</div>
+              <div class="ak-directive-content">
+                <strong>Misión Autónoma</strong>
+                <small>Asignar objetivos tácticos a Luna, Nexo y especialistas.</small>
+              </div>
+            </div>
+            <div class="ak-directive-card" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('🧠 Muestra un resumen de tu autoconocimiento y memoria verificada.')">
+              <div class="ak-directive-icon">🧠</div>
+              <div class="ak-directive-content">
+                <strong>Auditoría de Memoria</strong>
+                <small>Explorar los 58 nodos del Cerebro y conexiones persistentes.</small>
+              </div>
+            </div>
+            <div class="ak-directive-card" onclick="toggleAkiraLiveVoice()">
+              <div class="ak-directive-icon">✨</div>
+              <div class="ak-directive-content">
+                <strong>Akira Live 3D (Voz)</strong>
+                <small>Iniciar diálogo por voz bidireccional en tiempo real.</small>
+              </div>
+            </div>
+          </div>
         </div>
       </div></div>
 
@@ -761,6 +796,11 @@ function showSection(name){
   if(sec)sec.classList.add('active');
   if(btn)btn.classList.add('active');
   closeSidebar();
+  const hudSec = document.getElementById("akHudCurrentSection");
+  if(hudSec) {
+    const secLabels = { home: "INICIO", chat: "CHAT DIRECTO", membrane: "CEREBRO", office: "OFICINA", missions: "MISIONES", levels: "NIVELES", upwork: "UPWORK", keys: "CUENTA", admin: "ADMINISTRACIÓN" };
+    hudSec.textContent = secLabels[name] || name.toUpperCase();
+  }
   if(name==='home'){
     window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"home"}}));
     setTimeout(()=>{
@@ -1375,7 +1415,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
 <script src="./js/obsidian_membrane.js?v=akira-membrane-v50-public-first-timeout"></script>
-<script src="./js/akira_entity.js?v=akira-entity-v2-6-dense-living-spiral"></script>
+<script src="./js/akira_entity.js?v=akira-quantum-sigil-v1"></script>
 <script src="./js/three.min.js"></script>
 <script src="./js/akira_quantum_orb.js?v=akira-quantum-orb-v2"></script>
 <script src="./js/akira_voice_live.js?v=akira-voice-live-v1"></script>
@@ -1383,11 +1423,11 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_office_hologram.js?v=akira-hologram-v3"></script>
 <script src="./js/akira_missions_modern.js?v=akira-missions-v4"></script>
 <script src="./js/akira_admin_modern.js?v=akira-admin-v4"></script>
-<script src="./js/akira_reference_workspace_v2.js?v=akira-reference-v11"></script>
+<script src="./js/akira_reference_workspace_v2.js?v=akira-reference-v12-cyber-deck"></script>
 <script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>
-<script src="./js/akira_brain.js?v=akira-brain-v7-stream-root"></script>
+<script src="./js/akira_brain.js?v=akira-brain-v8"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
-<script src="./js/akira_conversations.js?v=akira-conv-v5"></script>
+<script src="./js/akira_conversations.js?v=akira-conv-v6"></script>
 <script src="./js/akira_learning.js?v=akira-learning-v14"></script>
 <script src="./js/akira_admin.js?v=akira-admin-v1-10-coldstart-retry"></script>
 <script>
