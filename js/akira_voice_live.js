@@ -180,6 +180,9 @@
               <span class="akira-live-dot"></span>
               <span class="akira-live-title">AKIRA LIVE</span>
               <span class="akira-live-status-pill" id="akiraLiveStatusPill">En línea</span>
+              <button id="akiraLiveVoiceSelector" type="button" class="akira-live-voice-badge" title="Toca para cambiar de voz" style="background:rgba(255,255,255,0.07);border:1px solid rgba(0,242,254,0.3);color:#e2e8f0;font-size:11px;padding:4px 10px;border-radius:999px;cursor:pointer;margin-left:8px;font-family:inherit;">
+                🎙️ <span id="akiraLiveVoiceName">Cargando voz...</span>
+              </button>
             </div>
             <button class="akira-live-close-btn" id="akiraLiveCloseBtn" title="Salir">✕</button>
           </header>
@@ -205,6 +208,11 @@
       document.body.appendChild(modal);
 
       modal.querySelector("#akiraLiveCloseBtn").addEventListener("click", () => this.stop());
+      const vBtn = modal.querySelector("#akiraLiveVoiceSelector");
+      if (vBtn) {
+        vBtn.addEventListener("click", () => this.cycleVoice());
+        this.updateVoiceLabel();
+      }
       modal.querySelector("#akiraLiveEndBtn").addEventListener("click", () => this.stop());
       modal.querySelector("#akiraLiveMicToggle").addEventListener("click", () => this.toggleMic());
 
@@ -268,6 +276,31 @@
       }
     }
 
+
+    updateVoiceLabel() {
+      const lbl = document.getElementById("akiraLiveVoiceName");
+      if (lbl && this.selectedVoice) {
+        const shortName = (this.selectedVoice.name || "Voz").split("-")[0].replace("Microsoft", "").replace("Google", "").trim();
+        lbl.textContent = shortName + " (" + (this.selectedVoice.lang || "es") + ")";
+      }
+    }
+
+    cycleVoice() {
+      if (!this.synthesis) return;
+      const voices = this.synthesis.getVoices().filter(v => v.lang && (v.lang.startsWith("es") || v.lang.startsWith("spa")));
+      if (!voices.length) return;
+      let idx = voices.findIndex(v => v.name === (this.selectedVoice && this.selectedVoice.name));
+      idx = (idx + 1) % voices.length;
+      this.selectedVoice = voices[idx];
+      try { localStorage.setItem("akira_pref_voice", this.selectedVoice.name); } catch(_) {}
+      this.updateVoiceLabel();
+      const testUtterance = new SpeechSynthesisUtterance("Hola Yhon, probando esta voz para ti.");
+      testUtterance.voice = this.selectedVoice;
+      testUtterance.rate = 0.98;
+      testUtterance.pitch = 1.02;
+      this.synthesis.speak(testUtterance);
+    }
+
     toggleMic() {
       const btn = document.getElementById("akiraLiveMicToggle");
       if (this.isListening) {
@@ -315,7 +348,7 @@
         const headers = window.akiraAuthHeaders ? window.akiraAuthHeaders() : { "Content-Type": "application/json" };
         
         // Fast concise prompt for rapid oral turnaround
-        const fastVoicePrompt = `[MODO VOZ AKIRA LIVE: Eres Akira, colmena de Colombia creada por Jhon Grimm. Háblale a Jhon con la tranquilidad, calidez, frescura y acento natural de una chica colombiana (relajada, cercana, humana, usando giros naturales como 'parce', 'tranquilo', 'de una', 'claro que sí', sin sonar a robot ni dar rodeos, máximo 1 o 2 oraciones breves)]: ${query}`;
+        const fastVoicePrompt = `[MODO VOZ AKIRA LIVE: Eres Akira, colmena de Colombia creada por Jhon Bernal (a quien le gusta que lo llames Jhon Grimm o Grimm). Háblale a Jhon con la tranquilidad, calidez, frescura y acento natural de una chica colombiana (relajada, cercana, humana, llamándolo Jhon o Jhon Grimm, usando giros naturales como 'parce', 'tranquilo', 'de una', 'claro que sí', sin sonar a robot ni dar rodeos, máximo 1 o 2 oraciones breves)]: ${query}`;
 
         const response = await fetch(backend + "/api/chat", {
           method: "POST",
@@ -356,9 +389,13 @@
       // Colombian Phonetic Smoothing & Human Breathing Pauses:
       // Translates "John" -> "Yhon" and "Grimm" -> "Grim" so it sounds natural and warm
       cleanVoiceText = cleanVoiceText
+        .replace(/\bJhon Bernal\b/gi, "Yhon Bernal")
+        .replace(/\bJhon Grimm\b/gi, "Yhon Grim")
+        .replace(/\bJhon\b/gi, "Yhon")
         .replace(/\bJohn\b/gi, "Yhon")
         .replace(/\bJon\b/gi, "Yhon")
         .replace(/\bGrimm\b/gi, "Grim")
+        .replace(/\bAkira\b/g, "Áquira")
         .replace(/\bAI\b/g, "inteligencia artificial")
         .replace(/\bAPI\b/g, "ápi")
         .replace(/\bRender\b/gi, "Rénder")
