@@ -1,0 +1,764 @@
+/**
+ * AKIRA MODERN CYBER & QUANTUM DESIGN SYSTEM
+ * Elevates Akira from 8-bit retro pixel to high-tech, futuristic cognitive luxury.
+ * Typography: Outfit / Inter / JetBrains Mono
+ * Visual Language: Deep Space Glassmorphism, 1px subtle luminous borders, dynamic glows.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg-space: #07080c;
+  --bg-sidebar: rgba(12, 15, 24, 0.88);
+  --bg-topbar: rgba(10, 13, 20, 0.85);
+  --surface-card: rgba(18, 23, 38, 0.65);
+  --surface-hover: rgba(28, 35, 56, 0.75);
+  --surface-active: rgba(38, 48, 76, 0.9);
+  
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-glow: rgba(0, 242, 254, 0.35);
+  --border-purple: rgba(127, 0, 255, 0.3);
+
+  --accent-cyan: #00f2fe;
+  --accent-blue: #4facfe;
+  --accent-purple: #8b5cf6;
+  --accent-magenta: #f43f5e;
+  --accent-gold: #fbbf24;
+  --accent-green: #10b981;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #8492a6;
+
+  --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 9999px;
+
+  --shadow-glass: 0 16px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-glow: 0 0 25px rgba(0, 242, 254, 0.18);
+}
+
+/* Base Overrides */
+body {
+  font-family: var(--font-body) !important;
+  background-color: var(--bg-space) !important;
+  color: var(--text-primary) !important;
+  letter-spacing: -0.01em;
+  background-image: 
+    radial-gradient(1200px 700px at 50% -20%, rgba(79, 172, 254, 0.12), transparent 70%),
+    radial-gradient(800px 500px at 100% 100%, rgba(139, 92, 246, 0.08), transparent 60%) !important;
+}
+
+/* Typography elements */
+h1, h2, h3, h4, .brand h1, .section-header h2 {
+  font-family: var(--font-display) !important;
+  letter-spacing: -0.02em !important;
+}
+
+code, pre, .ak-mono {
+  font-family: var(--font-mono) !important;
+}
+
+/* Sidebar Overhaul */
+.sidebar {
+  background: var(--bg-sidebar) !important;
+  border-right: 1px solid var(--border-subtle) !important;
+  backdrop-filter: blur(24px) !important;
+  padding: 16px 14px !important;
+  gap: 12px !important;
+}
+
+.brand {
+  border-bottom: 1px solid var(--border-subtle) !important;
+  padding-bottom: 16px !important;
+}
+
+.brand h1 {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  background: linear-gradient(135deg, #ffffff 40%, var(--accent-cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.brand p {
+  font-size: 11px !important;
+  color: var(--text-muted) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.btn-new {
+  font-family: var(--font-display) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35) !important;
+  transition: all 0.2s ease !important;
+  padding: 12px 16px !important;
+}
+
+.btn-new:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 25px rgba(99, 102, 241, 0.5) !important;
+}
+
+.nav-btn {
+  font-family: var(--font-body) !important;
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  border-radius: var(--radius-md) !important;
+  border: 1px solid transparent !important;
+  color: var(--text-muted) !important;
+  padding: 11px 14px !important;
+  transition: all 0.18s ease !important;
+}
+
+.nav-btn:hover {
+  background: var(--surface-hover) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+.nav-btn.active {
+  background: var(--surface-active) !important;
+  color: #ffffff !important;
+  border-color: var(--border-glow) !important;
+  box-shadow: var(--shadow-glow) !important;
+}
+
+/* Topbar Modernization */
+.topbar {
+  background: var(--bg-topbar) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  backdrop-filter: blur(20px) !important;
+  height: 60px !important;
+  padding: 0 20px !important;
+}
+
+.topbar .model-pill {
+  font-family: var(--font-display) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  background: var(--surface-card) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--radius-pill) !important;
+  padding: 6px 16px !important;
+  letter-spacing: 0.02em;
+}
+
+/* Modern Live Voice Pill Button */
+.akira-live-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.15), rgba(127, 0, 255, 0.15));
+  border: 1px solid var(--border-glow);
+  color: var(--accent-cyan);
+  padding: 7px 16px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.15);
+}
+
+.akira-live-trigger-btn:hover {
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.25), rgba(127, 0, 255, 0.25));
+  box-shadow: 0 0 25px rgba(0, 242, 254, 0.35);
+  transform: translateY(-1px);
+}
+
+.akira-live-trigger-btn .live-wave-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent-cyan);
+  border-radius: 50%;
+  animation: liveWavePulse 1.6s infinite ease-in-out;
+}
+
+@keyframes liveWavePulse {
+  0%, 100% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.4); opacity: 1; box-shadow: 0 0 10px var(--accent-cyan); }
+}
+
+/* Chat Overhaul */
+.msg-row.user .bubble {
+  background: linear-gradient(135deg, #1e293b, #0f172a) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 18px 18px 4px 18px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+  color: #ffffff !important;
+  font-size: 14.5px !important;
+  line-height: 1.6 !important;
+  padding: 14px 20px !important;
+}
+
+.msg-row.akira .bubble {
+  font-size: 15px !important;
+  line-height: 1.7 !important;
+  color: var(--text-secondary) !important;
+}
+
+/* Chat Input Bar */
+.input-bar {
+  background: rgba(10, 13, 20, 0.92) !important;
+  border-top: 1px solid var(--border-subtle) !important;
+  backdrop-filter: blur(20px) !important;
+  padding: 16px 20px !important;
+}
+
+.input-inner {
+  background: var(--surface-card) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 20px !important;
+  padding: 6px 10px !important;
+  box-shadow: var(--shadow-glass) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.input-inner:focus-within {
+  border-color: var(--border-glow) !important;
+  box-shadow: 0 8px 30px rgba(0, 242, 254, 0.12) !important;
+}
+
+#msg {
+  background: transparent !important;
+  border: none !important;
+  font-family: var(--font-body) !important;
+  font-size: 15px !important;
+  color: #ffffff !important;
+  padding: 10px 14px !important;
+  box-shadow: none !important;
+}
+
+.icon-btn, .send-btn {
+  border-radius: 14px !important;
+  border: 1px solid var(--border-subtle) !important;
+  transition: all 0.18s ease !important;
+  box-shadow: none !important;
+}
+
+.icon-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: var(--text-muted) !important;
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+}
+
+.send-btn {
+  background: linear-gradient(135deg, #00f2fe, #4facfe) !important;
+  color: #07080c !important;
+  font-weight: 700 !important;
+}
+
+.send-btn:hover {
+  box-shadow: 0 0 20px rgba(0, 242, 254, 0.5) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Sections & Cards */
+.section-header {
+  background: rgba(14, 18, 28, 0.7) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  padding: 20px 28px !important;
+}
+
+.section-header h2 {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+}
+
+.section-header p {
+  font-size: 13.5px !important;
+  color: var(--text-muted) !important;
+}
+
+/* Buttons System */
+.pixel-btn, .ak-btn {
+  font-family: var(--font-display) !important;
+  font-weight: 600 !important;
+  font-size: 12.5px !important;
+  border-radius: var(--radius-md) !important;
+  border: 1px solid var(--border-subtle) !important;
+  padding: 10px 18px !important;
+  text-transform: none !important;
+  letter-spacing: 0.01em !important;
+  box-shadow: var(--shadow-glass) !important;
+  transition: all 0.18s ease !important;
+  cursor: pointer;
+}
+
+.ak-btn.primary {
+  background: linear-gradient(135deg, #4f46e5, #06b6d4) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.ak-btn.primary:hover {
+  box-shadow: 0 4px 25px rgba(6, 182, 212, 0.4) !important;
+  transform: translateY(-1px) !important;
+}
+
+.ak-btn.secondary {
+  background: var(--surface-card) !important;
+  color: var(--text-secondary) !important;
+}
+
+.ak-btn.secondary:hover {
+  background: var(--surface-hover) !important;
+  color: #ffffff !important;
+}
+
+.ak-btn.success {
+  background: linear-gradient(135deg, #059669, #10b981) !important;
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   AKIRA LIVE MODAL (FULLSCREEN QUANTUM VOICE EXPERIENCE)
+   ========================================================================== */
+.akira-live-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.akira-live-modal.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.akira-live-backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(16, 20, 36, 0.94) 0%, rgba(6, 7, 12, 0.98) 100%);
+  backdrop-filter: blur(35px);
+}
+
+.akira-live-container {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 900px;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 30px 40px;
+}
+
+.akira-live-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.akira-live-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.akira-live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 15px var(--accent-cyan);
+  animation: liveWavePulse 1.8s infinite;
+}
+
+.akira-live-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  background: linear-gradient(135deg, #ffffff, var(--accent-cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.akira-live-status-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.akira-live-status-pill.status-listening {
+  background: rgba(0, 242, 254, 0.15);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.akira-live-status-pill.status-thinking {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
+}
+
+.akira-live-status-pill.status-speaking {
+  background: rgba(244, 63, 94, 0.15);
+  border-color: var(--accent-magenta);
+  color: var(--accent-magenta);
+}
+
+.akira-live-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.akira-live-close-btn:hover {
+  background: rgba(244, 63, 94, 0.2);
+  color: #ffffff;
+  border-color: var(--accent-magenta);
+}
+
+.akira-live-stage-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.akira-live-orb-stage {
+  width: 420px;
+  height: 420px;
+  position: relative;
+}
+
+.akira-live-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+
+.akira-live-subtitles {
+  max-width: 720px;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  min-height: 58px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.akira-live-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.akira-live-btn.mic-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.2), rgba(79, 172, 254, 0.3));
+  border: 2px solid var(--accent-cyan);
+  color: #ffffff;
+  font-size: 24px;
+  cursor: pointer;
+  box-shadow: 0 0 25px rgba(0, 242, 254, 0.3);
+  transition: all 0.2s ease;
+}
+
+.akira-live-btn.mic-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 35px rgba(0, 242, 254, 0.5);
+}
+
+.akira-live-btn.mic-btn.muted {
+  border-color: var(--accent-magenta);
+  background: rgba(244, 63, 94, 0.2);
+}
+
+.akira-live-btn.end-btn {
+  padding: 14px 28px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.akira-live-btn.end-btn:hover {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: var(--accent-magenta);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   MONETIZATION DASHBOARD (UPWORK ENGINE)
+   ========================================================================== */
+.ak-monetize-wrap {
+  padding: 28px;
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 100%;
+  overflow-y: auto;
+}
+
+.ak-monetize-hero {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.ak-monetize-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  padding: 4px 14px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(0, 242, 254, 0.15));
+  border: 1px solid var(--accent-green);
+  color: var(--accent-green);
+  margin-bottom: 10px;
+}
+
+.ak-monetize-hero h2 {
+  font-size: 28px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ffffff, var(--accent-cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+
+.ak-monetize-hero p {
+  color: var(--text-muted);
+  max-width: 680px;
+  margin: 0 auto;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.ak-niche-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+  padding: 14px 18px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.ak-niche-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ak-niche-chip {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.ak-niche-chip:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-glow);
+  color: #ffffff;
+}
+
+.ak-monetize-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 20px;
+}
+
+.ak-tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 12px 20px;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ak-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.ak-tab-btn.active {
+  color: var(--accent-cyan);
+  border-bottom-color: var(--accent-cyan);
+}
+
+.ak-tab-pane {
+  display: none;
+}
+
+.ak-tab-pane.active {
+  display: block;
+  animation: fadeIn 0.25s ease;
+}
+
+.ak-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-glass);
+}
+
+.ak-label {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.ak-textarea {
+  width: 100%;
+  min-height: 160px;
+  background: rgba(7, 9, 14, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  color: #ffffff;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.ak-textarea:focus {
+  border-color: var(--border-glow);
+}
+
+.ak-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ak-tone-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ak-tone-chip {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  border-radius: var(--radius-pill);
+  padding: 7px 16px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.ak-tone-chip.active {
+  background: rgba(0, 242, 254, 0.12);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
+.ak-result-box {
+  margin-top: 20px;
+  padding: 20px;
+  background: rgba(10, 13, 22, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.ak-analysis-text {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.ak-next-step-box {
+  margin-top: 20px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(79, 172, 254, 0.08), rgba(127, 0, 255, 0.08));
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ak-next-step-box h4 {
+  font-size: 15px;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.ak-next-step-box p {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.ak-formatted-output {
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: #f1f5f9;
+  white-space: pre-wrap;
+}
+
+.ak-loading-pulse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 30px;
+  font-size: 15px;
+  color: var(--accent-cyan);
+  font-family: var(--font-display);
+}

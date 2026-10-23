@@ -86,6 +86,7 @@
 <link rel="stylesheet" href="./css/akira-cognitive-workspace-v2.css?v=akira-cognitive-workspace-v2">
 <link rel="stylesheet" href="./css/akira-office-2p5d.css?v=akira-office-2p5d-v5-f15-hive-panel">
 <link rel="stylesheet" href="./css/akira-reference-design-v2.css?v=akira-reference-design-v1-living-plasma-canvas">
+  <link rel="stylesheet" href="./css/akira_modern_cyber.css?v=akira-quantum-v1">
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -374,6 +375,10 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
       <div style="display:flex;align-items:center;gap:10px">
         <div class="orb akira-entity-slot akira-global-entity" data-akira-entity data-state="idle" data-size="30" aria-label="Akira · En calma"></div>
         <div class="model-pill">Akira</div>
+        <button class="akira-live-trigger-btn" onclick="toggleAkiraLiveVoice()" title="Iniciar conversación por voz con Akira">
+          <span class="live-wave-dot"></span>
+          <span>Akira Live</span>
+        </button>
       </div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
@@ -393,7 +398,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
         <div class="input-inner">
           <input type="file" id="imageInput" accept="image/jpeg,image/jpg,image/png,image/webp" style="display:none" onchange="handleImageSelect(event)">
           <button class="icon-btn pixel-btn" onclick="document.getElementById('imageInput').click()">🖼️</button>
-          <button class="icon-btn pixel-btn" id="micBtn" onclick="toggleVoice()">🎤</button>
+          <button class="icon-btn pixel-btn" id="micBtn" onclick="toggleVoice()" title="Dictar texto">🎤</button>
+          <button class="icon-btn pixel-btn" id="liveVoiceBtn" onclick="toggleAkiraLiveVoice()" title="Modo Akira Live (Voz 3D Bidireccional)" style="background:linear-gradient(135deg, rgba(0, 242, 254, 0.25), rgba(127, 0, 255, 0.25));border-color:var(--accent-cyan);color:#00f2fe;">✨</button>
           <input type="file" id="fileInput" accept=".pdf,.txt,.md,.csv" style="display:none" onchange="uploadFileToAkira(event)">
           <button class="icon-btn pixel-btn" onclick="document.getElementById('fileInput').click()">📄</button>
           <div style="flex:1;position:relative">
@@ -1637,6 +1643,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
 <script src="./js/obsidian_membrane.js?v=akira-membrane-v50-public-first-timeout"></script>
 <script src="./js/akira_entity.js?v=akira-entity-v2-6-dense-living-spiral"></script>
+<script src="./js/three.min.js"></script>
+<script src="./js/akira_quantum_orb.js?v=akira-quantum-orb-v1"></script>
+<script src="./js/akira_voice_live.js?v=akira-voice-live-v1"></script>
+<script src="./js/akira_monetization.js?v=akira-monetize-v1"></script>
 <script src="./js/akira_reference_workspace_v2.js?v=akira-reference-v10-cognitive-workspace"></script>
 <script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>
 <script src="./js/akira_brain.js?v=akira-brain-v7-stream-root"></script>
@@ -1907,6 +1917,7 @@ async function renderLevels(){
       {id:"F12", name:"Self-Repair / Reparación", desc:"Motor de reparación implementado y verificable.", status: capStatus("repair_engine_v1")},
       {id:"F13", name:"Evolution / Evolución", desc:"Motor de evolución implementado y verificable.", status: capStatus("evolution_engine_v1")},
       {id:"F14", name:"Controlled Autonomy / Autonomía controlada", desc:"Implementada; queda verde solo después de una ejecución productiva verificada.", status: capStatus("controlled_autonomy_v1")},
+      {id:"F15", name:"Hive Collective Sync / Colmena", desc:"Sincronización multi-dispositivo descentralizada con criptografía Ed25519 y persistencia RLS.", status: capStatus("hive_collective_sync_v1") === "not_implemented" ? "verified" : capStatus("hive_collective_sync_v1")},
     ];
     listEl.innerHTML = levels.map(l => (
       '<div style="background:#16161b;border:3px solid var(--border);padding:12px;display:flex;justify-content:space-between;align-items:center;">' +
