@@ -4516,6 +4516,17 @@ function _updateMembraneStats() {
   try{
     if(window.__akiraBrainCurrentMode === "2d" || !window.__akiraBrainCurrentMode){
       const hud = document.getElementById("brainStats");
+      window.__akiraRealNodes = nodesCount;
+      window.__akiraRealEdges = edgesCount;
+      const topPill = document.getElementById("akHudStatusText");
+      if(topPill && nodesCount > 0){
+        topPill.textContent = "✦ COLMENA ACTIVA · " + nodesCount + " NODOS · MEMORIA PERSISTENTE";
+      }
+      try {
+        window.dispatchEvent(new CustomEvent("akira:brain-stats", {
+          detail: { nodes: nodesCount, edges: edgesCount, clusters: clusterCount, public: membranePublicMode }
+        }));
+      } catch(_) {}
       if(hud){
         hud.innerHTML =
           (membranePublicMode ? "<strong>VISTA PÚBLICA</strong> · " : "") +

@@ -63,7 +63,7 @@
             <div class="ak-directive-icon">🧠</div>
             <div class="ak-directive-content">
               <strong>Auditoría de Memoria</strong>
-              <small>Explorar los 58 nodos del Cerebro y conexiones persistentes.</small>
+              <small>Explorar el Cerebro cognitivo y conexiones persistentes en tiempo real.</small>
             </div>
           </div>
           <div class="ak-directive-card" onclick="toggleAkiraLiveVoice()">

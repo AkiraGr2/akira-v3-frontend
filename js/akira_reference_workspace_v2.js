@@ -121,6 +121,13 @@
     const isOwner=Boolean(me&&me.ok&&me.data&&me.data.authenticated===true&&me.data.is_owner===true);
     const scopeLabel=signed ? (isOwner?"vista del propietario · pública + privada":"vista de sesión") : "vista pública";
     setText(home,"akRefBrainNodes",Number.isFinite(nodes)?count(nodes)+" nodos · "+scopeLabel:"Nodos no disponibles");
+    if(Number.isFinite(nodes) && nodes > 0){
+      window.__akiraRealNodes = nodes;
+      window.__akiraRealEdges = edges;
+      const topPill = document.getElementById("akHudStatusText");
+      if(topPill) topPill.textContent = "✦ COLMENA ACTIVA · " + count(nodes) + " NODOS · MEMORIA PERSISTENTE";
+      try{ window.dispatchEvent(new CustomEvent("akira:brain-stats",{detail:{nodes:nodes,edges:edges}})); }catch(_){}
+    }
     const brainBar=home.querySelector("#akRefBrainBar");
     if(brainBar&&Number.isFinite(nodes)){
       const visual=Math.min(100,Math.max(8,Math.round(Math.log10(Math.max(nodes,1)+1)*24)));
@@ -286,7 +293,7 @@
       </div>
       <div class="ak-hud-center-chip">
         <span class="ak-hud-live-dot"></span>
-        <span id="akHudStatusText">✦ COLMENA ACTIVA · 58 NODOS · MEMORIA PERSISTENTE</span>
+        <span id="akHudStatusText">✦ COLMENA ACTIVA · MEMORIA PERSISTENTE</span>
       </div>
       <div style="display:flex;gap:10px;align-items:center;">
         <button class="akira-live-trigger-btn ak-hud-live-btn" onclick="toggleAkiraLiveVoice()" title="Conversar por voz en 3D con Akira">
@@ -320,6 +327,21 @@
       console.warn("[Akira home] live hydration failed:",error);
     });
   }
+
+  window.addEventListener("akira:brain-stats", function(ev){
+    try{
+      const d = ev && ev.detail ? ev.detail : {};
+      const n = Number(d.nodes);
+      if(Number.isFinite(n) && n > 0){
+        window.__akiraRealNodes = n;
+        window.__akiraRealEdges = Number(d.edges || 0);
+        const topPill = document.getElementById("akHudStatusText");
+        if(topPill) topPill.textContent = "✦ COLMENA ACTIVA · " + count(n) + " NODOS · MEMORIA PERSISTENTE";
+        const telem = document.querySelector(".ak-sidebar-telemetry .ak-telemetry-sub");
+        if(telem) telem.textContent = count(n) + " Nodos · 15/15 Verificadas";
+      }
+    }catch(_){}
+  });
 
   document.addEventListener("DOMContentLoaded",function(){
     document.body.classList.add("ak-reference-mode");

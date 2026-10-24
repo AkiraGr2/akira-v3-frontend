@@ -47,8 +47,8 @@
             </div>
             <div class="ak-metric-card">
               <span class="ak-metric-label">Memoria & Grafo</span>
-              <strong id="admStatusMem" style="color:var(--accent-purple)">58 Nodos</strong>
-              <small>261 Relaciones</small>
+              <strong id="admStatusMem" style="color:var(--accent-purple)">Sincronizando...</strong>
+              <small id="admStatusMemSub">Memoria en vivo</small>
             </div>
           </div>
 
@@ -227,8 +227,34 @@
         // 3. Capabilities
         const capEl = document.getElementById("admStatusCaps");
         if (capEl) {
-          capEl.textContent = "15 de 15";
+          let vCaps = 15, tCaps = 15;
+          if (self && Array.isArray(self.capabilities_registry) && self.capabilities_registry.length > 0) {
+            tCaps = self.capabilities_registry.length;
+            vCaps = self.capabilities_registry.filter(c => c.status === "verified" || c.effective_state === "verified").length;
+          }
+          capEl.textContent = `${vCaps} de ${tCaps}`;
           capEl.style.color = "var(--accent-green)";
+        }
+
+        // 3b. Memory & Graph Live Sync
+        const memEl = document.getElementById("admStatusMem");
+        const memSub = document.getElementById("admStatusMemSub");
+        let nNodes = (graphOverview && graphOverview.counts && graphOverview.counts.nodes)
+          || (graphOverview && Array.isArray(graphOverview.nodes) && graphOverview.nodes.length)
+          || window.__akiraRealNodes || 0;
+        let nEdges = (graphOverview && graphOverview.counts && graphOverview.counts.edges)
+          || (graphOverview && Array.isArray(graphOverview.edges) && graphOverview.edges.length)
+          || window.__akiraRealEdges || 0;
+
+        if (nNodes > 0) {
+          window.__akiraRealNodes = nNodes;
+          window.__akiraRealEdges = nEdges;
+          if (memEl) memEl.textContent = `${nNodes} Nodos`;
+          if (memSub) memSub.textContent = `${nEdges} Relaciones`;
+          const topPill = document.getElementById("akHudStatusText");
+          if (topPill) topPill.textContent = `✦ COLMENA ACTIVA · ${nNodes} NODOS · MEMORIA PERSISTENTE`;
+        } else if (memEl && memEl.textContent.includes("Sincronizando")) {
+          memEl.textContent = "Grafo Activo";
         }
 
         // 4. Candidate Pill
@@ -282,17 +308,26 @@
         const res = await fetch(backend + "/api/v8/self", { headers });
         const d = await res.json();
         const sm = d.self_model || {};
+        let identityText = "Akira es un sistema de inteligencia artificial cognitivo y autónomo, diseñado para razonar, memorizar y operar en equipo con sus agentes.";
+        if (sm.identity) {
+          if (typeof sm.identity === "object") {
+            identityText = sm.identity.essence || sm.identity.description || sm.identity.summary || `${sm.identity.name || "Akira"} — Creada por ${sm.identity.creator || "Jhon Grimm"}. ${sm.identity.essence || ""}`;
+          } else if (typeof sm.identity === "string") {
+            identityText = sm.identity;
+          }
+        }
+        const realNodeCount = window.__akiraRealNodes ? `Cerebro de Grafos (${window.__akiraRealNodes} Nodos)` : "Cerebro de Grafos Sincronizado";
 
         out.innerHTML = `
           <div class="ak-self-summary">
             <h5 style="color:#ffffff;font-size:15px;margin-bottom:8px;">Estado del Modelo de Identidad (v${sm.version || "1.0"})</h5>
-            <p style="color:var(--text-secondary);font-size:13.5px;line-height:1.6;">${sm.identity || "Akira es un sistema de inteligencia artificial cognitivo y autónomo, diseñado para razonar, memorizar y operar en equipo con sus agentes."}</p>
+            <p style="color:var(--text-secondary);font-size:13.5px;line-height:1.6;">${identityText}</p>
             <div style="margin-top:12px;padding:12px;background:rgba(255,255,255,0.04);border-radius:var(--radius-md);">
               <strong style="color:var(--accent-cyan);font-size:12px;text-transform:uppercase;">Capacidades Clave:</strong>
               <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
                 <span class="ak-niche-chip">Chat Multi-Proveedor</span>
                 <span class="ak-niche-chip">Voz en Vivo Akira Live</span>
-                <span class="ak-niche-chip">Cerebro de Grafos (58 Nodos)</span>
+                <span class="ak-niche-chip">${realNodeCount}</span>
                 <span class="ak-niche-chip">Sincronización Colmena F15</span>
                 <span class="ak-niche-chip">Motor de Misiones Autónomas</span>
                 <span class="ak-niche-chip">Estación de Monetización Upwork</span>
@@ -306,6 +341,20 @@
       }
     }
   }
+
+  window.addEventListener("akira:brain-stats", (ev) => {
+    try {
+      const d = ev && ev.detail ? ev.detail : {};
+      const memEl = document.getElementById("admStatusMem");
+      const memSub = document.getElementById("admStatusMemSub");
+      if (memEl && d.nodes) {
+        memEl.textContent = `${d.nodes} Nodos`;
+      }
+      if (memSub && d.edges != null) {
+        memSub.textContent = `${d.edges} Relaciones`;
+      }
+    } catch(_) {}
+  });
 
   window.AkiraAdminModern = new AkiraAdminModern();
 
