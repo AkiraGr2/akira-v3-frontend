@@ -1173,11 +1173,12 @@ code, pre, .ak-mono, .badge, .status-pill, .step-num, .task-val, .ak-metric-labe
    MODERN TACTICAL MISSIONS
    ========================================================================== */
 .ak-missions-wrap {
-  padding: 24px;
+  padding: 24px 24px 80px;
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .ak-missions-hero {
@@ -1239,6 +1240,9 @@ code, pre, .ak-mono, .badge, .status-pill, .step-num, .task-val, .ak-metric-labe
   padding: 20px;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+  min-height: 520px;
 }
 
 .ak-history-head {
@@ -1246,6 +1250,7 @@ code, pre, .ak-mono, .badge, .status-pill, .step-num, .task-val, .ak-metric-labe
   justify-content: space-between;
   align-items: center;
   margin-bottom: 14px;
+  flex-shrink: 0;
 }
 
 .ak-history-head h4 {
@@ -1258,7 +1263,10 @@ code, pre, .ak-mono, .badge, .status-pill, .step-num, .task-val, .ak-metric-labe
   flex-direction: column;
   gap: 10px;
   overflow-y: auto;
-  max-height: 520px;
+  flex: 1 1 auto;
+  min-height: 440px;
+  max-height: calc(100vh - 180px);
+  padding-right: 6px;
 }
 
 .ak-mission-item {
