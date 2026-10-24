@@ -15,6 +15,11 @@
       this.isListening = false;
       this.isSpeaking = false;
       this.isThinking = false;
+      this.streetMode = false;
+      this.isStreetRecording = false;
+      this.speechStartTime = 0;
+      this.lastSpokenLength = 0;
+      this.lastMeaningfulTime = 0;
       this.recognition = null;
       this.synthesis = window.speechSynthesis;
       this.selectedVoice = null;
@@ -76,16 +81,23 @@
       };
 
       this.recognition.onresult = (event) => {
-        // Natural interruption: user speaks -> cancel synthesis instantly
-        if (this.isSpeaking) {
-          this.stopSpeaking();
+        // CRITICAL STREET ANTI-LOOP: NEVER let street noise interrupt Akira while she is speaking!
+        if (this.isSpeaking || this.isThinking) {
+          return;
         }
 
         let interim = "";
         let final = "";
+        let totalConfidence = 0;
+        let count = 0;
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const transcript = event.results[i][0].transcript;
+          const res = event.results[i][0];
+          const transcript = res.transcript;
+          if (res.confidence > 0) {
+            totalConfidence += res.confidence;
+            count++;
+          }
           if (event.results[i].isFinal) {
             final += transcript;
           } else {
@@ -95,21 +107,62 @@
 
         const spoken = (final || interim).trim();
 
-        // Noise gate: ignore mic clicks, ambient pops, or single characters
-        if (spoken.length < 3) return;
+        // Discard low-confidence ambient rumble (engines, horns)
+        const avgConfidence = count > 0 ? (totalConfidence / count) : 1;
+        if (count > 0 && avgConfidence > 0 && avgConfidence < 0.38) return;
+
+        // Street Noise Filter: ignore single short tokens or phantom ambient noise pops
+        const isNoiseToken = /^(ah|eh|uh|oh|mm|mmm|shh|ss|si|sí|y|a|de|un|o|la|el|al|\.|\.\.|\.\.\.)$/i.test(spoken);
+        if (spoken.length < 3 || isNoiseToken) return;
 
         this.userSpeechBuffer = spoken;
         this.setSubtitles("Tú: " + spoken);
 
-        // Fast adaptive silence timeout: 600ms when sentence seems finished, 900ms otherwise
-        clearTimeout(this.silenceTimer);
-        const delay = (final.length > 0 || /[.?!]$/.test(spoken)) ? 600 : 900;
+        // In Street Mode: voice capture is triggered intentionally
+        if (this.streetMode) {
+          clearTimeout(this.silenceTimer);
+          this.silenceTimer = setTimeout(() => {
+            if (this.userSpeechBuffer.length >= 3 && !this.isSpeaking && !this.isThinking) {
+              this.finishVoiceTurn();
+            }
+          }, 1400);
+          return;
+        }
 
+        // In Hands-Free Mode: Intelligent Noise Gate
+        const now = Date.now();
+        if (!this.speechStartTime) {
+          this.speechStartTime = now;
+          this.lastSpokenLength = spoken.length;
+          this.lastMeaningfulTime = now;
+        }
+
+        const words = spoken.split(/\s+/).filter(w => w.length > 0);
+        // Require at least 2 real words or a 5-letter utterance to count as human speech
+        if (words.length < 2 && spoken.length < 5) return;
+
+        // Only reset silence timer if the user actually added new meaningful speech (not just ambient jitter)
+        const textGrowth = spoken.length - this.lastSpokenLength;
+        if (textGrowth > 2) {
+          this.lastSpokenLength = spoken.length;
+          this.lastMeaningfulTime = now;
+          clearTimeout(this.silenceTimer);
+        }
+
+        // Hard Ceiling: If noise or speech continues for > 4.5 seconds, force end-of-turn immediately!
+        if (now - this.speechStartTime > 4500) {
+          clearTimeout(this.silenceTimer);
+          this.finishVoiceTurn();
+          return;
+        }
+
+        const isFinalSentence = final.length > 0 || /[.?!]$/.test(spoken);
+        const delay = isFinalSentence ? 650 : 900;
+
+        clearTimeout(this.silenceTimer);
         this.silenceTimer = setTimeout(() => {
           if (this.userSpeechBuffer.length >= 3 && !this.isSpeaking && !this.isThinking) {
-            const queryToSend = this.userSpeechBuffer;
-            this.userSpeechBuffer = "";
-            this.processUserVoiceInput(queryToSend);
+            this.finishVoiceTurn();
           }
         }, delay);
       };
@@ -132,7 +185,14 @@
     async initAudioAnalyser() {
       try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-        this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        this.micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
+          video: false
+        });
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const source = this.audioContext.createMediaStreamSource(this.micStream);
         this.analyser = this.audioContext.createAnalyser();
@@ -194,7 +254,10 @@
           <footer class="akira-live-footer">
             <div class="akira-live-subtitles" id="akiraLiveSubtitles">Habla con naturalidad, Akira te está escuchando...</div>
             <div class="akira-live-controls">
-              <button class="akira-live-btn mic-btn" id="akiraLiveMicToggle" title="Silenciar / Activar Micrófono">
+              <button class="akira-live-btn mode-btn" id="akiraLiveStreetModeBtn" title="Alternar entre Manos Libres y Modo Calle Anti-Ruido">
+                <span id="akiraStreetModeIcon">🎙️</span> <span id="akiraStreetModeText">Manos Libres</span>
+              </button>
+              <button class="akira-live-btn mic-btn" id="akiraLiveMicToggle" title="Micrófono">
                 <span class="mic-icon">🎙️</span>
               </button>
               <button class="akira-live-btn end-btn" id="akiraLiveEndBtn">
@@ -215,6 +278,8 @@
       }
       modal.querySelector("#akiraLiveEndBtn").addEventListener("click", () => this.stop());
       modal.querySelector("#akiraLiveMicToggle").addEventListener("click", () => this.toggleMic());
+      const smBtn = modal.querySelector("#akiraLiveStreetModeBtn");
+      if (smBtn) smBtn.addEventListener("click", () => this.toggleStreetMode());
 
       this.modalEl = modal;
       return modal;
@@ -301,17 +366,79 @@
       this.synthesis.speak(testUtterance);
     }
 
+
+    finishVoiceTurn() {
+      clearTimeout(this.silenceTimer);
+      const query = this.userSpeechBuffer.trim();
+      this.userSpeechBuffer = "";
+      this.speechStartTime = 0;
+      this.lastSpokenLength = 0;
+      this.lastMeaningfulTime = 0;
+
+      const btn = document.getElementById("akiraLiveMicToggle");
+      if (btn) btn.classList.remove("street-recording");
+      this.isStreetRecording = false;
+
+      if (query.length >= 3 && !this.isSpeaking && !this.isThinking) {
+        this.processUserVoiceInput(query);
+      }
+    }
+
+    toggleStreetMode() {
+      this.streetMode = !this.streetMode;
+      const btn = document.getElementById("akiraLiveStreetModeBtn");
+      const icon = document.getElementById("akiraStreetModeIcon");
+      const text = document.getElementById("akiraStreetModeText");
+      const sub = document.getElementById("akiraLiveSubtitles");
+
+      if (this.streetMode) {
+        if (btn) btn.classList.add("street-active");
+        if (icon) icon.textContent = "🛡️";
+        if (text) text.textContent = "Modo Calle (Anti-Ruido)";
+        if (sub) sub.textContent = "Modo Calle: Toca el micrófono para hablar y vuelve a tocar para enviar.";
+        this.updateHUD("Modo Calle", "idle");
+      } else {
+        if (btn) btn.classList.remove("street-active");
+        if (icon) icon.textContent = "🎙️";
+        if (text) text.textContent = "Manos Libres";
+        if (sub) sub.textContent = "Manos libres activo con filtro anti-ruido.";
+        this.updateHUD("Escuchando...", "listening");
+        if (this.recognition && !this.isSpeaking) {
+          try { this.recognition.start(); } catch(_) {}
+        }
+      }
+    }
+
     toggleMic() {
       const btn = document.getElementById("akiraLiveMicToggle");
+      if (this.streetMode) {
+        if (this.isStreetRecording) {
+          // User tapped to finish and send!
+          this.finishVoiceTurn();
+        } else {
+          // User tapped to speak!
+          this.isStreetRecording = true;
+          this.userSpeechBuffer = "";
+          this.speechStartTime = Date.now();
+          if (btn) btn.classList.add("street-recording");
+          this.setSubtitles("Escuchando... Habla y vuelve a tocar para enviar.");
+          this.updateHUD("Escuchando...", "listening");
+          if (this.recognition) {
+            try { this.recognition.start(); } catch(_) {}
+          }
+        }
+        return;
+      }
+
       if (this.isListening) {
         if (this.recognition) try { this.recognition.stop(); } catch(_) {}
         this.isListening = false;
-        btn.classList.add("muted");
+        if (btn) btn.classList.add("muted");
         this.updateHUD("Pausado", "idle");
       } else {
         if (this.recognition) try { this.recognition.start(); } catch(_) {}
         this.isListening = true;
-        btn.classList.remove("muted");
+        if (btn) btn.classList.remove("muted");
         this.updateHUD("Escuchando...", "listening");
       }
     }
@@ -424,9 +551,17 @@
         this.isSpeaking = false;
         if (this.orbInstance) this.orbInstance.setAudioLevel(0);
         if (this.active) {
-          this.updateHUD("Escuchando...", "listening");
-          if (this.recognition) {
-            try { this.recognition.start(); } catch(_) {}
+          if (this.streetMode) {
+            this.updateHUD("Modo Calle", "idle");
+            this.setSubtitles("Toca el micrófono para hablar.");
+          } else {
+            this.updateHUD("Escuchando...", "listening");
+            // 400ms delay to clear acoustic speaker tail before listening again
+            setTimeout(() => {
+              if (this.active && !this.isSpeaking && !this.streetMode && this.recognition) {
+                try { this.recognition.start(); } catch(_) {}
+              }
+            }, 400);
           }
         }
       };

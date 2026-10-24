@@ -2823,3 +2823,48 @@ code, pre, .ak-mono, .badge, .status-pill, .step-num, .task-val, .ak-metric-labe
   width: 100% !important;
   height: 100% !important;
 }
+
+
+/* =====================================================================
+   AKIRA LIVE STREET MODE (ANTI-NOISE & PUSH-TO-TALK)
+   ===================================================================== */
+.akira-live-btn.mode-btn {
+  padding: 12px 18px !important;
+  border-radius: var(--radius-pill) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(0, 242, 254, 0.25) !important;
+  color: #e2e8f0 !important;
+  font-family: inherit !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.akira-live-btn.mode-btn:hover {
+  background: rgba(0, 242, 254, 0.15) !important;
+  border-color: var(--accent-cyan) !important;
+  color: #38bdf8 !important;
+}
+
+.akira-live-btn.mode-btn.street-active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(249, 115, 22, 0.2)) !important;
+  border-color: #f59e0b !important;
+  color: #fbbf24 !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.3) !important;
+}
+
+.akira-live-btn.mic-btn.street-recording {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.5), rgba(245, 158, 11, 0.5)) !important;
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 35px rgba(239, 68, 68, 0.7) !important;
+  animation: pulseRecording 1.1s infinite !important;
+}
+
+@keyframes pulseRecording {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
