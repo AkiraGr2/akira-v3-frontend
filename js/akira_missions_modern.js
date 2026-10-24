@@ -69,6 +69,18 @@
                 <label class="ak-label">¿Cuál es el objetivo de la misión?</label>
                 <textarea id="akMissionGoal" class="ak-textarea" placeholder="Describe qué quieres que Akira y sus agentes logren (ej. analizar un tema, armar una estrategia, auditar la memoria)..."></textarea>
                 
+                <!-- Auto-Selection of Hive Specialists -->
+                <div id="akMissionAutoAgents" style="margin-top:10px;padding:9px 12px;background:rgba(0,242,254,0.06);border:1px dashed rgba(0,242,254,0.3);border-radius:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:16px;">🤖</span>
+                    <span style="font-size:12px;color:#94a3b8;" id="akMissionAutoText">Akira seleccionará automáticamente los especialistas de la Colmena (267 disponibles).</span>
+                  </div>
+                  <button type="button" class="ak-btn secondary small" id="akBtnBrowseHive" style="font-size:11px;padding:4px 10px;">
+                    🌐 Explorar 267 Agentes
+                  </button>
+                </div>
+                <div id="akMissionSelectedAgentsPills" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+                
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:10px;">
                   <div>
                     <label class="ak-label" style="margin-bottom:6px;">Prioridad:</label>
@@ -119,9 +131,58 @@
           if (t) {
             document.getElementById("akMissionGoal").value = t.goal;
             document.getElementById("akMissionPriority").value = t.priority;
+            updateAutoAgents();
           }
         });
       });
+
+      // Real-time Hive Auto-Selection on Goal Input
+      const goalInput = container.querySelector("#akMissionGoal");
+      const pillsContainer = container.querySelector("#akMissionSelectedAgentsPills");
+      const autoText = container.querySelector("#akMissionAutoText");
+
+      const updateAutoAgents = () => {
+        const val = goalInput ? goalInput.value.trim() : "";
+        if (!val || !window.AkiraHive || typeof window.AkiraHive.autoSelect !== "function") {
+          if (pillsContainer) pillsContainer.innerHTML = "";
+          if (autoText) autoText.textContent = "Akira seleccionará automáticamente los especialistas de la Colmena (267 disponibles).";
+          return;
+        }
+
+        const selected = window.AkiraHive.autoSelect(val, 3);
+        if (selected.length > 0) {
+          if (autoText) autoText.textContent = `🎯 Akira convocó ${selected.length} especialistas para esta misión:`;
+          if (pillsContainer) {
+            pillsContainer.innerHTML = selected.map(ag => `
+              <span class="ak-niche-chip" style="font-size:11px;padding:3px 10px;border-color:${ag.division_color}88;color:#fff;background:${ag.division_color}22;" title="${ag.vibe}">
+                ${ag.emoji} ${ag.name} (${ag.division_label})
+              </span>
+            `).join("");
+          }
+        } else {
+          if (pillsContainer) pillsContainer.innerHTML = "";
+          if (autoText) autoText.textContent = "Akira seleccionará automáticamente los especialistas de la Colmena (267 disponibles).";
+        }
+      };
+
+      if (goalInput) {
+        goalInput.addEventListener("input", updateAutoAgents);
+      }
+
+      // Browse Hive Button
+      const browseBtn = container.querySelector("#akBtnBrowseHive");
+      if (browseBtn) {
+        browseBtn.addEventListener("click", () => {
+          if (window.AkiraHive && typeof window.AkiraHive.openCatalogModal === "function") {
+            window.AkiraHive.openCatalogModal((agent) => {
+              if (agent && goalInput) {
+                goalInput.value = `[Especialista asignado: ${agent.name}] ` + (goalInput.value || "");
+                updateAutoAgents();
+              }
+            });
+          }
+        });
+      }
 
       // Create Mission
       container.querySelector("#akBtnCreateMission").addEventListener("click", () => {

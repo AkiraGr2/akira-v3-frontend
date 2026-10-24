@@ -184,6 +184,10 @@
                 <span>Sincronización:</span>
                 <strong style="color:var(--accent-green);">Colmena F15</strong>
               </div>
+              <div class="ak-stat-chip" style="cursor:pointer;border-color:rgba(139,92,246,0.3);background:rgba(139,92,246,0.12);" onclick="window.AkiraHive && window.AkiraHive.openCatalogModal()" title="Explorar los 267 especialistas de la Colmena">
+                <span>Colmena Táctica:</span>
+                <strong style="color:#a78bfa;">267 Agentes 🌐</strong>
+              </div>
             </div>
           </div>
 
