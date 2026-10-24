@@ -145,7 +145,7 @@ const NEURAL_2D_PALETTE = [
 function _obsidianPerfProfile(nodeCount){
   const n=Math.max(0,Number(nodeCount)||0);
   if(n<=750){
-    return {iterations: n>300 ? 2 : 3, gridRange:3, maxDistance:420, softDistance:220, radialSteps:52};
+    return {iterations: 1, gridRange:2, maxDistance:380, softDistance:200, radialSteps:36};
   }
   if(n<=1200){
     return {iterations:1, gridRange:3, maxDistance:380, softDistance:205, radialSteps:46};
@@ -1447,12 +1447,12 @@ function _runObsidianPhysics(nodes, edges, coreId, restart=true){
       .force("collide",
         window.d3.forceCollide(d=>d.r + OBSIDIAN_FORCE_DEFAULTS.collisionGap)
           .strength(0.95)
-          .iterations(2)
+          .iterations(1)
       )
-      .velocityDecay(0.78)
-      .alpha(1)
-      .alphaDecay(nodes.length>300 ? 0.085 : 0.060)
-      .alphaMin(0.015);
+      .velocityDecay(0.62)
+      .alpha(_positionCache.size > 10 ? 0.35 : 0.85)
+      .alphaDecay(nodes.length>60 ? 0.11 : 0.08)
+      .alphaMin(0.02);
   }catch(e){
     console.warn("[membrane] d3-force runtime failure; using local Akira force engine:",e);
     return _runObsidianFallbackPhysics(nodes, edges, coreId, restart);

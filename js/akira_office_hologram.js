@@ -128,6 +128,10 @@
       this.pollInterval = null;
       this.isPolling = false;
       this.activeMissions = [];
+      this.currentTab = "core";
+      this.hiveCatalog = null;
+      this.hiveActiveDivision = "all";
+      this.hiveSearchQuery = "";
     }
 
     init() {
@@ -135,6 +139,7 @@
       if (!this.container) return;
 
       this.render();
+      this.setupTabs();
       this.pollData();
 
       // Faster polling when tab is active (every 4 seconds)
@@ -173,20 +178,20 @@
                 <span>PUENTE DE MANDO HOLOGRÁFICO</span>
               </div>
               <h2>Centro de Operaciones de Agentes</h2>
-              <p>Monitoreo reactivo en tiempo real de los 9 especialistas de Akira. Conectado directamente a las misiones tácticas y al motor de persistencia.</p>
+              <p>Monitoreo reactivo en tiempo real de los 9 comandantes y los 267 especialistas tácticos de Akira. Conectado a misiones tácticas y persistencia F15.</p>
             </div>
             <div class="ak-bridge-quick-stats">
               <div class="ak-stat-chip">
-                <span>Agentes Activos:</span>
+                <span>Comandantes:</span>
                 <strong id="akStatActiveAgents" style="color:var(--accent-cyan);">0/9</strong>
               </div>
               <div class="ak-stat-chip">
                 <span>Sincronización:</span>
                 <strong style="color:var(--accent-green);">Colmena F15</strong>
               </div>
-              <div class="ak-stat-chip" style="cursor:pointer;border-color:rgba(139,92,246,0.3);background:rgba(139,92,246,0.12);" onclick="window.AkiraHive && window.AkiraHive.openCatalogModal()" title="Explorar los 267 especialistas de la Colmena">
+              <div class="ak-stat-chip" id="akChipHiveTab" style="cursor:pointer;border-color:rgba(139,92,246,0.4);background:rgba(139,92,246,0.15);" onclick="window.AkiraHologramBridge && window.AkiraHologramBridge.switchTab('hive')" title="Explorar los 267 especialistas de la Colmena">
                 <span>Colmena Táctica:</span>
-                <strong style="color:#a78bfa;">267 Agentes 🌐</strong>
+                <strong style="color:#c084fc;">267 Agentes 🌐</strong>
               </div>
             </div>
           </div>
@@ -206,7 +211,23 @@
             </div>
           </div>
 
-          <!-- Holographic Grid of Agents -->
+          <!-- Tactical View Switcher Tabs -->
+          <div class="ak-office-view-switcher">
+            <div class="ak-office-tabs">
+              <button class="ak-office-tab-btn active" id="akBtnTabCore" onclick="window.AkiraHologramBridge.switchTab('core')" title="Ver los 9 comandantes principales de Akira">
+                <span class="ak-tab-icon">⚡</span>
+                <span class="ak-tab-title">9 Comandantes del Núcleo</span>
+                <span class="ak-tab-count">9</span>
+              </button>
+              <button class="ak-office-tab-btn" id="akBtnTabHive" onclick="window.AkiraHologramBridge.switchTab('hive')" title="Explorar e interactuar con los 267 especialistas tácticos de la Colmena">
+                <span class="ak-tab-icon">🌐</span>
+                <span class="ak-tab-title">Colmena Completa (267 Especialistas)</span>
+                <span class="ak-tab-count" id="akHiveTabCount">267</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Holographic Grid of Agents (9 Core Commanders) -->
           <div class="ak-bridge-grid" id="akBridgeGrid">
             ${AGENT_PROFILES.map(agent => `
               <div class="ak-agent-deck" id="deck_${agent.name}" data-agent="${agent.name}" style="--agent-color:${agent.color}">
@@ -241,6 +262,30 @@
                 </div>
               </div>
             `).join("")}
+          </div>
+
+          <!-- Embedded Hive 267 Agents View -->
+          <div id="akHiveOfficeView" style="display:none;" class="ak-hive-office-section">
+            <div class="ak-hive-office-toolbar">
+              <div class="ak-hive-search-box">
+                <span class="ak-search-icon">🔍</span>
+                <input type="text" id="akHiveOfficeSearch" placeholder="Buscar especialista por nombre, rol o habilidades (ej: devops, seo, crypto, pentester, react)..." />
+                <button id="akHiveOfficeSearchClear" class="ak-search-clear" style="display:none;">✕</button>
+              </div>
+              <div class="ak-hive-stats-counter">
+                <span id="akHiveShowingCount">267 Especialistas Disponibles</span>
+              </div>
+            </div>
+
+            <!-- Division Filter Pills Bar -->
+            <div class="ak-hive-divisions-scroll" id="akHiveOfficeDivisions">
+              <button class="ak-div-pill active" data-div="all">Todos <span class="pill-badge">267</span></button>
+            </div>
+
+            <!-- Dynamic Grid of 267 Agents -->
+            <div class="ak-hive-cards-grid" id="akHiveOfficeCardsGrid">
+              <div class="ak-loading-pulse">Cargando 267 especialistas de la Colmena...</div>
+            </div>
           </div>
 
           <!-- Inspector Modal (Flyout) -->
@@ -515,6 +560,250 @@
           btn.textContent = "🚀 Transmitir y Ejecutar Inmediatamente";
         }
       }
+    }
+
+    setupTabs() {
+      // Tab switcher bindings
+      const btnCore = document.getElementById("akBtnTabCore");
+      const btnHive = document.getElementById("akBtnTabHive");
+      if (btnCore) btnCore.addEventListener("click", () => this.switchTab("core"));
+      if (btnHive) btnHive.addEventListener("click", () => this.switchTab("hive"));
+
+      // Search input binding
+      const searchInp = document.getElementById("akHiveOfficeSearch");
+      const searchClear = document.getElementById("akHiveOfficeSearchClear");
+      if (searchInp) {
+        searchInp.addEventListener("input", (e) => {
+          this.hiveSearchQuery = e.target.value.trim().toLowerCase();
+          if (searchClear) searchClear.style.display = this.hiveSearchQuery ? "inline-block" : "none";
+          this.renderHiveCards();
+        });
+      }
+      if (searchClear) {
+        searchClear.addEventListener("click", () => {
+          if (searchInp) searchInp.value = "";
+          this.hiveSearchQuery = "";
+          searchClear.style.display = "none";
+          this.renderHiveCards();
+        });
+      }
+
+      // Check if Hive catalog is already in window
+      if (window.__akiraHiveCatalog) {
+        this.hiveCatalog = window.__akiraHiveCatalog;
+        const countBadge = document.getElementById("akHiveTabCount");
+        if (countBadge && this.hiveCatalog.total_agents) {
+          countBadge.textContent = this.hiveCatalog.total_agents;
+        }
+      } else {
+        window.addEventListener("akira:hive-loaded", (e) => {
+          if (e.detail) {
+            this.hiveCatalog = e.detail;
+            const countBadge = document.getElementById("akHiveTabCount");
+            if (countBadge && this.hiveCatalog.total_agents) {
+              countBadge.textContent = this.hiveCatalog.total_agents;
+            }
+            if (this.currentTab === "hive") {
+              this.renderHiveDivisions();
+              this.renderHiveCards();
+            }
+          }
+        });
+      }
+    }
+
+    switchTab(tab) {
+      this.currentTab = tab;
+      const btnCore = document.getElementById("akBtnTabCore");
+      const btnHive = document.getElementById("akBtnTabHive");
+      const gridCore = document.getElementById("akBridgeGrid");
+      const viewHive = document.getElementById("akHiveOfficeView");
+
+      if (tab === "hive") {
+        if (btnCore) btnCore.classList.remove("active");
+        if (btnHive) btnHive.classList.add("active");
+        if (gridCore) gridCore.style.display = "none";
+        if (viewHive) viewHive.style.display = "flex";
+        this.loadHiveCatalogAndRender();
+      } else {
+        if (btnHive) btnHive.classList.remove("active");
+        if (btnCore) btnCore.classList.add("active");
+        if (viewHive) viewHive.style.display = "none";
+        if (gridCore) gridCore.style.display = "grid";
+      }
+    }
+
+    async loadHiveCatalogAndRender() {
+      if (!this.hiveCatalog) {
+        if (window.__akiraHiveCatalog) {
+          this.hiveCatalog = window.__akiraHiveCatalog;
+        } else {
+          try {
+            const res = await fetch("./data/hive_agents_catalog.json");
+            if (res.ok) {
+              this.hiveCatalog = await res.json();
+              window.__akiraHiveCatalog = this.hiveCatalog;
+            }
+          } catch (e) {
+            console.warn("[AkiraHologramBridge] Failed to fetch hive catalog:", e);
+          }
+        }
+      }
+
+      if (this.hiveCatalog) {
+        const countBadge = document.getElementById("akHiveTabCount");
+        if (countBadge && this.hiveCatalog.total_agents) {
+          countBadge.textContent = this.hiveCatalog.total_agents;
+        }
+        this.renderHiveDivisions();
+        this.renderHiveCards();
+      }
+    }
+
+    renderHiveDivisions() {
+      const bar = document.getElementById("akHiveOfficeDivisions");
+      if (!bar || !this.hiveCatalog || !this.hiveCatalog.divisions) return;
+
+      const total = this.hiveCatalog.total_agents || 267;
+      let html = `
+        <button class="ak-div-pill ${this.hiveActiveDivision === 'all' ? 'active' : ''}" data-div="all">
+          Todos <span class="pill-badge">${total}</span>
+        </button>
+      `;
+
+      Object.entries(this.hiveCatalog.divisions).forEach(([key, div]) => {
+        const isActive = this.hiveActiveDivision === key ? "active" : "";
+        html += `
+          <button class="ak-div-pill ${isActive}" data-div="${key}" style="--div-color:${div.color || '#6366f1'}">
+            <span>${div.label}</span>
+            <span class="pill-badge">${div.count || 0}</span>
+          </button>
+        `;
+      });
+
+      bar.innerHTML = html;
+
+      bar.querySelectorAll(".ak-div-pill").forEach(pill => {
+        pill.addEventListener("click", () => {
+          bar.querySelectorAll(".ak-div-pill").forEach(p => p.classList.remove("active"));
+          pill.classList.add("active");
+          this.hiveActiveDivision = pill.dataset.div;
+          this.renderHiveCards();
+        });
+      });
+    }
+
+    renderHiveCards() {
+      const grid = document.getElementById("akHiveOfficeCardsGrid");
+      const countEl = document.getElementById("akHiveShowingCount");
+      if (!grid || !this.hiveCatalog || !this.hiveCatalog.agents) return;
+
+      let agents = this.hiveCatalog.agents;
+
+      if (this.hiveActiveDivision !== "all") {
+        agents = agents.filter(a => a.division === this.hiveActiveDivision);
+      }
+
+      if (this.hiveSearchQuery) {
+        const q = this.hiveSearchQuery;
+        agents = agents.filter(a =>
+          a.name.toLowerCase().includes(q) ||
+          (a.description && a.description.toLowerCase().includes(q)) ||
+          (a.vibe && a.vibe.toLowerCase().includes(q)) ||
+          (a.division && a.division.toLowerCase().includes(q)) ||
+          (a.keywords && a.keywords.some(k => k.toLowerCase().includes(q))) ||
+          (a.tools && a.tools.some(t => t.toLowerCase().includes(q)))
+        );
+      }
+
+      if (countEl) {
+        countEl.textContent = `${agents.length} de ${this.hiveCatalog.total_agents || 267} especialistas`;
+      }
+
+      if (agents.length === 0) {
+        grid.innerHTML = `
+          <div style="grid-column:1/-1;text-align:center;padding:50px 20px;color:var(--text-muted);background:rgba(255,255,255,0.02);border-radius:12px;border:1px dashed rgba(255,255,255,0.08);">
+            <div style="font-size:32px;margin-bottom:8px;">🔍</div>
+            <strong style="color:#ffffff;">No se encontraron especialistas</strong>
+            <p style="font-size:13px;margin-top:4px;">Prueba ajustando la búsqueda o seleccionando otra división.</p>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = agents.map(ag => {
+        const divColor = ag.division_color || "#6366f1";
+        const tools = ag.tools || [];
+        return `
+          <div class="ak-hive-agent-card" style="border-top:3px solid ${divColor};">
+            <div class="ak-hive-card-top">
+              <div class="ak-hive-card-emoji">${ag.emoji || '🤖'}</div>
+              <div class="ak-hive-card-title-wrap">
+                <h4 class="ak-hive-agent-name">${ag.name}</h4>
+                <span class="ak-hive-div-tag" style="background:${divColor}20;color:${divColor};border-color:${divColor}40">
+                  ${ag.division_label || ag.division}
+                </span>
+              </div>
+            </div>
+
+            <p class="ak-hive-agent-vibe">${ag.vibe || ag.description || 'Especialista táctico de la Colmena.'}</p>
+
+            ${tools.length ? `
+              <div style="display:flex;gap:4px;flex-wrap:wrap;margin:10px 0 12px;">
+                ${tools.slice(0, 3).map(t => `<span style="font-size:10px;font-family:var(--font-mono);background:rgba(255,255,255,0.04);color:#94a3b8;padding:2px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);">${t}</span>`).join('')}
+                ${tools.length > 3 ? `<span style="font-size:10px;color:var(--text-muted);padding:2px 4px;">+${tools.length - 3}</span>` : ''}
+              </div>
+            ` : ''}
+
+            <div class="ak-hive-card-footer" style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:auto;">
+              <button class="ak-btn secondary small" onclick="window.AkiraHologramBridge.chatWithSpecialist('${ag.id}')" title="Conversar con ${ag.name} en el Chat de Akira">
+                💬 Chatear
+              </button>
+              <button class="ak-btn primary small" onclick="window.AkiraHologramBridge.assignSpecialistToMission('${ag.id}')" title="Asignar a una Misión Táctica">
+                🎯 Asignar Misión
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    chatWithSpecialist(agentId) {
+      if (!this.hiveCatalog || !this.hiveCatalog.agents) return;
+      const ag = this.hiveCatalog.agents.find(a => a.id === agentId);
+      if (!ag) return;
+
+      if (typeof window.showSection === "function") {
+        window.showSection("chat");
+      }
+
+      setTimeout(() => {
+        const msgInp = document.getElementById("msg");
+        if (msgInp) {
+          msgInp.value = `Akira, convoca a tu especialista ${ag.name} (${ag.division_label || ag.division}) para asistirme en: `;
+          msgInp.focus();
+          msgInp.selectionStart = msgInp.selectionEnd = msgInp.value.length;
+        }
+      }, 100);
+    }
+
+    assignSpecialistToMission(agentId) {
+      if (!this.hiveCatalog || !this.hiveCatalog.agents) return;
+      const ag = this.hiveCatalog.agents.find(a => a.id === agentId);
+      if (!ag) return;
+
+      if (typeof window.showSection === "function") {
+        window.showSection("missions");
+      }
+
+      setTimeout(() => {
+        const goalInp = document.getElementById("akMissionGoal") || document.getElementById("missionPanelGoal");
+        if (goalInp) {
+          goalInp.value = `[Especialista: ${ag.name}] `;
+          goalInp.focus();
+          goalInp.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }, 100);
     }
   }
 

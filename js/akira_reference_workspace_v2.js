@@ -136,7 +136,10 @@
 
     const agentList=agents.ok&&agents.data&&Array.isArray(agents.data.agents)?agents.data.agents:[];
     const agentCount=agentList.length>0?agentList.length:Number(agents.data&&agents.data.count);
-    setText(home,"akRefMetricAgents",Number.isFinite(agentCount)?count(agentCount):"n/d");
+    const hiveTotal = (window.__akiraHiveCatalog && window.__akiraHiveCatalog.total_agents) || 267;
+    setText(home,"akRefMetricAgents",count(hiveTotal));
+    const agentSmall = home.querySelector("#akRefMetricAgents") ? home.querySelector("#akRefMetricAgents").parentElement.nextElementSibling : null;
+    if(agentSmall) agentSmall.textContent = "Agentes Colmena";
     if(agentList.length){
       let html="";
       agentList.slice(0,5).forEach(function(a){

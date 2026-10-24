@@ -3077,3 +3077,201 @@ code, pre, .ak-mono, .badge, .status-pill, .step-num, .task-val, .ak-metric-labe
   display: flex;
   justify-content: flex-end;
 }
+
+/* =====================================================================
+   OFICINA HOLOGRÁFICA: TAB SWITCHER & EMBEDDED HIVE 267 GRID
+   ===================================================================== */
+.ak-office-view-switcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 16px 0 22px 0;
+  padding: 6px;
+  background: rgba(12, 16, 26, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+  flex-wrap: wrap;
+}
+
+.ak-office-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ak-office-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ak-office-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.ak-office-tab-btn.active {
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.2) 0%, rgba(99, 102, 241, 0.25) 100%);
+  border-color: var(--accent-cyan);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(0, 242, 254, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.ak-tab-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.ak-tab-count {
+  display: inline-block;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+.ak-office-tab-btn.active .ak-tab-count {
+  background: var(--accent-cyan);
+  color: #060913;
+}
+
+.ak-hive-office-section {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: akFadeIn 0.25s ease-out;
+}
+
+.ak-hive-office-toolbar {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  background: rgba(13, 18, 30, 0.6);
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ak-hive-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 8px 14px;
+  flex: 1;
+  min-width: 260px;
+  transition: all 0.2s ease;
+}
+
+.ak-hive-search-box:focus-within {
+  border-color: var(--accent-cyan);
+  background: rgba(0, 242, 254, 0.04);
+  box-shadow: 0 0 14px rgba(0, 242, 254, 0.2);
+}
+
+.ak-hive-search-box input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 13px;
+  width: 100%;
+  font-family: var(--font-sans);
+}
+
+.ak-hive-search-box input::placeholder {
+  color: #64748b;
+}
+
+.ak-search-clear {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.ak-search-clear:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ak-hive-stats-counter {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--accent-cyan);
+  white-space: nowrap;
+}
+
+.ak-hive-divisions-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+}
+
+.ak-div-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+}
+
+.ak-div-pill:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.ak-div-pill.active {
+  background: rgba(0, 242, 254, 0.16);
+  border-color: var(--accent-cyan);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+}
+
+.ak-div-pill .pill-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+.ak-hive-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
