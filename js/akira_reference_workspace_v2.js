@@ -140,7 +140,26 @@
     setText(home,"akRefMetricAgents",count(hiveTotal));
     const agentSmall = home.querySelector("#akRefMetricAgents") ? home.querySelector("#akRefMetricAgents").parentElement.nextElementSibling : null;
     if(agentSmall) agentSmall.textContent = "Agentes Colmena";
-    if(agentList.length){
+    let hiveHtml = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);">
+        <span style="font-size:12px;font-weight:700;color:#c084fc;">🌐 Colmena Táctica Activa</span>
+        <span style="font-size:11px;font-family:var(--font-mono);color:var(--accent-cyan);">${count(hiveTotal)} Especialistas</span>
+      </div>
+      <p style="font-size:11.5px;color:#94a3b8;line-height:1.45;margin-bottom:8px;">
+        18 divisiones autónomas sincronizadas (Ciberseguridad, Desarrollo, Marketing, Finanzas, Testing, etc.) listas para tareas tácticas.
+      </p>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;">
+        <span class="ak-stat-chip" style="font-size:10px;padding:2px 7px;">Engineering: 66</span>
+        <span class="ak-stat-chip" style="font-size:10px;padding:2px 7px;">Marketing: 30</span>
+        <span class="ak-stat-chip" style="font-size:10px;padding:2px 7px;">Finance: 24</span>
+        <span class="ak-stat-chip" style="font-size:10px;padding:2px 7px;">Security: 12</span>
+      </div>
+      <button class="ak-btn primary small" style="width:100%;font-size:12px;justify-content:center;" onclick="window.showSection('office'); window.AkiraHologramBridge && window.AkiraHologramBridge.switchTab('hive');">
+        🌐 Explorar e Invocar 267 Agentes
+      </button>
+    `;
+    setHtml(home,"akRefAgents",hiveHtml);
+    if(false && agentList.length){
       let html="";
       agentList.slice(0,5).forEach(function(a){
         html+='<div class="ak-ref-row"><div class="label">'+esc(a&&a.name?a.name:"Agente")+'</div><div class="value">'+esc(statusLabel(a&&a.status))+'</div></div>';

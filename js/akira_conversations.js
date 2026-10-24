@@ -66,6 +66,13 @@
               <small>Explorar el Cerebro cognitivo y conexiones persistentes en tiempo real.</small>
             </div>
           </div>
+          <div class="ak-directive-card" onclick="window.AkiraHive && window.AkiraHive.openCatalogModal()" style="border-color:rgba(168,85,247,0.3);background:rgba(168,85,247,0.06);">
+            <div class="ak-directive-icon">🌐</div>
+            <div class="ak-directive-content">
+              <strong style="color:#c084fc;">Colmena Táctica (267 Agentes)</strong>
+              <small>Especialistas en 18 divisiones: Ciberseguridad, Código, Marketing, etc.</small>
+            </div>
+          </div>
           <div class="ak-directive-card" onclick="toggleAkiraLiveVoice()">
             <div class="ak-directive-icon">✨</div>
             <div class="ak-directive-content">

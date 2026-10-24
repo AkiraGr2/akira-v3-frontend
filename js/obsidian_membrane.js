@@ -116,7 +116,8 @@ const BUSY_WAIT_MS = 4000;
 const GROUP_COLORS = {
   memory:   "#7ee787",
   learning: "#56d4dd",
-  agent:    "#f778ba",
+  agent:    "#38bdf8",
+  division: "#818cf8",
   tool:     "#79c0ff",
   concept:  "#a78bfa",
   project:  "#ffa657",
@@ -193,6 +194,9 @@ let membraneExploreVisibleNodeIds = new Set();
 let membraneExploreVisibleLinkIds = new Set();
 
 function _detectGroup(node) {
+  const nid = String(node && (node.id || "") || "");
+  if (node && (node.node_type === "division" || nid.startsWith("div:"))) return "division";
+  if (node && (node.node_type === "agent" || nid.startsWith("agent:"))) return "agent";
   const s = String(node.label || "");
 
   if (s.startsWith("memory:")) return "memory";
@@ -256,6 +260,13 @@ async function _fetchPublicJson(url, timeoutMs = 8000) {
     "_=" +
     Date.now();
 
+  if (!window.__akiraHiveCatalog) {
+    try {
+      const hiveRes = await fetch("./data/hive_agents_catalog.json");
+      if (hiveRes.ok) window.__akiraHiveCatalog = await hiveRes.json();
+    } catch (_) {}
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || 8000));
 
@@ -289,6 +300,13 @@ async function _fetchJson(url, handleAuthFailure = true, timeoutMs = 12000) {
     (full.indexOf("?") >= 0 ? "&" : "?") +
     "_=" +
     Date.now();
+
+  if (!window.__akiraHiveCatalog) {
+    try {
+      const hiveRes = await fetch("./data/hive_agents_catalog.json");
+      if (hiveRes.ok) window.__akiraHiveCatalog = await hiveRes.json();
+    } catch (_) {}
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || 12000));
@@ -2209,6 +2227,41 @@ function _updateMembraneContextPanel(nodeId){
     : "—";
 
   if(meta){
+    const isAgent = (node && node.node_type === "agent") || String(id).startsWith("agent:");
+    const isDivision = (node && node.node_type === "division") || String(id).startsWith("div:");
+    if(isAgent){
+      meta.innerHTML=
+        "<div>TIPO<b>AGENTE COLMENA</b></div>"+
+        "<div>DIVISIÓN<b>"+_brainContextEscape(node.division_label || node.division || "Colmena")+"</b></div>"+
+        "<div>CLUSTER<b>"+_brainContextEscape(clusterId)+"</b></div>"+
+        "<div>ESTADO<b>En guardia</b></div>"+
+        (node.description || node.vibe ? "<div style='grid-column:1/-1;font-size:11px;color:#cbd5e1;font-style:italic;padding:6px;background:rgba(255,255,255,0.04);border-radius:6px;margin:4px 0;'>&ldquo;"+_brainContextEscape(node.vibe || node.description)+"&rdquo;</div>" : "")+
+        (Array.isArray(node.tools) && node.tools.length ? "<div style='grid-column:1/-1;display:flex;gap:4px;flex-wrap:wrap;margin:4px 0;'>"+node.tools.slice(0,4).map(t=>"<span style='font-size:10px;font-family:var(--font-mono);background:rgba(255,255,255,0.06);color:#94a3b8;padding:2px 5px;border-radius:4px;'>"+_brainContextEscape(t)+"</span>").join("")+"</div>" : "")+
+        "<div style='grid-column:1/-1;display:flex;gap:6px;margin-top:6px;'>"+
+          "<button type='button' class='ak-btn secondary small' onclick='window.AkiraHologramBridge && window.AkiraHologramBridge.chatWithSpecialist(\""+_brainContextEscape(id.replace("agent:",""))+"\")'>💬 Chatear</button>"+
+          "<button type='button' class='ak-btn primary small' onclick='window.AkiraHologramBridge && window.AkiraHologramBridge.assignSpecialistToMission(\""+_brainContextEscape(id.replace("agent:",""))+"\")'>🎯 Misión</button>"+
+        "</div>";
+    } else if(isDivision){
+      meta.innerHTML=
+        "<div>TIPO<b>HUB DIVISIÓN</b></div>"+
+        "<div>DIVISIÓN<b>"+_brainContextEscape(node.division_label || node.division || "Táctica")+"</b></div>"+
+        "<div>ESPECIALISTAS<b>"+(node.reuse_count || 15)+"</b></div>"+
+        "<div>ESTADO<b>Operativo</b></div>"+
+        "<div style='grid-column:1/-1;margin-top:6px;'>"+
+          "<button type='button' class='ak-btn secondary small' onclick='window.showSection(\"office\"); window.AkiraHologramBridge && window.AkiraHologramBridge.switchTab(\"hive\");'>🌐 Ver Especialistas en Oficina</button>"+
+        "</div>";
+    } else {
+      meta.innerHTML=
+        "<div>PESO<b>"+_brainNodeMetric(node.weight)+"</b></div>"+
+        "<div>REUTILIZACIÓN<b>"+_brainNodeMetric(node.reuse_count,0)+"</b></div>"+
+        "<div>CONFIANZA<b>"+_brainNodeMetric(node.confidence)+"</b></div>"+
+        "<div>IMPORTANCIA<b>"+(importance === null ? "—" : Math.round(importance*100)+"%")+"</b></div>"+
+        "<div>GRUPO<b>"+_brainContextEscape(_detectGroup(node))+"</b></div>"+
+        "<div>CLUSTER<b>"+_brainContextEscape(clusterId)+"</b></div>";
+    }
+  }
+
+  if(false){
     meta.innerHTML=
       "<div>PESO<b>"+_brainNodeMetric(node.weight)+"</b></div>"+
       "<div>REUTILIZACIÓN<b>"+_brainNodeMetric(node.reuse_count,0)+"</b></div>"+
@@ -3843,6 +3896,13 @@ async function refreshMembrane(
   membraneLastFetch =
     Date.now();
 
+  if (!window.__akiraHiveCatalog) {
+    try {
+      const hiveRes = await fetch("./data/hive_agents_catalog.json");
+      if (hiveRes.ok) window.__akiraHiveCatalog = await hiveRes.json();
+    } catch (_) {}
+  }
+
   const hasSession = _hasUsableSession();
 
   try {
@@ -3912,6 +3972,54 @@ async function refreshMembrane(
   }
 }
 
+function _computeMembraneCommunities(nodes, edges, coreId){
+  const core = String(coreId || "");
+  const ids = nodes.map(n => String(n.id)).filter(id => id !== core);
+  const assignments = new Map();
+  const hubs = new Set();
+  const centers = new Map();
+  const distinctGroups = new Map();
+
+  for(const n of nodes){
+    const id = String(n.id);
+    if(id === core) continue;
+
+    let clusterKey = null;
+    if(n.division){
+      clusterKey = "div:" + String(n.division).toLowerCase();
+    } else if(n.node_type === "division" || id.startsWith("div:")){
+      clusterKey = id;
+      hubs.add(id);
+    } else if(n.node_type === "agent" || id.startsWith("agent:")){
+      clusterKey = "div:specialists";
+    } else if(n.node_type){
+      clusterKey = "type:" + String(n.node_type).toLowerCase();
+    } else {
+      clusterKey = "group:" + String(_detectGroup(n) || "other").toLowerCase();
+    }
+
+    assignments.set(id, clusterKey);
+    if(!distinctGroups.has(clusterKey)) distinctGroups.set(clusterKey, []);
+    distinctGroups.get(clusterKey).push(id);
+  }
+
+  for(const [key, memberIds] of distinctGroups.entries()){
+    if(key.startsWith("div:")){
+      const hubNode = memberIds.find(m => m.startsWith("div:")) || memberIds[0];
+      if(hubNode) hubs.add(hubNode);
+    }
+  }
+
+  const count = Math.max(1, distinctGroups.size);
+
+  return {
+    assignments,
+    hubs,
+    centers,
+    count
+  };
+}
+
 function _applyGraphToCy(
   data
 ) {
@@ -3922,6 +4030,88 @@ function _applyGraphToCy(
 
   const edges =
     data.edges || [];
+
+  // Merge the 267 Hive specialists and 18 division clusters into the Brain graph
+  const hiveCatalog = window.__akiraHiveCatalog || (window.AkiraHive && window.AkiraHive.catalog);
+  if(hiveCatalog && Array.isArray(hiveCatalog.agents) && hiveCatalog.agents.length > 0){
+    const existingNodeIds = new Set(nodes.map(n => String(n.id)));
+    const existingEdgeKeys = new Set(edges.map(e => `${e.from_node ?? e.source}->${e.to_node ?? e.target}`));
+
+    let akiraId = "public:akira";
+    const foundCore = nodes.find(n => String(n.label || "").trim().toLowerCase() === "akira" || String(n.id).includes("akira"));
+    if(foundCore) akiraId = foundCore.id;
+
+    if(hiveCatalog.divisions){
+      Object.entries(hiveCatalog.divisions).forEach(([divKey, div]) => {
+        const divNodeId = `div:${divKey}`;
+        if(!existingNodeIds.has(divNodeId)){
+          nodes.push({
+            id: divNodeId,
+            node_type: "division",
+            label: `${div.label}`,
+            division: divKey,
+            division_label: div.label,
+            color: div.color || "#818cf8",
+            division_color: div.color || "#818cf8",
+            weight: 3.5,
+            confidence: 1.0,
+            reuse_count: div.count || 15,
+            _isHub: true
+          });
+          existingNodeIds.add(divNodeId);
+
+          const edgeKey = `${akiraId}->${divNodeId}`;
+          if(!existingEdgeKeys.has(edgeKey)){
+            edges.push({
+              id: `edge:akira->${divNodeId}`,
+              from_node: akiraId,
+              to_node: divNodeId,
+              relation_type: "orchestrates",
+              weight: 0.95,
+              frequency: 1
+            });
+            existingEdgeKeys.add(edgeKey);
+          }
+        }
+      });
+    }
+
+    hiveCatalog.agents.forEach(ag => {
+      const agNodeId = `agent:${ag.id}`;
+      if(!existingNodeIds.has(agNodeId)){
+        nodes.push({
+          id: agNodeId,
+          node_type: "agent",
+          label: ag.name,
+          division: ag.division,
+          division_label: ag.division_label,
+          division_color: ag.division_color || "#38bdf8",
+          emoji: ag.emoji || "🤖",
+          vibe: ag.vibe,
+          description: ag.description,
+          tools: ag.tools || [],
+          weight: 2.0,
+          confidence: 0.98,
+          reuse_count: 5
+        });
+        existingNodeIds.add(agNodeId);
+
+        const divNodeId = `div:${ag.division}`;
+        const edgeKey = `${divNodeId}->${agNodeId}`;
+        if(!existingEdgeKeys.has(edgeKey)){
+          edges.push({
+            id: `edge:${divNodeId}->${agNodeId}`,
+            from_node: divNodeId,
+            to_node: agNodeId,
+            relation_type: "specializes_in",
+            weight: 0.8,
+            frequency: 1
+          });
+          existingEdgeKeys.add(edgeKey);
+        }
+      }
+    });
+  }
 
   // Keep a local graph snapshot so the 2D view can own selection/context
   // without depending on the hidden 3D renderer being initialized.
@@ -3948,6 +4138,14 @@ function _applyGraphToCy(
   }
 
   let community = null;
+  try {
+    community = _computeMembraneCommunities(nodes, edges, coreId);
+  } catch (e) {
+    if (typeof window.AkiraBrainCommunity === "function") {
+      try { community = window.AkiraBrainCommunity(nodes, edges, coreId); } catch(_) {}
+    }
+  }
+  if(false){
   if (typeof window.AkiraBrainCommunity === "function") {
     try {
       community = window.AkiraBrainCommunity(nodes, edges, coreId);
@@ -4078,6 +4276,8 @@ function _applyGraphToCy(
       isCore
         ? "#ff6b6b"
         : (
+            n.division_color ||
+            n.color ||
             GROUP_COLORS[group] ||
             GROUP_COLORS.other
           );
@@ -4961,6 +5161,13 @@ function initOfficeFloor() {
       "?v=" +
       Date.now();
 
+  if (!window.__akiraHiveCatalog) {
+    try {
+      const hiveRes = await fetch("./data/hive_agents_catalog.json");
+      if (hiveRes.ok) window.__akiraHiveCatalog = await hiveRes.json();
+    } catch (_) {}
+  }
+
     officeSheetImage =
       new Image();
 
@@ -4988,6 +5195,13 @@ function initOfficeFloor() {
       OFFICE_SHEET_URL +
       "?v=" +
       Date.now();
+
+  if (!window.__akiraHiveCatalog) {
+    try {
+      const hiveRes = await fetch("./data/hive_agents_catalog.json");
+      if (hiveRes.ok) window.__akiraHiveCatalog = await hiveRes.json();
+    } catch (_) {}
+  }
 
   } else {
     drawOffice();
@@ -5293,6 +5507,13 @@ function _ensureMovementState(a) {
 function _updateAgentMovement(a) {
   const now =
     Date.now();
+
+  if (!window.__akiraHiveCatalog) {
+    try {
+      const hiveRes = await fetch("./data/hive_agents_catalog.json");
+      if (hiveRes.ok) window.__akiraHiveCatalog = await hiveRes.json();
+    } catch (_) {}
+  }
 
   // IMPORTANTE:
   // Este movimiento es solamente visual.
@@ -6396,6 +6617,13 @@ async function refreshOffice(
 
   officeLastFetch =
     Date.now();
+
+  if (!window.__akiraHiveCatalog) {
+    try {
+      const hiveRes = await fetch("./data/hive_agents_catalog.json");
+      if (hiveRes.ok) window.__akiraHiveCatalog = await hiveRes.json();
+    } catch (_) {}
+  }
 
   try {
     const data =
