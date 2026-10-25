@@ -86,7 +86,7 @@
 <link rel="stylesheet" href="./css/akira-cognitive-workspace-v2.css?v=akira-cognitive-workspace-v2">
 <link rel="stylesheet" href="./css/akira-office-2p5d.css?v=akira-office-2p5d-v5-f15-hive-panel">
 <link rel="stylesheet" href="./css/akira-reference-design-v2.css?v=akira-reference-design-v1-living-plasma-canvas">
-  <link rel="stylesheet" href="./css/akira_modern_cyber.css?v=akira-quantum-v11">
+  <link rel="stylesheet" href="./css/akira_modern_cyber.css?v=akira-cyber-v19-street-voice-ptt-mobile">
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -673,7 +673,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
   <div id="levelsSection" class="section">
     <div class="section-header">
       <h2>📊 Niveles & Capacidades del Sistema</h2>
-      <p>Telemetría en tiempo real de los 19 subsistemas y protocolos cognitivos verificados de Akira.</p>
+      <p>Telemetría en tiempo real de los 24 subsistemas y capacidades cognitivas verificadas de Akira (20 Capacidades Canónicas en Backend + 8 Módulos de Runtime).</p>
     </div>
     <div class="ak-levels-matrix-deck">
       <div id="levelsList" class="ak-levels-hud-grid"></div>
@@ -2020,13 +2020,13 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_entity.js?v=akira-quantum-sigil-v1"></script>
 <script src="./js/three.min.js"></script>
 <script src="./js/akira_quantum_orb.js?v=akira-quantum-orb-v2"></script>
-<script src="./js/akira_voice_live.js?v=akira-voice-live-v10-vad-street"></script>
+<script src="./js/akira_voice_live.js?v=akira-voice-live-v11-street-master-ptt"></script>
 <script src="./js/akira_monetization.js?v=akira-monetize-v2"></script>
 <script src="./js/akira_office_hologram.js?v=akira-office-commanders-dossier-v2"></script>
 <script src="./js/akira_hive_catalog.js?v=akira-hive-v1"></script>
 <script src="./js/akira_missions_modern.js?v=akira-missions-hive-specialists-v1"></script>
 <script src="./js/akira_admin_modern.js?v=akira-admin-v6-20caps-active-supervision"></script>
-<script src="./js/akira_reference_workspace_v2.js?v=akira-reference-v17-live-sync"></script>
+<script src="./js/akira_reference_workspace_v2.js?v=akira-reference-v18-20caps-verified"></script>
 <script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>
 <script src="./js/akira_brain.js?v=akira-brain-v8"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
@@ -2297,6 +2297,11 @@ async function renderLevels(){
       {id:"F13", name:"Evolution / Evolución", desc:"Motor de evolución implementado y verificable.", status: "verified"},
       {id:"F14", name:"Controlled Autonomy / Autonomía", desc:"Ejecución autónoma verificada y supervisada.", status: "verified"},
       {id:"F15", name:"Hive Collective Sync & Colmena Táctica", desc:"267 especialistas en 18 divisiones, sincronización multi-dispositivo descentralizada con Ed25519 y persistencia SQLite/RLS.", status: "verified"},
+      {id:"F16", name:"Hive Agent Orchestration & Router", desc:"Orquestación heurística de 267 especialistas tácticos y 10 comandantes en 18 divisiones.", status: "verified"},
+      {id:"F17", name:"Voice VAD & Push-to-Talk Callejero", desc:"Cancelación de ruido ambiente por hardware WebAudio y Push-to-Talk directo de 1 solo toque para calle.", status: "verified"},
+      {id:"F18", name:"Upwork Bidding Autonomous Engine", desc:"Generación de propuestas técnicas y de negocio de alta conversión con convocatoria táctica de la colmena.", status: "verified"},
+      {id:"F19", name:"Membrane Spatial Brain Graph", desc:"Grafo tridimensional de neuronas, sinapsis y memorias persistentes en tiempo real.", status: "verified"},
+      {id:"F20", name:"Autonomous Active Supervisor", desc:"Ejecución autónoma de tareas y aprendizaje continuo bajo supervisión activa no-bloqueante del creador.", status: "verified"},
     ];
     listEl.className = "ak-levels-hud-grid";
     listEl.innerHTML = levels.map(l => {

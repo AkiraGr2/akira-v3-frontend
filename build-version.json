@@ -1,6 +1,6 @@
 {
-  "version": "akira-cache-v20261025-20caps-active-supervision-commanders-dossier-v2",
-  "generated_at": "2026-10-25T16:17:00.000Z",
+  "version": "akira-cache-v20261025-20caps-street-voice-master-btn-v3",
+  "generated_at": "2026-10-25T18:25:00.000Z",
   "assets": {
     "js/akira_brain.js": "akira-brain-v8-performance",
     "js/obsidian_membrane.js": "akira-membrane-v58-nodes-restored",
@@ -9,13 +9,14 @@
     "js/akira-office-2p5d.js": "akira-office-2p5d-v4-responsive-canvas",
     "css/akira-office-2p5d.css": "akira-office-2p5d-v5-f15-hive-panel",
     "assets/office/office_runtime_2p5d.json": "office-autonomous-v3",
-    "js/akira_reference_workspace_v2.js": "akira-reference-v17-live-sync",
+    "js/akira_reference_workspace_v2.js": "akira-reference-v18-20caps-verified",
     "css/akira-reference-design-v2.css": "akira-reference-design-v1-living-plasma-canvas",
     "js/akira_entity.js": "akira-entity-v2-6-dense-living-spiral-mobile-perf",
     "js/akira-hive-office-v1.js": "akira-hive-office-v1-f15",
     "js/akira_office_hologram.js": "akira-office-commanders-dossier-v2",
     "js/akira_missions_modern.js": "akira-missions-hive-specialists-v1",
     "js/akira_admin_modern.js": "akira-admin-v6-20caps-active-supervision",
-    "js/akira_voice_live.js": "akira-voice-live-v10-vad-street"
+    "js/akira_voice_live.js": "akira-voice-live-v11-street-master-ptt",
+    "css/akira_modern_cyber.css": "akira-cyber-v19-street-voice-ptt-mobile"
   }
 }

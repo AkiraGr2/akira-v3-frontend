@@ -1,7 +1,7 @@
 /**
  * AKIRA MODERN ADMIN CONTROLLER (Centro de Control Ejecutivo y Sencillo)
  * Designed for intuitive, non-technical management of Akira:
- *  1. Live System Status (15/15 Verified Capacities, Server, Storage)
+ *  1. Live System Status (20/20 Verified Capacities, Server, Storage)
  *  2. Autoknowledge & Memory Dashboard with 1-Click Auto-Consolidate All
  *  3. Instant "Teach Akira" Natural Language Form
  *  4. Advanced diagnostics safely tucked in an optional drawer

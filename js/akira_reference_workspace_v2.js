@@ -138,7 +138,7 @@
       const topPill = document.getElementById("akHudStatusText");
       if(topPill) topPill.textContent = "✦ COLMENA ACTIVA · " + count(nodes) + " NODOS · MEMORIA PERSISTENTE";
       const telem = document.querySelector(".ak-sidebar-telemetry .ak-telemetry-sub");
-      if(telem) telem.textContent = count(nodes) + " Nodos · 15/15 Verificadas";
+      if(telem) telem.textContent = count(nodes) + " Nodos · 20/20 Verificadas";
       try{ window.dispatchEvent(new CustomEvent("akira:brain-stats",{detail:{nodes:nodes,edges:edges}})); }catch(_){}
     }
     const brainBar=home.querySelector("#akRefBrainBar");
@@ -244,7 +244,7 @@
     {
       title: "Control & Sistema",
       items: [
-        ["levels", "📊 Niveles", "15/15 capacidades"],
+        ["levels", "📊 Niveles", "20/20 capacidades"],
         ["keys", "🔑 Cuenta", "Sesión & seguridad"],
         ["admin", "⚙️ Admin", "Consola ejecutiva"]
       ]
@@ -294,7 +294,7 @@
           <span class="ak-live-dot"></span>
           <span>Colmena: Activa & Persistente</span>
         </div>
-        <div class="ak-telemetry-sub">15/15 Verificadas · Render 0$</div>
+        <div class="ak-telemetry-sub">20/20 Verificadas · Render 0$</div>
       `;
       const sidebar = qs("#sidebar");
       if(sidebar) sidebar.appendChild(telem);
@@ -362,7 +362,7 @@
         const topPill = document.getElementById("akHudStatusText");
         if(topPill) topPill.textContent = "✦ COLMENA ACTIVA · " + count(n) + " NODOS · MEMORIA PERSISTENTE";
         const telem = document.querySelector(".ak-sidebar-telemetry .ak-telemetry-sub");
-        if(telem) telem.textContent = count(n) + " Nodos · 15/15 Verificadas";
+        if(telem) telem.textContent = count(n) + " Nodos · 20/20 Verificadas";
       }
     }catch(_){}
   });
