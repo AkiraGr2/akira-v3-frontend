@@ -2013,6 +2013,12 @@ document.addEventListener("DOMContentLoaded", ()=>{
     },2000);
   }
   setTimeout(()=>{ try{ renderLevels(); }catch(_){} },1200);
+  setInterval(()=>{
+    try {
+      const b = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
+      fetch(b + "/health", { cache: "no-store" }).catch(() => {});
+    } catch(_) {}
+  }, 7 * 60 * 1000);
 });
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
@@ -2020,7 +2026,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_entity.js?v=akira-quantum-sigil-v1"></script>
 <script src="./js/three.min.js"></script>
 <script src="./js/akira_quantum_orb.js?v=akira-quantum-orb-v2"></script>
-<script src="./js/akira_voice_live.js?v=akira-voice-live-v11-street-master-ptt"></script>
+<script src="./js/akira_voice_live.js?v=akira-voice-live-v12-fast-path"></script>
 <script src="./js/akira_monetization.js?v=akira-monetize-v2"></script>
 <script src="./js/akira_office_hologram.js?v=akira-office-commanders-dossier-v2"></script>
 <script src="./js/akira_hive_catalog.js?v=akira-hive-v1"></script>

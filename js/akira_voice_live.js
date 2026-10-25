@@ -505,6 +505,7 @@
       }
 
       this.initAudioAnalyser();
+      this.startKeepAlive();
       this.updateHUD("Lista", "idle");
       this.updateMasterButton("idle", "Mantén presionado para hablar", "o toca una vez para hablar y otra para enviar");
       this.updateVoiceLabel();
@@ -530,6 +531,7 @@
 
       this.stopSpeaking();
 
+      this.stopKeepAlive();
       if (this.audioAnimId) cancelAnimationFrame(this.audioAnimId);
       if (this.micStream) this.micStream.getTracks().forEach(t => t.stop());
       if (this.audioContext && this.audioContext.state !== "closed") {
@@ -545,6 +547,22 @@
       }
     }
 
+
+    startKeepAlive() {
+      if (this.keepAliveInterval) clearInterval(this.keepAliveInterval);
+      const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
+      try { fetch(backend + "/health", { cache: "no-store" }).catch(() => {}); } catch(_) {}
+      this.keepAliveInterval = setInterval(() => {
+        try { fetch(backend + "/health", { cache: "no-store" }).catch(() => {}); } catch(_) {}
+      }, 7 * 60 * 1000);
+    }
+
+    stopKeepAlive() {
+      if (this.keepAliveInterval) {
+        clearInterval(this.keepAliveInterval);
+        this.keepAliveInterval = null;
+      }
+    }
     updateVoiceLabel() {
       const lbl = document.getElementById("akiraLiveVoiceName");
       if (lbl && this.selectedVoice) {
@@ -590,19 +608,23 @@
     async processUserVoiceInput(query) {
       this.isThinking = true;
       this.updateHUD("Pensando...", "thinking");
-      this.updateMasterButton("thinking", "🧠 Akira pensando...", "Consultando la colmena cognitiva...");
+      this.updateMasterButton("thinking", "🧠 Akira respondiendo...", "Inferencia rápida en la colmena...");
       this.setSubtitles("Tú: “" + query + "”");
 
       try {
         const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
         const headers = window.akiraAuthHeaders ? window.akiraAuthHeaders() : { "Content-Type": "application/json" };
 
-        const fastVoicePrompt = `[MODO VOZ AKIRA LIVE: Eres Akira, colmena cognitiva personal colombiana de Jhon Grimm (Jhon Bernal). Háblale a Jhon con la tranquilidad, calidez, frescura y acento natural de una chica colombiana (relajada, cercana, humana, llamándolo Jhon o Jhon Grimm, usando giros naturales como 'parce', 'tranquilo', 'de una', 'claro que sí', sin formalismos rígidos ni sonar a robot). Máximo 1 o 2 oraciones breves para conversación oral ágil]: ${query}`;
+        const payload = {
+          message: query,
+          fast_voice: true,
+          voice_mode: true
+        };
 
         const response = await fetch(backend + "/api/chat", {
           method: "POST",
           headers: headers,
-          body: JSON.stringify({ message: fastVoicePrompt })
+          body: JSON.stringify(payload)
         });
 
         const data = await response.json();
