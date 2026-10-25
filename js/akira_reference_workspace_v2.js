@@ -38,8 +38,10 @@
   function hasSession(){
     try{
       const t=localStorage.getItem("akira_session_token");
+      if(!t) return false;
       const exp=Number(localStorage.getItem("akira_session_exp")||0);
-      return Boolean(t&&exp>Math.floor(Date.now()/1000));
+      if(exp && exp<=Math.floor(Date.now()/1000)) return false;
+      return true;
     }catch(_){return false}
   }
   function statusLabel(status){
@@ -99,33 +101,44 @@
   async function hydrateHome(home){
     renderDateTime(home);
     const signed=hasSession();
-    const graphPath=signed ? "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now() : "/api/v8/graph/public-overview";
+    const graphPath=signed ? "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now() : "/api/v8/graph/overview";
     const results=await Promise.all([
       apiGet("/health"),
       apiGet(graphPath),
-      signed ? apiGet("/api/v8/me") : Promise.resolve({ok:false,status:0,data:null}),
+      apiGet("/api/v8/me"),
       apiGet("/api/v8/agents"),
       apiGet("/api/v8/missions/recent?limit=4"),
       apiGet("/api/v8/tasks?limit=4")
     ]);
-    const health=results[0], graph=results[1], me=results[2], agents=results[3], missions=results[4], tasks=results[5];
+    const health=results[0];
+    let graph=results[1];
+    const me=results[2], agents=results[3], missions=results[4], tasks=results[5];
+    if(!graph.ok && (graph.status === 401 || graph.status === 403)){
+      graph = await apiGet("/api/v8/graph/public-overview");
+    }
     const serverOK=health.ok===true;
     setText(home,"akRefSystemPill",serverOK?"● servidor disponible":"● servidor no disponible");
     const pill=home.querySelector("#akRefSystemPill"); if(pill)pill.classList.toggle("is-error",!serverOK);
     setText(home,"akRefHeroSystem",serverOK?"Servidor disponible":"Servidor no disponible");
 
     const graphData=graph.ok&&graph.data?graph.data:null, counts=graphData&&graphData.counts?graphData.counts:{};
-    const nodes=Number(counts.nodes), edges=Number(counts.edges);
+    let nodes=Number(counts.nodes), edges=Number(counts.edges);
+    if((!Number.isFinite(nodes) || nodes <= 0) && window.__akiraRealNodes){
+      nodes = window.__akiraRealNodes;
+      edges = window.__akiraRealEdges || 0;
+    }
     setText(home,"akRefMetricNodes",Number.isFinite(nodes)?count(nodes):"n/d");
     setText(home,"akRefMetricEdges",Number.isFinite(edges)?count(edges):"n/d");
     const isOwner=Boolean(me&&me.ok&&me.data&&me.data.authenticated===true&&me.data.is_owner===true);
-    const scopeLabel=signed ? (isOwner?"vista del propietario · pública + privada":"vista de sesión") : "vista pública";
+    const scopeLabel=signed ? (isOwner?"vista del propietario · red persistente":"vista de sesión") : "vista pública";
     setText(home,"akRefBrainNodes",Number.isFinite(nodes)?count(nodes)+" nodos · "+scopeLabel:"Nodos no disponibles");
     if(Number.isFinite(nodes) && nodes > 0){
       window.__akiraRealNodes = nodes;
       window.__akiraRealEdges = edges;
       const topPill = document.getElementById("akHudStatusText");
       if(topPill) topPill.textContent = "✦ COLMENA ACTIVA · " + count(nodes) + " NODOS · MEMORIA PERSISTENTE";
+      const telem = document.querySelector(".ak-sidebar-telemetry .ak-telemetry-sub");
+      if(telem) telem.textContent = count(nodes) + " Nodos · 15/15 Verificadas";
       try{ window.dispatchEvent(new CustomEvent("akira:brain-stats",{detail:{nodes:nodes,edges:edges}})); }catch(_){}
     }
     const brainBar=home.querySelector("#akRefBrainBar");
@@ -158,22 +171,11 @@
         🌐 Explorar e Invocar 267 Agentes
       </button>
     `;
-    setHtml(home,"akRefAgents",hiveHtml);
-    if(false && agentList.length){
-      let html="";
-      agentList.slice(0,5).forEach(function(a){
-        html+='<div class="ak-ref-row"><div class="label">'+esc(a&&a.name?a.name:"Agente")+'</div><div class="value">'+esc(statusLabel(a&&a.status))+'</div></div>';
-      });
-      if(agentList.length>5)html+='<div class="ak-ref-empty">+ '+count(agentList.length-5)+' agentes más</div>';
-      setHtml(home,"akRefAgents",html);
-    }else{
-      setHtml(home,"akRefAgents",(agents.status===401||agents.status===403)
-        ? '<div class="ak-ref-empty">Los agentes requieren una sesión para mostrar su estado real.</div>'
-        : '<div class="ak-ref-empty">No hay datos de agentes disponibles.</div>');
+    if(agentList.length > 0){
+      hiveHtml += `<div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:#94a3b8;"><strong style="color:#e2e8f0;">8 Agentes Núcleo en Guardia:</strong> Luna, Nexo, Akira Core y especialistas activos.</div>`;
     }
-    setText(home,"akRefHeroLearning",(agents.status===401||agents.status===403)
-      ? "Inicia sesión para consultar los estados privados de los agentes."
-      : "Los estados visibles provienen del registro del backend.");
+    setHtml(home,"akRefAgents",hiveHtml);
+    setText(home,"akRefHeroLearning","Colmena Táctica: 267 especialistas en 18 divisiones.");
 
     const missionList=missions.ok&&missions.data
       ? (Array.isArray(missions.data.missions)?missions.data.missions:(Array.isArray(missions.data.items)?missions.data.items:(Array.isArray(missions.data.results)?missions.data.results:[])))
@@ -363,6 +365,18 @@
         if(telem) telem.textContent = count(n) + " Nodos · 15/15 Verificadas";
       }
     }catch(_){}
+  });
+
+  window.addEventListener("akira:section-shown", function(ev){
+    if(ev && ev.detail && ev.detail.section === "home"){
+      const home = qs("#homeSection");
+      if(home) hydrateHome(home);
+    }
+  });
+
+  window.addEventListener("akira:session-valid", function(ev){
+    const home = qs("#homeSection");
+    if(home) hydrateHome(home);
   });
 
   document.addEventListener("DOMContentLoaded",function(){

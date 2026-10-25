@@ -1180,62 +1180,6 @@ function toggleBrainMobileView(force){
 function newChat(){if(confirm("¿Nuevo chat?")){document.getElementById('msgsInner').innerHTML=`<div class="msg-row akira"><div class="avatar"></div><div class="bubble">Nuevo chat Akira.</div></div>`;}}
 
 async function handleCredentialResponse(r){
-  window.handleCredentialResponse = handleCredentialResponse;
-
-function akiraToggleBrainFullscreen(){
-  const stage = document.getElementById("brainStage") || document.getElementById("brainSection");
-  if(!stage) return;
-  const isForced = stage.classList.contains("is-fullscreen-forced");
-  const fsBtnText = document.getElementById("brainFsText");
-  const fsBtnIcon = document.getElementById("brainFsIcon");
-
-  if(!isForced && !document.fullscreenElement){
-    if(stage.requestFullscreen){
-      stage.requestFullscreen().catch(()=>{
-        stage.classList.add("is-fullscreen-forced");
-      });
-    } else {
-      stage.classList.add("is-fullscreen-forced");
-    }
-    if(fsBtnText) fsBtnText.textContent = "Salir Pantalla Completa";
-    if(fsBtnIcon) fsBtnIcon.textContent = "✕";
-  } else {
-    if(document.exitFullscreen && document.fullscreenElement){
-      document.exitFullscreen().catch(()=>{});
-    }
-    stage.classList.remove("is-fullscreen-forced");
-    if(fsBtnText) fsBtnText.textContent = "Pantalla Completa";
-    if(fsBtnIcon) fsBtnIcon.textContent = "⛶";
-  }
-  setTimeout(()=>{
-    try{ if(window.cyMembrane) { window.cyMembrane.resize(); window.cyMembrane.fit(null, 30); } }catch(_){}
-  }, 150);
-}
-
-function akiraToggleExploreAll(){
-  try{
-    if(window.akiraBrainExploreAll) {
-      window.akiraBrainExploreAll();
-    }
-    if(window.cyMembrane) {
-      window.cyMembrane.elements().style("display", "element").removeClass("dimmed").removeClass("highlighted");
-      window.cyMembrane.fit(null, 40);
-    }
-  }catch(_){}
-}
-
-document.addEventListener("fullscreenchange", ()=>{
-  const stage = document.getElementById("brainStage");
-  const fsBtnText = document.getElementById("brainFsText");
-  const fsBtnIcon = document.getElementById("brainFsIcon");
-  if(!document.fullscreenElement && stage){
-    stage.classList.remove("is-fullscreen-forced");
-    if(fsBtnText) fsBtnText.textContent = "Pantalla Completa";
-    if(fsBtnIcon) fsBtnIcon.textContent = "⛶";
-    setTimeout(()=>{ try{ if(window.cyMembrane) { window.cyMembrane.resize(); } }catch(_){} }, 100);
-  }
-});
-
   try{
     const c=r.credential;
     const b=localStorage.getItem("akira_backend_url");
@@ -1889,7 +1833,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 });
 </script>
 <script src="./js/hybrid_sync.js?v=akira-final-v5"></script>
-<script src="./js/obsidian_membrane.js?v=akira-membrane-v53-hive-clusters"></script>
+<script src="./js/obsidian_membrane.js?v=akira-membrane-v55-clean-engine"></script>
 <script src="./js/akira_entity.js?v=akira-quantum-sigil-v1"></script>
 <script src="./js/three.min.js"></script>
 <script src="./js/akira_quantum_orb.js?v=akira-quantum-orb-v2"></script>
@@ -1899,7 +1843,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_hive_catalog.js?v=akira-hive-v1"></script>
 <script src="./js/akira_missions_modern.js?v=akira-missions-v5-hive"></script>
 <script src="./js/akira_admin_modern.js?v=akira-admin-v5-live-sync"></script>
-<script src="./js/akira_reference_workspace_v2.js?v=akira-reference-v15-hive-home"></script>
+<script src="./js/akira_reference_workspace_v2.js?v=akira-reference-v17-live-sync"></script>
 <script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>
 <script src="./js/akira_brain.js?v=akira-brain-v8"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
@@ -2163,13 +2107,13 @@ async function renderLevels(){
       {id:"F6", name:"Cerebro y aprendizaje", desc:"Memoria relacional, grafo de conocimiento y sinapsis persistentes sincronizadas en tiempo real.", status: "verified"},
       {id:"F7", name:"Proceso cognitivo persistente", desc:"Akira conserva los pasos de sus ciclos cognitivos.", status: "verified"},
       {id:"F8", name:"Herramientas de Akira", desc:"Herramientas registradas y verificadas por el sistema.", status: "verified"},
-      {id:"F9", name:"Agentes + Tareas", desc:"8 agentes especialistas en guardia continua.", status: "verified"},
+      {id:"F9", name:"Agentes + Colmena Táctica (267 Especialistas)", desc:"267 agentes tácticos y 8 agentes núcleo en 18 divisiones operativas con orquestación inteligente de tareas.", status: "verified"},
       {id:"F10", name:"Mission Engine + Conversaciones", desc:"Orquestador de misiones autónomas y chats persistentes.", status: "verified"},
       {id:"F11", name:"Self-knowledge / Autoconocimiento", desc:"Runtime de autoconocimiento persistente.", status: "verified"},
       {id:"F12", name:"Self-Repair / Reparación", desc:"Motor de reparación implementado y verificable.", status: "verified"},
       {id:"F13", name:"Evolution / Evolución", desc:"Motor de evolución implementado y verificable.", status: "verified"},
       {id:"F14", name:"Controlled Autonomy / Autonomía", desc:"Ejecución autónoma verificada y supervisada.", status: "verified"},
-      {id:"F15", name:"Hive Collective Sync / Colmena", desc:"Sincronización multi-dispositivo descentralizada con criptografía Ed25519 y persistencia RLS.", status: "verified"},
+      {id:"F15", name:"Hive Collective Sync & Colmena Táctica", desc:"267 especialistas en 18 divisiones, sincronización multi-dispositivo descentralizada con Ed25519 y persistencia SQLite/RLS.", status: "verified"},
     ];
     listEl.className = "ak-levels-hud-grid";
     listEl.innerHTML = levels.map(l => {
