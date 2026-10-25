@@ -47,6 +47,7 @@
       this.micStream = null;
       this.audioDataArray = null;
       this.audioAnimId = null;
+      this.currentAudio = null;
       this.currentUtterance = null;
       this.modalEl = null;
       this.orbInstance = null;
@@ -253,9 +254,10 @@
               </button>
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
-              <button id="akiraLiveVoiceSelector" type="button" class="akira-live-voice-badge" title="Toca para cambiar la voz de Akira">
-                🎙️ <span id="akiraLiveVoiceName">Cargando voz...</span>
-              </button>
+              <div id="akiraLiveVoiceBadge" class="akira-live-voice-badge" style="cursor:default;background:rgba(236,72,153,0.14);border:1px solid rgba(244,114,182,0.4);color:#f472b6;font-weight:600;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:12px;box-shadow:0 0 12px rgba(236,72,153,0.2);" title="Voz Propia Neural Colombiana de Akira (Salomé Neural CO - $0 COP)">
+                <span>🌸</span>
+                <span>Akira · Voz Neural Colombiana</span>
+              </div>
               <button class="akira-live-close-btn" id="akiraLiveCloseBtn" title="Salir de Akira Live">✕</button>
             </div>
           </header>
@@ -640,13 +642,6 @@
     }
 
     speakReply(text) {
-      if (!this.synthesis) {
-        this.setSubtitles("Akira: " + text);
-        this.updateHUD("Lista", "idle");
-        this.updateMasterButton("idle", "Mantén presionado para hablar", "o toca una vez para hablar y otra para enviar");
-        return;
-      }
-
       this.stopSpeaking();
       this.isSpeaking = true;
       this.updateHUD("Hablando...", "speaking");
@@ -673,6 +668,84 @@
         .replace(/\bGroq\b/gi, "Groc")
         .replace(/([.!?])\s+/g, "$1, ");
 
+      // Primary: High-Definition Colombian Neural Voice (Salomé Neural CO via /api/tts)
+      const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
+      const ttsUrl = backend + "/api/tts?text=" + encodeURIComponent(cleanVoiceText.slice(0, 850));
+
+      const audio = new Audio();
+      audio.crossOrigin = "anonymous";
+      this.currentAudio = audio;
+
+      let speakWaveInterval = null;
+      const startWave = () => {
+        if (speakWaveInterval) clearInterval(speakWaveInterval);
+        speakWaveInterval = setInterval(() => {
+          if (!this.isSpeaking || !this.orbInstance) {
+            clearInterval(speakWaveInterval);
+            return;
+          }
+          const pseudoWave = 0.35 + Math.random() * 0.55;
+          this.orbInstance.setAudioLevel(pseudoWave);
+        }, 80);
+      };
+
+      const finalizeSpeech = () => {
+        if (speakWaveInterval) clearInterval(speakWaveInterval);
+        this.isSpeaking = false;
+        this.currentAudio = null;
+        if (this.orbInstance) this.orbInstance.setAudioLevel(0);
+        if (this.active) {
+          this.updateHUD("Lista", "idle");
+          this.updateMasterButton("idle", "Mantén presionado para hablar", "o toca una vez para hablar y otra para enviar");
+          if (!this.streetMode && this.recognition) {
+            setTimeout(() => {
+              if (this.active && !this.isSpeaking && this.recognition) {
+                try { this.recognition.start(); } catch(_) {}
+              }
+            }, 300);
+          }
+        }
+      };
+
+      audio.onplay = () => {
+        startWave();
+      };
+
+      audio.onended = () => {
+        finalizeSpeech();
+      };
+
+      let fallbackTriggered = false;
+      const triggerFallback = (reason) => {
+        if (fallbackTriggered) return;
+        fallbackTriggered = true;
+        console.warn("[AkiraVoiceLive] Neural TTS fallback to local synthesis:", reason);
+        if (speakWaveInterval) clearInterval(speakWaveInterval);
+        this.currentAudio = null;
+        this.speakWithLocalSynthesis(cleanVoiceText);
+      };
+
+      audio.onerror = (e) => {
+        triggerFallback(e);
+      };
+
+      audio.src = ttsUrl;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          triggerFallback(err);
+        });
+      }
+    }
+
+    speakWithLocalSynthesis(cleanVoiceText) {
+      if (!this.synthesis) {
+        this.isSpeaking = false;
+        this.updateHUD("Lista", "idle");
+        this.updateMasterButton("idle", "Mantén presionado para hablar", "o toca una vez para hablar y otra para enviar");
+        return;
+      }
+
       const utterance = new SpeechSynthesisUtterance(cleanVoiceText);
       if (this.selectedVoice) {
         utterance.voice = this.selectedVoice;
@@ -692,6 +765,7 @@
       utterance.onend = () => {
         clearInterval(speakWaveInterval);
         this.isSpeaking = false;
+        this.currentUtterance = null;
         if (this.orbInstance) this.orbInstance.setAudioLevel(0);
         if (this.active) {
           this.updateHUD("Lista", "idle");
@@ -709,6 +783,7 @@
       utterance.onerror = () => {
         clearInterval(speakWaveInterval);
         this.isSpeaking = false;
+        this.currentUtterance = null;
         if (this.active) {
           this.updateHUD("Lista", "idle");
           this.updateMasterButton("idle", "Mantén presionado para hablar", "o toca una vez para hablar y otra para enviar");
@@ -720,11 +795,20 @@
     }
 
     stopSpeaking() {
+      if (this.currentAudio) {
+        try {
+          this.currentAudio.pause();
+          this.currentAudio.currentTime = 0;
+          this.currentAudio.src = "";
+        } catch(_) {}
+        this.currentAudio = null;
+      }
       if (this.synthesis && this.isSpeaking) {
-        this.synthesis.cancel();
+        try { this.synthesis.cancel(); } catch(_) {}
       }
       this.isSpeaking = false;
       this.currentUtterance = null;
+      if (this.orbInstance) this.orbInstance.setAudioLevel(0);
     }
   }
 
