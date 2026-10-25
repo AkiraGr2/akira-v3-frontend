@@ -474,52 +474,127 @@
       }
     }
 
-    inspect(agentName) {
+    async inspect(agentName) {
       const profile = AGENT_PROFILES.find(a => a.name === agentName);
       if (!profile) return;
 
       const drawer = document.getElementById("akInspectorDrawer");
       const content = document.getElementById("akInspectorContent");
 
+      // Load deep master dossier
+      let dossier = null;
+      try {
+        if (!window.__akiraCommandersDossiers) {
+          const r = await fetch("./data/hive_commanders_dossier.json");
+          const d = await r.json();
+          window.__akiraCommandersDossiers = d.commanders || [];
+        }
+        dossier = (window.__akiraCommandersDossiers || []).find(c => 
+          c.name.toLowerCase() === profile.name.toLowerCase() || 
+          c.systemName === profile.systemName ||
+          profile.name.toLowerCase().includes(c.name.toLowerCase())
+        );
+      } catch (_) {}
+
+      // Fallback dossier from profile if fetch unavailable
+      if (!dossier) {
+        dossier = {
+          rank: profile.rank || "COMANDANTE DE DIVISIÓN",
+          callsign: profile.name.toUpperCase() + "-TACTICAL",
+          doctrine: profile.desc,
+          subordinates_count: profile.commandMando ? (profile.commandMando.match(/\d+/) || [30])[0] : 30,
+          executive_capabilities: [
+            "Orquestación ejecutiva y resolución táctica en milisegundos",
+            "Convocatoria y supervisión directa de especialistas de la Colmena",
+            "Control de calidad estricto y validación de tolerancias",
+            "Alineación con las directivas del creador Jhon Grimm"
+          ],
+          reasoning_pipeline: [
+            "1. Diagnóstico macro y arquitectura estratégica",
+            "2. Desglose y asignación a especialistas de nicho",
+            "3. Control de calidad insobornable (cero bugs / cero errores)",
+            "4. Síntesis ejecutiva lista para entrega"
+          ]
+        };
+      }
+
       content.innerHTML = `
-        <div class="ak-inspect-card" style="--agent-color:${profile.color}">
-          <div class="ak-inspect-head">
+        <div class="ak-inspect-card" style="--agent-color:${profile.color};max-height:85vh;overflow-y:auto;padding-right:6px;">
+          
+          <!-- Head with Rank Banner -->
+          <div class="ak-inspect-head" style="align-items:flex-start;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:14px;margin-bottom:16px;">
             <div style="display:flex;align-items:center;gap:14px;">
-              <div class="ak-avatar-pod large">
+              <div class="ak-avatar-pod large" style="box-shadow:0 0 25px ${profile.color}44;">
                 <span class="ak-pod-icon">${profile.avatarIcon}</span>
               </div>
               <div>
-                <h3>${profile.name}</h3>
-                <p style="color:var(--text-muted);font-size:13px;">${profile.role} · <code style="color:var(--agent-color);font-size:11px;">${profile.systemName}</code></p>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <h3 style="font-size:20px;margin:0;color:#fff;">${profile.name}</h3>
+                  <span class="ak-rank-pill" style="font-size:10px;padding:3px 8px;border-radius:12px;background:${profile.color}22;border:1px solid ${profile.color};color:${profile.color};font-weight:700;letter-spacing:0.5px;">⭐ ${dossier.rank}</span>
+                </div>
+                <p style="color:var(--text-muted);font-size:12.5px;margin:4px 0 0 0;">
+                  <strong style="color:#fff;">${profile.role}</strong> · Indicativo: <code style="color:${profile.color};">${dossier.callsign || profile.systemName.toUpperCase()}</code>
+                </p>
               </div>
             </div>
             <button class="ak-close-btn" onclick="document.getElementById('akInspectorDrawer').style.display='none'">✕</button>
           </div>
 
-          <div class="ak-inspect-body">
-            <div class="ak-inspect-section">
-              <h5>Responsabilidad Principal</h5>
-              <p>${profile.desc}</p>
+          <div class="ak-inspect-body" style="display:flex;flex-direction:column;gap:14px;">
+            
+            <!-- Command Doctrine (Filosofía de Mando) -->
+            <div class="ak-inspect-section" style="background:rgba(255,255,255,0.02);padding:12px 14px;border-radius:8px;border-left:3px solid ${profile.color};">
+              <h5 style="color:${profile.color};margin:0 0 4px 0;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">⚖️ Doctrina Estratégica de Mando</h5>
+              <p style="font-size:13px;line-height:1.55;color:#e2e8f0;margin:0;">${dossier.doctrine}</p>
             </div>
 
+            <!-- Subordinate Mando Badge -->
+            <div class="ak-inspect-section" style="background:${profile.color}0a;border:1px solid ${profile.color}33;padding:10px 14px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+              <div>
+                <strong style="color:#fff;font-size:13px;">🛡️ Mando Táctico Asignado</strong>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${profile.commandMando}</div>
+              </div>
+              <span class="ak-deck-status-badge status-idle" style="border-color:${profile.color};color:${profile.color};font-size:11px;">
+                ${dossier.subordinates_count} Especialistas Subordinados
+              </span>
+            </div>
+
+            <!-- Executive Capabilities (A TOPE) -->
             <div class="ak-inspect-section">
-              <h5>Herramientas Especializadas Asignadas</h5>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
-                ${profile.tools.map(t => `<span class="ak-stat-chip" style="font-size:11px;padding:3px 8px;border-color:var(--agent-color);">${t}</span>`).join("")}
+              <h5 style="color:#fff;margin:0 0 8px 0;font-size:12.5px;">⚡ Capacidades Ejecutivas de Grado Comandante</h5>
+              <ul style="margin:0;padding-left:18px;font-size:12.5px;color:var(--text-secondary);line-height:1.6;">
+                ${(dossier.executive_capabilities || []).map(cap => `<li>${cap}</li>`).join("")}
+              </ul>
+            </div>
+
+            <!-- Reasoning Pipeline (4 Fases) -->
+            <div class="ak-inspect-section" style="background:rgba(0,242,254,0.03);border:1px solid rgba(0,242,254,0.15);padding:12px 14px;border-radius:8px;">
+              <h5 style="color:#00f2fe;margin:0 0 8px 0;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">🧠 Pipeline Cognitivo de Razonamiento</h5>
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                ${(dossier.reasoning_pipeline || []).map(p => `
+                  <div style="font-size:12px;color:#e2e8f0;display:flex;align-items:center;gap:6px;">
+                    <span style="color:#00f2fe;">▸</span> ${p}
+                  </div>
+                `).join("")}
               </div>
             </div>
 
+            <!-- Authorized Tools -->
             <div class="ak-inspect-section">
-              <h5>Frecuencia Cognitiva</h5>
-              <p style="font-style:italic;color:var(--text-secondary);" id="inspectThought_${profile.name}">"${profile.quote}"</p>
+              <h5 style="color:#fff;margin:0 0 6px 0;font-size:12px;">🛠️ Arsenal y Herramientas Autorizadas</h5>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                ${profile.tools.map(t => `<span class="ak-stat-chip" style="font-size:11px;padding:3px 9px;border-color:${profile.color}66;color:#fff;background:${profile.color}15;">${t}</span>`).join("")}
+              </div>
             </div>
 
-            <div class="ak-inspect-section" style="background:rgba(255,255,255,0.02);padding:14px;border-radius:var(--radius-md);border:1px solid rgba(255,255,255,0.06);">
-              <h5 style="color:var(--accent-cyan);margin-bottom:6px;">Transmitir Orden Directa a ${profile.name}</h5>
-              <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Akira planificará y ejecutará inmediatamente esta orden involucrando a ${profile.name}.</p>
-              <textarea id="akAgentDirective" class="ak-textarea" style="min-height:70px;margin-bottom:10px;" placeholder="Ej. Analizar fuentes sobre tecnología, auditar código, indexar en memoria..."></textarea>
-              <button class="ak-btn primary small" id="akBtnSendDirective" onclick="window.AkiraHologramBridge.sendDirective('${profile.name}')">🚀 Transmitir y Ejecutar Inmediatamente</button>
+            <!-- Live Directive Transmitter -->
+            <div class="ak-inspect-section" style="background:rgba(255,255,255,0.03);padding:14px;border-radius:var(--radius-md);border:1px solid rgba(255,255,255,0.08);margin-top:6px;">
+              <h5 style="color:var(--accent-cyan);margin:0 0 4px 0;font-size:13px;">🚀 Transmitir Directiva al Comandante ${profile.name}</h5>
+              <p style="font-size:12px;color:var(--text-muted);margin:0 0 8px 0;">El Comandante convocará a sus especialistas y ejecutará la orden de forma autónoma.</p>
+              <textarea id="akAgentDirective" class="ak-textarea" style="min-height:75px;margin-bottom:10px;font-family:'Inter', sans-serif;font-size:12.5px;" placeholder="Ej. Arquitectura del backend, propuesta de licitación, auditoría de seguridad..."></textarea>
+              <button class="ak-btn primary small" id="akBtnSendDirective" onclick="window.AkiraHologramBridge.sendDirective('${profile.name}')" style="background:${profile.color};color:#000;font-weight:700;">⚡ Despachar Misión Autónoma Inmediata</button>
             </div>
+
           </div>
         </div>
       `;
