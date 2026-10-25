@@ -61,11 +61,14 @@
         if (!this.synthesis) return;
         const voices = this.synthesis.getVoices() || [];
         const esVoices = voices.filter(v => (v.lang && (v.lang.startsWith("es") || v.lang.startsWith("spa"))));
+        const maleNames = ["david", "pablo", "raul", "raúl", "jorge", "alvaro", "álvaro", "carlos", "manuel", "miguel", "enrique", "male", "hombre"];
+        const femaleEsVoices = esVoices.filter(v => !maleNames.some(m => (v.name || "").toLowerCase().includes(m)));
+        const candidates = femaleEsVoices.length > 0 ? femaleEsVoices : esVoices;
         
         let savedName = "";
         try { savedName = localStorage.getItem("akira_pref_voice") || ""; } catch(_) {}
         if (savedName) {
-          const match = esVoices.find(v => v.name === savedName);
+          const match = candidates.find(v => v.name === savedName);
           if (match) {
             this.selectedVoice = match;
             this.updateVoiceLabel();
@@ -73,13 +76,14 @@
           }
         }
 
-        // Strict priority for natural fluid Spanish / Colombian voices:
+        // Strict priority for natural female Colombian / Spanish voices:
         this.selectedVoice = 
-          esVoices.find(v => (v.lang === "es-CO" || v.name.toLowerCase().includes("colombia")) && (v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("online") || v.name.toLowerCase().includes("neural"))) ||
-          esVoices.find(v => v.lang === "es-CO" && v.name.toLowerCase().includes("salome")) ||
-          esVoices.find(v => v.lang === "es-CO") ||
-          esVoices.find(v => (v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("online") || v.name.toLowerCase().includes("neural"))) ||
-          esVoices.find(v => v.name.toLowerCase().includes("sofi") || v.name.toLowerCase().includes("camila") || v.name.toLowerCase().includes("monica") || v.name.toLowerCase().includes("paulina") || v.name.toLowerCase().includes("lucia") || v.name.toLowerCase().includes("jimena")) ||
+          candidates.find(v => (v.lang === "es-CO" || v.name.toLowerCase().includes("colombia")) && (v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("online") || v.name.toLowerCase().includes("neural"))) ||
+          candidates.find(v => v.lang === "es-CO" && v.name.toLowerCase().includes("salome")) ||
+          candidates.find(v => v.lang === "es-CO") ||
+          candidates.find(v => (v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("online") || v.name.toLowerCase().includes("neural"))) ||
+          candidates.find(v => v.name.toLowerCase().includes("sofi") || v.name.toLowerCase().includes("camila") || v.name.toLowerCase().includes("monica") || v.name.toLowerCase().includes("paulina") || v.name.toLowerCase().includes("lucia") || v.name.toLowerCase().includes("jimena")) ||
+          candidates[0] ||
           esVoices[0] ||
           voices[0];
 
@@ -632,41 +636,60 @@
         const data = await response.json();
         const replyText = data.response || data.reply || "Te escuché perfectamente, Jhon.";
 
+        // Abort immediately if user stopped, closed modal, or canceled while waiting
+        if (!this.active) {
+          this.isThinking = false;
+          return;
+        }
+
         this.isThinking = false;
         this.speakReply(replyText);
       } catch (err) {
         console.error("[AkiraVoiceLive] Voice request error:", err);
+        if (!this.active) {
+          this.isThinking = false;
+          return;
+        }
         this.isThinking = false;
         this.speakReply("Te escucho un poco entrecortado, ¿me repites por favor?");
       }
     }
 
     speakReply(text) {
+      if (!this.active) return;
       this.stopSpeaking();
       this.isSpeaking = true;
       this.updateHUD("Hablando...", "speaking");
       this.updateMasterButton("speaking", "🔊 Akira respondiendo...", "Toca en cualquier momento para interrumpir");
       this.setSubtitles("Akira: " + text);
 
+      // Thorough sanitization: Strip markdown, emojis, asterisks, and theatrical annotations
       let cleanVoiceText = text
-        .replace(/[*_#`~\[\]]/g, "")
-        .replace(/https?:\/\/\S+/g, "enlace")
+        .replace(/https?:\/\/\S+|www\.\S+/gi, "enlace")
+        .replace(/[\*\(\[](sonríe|sonrie|pausa|risas|riendo|suspira|asiente|mira|pensativa|guiño)[\*\)\]]/gi, "")
+        .replace(/[\*_#`~>\[\]\{\}\\\^\|]/g, " ")
+        .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{200D}\u{20E3}]/gu, "")
+        .replace(/[:;=8]-?[\)\(\/\\|DPOpP]/g, "")
         .trim();
 
       // Colombian Phonetic Smoothing & Human Breathing Pauses:
+      // Note: We DO NOT substitute Jhon -> Yhon because Yhon causes neural stutter!
       cleanVoiceText = cleanVoiceText
-        .replace(/\bJhon Bernal\b/gi, "Yhon Bernal")
-        .replace(/\bJhon Grimm\b/gi, "Yhon Grim")
-        .replace(/\bJhon\b/gi, "Yhon")
-        .replace(/\bJohn\b/gi, "Yhon")
-        .replace(/\bJon\b/gi, "Yhon")
-        .replace(/\bGrimm\b/gi, "Grim")
         .replace(/\bAkira\b/g, "Áquira")
         .replace(/\bAI\b/g, "inteligencia artificial")
         .replace(/\bAPI\b/g, "ápi")
         .replace(/\bRender\b/gi, "Rénder")
         .replace(/\bGroq\b/gi, "Groc")
-        .replace(/([.!?])\s+/g, "$1, ");
+        .replace(/\s+/g, " ")
+        .replace(/([.!?])\s+/g, "$1, ")
+        .trim();
+
+      if (!cleanVoiceText) {
+        this.isSpeaking = false;
+        this.updateHUD("Lista", "idle");
+        this.updateMasterButton("idle", "Mantén presionado para hablar", "o toca una vez para hablar y otra para enviar");
+        return;
+      }
 
       // Primary: High-Definition Colombian Neural Voice (Salomé Neural CO via /api/tts)
       const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
@@ -708,6 +731,10 @@
       };
 
       audio.onplay = () => {
+        if (!this.active || !this.isSpeaking) {
+          audio.pause();
+          return;
+        }
         startWave();
       };
 
@@ -718,6 +745,8 @@
       let fallbackTriggered = false;
       const triggerFallback = (reason) => {
         if (fallbackTriggered) return;
+        // MUST NEVER FALLBACK IF USER STOPPED, HIT FINALIZAR, OR IS NO LONGER SPEAKING
+        if (!this.active || !this.isSpeaking) return;
         fallbackTriggered = true;
         console.warn("[AkiraVoiceLive] Neural TTS fallback to local synthesis:", reason);
         if (speakWaveInterval) clearInterval(speakWaveInterval);
@@ -739,10 +768,12 @@
     }
 
     speakWithLocalSynthesis(cleanVoiceText) {
-      if (!this.synthesis) {
+      if (!this.active || !this.isSpeaking || !this.synthesis) {
         this.isSpeaking = false;
-        this.updateHUD("Lista", "idle");
-        this.updateMasterButton("idle", "Mantén presionado para hablar", "o toca una vez para hablar y otra para enviar");
+        if (this.active) {
+          this.updateHUD("Lista", "idle");
+          this.updateMasterButton("idle", "Mantén presionado para hablar", "o toca una vez para hablar y otra para enviar");
+        }
         return;
       }
 
@@ -795,18 +826,23 @@
     }
 
     stopSpeaking() {
+      this.isSpeaking = false;
       if (this.currentAudio) {
         try {
+          // Detach listeners first so pause/unload doesn't fire onerror/catch fallback
+          this.currentAudio.onplay = null;
+          this.currentAudio.onended = null;
+          this.currentAudio.onerror = null;
           this.currentAudio.pause();
           this.currentAudio.currentTime = 0;
-          this.currentAudio.src = "";
+          this.currentAudio.removeAttribute("src");
+          this.currentAudio.load();
         } catch(_) {}
         this.currentAudio = null;
       }
-      if (this.synthesis && this.isSpeaking) {
+      if (this.synthesis) {
         try { this.synthesis.cancel(); } catch(_) {}
       }
-      this.isSpeaking = false;
       this.currentUtterance = null;
       if (this.orbInstance) this.orbInstance.setAudioLevel(0);
     }
