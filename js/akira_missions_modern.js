@@ -280,12 +280,24 @@
         const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
         const headers = window.akiraAuthHeaders ? window.akiraAuthHeaders() : { "Content-Type": "application/json" };
         
+        // Enriquecer el objetivo con los especialistas de la Colmena y Comandante convocados
+        let enrichedObjective = goal;
+        try {
+          if (window.AkiraHive && typeof window.AkiraHive.autoSelect === "function") {
+            const selected = window.AkiraHive.autoSelect(goal, 3);
+            if (selected.length > 0) {
+              const specList = selected.map(s => `${s.name} (${s.division_label})`).join(", ");
+              enrichedObjective = `${goal} [Especialistas Colmena convocados: ${specList}]`;
+            }
+          }
+        } catch (_) {}
+
         // Exact backend payload: requires objective (string), title (string), priority (int)
         const res = await fetch(backend + "/api/v8/missions", {
           method: "POST",
           headers: headers,
           body: JSON.stringify({
-            objective: goal,
+            objective: enrichedObjective,
             title: title,
             priority: priorityNum
           })
@@ -361,7 +373,7 @@
                 <div class="step-info" style="flex:1;">
                   <strong style="color:#ffffff;font-size:13.5px;">${s.title || s.action || s.name || "Paso " + (i+1)}</strong>
                   <p style="font-size:12.5px;color:var(--text-muted);margin-top:2px;">${s.description || s.summary || s.result || "Esperando ejecución de agente."}</p>
-                  ${s.agent ? `<span class="ak-stat-chip" style="display:inline-flex;padding:2px 8px;font-size:11px;margin-top:4px;">Agente: ${s.agent}</span>` : ""}
+                  ${s.agent ? `<span class="ak-stat-chip" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;font-size:11.5px;margin-top:6px;background:rgba(0,242,254,0.1);border:1px solid rgba(0,242,254,0.3);color:#00f2fe;border-radius:12px;">🛡️ Asignado: <strong>${s.agent}</strong></span>` : ""}
                 </div>
               </div>
             `).join("")}

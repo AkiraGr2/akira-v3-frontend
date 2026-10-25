@@ -682,13 +682,64 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 
   <div id="upworkSection" class="section">
     <div class="section-header">
-      <h2>💼 Upwork</h2>
-      <p>Pega la descripción de un trabajo y Akira te ayuda a preparar una propuesta para postularte.</p>
+      <h2>💼 Upwork Bidding Command Center</h2>
+      <p>Generación de propuestas ganadoras de alta conversión. Convocatoria automática de Comandantes y Especialistas de la Colmena (267 agentes).</p>
     </div>
-    <div style="padding:22px;max-width:800px;margin:0 auto;width:100%;overflow-y:auto">
-      <textarea id="upworkDesc" placeholder="Pega descripción trabajo Upwork..." style="width:100%;background:#0e0e12;border:3px solid var(--border);padding:10px;color:#fff;min-height:120px;font-family:'Pixelify Sans', sans-serif;border-radius:0;"></textarea>
-      <div style="display:flex;gap:8px;margin-top:10px"><button class="pixel-btn" onclick="generateUpwork()">🤖 Generar Propuesta</button><button class="pixel-btn" onclick="document.getElementById('upworkDesc').value=''">🧹 Limpiar</button></div>
-      <div id="upworkResult" style="margin-top:12px;font-size:13px;background:#0e0e12;border:3px solid var(--border);padding:12px;display:none;white-space: pre-wrap;"></div>
+    <div style="padding:22px;max-width:850px;margin:0 auto;width:100%;overflow-y:auto">
+      
+      <!-- Live Agent Dispatcher Preview -->
+      <div id="upworkDispatcherCard" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px 16px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:20px;">💼</span>
+            <div>
+              <strong style="color:#10b981;font-size:13px;letter-spacing:0.5px;">ESTRATEGIA & BIDDING: COMANDANTE NEXO & LA COLMENA</strong>
+              <div id="upworkLeadCommanderText" style="font-size:12px;color:var(--text-muted);">Pega la descripción del trabajo para convocar automáticamente al Comandante y Especialistas ideales.</div>
+            </div>
+          </div>
+          <span class="ak-deck-status-badge status-idle" style="border-color:#10b981;color:#10b981;font-size:11px;">267 Agentes Listos</span>
+        </div>
+        <div id="upworkSpecialistsPills" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
+      </div>
+
+      <!-- Job Description Input -->
+      <label class="ak-label" style="display:block;margin-bottom:6px;font-size:12px;color:var(--text-secondary);">Descripción del Proyecto / Oferta de Upwork:</label>
+      <textarea id="upworkDesc" placeholder="Pega aquí la descripción completa del trabajo publicado por el cliente en Upwork..." style="width:100%;background:#0e0e12;border:2px solid var(--border);padding:12px;color:#fff;min-height:140px;font-family:'Inter', sans-serif;border-radius:6px;line-height:1.5;resize:vertical;"></textarea>
+
+      <!-- Strategy Parameters -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px;margin-top:12px;">
+        <div>
+          <label class="ak-label" style="font-size:11px;color:var(--text-muted);margin-bottom:4px;display:block;">Tono de la Propuesta:</label>
+          <select id="upworkTone" class="ak-select" style="width:100%;padding:8px;background:#141419;border:1px solid var(--border);color:#fff;border-radius:4px;font-size:12px;">
+            <option value="persuasive">🎯 Persuasivo & Negocio (Alto ROI)</option>
+            <option value="technical">⚡ Técnico & Arquitectura (Profundo)</option>
+            <option value="concise">🚀 Directo & Conciso (Impacto Rápido)</option>
+          </select>
+        </div>
+        <div>
+          <label class="ak-label" style="font-size:11px;color:var(--text-muted);margin-bottom:4px;display:block;">Tarifa / Presupuesto Estimado (Opcional):</label>
+          <input type="text" id="upworkBudget" placeholder="Ej: $50/hr o $1,500 USD fijo" style="width:100%;padding:8px;background:#141419;border:1px solid var(--border);color:#fff;border-radius:4px;font-size:12px;">
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+        <button class="pixel-btn" id="btnGenUpwork" onclick="generateUpwork()" style="background:#10b981;color:#000;font-weight:bold;padding:10px 18px;border:none;border-radius:4px;cursor:pointer;">⚡ Generar Propuesta Ganadora</button>
+        <button class="pixel-btn" onclick="document.getElementById('upworkDesc').value=''; document.getElementById('upworkSpecialistsPills').innerHTML=''; document.getElementById('upworkResultCard').style.display='none';" style="background:#222;color:#ccc;border:1px solid #444;padding:10px 14px;border-radius:4px;cursor:pointer;">🧹 Limpiar</button>
+      </div>
+
+      <!-- Proposal Result Box -->
+      <div id="upworkResultCard" style="margin-top:16px;background:#0d0d12;border:2px solid #10b981;border-radius:8px;padding:16px;display:none;box-shadow:0 0 20px rgba(16,185,129,0.15);">
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:10px;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div id="upworkResultBadge" style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:18px;">💼</span>
+            <strong style="color:#10b981;font-size:13px;">Propuesta de Alto Impacto Generada</strong>
+          </div>
+          <button class="pixel-btn" id="btnCopyUpwork" onclick="copyUpworkProposal()" style="background:rgba(0,242,254,0.15);border:1px solid #00f2fe;color:#00f2fe;font-size:11px;padding:5px 12px;border-radius:4px;cursor:pointer;">📋 Copiar Propuesta</button>
+        </div>
+        <div id="upworkResult" style="font-size:13px;line-height:1.6;color:#e2e8f0;white-space:pre-wrap;font-family:'Inter', sans-serif;"></div>
+      </div>
+
     </div>
   </div>
 
@@ -1804,7 +1855,139 @@ function testKeys(){
   return isGemini || isGroq;
 }
 
-async function generateUpwork(){const desc=document.getElementById("upworkDesc").value.trim();if(!desc){alert("Pega descripcion");return;}const out=document.getElementById("upworkResult");out.style.display="block";out.textContent="⏳ Generando...";try{const backend=localStorage.getItem("akira_backend_url");const r=await fetch(backend+"/api/chat",{method:"POST",headers:akiraAuthHeaders(),body:JSON.stringify({message:`Genera propuesta Upwork para: ${desc.slice(0,1000)}`})});const d=await r.json();out.textContent=d.response||"Sin respuesta";}catch(e){out.textContent="Error: "+e.message;}}
+async function generateUpwork() {
+  const desc = document.getElementById("upworkDesc").value.trim();
+  if (!desc) { alert("Por favor pega la descripción del trabajo de Upwork."); return; }
+  
+  const tone = document.getElementById("upworkTone") ? document.getElementById("upworkTone").value : "persuasive";
+  const budget = document.getElementById("upworkBudget") ? document.getElementById("upworkBudget").value.trim() : "";
+  const btn = document.getElementById("btnGenUpwork");
+  const card = document.getElementById("upworkResultCard");
+  const out = document.getElementById("upworkResult");
+  const badge = document.getElementById("upworkResultBadge");
+  
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ Convocando Colmena y Redactando..."; }
+  if (card) card.style.display = "block";
+  if (out) out.textContent = "⏳ Analizando requerimientos, seleccionando al Comandante y especialistas de la Colmena...";
+
+  try {
+    const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
+    const headers = typeof window.akiraAuthHeaders === "function" ? window.akiraAuthHeaders() : { "Content-Type": "application/json" };
+    
+    // Call dedicated Upwork Generator
+    let res = await fetch(backend + "/api/upwork/generate", {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({
+        job_description: desc,
+        tone: tone,
+        budget: budget
+      })
+    });
+    
+    if (!res.ok) {
+      // Fallback to /api/chat if dedicated endpoint has network issue
+      res = await fetch(backend + "/api/chat", {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify({
+          message: `[UPWORK BIDDING - Tono: ${tone}] Genera una propuesta ganadora y estructurada para el siguiente trabajo de Upwork: ${desc.slice(0, 2000)}`
+        })
+      });
+      const chatData = await res.json();
+      out.textContent = chatData.response || "No se pudo generar la propuesta.";
+      return;
+    }
+    
+    const d = await res.json();
+    if (d.ok && d.proposal) {
+      const comm = d.commander || { name: "Nexo", avatar: "💼" };
+      const specs = Array.isArray(d.specialists) ? d.specialists : [];
+      
+      if (badge) {
+        badge.innerHTML = `
+          <span style="font-size:20px;">${comm.avatar || '💼'}</span>
+          <div>
+            <strong style="color:#10b981;font-size:13px;">Comandante ${comm.name}: Propuesta Ganadora Lista</strong>
+            <div style="font-size:11px;color:var(--text-muted);">${specs.map(s => s.name).join(', ') || 'Especialistas de la Colmena'}</div>
+          </div>
+        `;
+      }
+      out.textContent = d.proposal;
+    } else {
+      out.textContent = d.reason || "Sin respuesta del generador.";
+    }
+  } catch (err) {
+    out.textContent = "Error al conectar con la Colmena: " + err.message;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "⚡ Generar Propuesta Ganadora"; }
+  }
+}
+
+function copyUpworkProposal() {
+  const out = document.getElementById("upworkResult");
+  const btn = document.getElementById("btnCopyUpwork");
+  if (!out || !out.textContent) return;
+  navigator.clipboard.writeText(out.textContent).then(() => {
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = "✅ ¡Copiada!";
+      btn.style.background = "#10b98122";
+      btn.style.color = "#10b981";
+      setTimeout(() => { btn.innerHTML = orig; btn.style.background = ""; btn.style.color = ""; }, 2000);
+    }
+  }).catch(() => {
+    alert("Copia el texto directamente del cuadro de resultado.");
+  });
+}
+
+// Live Upwork Specialist Convocator
+function initUpworkConvocator() {
+  const descEl = document.getElementById("upworkDesc");
+  const pillsEl = document.getElementById("upworkSpecialistsPills");
+  const textEl = document.getElementById("upworkLeadCommanderText");
+  if (!descEl || !pillsEl) return;
+  
+  let debounceTimer = null;
+  descEl.addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      const val = descEl.value.trim();
+      if (!val || !window.AkiraHive || typeof window.AkiraHive.autoSelect !== "function") {
+        pillsEl.innerHTML = "";
+        if (textEl) textEl.textContent = "Pega la descripción del trabajo para convocar automáticamente al Comandante y Especialistas ideales.";
+        return;
+      }
+      const selected = window.AkiraHive.autoSelect(val, 3);
+      if (selected.length > 0) {
+        const commMap = {
+          engineering: { name: "Atlas", avatar: "⚡" },
+          design: { name: "Aura", avatar: "🎨" },
+          marketing: { name: "Aura", avatar: "🔥" },
+          sales: { name: "Nexo", avatar: "💼" },
+          finance: { name: "Nexo", avatar: "💰" },
+          security: { name: "Vigil", avatar: "🛡️" },
+          testing: { name: "Argos", avatar: "👁️" },
+          product: { name: "Cronos", avatar: "🧭" },
+          "project-management": { name: "Luna", avatar: "🌙" }
+        };
+        const lead = commMap[selected[0].division] || { name: "Nexo", avatar: "💼" };
+        if (textEl) textEl.innerHTML = `<span style="color:#00f2fe">⚡ Comandante ${lead.avatar} ${lead.name} lidera la propuesta con ${selected.length} especialistas:</span>`;
+        pillsEl.innerHTML = selected.map(ag => `
+          <span class="ak-niche-chip" style="font-size:11px;padding:3px 10px;border-color:${ag.division_color}88;color:#fff;background:${ag.division_color}22;">
+            ${ag.emoji} ${ag.name} (${ag.division_label})
+          </span>
+        `).join("");
+      } else {
+        pillsEl.innerHTML = "";
+        if (textEl) textEl.textContent = "Pega la descripción del trabajo para convocar automáticamente al Comandante y Especialistas ideales.";
+      }
+    }, 250);
+  });
+}
+document.addEventListener("DOMContentLoaded", () => {
+  setTimeout(initUpworkConvocator, 500);
+});
 
 document.addEventListener("DOMContentLoaded", ()=>{
   // La app queda interactiva primero; salud/capacidades/niveles son secundarios.
@@ -1839,9 +2022,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_quantum_orb.js?v=akira-quantum-orb-v2"></script>
 <script src="./js/akira_voice_live.js?v=akira-voice-live-v10-vad-street"></script>
 <script src="./js/akira_monetization.js?v=akira-monetize-v2"></script>
-<script src="./js/akira_office_hologram.js?v=akira-hologram-v4-hive267"></script>
+<script src="./js/akira_office_hologram.js?v=akira-office-commanders-v1"></script>
 <script src="./js/akira_hive_catalog.js?v=akira-hive-v1"></script>
-<script src="./js/akira_missions_modern.js?v=akira-missions-v5-hive"></script>
+<script src="./js/akira_missions_modern.js?v=akira-missions-hive-specialists-v1"></script>
 <script src="./js/akira_admin_modern.js?v=akira-admin-v5-live-sync"></script>
 <script src="./js/akira_reference_workspace_v2.js?v=akira-reference-v17-live-sync"></script>
 <script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>

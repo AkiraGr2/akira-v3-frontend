@@ -1,6 +1,6 @@
 {
-  "version": "akira-cache-v20261025-brain-voice-vad-v1",
-  "generated_at": "2026-10-25T01:18:00.000Z",
+  "version": "akira-cache-v20261025-commanders-upwork-missions-v1",
+  "generated_at": "2026-10-25T15:40:00.000Z",
   "assets": {
     "js/akira_brain.js": "akira-brain-v8-performance",
     "js/obsidian_membrane.js": "akira-membrane-v58-nodes-restored",
@@ -13,6 +13,8 @@
     "css/akira-reference-design-v2.css": "akira-reference-design-v1-living-plasma-canvas",
     "js/akira_entity.js": "akira-entity-v2-6-dense-living-spiral-mobile-perf",
     "js/akira-hive-office-v1.js": "akira-hive-office-v1-f15",
+    "js/akira_office_hologram.js": "akira-office-commanders-v1",
+    "js/akira_missions_modern.js": "akira-missions-hive-specialists-v1",
     "js/akira_voice_live.js": "akira-voice-live-v10-vad-street"
   }
 }

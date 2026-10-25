@@ -15,91 +15,121 @@
     {
       name: "Akira",
       systemName: "internal",
-      role: "Líder Cognitiva & Orquestadora",
-      desc: "Supervisa la memoria, la toma de decisiones, la introspección y el enrutamiento general del sistema.",
-      color: "#00f2fe",
-      avatarIcon: "✨",
-      quote: "Sincronizando modelos de conocimiento y ciclos de pensamiento continuo.",
+      rank: "COMANDANTE SUPREMA",
+      role: "Comandante Suprema de la Colmena",
+      commandMando: "Orquesta a los 8 Comandantes de División y 267 especialistas tácticos.",
+      desc: "Núcleo unificado de autoconocimiento, introspección profunda, toma de decisiones ejecutivas y balance de carga.",
+      color: "#a855f7",
+      avatarIcon: "👑",
+      quote: "Sincronizando modelos de autoconocimiento, directivas ejecutivas y los 267 especialistas de la Colmena.",
       tools: ["self_model_read", "cognitive_cycle"]
     },
     {
       name: "Luna",
       systemName: "researcher",
-      role: "Especialista en Investigación & Web",
-      desc: "Rastrea fuentes externas, extrae documentación y sintetiza datos verídicos de la red.",
-      color: "#38bdf8",
-      avatarIcon: "🌐",
-      quote: "Explorando la red y verificando fuentes de alta fidelidad.",
+      rank: "COMANDANTE DE DIVISIÓN",
+      role: "Comandante de Operaciones & Misiones",
+      commandMando: "Mando táctico sobre 33 especialistas (Project Management & Specialized).",
+      desc: "Dirige la orquestación de misiones de punta a punta, cronogramas, resolución de dependencias e investigación web.",
+      color: "#00f2fe",
+      avatarIcon: "🌙",
+      quote: "Supervisando despliegue de misiones y coordinando la ejecución de especialistas en campo.",
       tools: ["web_search", "memory_search", "github_repo_read"]
     },
     {
       name: "Nexo",
       systemName: "developer",
-      role: "Arquitecto de Software & Código",
-      desc: "Escribe scripts, propone refactorizaciones y valida la lógica de backend.",
+      rank: "COMANDANTE DE DIVISIÓN",
+      role: "Comandante de Integración & Upwork Bidding",
+      commandMando: "Mando táctico sobre 38 especialistas (Ventas, Finanzas, Soporte & Upwork).",
+      desc: "Lidera la monetización, generación de propuestas ganadoras en Upwork, análisis de rentabilidad y relaciones con clientes.",
       color: "#10b981",
-      avatarIcon: "💻",
-      quote: "Compilando estructuras y validando contratos de API.",
+      avatarIcon: "💼",
+      quote: "Estructurando propuestas de alta conversión y maximizando el valor de cada licitación en Upwork.",
+      tools: ["github_repo_read", "developer_propose"]
+    },
+    {
+      name: "Atlas",
+      systemName: "developer_lead",
+      rank: "COMANDANTE DE DIVISIÓN",
+      role: "Comandante de Ingeniería & Desarrollo",
+      commandMando: "Mando táctico sobre 88 especialistas (Engineering, Cloud, Web3 & Spatial).",
+      desc: "Arquitectura de software de alta concurrencia, backend, frontend, microservicios, APIs y cero deuda técnica.",
+      color: "#3b82f6",
+      avatarIcon: "⚡",
+      quote: "Comandando desarrollo full-stack, optimización de algoritmos y arquitectura de producción.",
       tools: ["github_repo_read", "developer_propose"]
     },
     {
       name: "Nova",
       systemName: "tester",
-      role: "Auditora de Calidad & QA",
-      desc: "Ejecuta suites de pruebas automatizadas y detecta regresiones o fallos.",
+      rank: "COMANDANTE DE DIVISIÓN",
+      role: "Comandante de Calidad & QA de Misión Crítica",
+      commandMando: "Mando táctico sobre 30 especialistas (Testing Automatizado & Validación Académica).",
+      desc: "Supervisa pruebas automatizadas, auditoría de regresión, consistencia lógica y validación de tolerancias.",
       color: "#f59e0b",
       avatarIcon: "🛡️",
-      quote: "Supervisando suites de pruebas y verificando contratos de seguridad.",
+      quote: "Validación de tolerancia cero a fallos y verificación estricta de cada contrato del sistema.",
       tools: ["github_repo_read", "python_test"]
     },
     {
       name: "Orion",
       systemName: "reviewer",
-      role: "Revisor de Código & Seguridad",
-      desc: "Analiza propuestas de código, dependencias y políticas de control de acceso.",
-      color: "#8b5cf6",
+      rank: "COMANDANTE DE DIVISIÓN",
+      role: "Comandante de Ciberseguridad & Resiliencia",
+      commandMando: "Mando táctico sobre 16 especialistas (Pentesting, Criptografía & Hardening).",
+      desc: "Audita la seguridad del código, políticas de acceso, blindaje criptográfico de datos y protección del creador.",
+      color: "#ef4444",
       avatarIcon: "👁️",
-      quote: "Auditoría de integridad y control de acceso completada.",
+      quote: "Escudo activo: auditoría continua de integridad y blindaje hermético de endpoints sensibles.",
       tools: ["github_repo_read", "python_test", "code_review"]
     },
     {
       name: "Kaori",
       systemName: "memorizer",
-      role: "Custodia de Memoria & Grafo",
-      desc: "Almacena recuerdos episódicos, conexiones y vectores semánticos en el Cerebro.",
+      rank: "COMANDANTE DE DIVISIÓN",
+      role: "Comandante de Memoria Persistente",
+      commandMando: "Custodia absoluta del almacenamiento episódico y recuperación semántica en PostgreSQL.",
+      desc: "Indexa y protege recuerdos episódicos, preferencias de Jhon Grimm y estado cognitivo persistente.",
       color: "#ec4899",
       avatarIcon: "🧠",
-      quote: "Indexando nodos cognitivos y relaciones semánticas en la memoria persistente.",
+      quote: "Indexando recuerdos persistentes y garantizando retención semántica a perpetuidad.",
       tools: ["memory_save", "memory_search"]
     },
     {
       name: "Zeri",
       systemName: "graph_builder",
-      role: "Constructora de Redes y Aristas",
-      desc: "Traza relaciones neuronales entre conceptos y expande el conocimiento del Cerebro.",
+      rank: "COMANDANTE DE DIVISIÓN",
+      role: "Comandante de Arquitectura de Grafo",
+      commandMando: "Teje las relaciones topológicas entre los 267 especialistas y el Cerebro de Akira.",
+      desc: "Construye nodos, aristas y sinapsis semánticas conectando ideas complejas en un mapa multidimensional.",
       color: "#6366f1",
-      avatarIcon: "⚡",
-      quote: "Optimizando la topología de la red neuronal y clústeres semánticos.",
+      avatarIcon: "🔮",
+      quote: "Optimizando la red neuronal de conocimiento y clústeres conceptuales en tiempo real.",
       tools: ["graph_create_node", "graph_create_edge", "graph_related"]
     },
     {
       name: "Lyra",
       systemName: "learner",
-      role: "Síntesis & Aprendizaje Autónomo",
-      desc: "Convierte experiencias, aciertos y retroalimentación en conocimiento consolidado.",
+      rank: "COMANDANTE DE DIVISIÓN",
+      role: "Comandante de Crecimiento & Marketing Digital",
+      commandMando: "Mando táctico sobre 44 especialistas (Marketing, SEO, Copywriting & Paid Media).",
+      desc: "Convierte experiencias en aprendizajes permanentes e impulsa estrategias de adquisición, tráfico y conversión.",
       color: "#f97316",
-      avatarIcon: "📚",
-      quote: "Auto-consolidando aprendizajes de alta confianza sin intervención.",
+      avatarIcon: "🔥",
+      quote: "Absorbiendo aprendizajes de alta confianza y optimizando estrategias de adquisición viral.",
       tools: ["learning_save", "memory_save"]
     },
     {
       name: "Dante",
       systemName: "autonomy_orchestrator",
-      role: "Centinela de Seguridad y Colmena",
-      desc: "Supervisa la sincronización Ed25519 multi-dispositivo y orquesta la autonomía controlada.",
+      rank: "COMANDANTE DE DIVISIÓN",
+      role: "Comandante de Autonomía Controlada & Colmena",
+      commandMando: "Supervisa la sincronización F15, firmas criptográficas Ed25519 y compuertas de seguridad.",
+      desc: "Regula las compuertas de autonomía bajo supervisión de Jhon Grimm asegurando cero riesgo y cero costo.",
       color: "#94a3b8",
       avatarIcon: "⚔️",
-      quote: "Monitoreando firmas criptográficas y canales de persistencia F15.",
+      quote: "Monitoreando firmas criptográficas, compuertas de aprobación y canales de sincronización.",
       tools: ["controlled_autonomy_start"]
     }
   ];
@@ -242,7 +272,8 @@
                       <h4>${agent.name}</h4>
                       <span class="ak-deck-status-badge status-idle" id="statusBadge_${agent.name}">Disponible</span>
                     </div>
-                    <div class="ak-deck-role">${agent.role}</div>
+                    <div class="ak-deck-role" style="color:${agent.color};font-weight:600;">${agent.role}</div>
+                    <div style="font-size:10.5px;color:rgba(255,255,255,0.7);margin-top:2px;">🛡️ ${agent.commandMando}</div>
                   </div>
                 </div>
 
