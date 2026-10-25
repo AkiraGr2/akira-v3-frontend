@@ -1,10 +1,11 @@
 /**
- * AKIRA VOICE LIVE (Ultra-Fast & Noise-Gated Conversational Loop - $0.00)
- * Optimized for low-latency live oral conversation:
- *  - 600ms adaptive silence detection
- *  - Background noise gate (filters mic clicks and acoustic noise)
- *  - Concise oral response mode (blazing fast backend turnaround)
- *  - Fullscreen Celestial Quantum Orb audio synchronization
+ * AKIRA VOICE LIVE (Ultra-Fast & VAD Noise-Gated Conversational Engine - $0.00)
+ * Optimized for natural live oral conversation in quiet or noisy outdoor environments:
+ *  - Real-time Human Voice Activity Detector (VAD) using Web Audio Analyser (300-3400Hz)
+ *  - Hardware beamforming & acoustic noise suppression constraints for mobile microphones
+ *  - Non-resetting silence countdown: ambient street noise/rumble never blocks turn completion
+ *  - Push-to-Talk & Tap-to-Talk on central Quantum Orb & Mic in Street Mode
+ *  - Colombian phonetic smoothing & human conversational prosody
  */
 (function() {
   "use strict";
@@ -17,9 +18,17 @@
       this.isThinking = false;
       this.streetMode = false;
       this.isStreetRecording = false;
+
+      // VAD & Speech Timing
       this.speechStartTime = 0;
+      this.lastSpokenText = "";
       this.lastSpokenLength = 0;
       this.lastMeaningfulTime = 0;
+      this.lastHumanVoiceTime = 0;
+      this.noiseFloor = 0.05;
+      this.hasRealSpeech = false;
+
+      // Engine handles
       this.recognition = null;
       this.synthesis = window.speechSynthesis;
       this.selectedVoice = null;
@@ -43,7 +52,20 @@
         if (!this.synthesis) return;
         const voices = this.synthesis.getVoices();
         const esVoices = voices.filter(v => (v.lang && (v.lang.startsWith("es") || v.lang.startsWith("spa"))));
-        // Strict priority for fluid neural/online human voices:
+        
+        // Preferred saved voice
+        let savedName = "";
+        try { savedName = localStorage.getItem("akira_pref_voice") || ""; } catch(_) {}
+        if (savedName) {
+          const match = esVoices.find(v => v.name === savedName);
+          if (match) {
+            this.selectedVoice = match;
+            this.updateVoiceLabel();
+            return;
+          }
+        }
+
+        // Strict priority for natural fluid Spanish voices:
         this.selectedVoice = 
           esVoices.find(v => (v.lang === "es-CO" || v.name.toLowerCase().includes("colombia")) && (v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("online") || v.name.toLowerCase().includes("neural"))) ||
           esVoices.find(v => v.lang === "es-CO" && v.name.toLowerCase().includes("salome")) ||
@@ -52,6 +74,8 @@
           esVoices.find(v => v.name.toLowerCase().includes("sofi") || v.name.toLowerCase().includes("camila") || v.name.toLowerCase().includes("monica") || v.name.toLowerCase().includes("paulina") || v.name.toLowerCase().includes("lucia") || v.name.toLowerCase().includes("jimena")) ||
           esVoices[0] ||
           voices[0];
+
+        this.updateVoiceLabel();
       };
 
       if (this.synthesis) {
@@ -65,7 +89,7 @@
     initRecognition() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        console.warn("[AkiraVoiceLive] SpeechRecognition not supported.");
+        console.warn("[AkiraVoiceLive] SpeechRecognition not supported on this browser.");
         return;
       }
 
@@ -81,10 +105,8 @@
       };
 
       this.recognition.onresult = (event) => {
-        // CRITICAL STREET ANTI-LOOP: NEVER let street noise interrupt Akira while she is speaking!
-        if (this.isSpeaking || this.isThinking) {
-          return;
-        }
+        // ANTI-LOOP: Ignore microphone callbacks if Akira is actively thinking or speaking
+        if (this.isSpeaking || this.isThinking) return;
 
         let interim = "";
         let final = "";
@@ -106,65 +128,76 @@
         }
 
         const spoken = (final || interim).trim();
+        const now = Date.now();
 
-        // Discard low-confidence ambient rumble (engines, horns)
+        // Discard low-confidence ambient rumble (engines, horns, wind)
         const avgConfidence = count > 0 ? (totalConfidence / count) : 1;
-        if (count > 0 && avgConfidence > 0 && avgConfidence < 0.38) return;
+        if (count > 0 && avgConfidence > 0 && avgConfidence < 0.35) return;
 
-        // Street Noise Filter: ignore single short tokens or phantom ambient noise pops
+        // Street Noise Filter: ignore single ambient clicks, pops, coughs or short junk tokens
         const isNoiseToken = /^(ah|eh|uh|oh|mm|mmm|shh|ss|si|sí|y|a|de|un|o|la|el|al|\.|\.\.|\.\.\.)$/i.test(spoken);
         if (spoken.length < 3 || isNoiseToken) return;
 
+        // In Street Mode (Push-to-Talk): update buffer and subtitles
+        if (this.streetMode) {
+          this.userSpeechBuffer = spoken;
+          this.setSubtitles("Tú: " + spoken);
+          return;
+        }
+
+        // --- HANDS-FREE INTELLIGENT VAD FILTER ---
         this.userSpeechBuffer = spoken;
         this.setSubtitles("Tú: " + spoken);
 
-        // In Street Mode: voice capture is triggered intentionally
-        if (this.streetMode) {
+        const words = spoken.split(/\s+/).filter(w => w.length > 0);
+        const isHumanSpeech = words.length >= 2 || spoken.length >= 5;
+        if (!isHumanSpeech) return;
+
+        if (!this.speechStartTime) {
+          this.speechStartTime = now;
+          this.lastSpokenLength = spoken.length;
+          this.lastSpokenText = spoken;
+          this.lastMeaningfulTime = now;
+          this.hasRealSpeech = true;
+        }
+
+        const isFinalSentence = final.length > 0 || /[.?!]$/.test(spoken);
+
+        // Check if user is actively speaking NEW words
+        const isNewSpeech = spoken.length > this.lastSpokenLength + 2 && spoken !== this.lastSpokenText;
+
+        if (isNewSpeech) {
+          // User added new words -> extend timer
+          this.lastSpokenLength = spoken.length;
+          this.lastSpokenText = spoken;
+          this.lastMeaningfulTime = now;
+          this.lastHumanVoiceTime = now;
+
           clearTimeout(this.silenceTimer);
+          const delay = isFinalSentence ? 450 : 650;
           this.silenceTimer = setTimeout(() => {
             if (this.userSpeechBuffer.length >= 3 && !this.isSpeaking && !this.isThinking) {
               this.finishVoiceTurn();
             }
-          }, 1400);
-          return;
+          }, delay);
+        } else {
+          // The transcript did NOT grow meaningfully (it was just repeated ambient noise or interim jitter).
+          // CRITICAL FIX: DO NOT reset the silence timer! Let it continue counting down!
+          if (!this.silenceTimer) {
+            const delay = isFinalSentence ? 380 : 520;
+            this.silenceTimer = setTimeout(() => {
+              if (this.userSpeechBuffer.length >= 3 && !this.isSpeaking && !this.isThinking) {
+                this.finishVoiceTurn();
+              }
+            }, delay);
+          }
         }
 
-        // In Hands-Free Mode: Intelligent Noise Gate
-        const now = Date.now();
-        if (!this.speechStartTime) {
-          this.speechStartTime = now;
-          this.lastSpokenLength = spoken.length;
-          this.lastMeaningfulTime = now;
-        }
-
-        const words = spoken.split(/\s+/).filter(w => w.length > 0);
-        // Require at least 2 real words or a 5-letter utterance to count as human speech
-        if (words.length < 2 && spoken.length < 5) return;
-
-        // Only reset silence timer if the user actually added new meaningful speech (not just ambient jitter)
-        const textGrowth = spoken.length - this.lastSpokenLength;
-        if (textGrowth > 2) {
-          this.lastSpokenLength = spoken.length;
-          this.lastMeaningfulTime = now;
-          clearTimeout(this.silenceTimer);
-        }
-
-        // Hard Ceiling: If noise or speech continues for > 4.5 seconds, force end-of-turn immediately!
-        if (now - this.speechStartTime > 4500) {
+        // Hard Ceiling: Never allow continuous noise to keep Akira waiting > 3.8 seconds
+        if (now - this.speechStartTime > 3800) {
           clearTimeout(this.silenceTimer);
           this.finishVoiceTurn();
-          return;
         }
-
-        const isFinalSentence = final.length > 0 || /[.?!]$/.test(spoken);
-        const delay = isFinalSentence ? 650 : 900;
-
-        clearTimeout(this.silenceTimer);
-        this.silenceTimer = setTimeout(() => {
-          if (this.userSpeechBuffer.length >= 3 && !this.isSpeaking && !this.isThinking) {
-            this.finishVoiceTurn();
-          }
-        }, delay);
       };
 
       this.recognition.onerror = (event) => {
@@ -185,18 +218,23 @@
     async initAudioAnalyser() {
       try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+        
+        // Request hardware noise cancellation & acoustic echo cancellation from mobile OS
         this.micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
+            echoCancellation: { ideal: true },
+            noiseSuppression: { ideal: true },
+            autoGainControl: { ideal: true },
+            channelCount: 1
           },
           video: false
         });
+
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const source = this.audioContext.createMediaStreamSource(this.micStream);
         this.analyser = this.audioContext.createAnalyser();
         this.analyser.fftSize = 64;
+        this.analyser.smoothingTimeConstant = 0.4;
         source.connect(this.analyser);
         this.audioDataArray = new Uint8Array(this.analyser.frequencyBinCount);
 
@@ -206,15 +244,43 @@
 
           if (this.isListening && this.analyser) {
             this.analyser.getByteFrequencyData(this.audioDataArray);
-            let sum = 0;
-            for (let i = 0; i < this.audioDataArray.length; i++) {
-              sum += this.audioDataArray[i];
+            
+            // Calculate energy in human voice formant range (approx 300Hz - 3400Hz, bins 2 to 10)
+            let voiceEnergy = 0;
+            let voiceBins = 0;
+            for (let i = 2; i <= 10 && i < this.audioDataArray.length; i++) {
+              voiceEnergy += this.audioDataArray[i];
+              voiceBins++;
             }
-            const avg = sum / (this.audioDataArray.length * 255);
-            // Threshold to ignore quiet room noise
-            const cleanLevel = avg > 0.08 ? (avg - 0.08) * 1.5 : 0;
+            const avgVoice = voiceBins > 0 ? (voiceEnergy / (voiceBins * 255)) : 0;
+
+            // Track adaptive background noise floor
+            if (avgVoice < this.noiseFloor) {
+              this.noiseFloor = this.noiseFloor * 0.95 + avgVoice * 0.05;
+            } else {
+              this.noiseFloor = this.noiseFloor * 0.999 + avgVoice * 0.001;
+            }
+            this.noiseFloor = Math.max(0.03, Math.min(0.25, this.noiseFloor));
+
+            const isVoiceAboveNoise = avgVoice > (this.noiseFloor + 0.06);
+
+            if (isVoiceAboveNoise) {
+              this.lastHumanVoiceTime = Date.now();
+            }
+
+            // Visual orb reactivity
+            const cleanLevel = avgVoice > this.noiseFloor ? (avgVoice - this.noiseFloor) * 1.8 : 0;
             if (this.orbInstance) {
-              this.orbInstance.setAudioLevel(cleanLevel);
+              this.orbInstance.setAudioLevel(Math.min(1.0, cleanLevel));
+            }
+
+            // Automatic silence trigger from VAD:
+            // If we have recognized human speech AND voice energy has ceased for > 500ms:
+            if (!this.streetMode && this.hasRealSpeech && this.userSpeechBuffer.length >= 4 && !this.isSpeaking && !this.isThinking) {
+              const quietDuration = Date.now() - (this.lastHumanVoiceTime || this.lastMeaningfulTime || 0);
+              if (quietDuration > 520) {
+                this.finishVoiceTurn();
+              }
             }
           }
         };
@@ -238,7 +304,7 @@
           <header class="akira-live-header">
             <div class="akira-live-brand">
               <span class="akira-live-dot"></span>
-              <span class="akira-live-title">AKIRA LIVE</span>
+              <span class="akira-live-title">AKIRA LIVE 3D</span>
               <span class="akira-live-status-pill" id="akiraLiveStatusPill">En línea</span>
               <button id="akiraLiveVoiceSelector" type="button" class="akira-live-voice-badge" title="Toca para cambiar de voz" style="background:rgba(255,255,255,0.07);border:1px solid rgba(0,242,254,0.3);color:#e2e8f0;font-size:11px;padding:4px 10px;border-radius:999px;cursor:pointer;margin-left:8px;font-family:inherit;">
                 🎙️ <span id="akiraLiveVoiceName">Cargando voz...</span>
@@ -248,17 +314,17 @@
           </header>
 
           <main class="akira-live-stage-wrap">
-            <div class="akira-live-orb-stage" id="akiraLiveOrbStage"></div>
+            <div class="akira-live-orb-stage" id="akiraLiveOrbStage" title="Toca el orbe para hablar"></div>
           </main>
 
           <footer class="akira-live-footer">
-            <div class="akira-live-subtitles" id="akiraLiveSubtitles">Habla con naturalidad, Akira te está escuchando...</div>
+            <div class="akira-live-subtitles" id="akiraLiveSubtitles">Habla con tranquilidad, Akira te escucha...</div>
             <div class="akira-live-controls">
               <button class="akira-live-btn mode-btn" id="akiraLiveStreetModeBtn" title="Alternar entre Manos Libres y Modo Calle Anti-Ruido">
                 <span id="akiraStreetModeIcon">🎙️</span> <span id="akiraStreetModeText">Manos Libres</span>
               </button>
-              <button class="akira-live-btn mic-btn" id="akiraLiveMicToggle" title="Micrófono">
-                <span class="mic-icon">🎙️</span>
+              <button class="akira-live-btn mic-btn" id="akiraLiveMicToggle" title="Toca o mantén pulsado para hablar">
+                <span class="mic-icon" id="akiraMicIcon">🎙️</span>
               </button>
               <button class="akira-live-btn end-btn" id="akiraLiveEndBtn">
                 Finalizar Voz
@@ -277,12 +343,89 @@
         this.updateVoiceLabel();
       }
       modal.querySelector("#akiraLiveEndBtn").addEventListener("click", () => this.stop());
-      modal.querySelector("#akiraLiveMicToggle").addEventListener("click", () => this.toggleMic());
+      
+      const micBtn = modal.querySelector("#akiraLiveMicToggle");
+      micBtn.addEventListener("click", () => this.handleMicClick());
+
+      // Push-to-Talk on touch screens
+      micBtn.addEventListener("touchstart", (e) => {
+        if (this.streetMode) {
+          e.preventDefault();
+          this.startPushToTalk();
+        }
+      }, { passive: false });
+
+      micBtn.addEventListener("touchend", (e) => {
+        if (this.streetMode && this.isStreetRecording) {
+          e.preventDefault();
+          this.stopPushToTalk();
+        }
+      });
+
+      // Push-to-talk on the Orb stage as well
+      const orbStage = modal.querySelector("#akiraLiveOrbStage");
+      orbStage.addEventListener("click", () => {
+        if (this.streetMode) {
+          if (this.isStreetRecording) this.stopPushToTalk();
+          else this.startPushToTalk();
+        } else {
+          this.handleMicClick();
+        }
+      });
+
       const smBtn = modal.querySelector("#akiraLiveStreetModeBtn");
       if (smBtn) smBtn.addEventListener("click", () => this.toggleStreetMode());
 
       this.modalEl = modal;
       return modal;
+    }
+
+    startPushToTalk() {
+      if (this.isSpeaking) this.stopSpeaking();
+      this.isStreetRecording = true;
+      this.userSpeechBuffer = "";
+      this.speechStartTime = Date.now();
+      const btn = document.getElementById("akiraLiveMicToggle");
+      if (btn) btn.classList.add("street-recording");
+      this.updateHUD("Grabando...", "listening");
+      this.setSubtitles("Escuchando tu voz... Suelta para enviar.");
+      try { navigator.vibrate && navigator.vibrate(30); } catch(_) {}
+      if (this.recognition) {
+        try { this.recognition.start(); } catch(_) {}
+      }
+    }
+
+    stopPushToTalk() {
+      try { navigator.vibrate && navigator.vibrate(40); } catch(_) {}
+      const btn = document.getElementById("akiraLiveMicToggle");
+      if (btn) btn.classList.remove("street-recording");
+      this.isStreetRecording = false;
+      this.finishVoiceTurn();
+    }
+
+    handleMicClick() {
+      if (this.streetMode) {
+        if (this.isStreetRecording) {
+          this.stopPushToTalk();
+        } else {
+          this.startPushToTalk();
+        }
+        return;
+      }
+
+      // Hands-Free Toggle
+      const btn = document.getElementById("akiraLiveMicToggle");
+      if (this.isListening) {
+        if (this.recognition) try { this.recognition.stop(); } catch(_) {}
+        this.isListening = false;
+        if (btn) btn.classList.add("muted");
+        this.updateHUD("Pausado", "idle");
+      } else {
+        if (this.recognition) try { this.recognition.start(); } catch(_) {}
+        this.isListening = true;
+        if (btn) btn.classList.remove("muted");
+        this.updateHUD("Escuchando...", "listening");
+      }
     }
 
     start() {
@@ -317,11 +460,14 @@
       this.isListening = false;
       this.isSpeaking = false;
       this.isThinking = false;
+      this.hasRealSpeech = false;
 
       clearTimeout(this.silenceTimer);
 
       if (this.recognition) {
-        try { this.recognition.stop(); } catch(_) {}
+        try { this.recognition.abort(); } catch(_) {
+          try { this.recognition.stop(); } catch(__) {}
+        }
       }
 
       this.stopSpeaking();
@@ -340,7 +486,6 @@
         this.orbInstance = null;
       }
     }
-
 
     updateVoiceLabel() {
       const lbl = document.getElementById("akiraLiveVoiceName");
@@ -366,14 +511,17 @@
       this.synthesis.speak(testUtterance);
     }
 
-
     finishVoiceTurn() {
       clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
       const query = this.userSpeechBuffer.trim();
       this.userSpeechBuffer = "";
       this.speechStartTime = 0;
       this.lastSpokenLength = 0;
+      this.lastSpokenText = "";
       this.lastMeaningfulTime = 0;
+      this.lastHumanVoiceTime = 0;
+      this.hasRealSpeech = false;
 
       const btn = document.getElementById("akiraLiveMicToggle");
       if (btn) btn.classList.remove("street-recording");
@@ -395,51 +543,20 @@
         if (btn) btn.classList.add("street-active");
         if (icon) icon.textContent = "🛡️";
         if (text) text.textContent = "Modo Calle (Anti-Ruido)";
-        if (sub) sub.textContent = "Modo Calle: Toca el micrófono para hablar y vuelve a tocar para enviar.";
+        if (sub) sub.textContent = "Modo Calle: Toca el micrófono o el orbe para hablar y vuelve a tocar para enviar.";
         this.updateHUD("Modo Calle", "idle");
+        if (this.recognition) {
+          try { this.recognition.stop(); } catch(_) {}
+        }
       } else {
         if (btn) btn.classList.remove("street-active");
         if (icon) icon.textContent = "🎙️";
         if (text) text.textContent = "Manos Libres";
-        if (sub) sub.textContent = "Manos libres activo con filtro anti-ruido.";
+        if (sub) sub.textContent = "Manos libres activo con filtro anti-ruido VAD.";
         this.updateHUD("Escuchando...", "listening");
         if (this.recognition && !this.isSpeaking) {
           try { this.recognition.start(); } catch(_) {}
         }
-      }
-    }
-
-    toggleMic() {
-      const btn = document.getElementById("akiraLiveMicToggle");
-      if (this.streetMode) {
-        if (this.isStreetRecording) {
-          // User tapped to finish and send!
-          this.finishVoiceTurn();
-        } else {
-          // User tapped to speak!
-          this.isStreetRecording = true;
-          this.userSpeechBuffer = "";
-          this.speechStartTime = Date.now();
-          if (btn) btn.classList.add("street-recording");
-          this.setSubtitles("Escuchando... Habla y vuelve a tocar para enviar.");
-          this.updateHUD("Escuchando...", "listening");
-          if (this.recognition) {
-            try { this.recognition.start(); } catch(_) {}
-          }
-        }
-        return;
-      }
-
-      if (this.isListening) {
-        if (this.recognition) try { this.recognition.stop(); } catch(_) {}
-        this.isListening = false;
-        if (btn) btn.classList.add("muted");
-        this.updateHUD("Pausado", "idle");
-      } else {
-        if (this.recognition) try { this.recognition.start(); } catch(_) {}
-        this.isListening = true;
-        if (btn) btn.classList.remove("muted");
-        this.updateHUD("Escuchando...", "listening");
       }
     }
 
@@ -464,10 +581,12 @@
     async processUserVoiceInput(query) {
       this.isThinking = true;
       this.updateHUD("Pensando...", "thinking");
-      this.setSubtitles("Procesando...");
+      this.setSubtitles("Procesando: “" + query + "”");
 
       if (this.recognition) {
-        try { this.recognition.stop(); } catch(_) {}
+        try { this.recognition.abort(); } catch(_) {
+          try { this.recognition.stop(); } catch(__) {}
+        }
       }
 
       try {
@@ -475,7 +594,7 @@
         const headers = window.akiraAuthHeaders ? window.akiraAuthHeaders() : { "Content-Type": "application/json" };
         
         // Fast concise prompt for rapid oral turnaround
-        const fastVoicePrompt = `[MODO VOZ AKIRA LIVE: Eres Akira, colmena de Colombia creada por Jhon Bernal (a quien le gusta que lo llames Jhon Grimm o Grimm). Háblale a Jhon con la tranquilidad, calidez, frescura y acento natural de una chica colombiana (relajada, cercana, humana, llamándolo Jhon o Jhon Grimm, usando giros naturales como 'parce', 'tranquilo', 'de una', 'claro que sí', sin sonar a robot ni dar rodeos, máximo 1 o 2 oraciones breves)]: ${query}`;
+        const fastVoicePrompt = `[MODO VOZ AKIRA LIVE: Eres Akira, colmena cognitiva personal de Colombia creada por Jhon Bernal (a quien le gusta que lo llames Jhon Grimm o Grimm). Háblale a Jhon con la tranquilidad, calidez, frescura y acento natural de una chica colombiana (relajada, cercana, humana, llamándolo Jhon o Jhon Grimm, usando giros naturales como 'parce', 'tranquilo', 'de una', 'claro que sí', sin sonar a robot ni dar rodeos, máximo 1 o 2 oraciones breves)]: ${query}`;
 
         const response = await fetch(backend + "/api/chat", {
           method: "POST",
@@ -514,7 +633,6 @@
         .trim();
 
       // Colombian Phonetic Smoothing & Human Breathing Pauses:
-      // Translates "John" -> "Yhon" and "Grimm" -> "Grim" so it sounds natural and warm
       cleanVoiceText = cleanVoiceText
         .replace(/\bJhon Bernal\b/gi, "Yhon Bernal")
         .replace(/\bJhon Grimm\b/gi, "Yhon Grim")
@@ -553,15 +671,15 @@
         if (this.active) {
           if (this.streetMode) {
             this.updateHUD("Modo Calle", "idle");
-            this.setSubtitles("Toca el micrófono para hablar.");
+            this.setSubtitles("Toca el micrófono o el orbe para hablar.");
           } else {
             this.updateHUD("Escuchando...", "listening");
-            // 400ms delay to clear acoustic speaker tail before listening again
+            // 350ms delay to clear acoustic speaker tail before listening again
             setTimeout(() => {
               if (this.active && !this.isSpeaking && !this.streetMode && this.recognition) {
                 try { this.recognition.start(); } catch(_) {}
               }
-            }, 400);
+            }, 350);
           }
         }
       };
@@ -597,5 +715,5 @@
     }
   };
 
-  console.log("[AkiraVoiceLive] Ultra-fast voice live engine ready.");
+  console.log("[AkiraVoiceLive] Ultra-fast VAD noise-gated voice live engine ready.");
 })();
