@@ -190,6 +190,12 @@
             <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenSandboxNewTab()" title="Abrir en pestaña nueva">
               ↗ Pestaña
             </button>
+            <button type="button" class="ak-sandbox-btn" onclick="window.akiraDownloadCurrentSandboxZip()" title="Descargar proyecto completo en ZIP">
+              📦 Descargar ZIP
+            </button>
+            <button type="button" class="ak-sandbox-btn" onclick="window.akiraExportSandboxGitHub()" title="Exportar a GitHub">
+              🐙 GitHub
+            </button>
             <button type="button" class="ak-sandbox-btn" onclick="window.akiraCopySandboxCode()" title="Copiar código fuente">
               📋 Copiar
             </button>
@@ -331,6 +337,130 @@
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank");
     setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
+
+
+  // CRC-32 table for pure-client ZIP generation (Zero external libraries)
+  const crcTable = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) {
+      c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    crcTable[i] = c >>> 0;
+  }
+
+  function crc32(bytes) {
+    let crc = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) {
+      crc = (crc >>> 8) ^ crcTable[(crc ^ bytes[i]) & 0xff];
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  window.akiraCreateZipBlob = function(filesObj) {
+    const encoder = new TextEncoder();
+    const parts = [];
+    const centralHeaders = [];
+    let offset = 0;
+
+    for (const [filename, content] of Object.entries(filesObj)) {
+      const nameBytes = encoder.encode(filename);
+      const dataBytes = typeof content === "string" ? encoder.encode(content) : content;
+      const size = dataBytes.length;
+      const crc = crc32(dataBytes);
+
+      // Local Header: 30 bytes + name length + data length
+      const lh = new Uint8Array(30 + nameBytes.length + size);
+      const dv = new DataView(lh.buffer);
+      dv.setUint32(0, 0x04034b50, true);
+      dv.setUint16(4, 10, true);
+      dv.setUint16(6, 0x0800, true); // UTF-8
+      dv.setUint16(8, 0, true); // Stored
+      dv.setUint16(10, 0, true);
+      dv.setUint16(12, 0, true);
+      dv.setUint32(14, crc, true);
+      dv.setUint32(18, size, true);
+      dv.setUint32(22, size, true);
+      dv.setUint16(26, nameBytes.length, true);
+      dv.setUint16(28, 0, true);
+      lh.set(nameBytes, 30);
+      lh.set(dataBytes, 30 + nameBytes.length);
+      parts.push(lh);
+
+      // Central Directory Header: 46 bytes + name length
+      const ch = new Uint8Array(46 + nameBytes.length);
+      const cdv = new DataView(ch.buffer);
+      cdv.setUint32(0, 0x02014b50, true);
+      cdv.setUint16(4, 20, true);
+      cdv.setUint16(6, 10, true);
+      cdv.setUint16(8, 0x0800, true);
+      cdv.setUint16(10, 0, true);
+      cdv.setUint16(12, 0, true);
+      cdv.setUint16(14, 0, true);
+      cdv.setUint32(16, crc, true);
+      cdv.setUint32(20, size, true);
+      cdv.setUint32(24, size, true);
+      cdv.setUint16(28, nameBytes.length, true);
+      cdv.setUint16(30, 0, true);
+      cdv.setUint16(32, 0, true);
+      cdv.setUint16(34, 0, true);
+      cdv.setUint16(36, 0, true);
+      cdv.setUint32(38, 0, true);
+      cdv.setUint32(42, offset, true);
+      ch.set(nameBytes, 46);
+      centralHeaders.push(ch);
+
+      offset += lh.length;
+    }
+
+    let cdSize = 0;
+    for (const ch of centralHeaders) {
+      parts.push(ch);
+      cdSize += ch.length;
+    }
+
+    // End of Central Directory Record: 22 bytes
+    const eocd = new Uint8Array(22);
+    const edv = new DataView(eocd.buffer);
+    const count = Object.keys(filesObj).length;
+    edv.setUint32(0, 0x06054b50, true);
+    edv.setUint16(4, 0, true);
+    edv.setUint16(6, 0, true);
+    edv.setUint16(8, count, true);
+    edv.setUint16(10, count, true);
+    edv.setUint32(12, cdSize, true);
+    edv.setUint32(16, offset, true);
+    edv.setUint16(20, 0, true);
+    parts.push(eocd);
+
+    return new Blob(parts, { type: "application/zip" });
+  };
+
+  window.akiraDownloadCurrentSandboxZip = function() {
+    if (!currentSandboxCode) return;
+    const readme = `# Proyecto Generado por Akira Live Artifacts\n\nEste proyecto fue construido, renderizado y probado en el Sandbox en vivo de Akira.\n\n## Archivos incluidos:\n- \`index.html\`: Código fuente completo y funcional.\n\n## Despliegue Inmediato:\nSube esta carpeta a GitHub Pages, Vercel o Netlify, o simplemente abre \`index.html\` en tu navegador.\n\n---\nDesarrollado con Akira Enterprise Collective.`;
+    const zipBlob = window.akiraCreateZipBlob({
+      "index.html": currentSandboxCode,
+      "README.md": readme
+    });
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `akira-proyecto-${Date.now()}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  };
+
+  window.akiraExportSandboxGitHub = function() {
+    const commands = `git init\ngit add .\ngit commit -m "feat: initial deliverable generated by Akira"\ngit branch -M main\n# Conecta tu repositorio de GitHub:\n# git remote add origin https://github.com/TU_USUARIO/TU_REPO.git\n# git push -u origin main`;
+    navigator.clipboard.writeText(commands).then(() => {
+      alert("🐙 Comandos Git copiados al portapapeles!\n\n1. Descarga el ZIP.\n2. Descomprímelo en tu máquina.\n3. Abre una terminal y pega los comandos para publicar en GitHub.");
+    }).catch(() => {
+      prompt("Comandos para GitHub (Ctrl+C para copiar):", commands);
+    });
   };
 
   window.akiraCopySandboxCode = async function(){

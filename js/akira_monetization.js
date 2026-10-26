@@ -119,6 +119,7 @@
               <div class="ak-card-actions">
                 <button class="ak-btn primary" id="akBtnBuildDeliverable">🚀 Construir Entregable Listo para Cobrar</button>
                 <button class="ak-btn success" id="akBtnCopyDeliverable" style="display:none;">📋 Copiar Trabajo Completo</button>
+                <button class="ak-btn secondary" id="akBtnZipDeliverable" style="display:none;">📦 Descargar Entregable (.ZIP)</button>
               </div>
               <div id="akDeliverableOutput" class="ak-result-box ak-output-card" style="display:none;"></div>
             </div>
@@ -207,6 +208,29 @@
           alert("¡Entregable copiado con éxito!");
         });
       });
+
+      const zipDeliverable = container.querySelector("#akBtnZipDeliverable");
+      if (zipDeliverable) {
+        zipDeliverable.addEventListener("click", () => {
+          if (!this.currentDeliverable) return;
+          if (typeof window.akiraCreateZipBlob !== "function") return;
+          const readme = `# Entregable de Proyecto Upwork\n\nGenerado de acuerdo a los requerimientos especificados.\n\n---\nDesarrollado con Akira Enterprise Collective.`;
+          const isWeb = this.currentDeliverable.includes("<html") || this.currentDeliverable.includes("<!DOCTYPE") || this.currentDeliverable.includes("<div");
+          const filename = isWeb ? "index.html" : "entregable.txt";
+          const zipBlob = window.akiraCreateZipBlob({
+            [filename]: this.currentDeliverable,
+            "README.md": readme
+          });
+          const url = URL.createObjectURL(zipBlob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `entregable-upwork-${Date.now()}.zip`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 30000);
+        });
+      }
     }
 
     switchTab(tabId) {
@@ -352,6 +376,8 @@ Entrega un resultado 100% profesional que el cliente pueda calificar con 5 estre
         this.currentDeliverable = reply;
         out.innerHTML = `<div class="ak-formatted-output">${this.formatMarkdown(reply)}</div>`;
         copyBtn.style.display = "inline-flex";
+        const zipBtn = document.getElementById("akBtnZipDeliverable");
+        if (zipBtn) zipBtn.style.display = "inline-flex";
       } catch (err) {
         out.innerHTML = `<div class="ak-error">Error al construir el entregable: ${err.message}</div>`;
       }
