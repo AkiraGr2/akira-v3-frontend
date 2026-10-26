@@ -220,13 +220,35 @@
       });
     }
 
-    async callAkiraChat(prompt) {
+    async callAkiraChat(prompt, mode, tone) {
       const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
-      const headers = window.akiraAuthHeaders ? window.akiraAuthHeaders() : { "Content-Type": "application/json" };
+      const headers = typeof window.akiraAuthHeaders === "function" ? window.akiraAuthHeaders() : { "Content-Type": "application/json" };
+      
+      try {
+        const upRes = await fetch(backend + "/api/upwork/generate", {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({
+            job_description: prompt,
+            mode: mode || "proposal",
+            tone: tone || "persuasive"
+          })
+        });
+        if (upRes.ok) {
+          const upData = await upRes.json();
+          if (upData && upData.ok) {
+            this.lastCommander = upData.commander;
+            this.lastSpecialists = upData.specialists;
+            return upData.result || upData.proposal || "Propuesta generada con la Colmena.";
+          }
+        }
+      } catch (_) {}
+
+      // Fallback a /api/chat
       const res = await fetch(backend + "/api/chat", {
         method: "POST",
         headers: headers,
-        body: JSON.stringify({ message: prompt })
+        body: JSON.stringify({ message: prompt.slice(0, 1500) })
       });
       const data = await res.json();
       return data.response || data.reply || "Sin respuesta del motor.";
@@ -251,7 +273,7 @@ Devuelve un análisis estructurado con:
 5. **Estrategia Clave para Ganar**: (Qué ofrecer o qué muestra gratuita darle al cliente para que te contrate de inmediato).`;
 
       try {
-        const reply = await this.callAkiraChat(prompt);
+        const reply = await this.callAkiraChat(prompt, 'analysis');
         out.innerHTML = `
           <div class="ak-analysis-grid">
             <div class="ak-analysis-text">${this.formatMarkdown(reply)}</div>
@@ -297,7 +319,7 @@ Reglas estrictas:
 - Termina con una pregunta que invite a responder hoy mismo.`;
 
       try {
-        const reply = await this.callAkiraChat(prompt);
+        const reply = await this.callAkiraChat(prompt, 'proposal', tone);
         this.currentProposal = reply;
         out.innerHTML = `<div class="ak-formatted-output">${this.formatMarkdown(reply)}</div>`;
         copyBtn.style.display = "inline-flex";
@@ -326,7 +348,7 @@ Construye el ENTREGABLE FINAL COMPLETO:
 Entrega un resultado 100% profesional que el cliente pueda calificar con 5 estrellas en Upwork.`;
 
       try {
-        const reply = await this.callAkiraChat(prompt);
+        const reply = await this.callAkiraChat(prompt, 'deliverable');
         this.currentDeliverable = reply;
         out.innerHTML = `<div class="ak-formatted-output">${this.formatMarkdown(reply)}</div>`;
         copyBtn.style.display = "inline-flex";
@@ -336,6 +358,9 @@ Entrega un resultado 100% profesional que el cliente pueda calificar con 5 estre
     }
 
     formatMarkdown(text) {
+      if (typeof window.akiraFormatMarkdown === "function") {
+        return window.akiraFormatMarkdown(text);
+      }
       return text
         .replace(/\n\n/g, "<br><br>")
         .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
