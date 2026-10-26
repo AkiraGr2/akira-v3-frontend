@@ -12,7 +12,14 @@
   ];
   function qs(s,r){return (r||document).querySelector(s)}
   function qsa(s,r){return Array.from((r||document).querySelectorAll(s))}
-  function clickSection(name){if(typeof window.showSection==="function")window.showSection(name)}
+  function clickSection(name){
+    if(name === "crm" && window.akiraOpenCrmModal){ window.akiraOpenCrmModal(); return; }
+    if(name === "agent_studio" && window.akiraOpenAgentStudioModal){ window.akiraOpenAgentStudioModal(); return; }
+    if(name === "roi" && window.akiraOpenRoiModal){ window.akiraOpenRoiModal(); return; }
+    if(name === "cron" && window.akiraOpenCronModal){ window.akiraOpenCronModal(); return; }
+    if(name === "sheet" && window.akiraOpenSpreadsheetModal){ window.akiraOpenSpreadsheetModal(); return; }
+    if(typeof window.showSection==="function")window.showSection(name);
+  }
   function backend(){return localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com"}
   function authHeaders(){
     try{
@@ -138,7 +145,7 @@
       const topPill = document.getElementById("akHudStatusText");
       if(topPill) topPill.textContent = "✦ COLMENA ACTIVA · " + count(nodes) + " NODOS · MEMORIA PERSISTENTE";
       const telem = document.querySelector(".ak-sidebar-telemetry .ak-telemetry-sub");
-      if(telem) telem.textContent = count(nodes) + " Nodos · 20/20 Verificadas";
+      if(telem) telem.textContent = count(nodes) + " Nodos · 40/40 Verificadas";
       try{ window.dispatchEvent(new CustomEvent("akira:brain-stats",{detail:{nodes:nodes,edges:edges}})); }catch(_){}
     }
     const brainBar=home.querySelector("#akRefBrainBar");
@@ -238,13 +245,18 @@
       items: [
         ["office", "🏢 Oficina", "Telemetría en vivo"],
         ["missions", "🎯 Misiones", "Operaciones autónomas"],
-        ["upwork", "💼 Upwork AI", "Monetización"]
+        ["upwork", "💼 Upwork AI", "Monetización"],
+        ["crm", "💼 CRM Pipeline", "Deals y Facturación"],
+        ["agent_studio", "🧩 Colmena Studio", "Crear Agentes"],
+        ["roi", "📈 Telemetría ROI", "Métricas y Horas"]
       ]
     },
     {
       title: "Control & Sistema",
       items: [
-        ["levels", "📊 Niveles", "20/20 capacidades"],
+        ["levels", "📊 Niveles", "40/40 capacidades"],
+        ["cron", "⏰ Cron Jobs", "Automatizaciones"],
+        ["sheet", "📑 Hojas Excel", "Wrangler CSV"],
         ["keys", "🔑 Cuenta", "Sesión & seguridad"],
         ["admin", "⚙️ Admin", "Consola ejecutiva"]
       ]
@@ -294,7 +306,7 @@
           <span class="ak-live-dot"></span>
           <span>Colmena: Activa & Persistente</span>
         </div>
-        <div class="ak-telemetry-sub">20/20 Verificadas · Render 0$</div>
+        <div class="ak-telemetry-sub">40/40 Verificadas · Render 0$</div>
       `;
       const sidebar = qs("#sidebar");
       if(sidebar) sidebar.appendChild(telem);
@@ -319,10 +331,15 @@
         <span class="ak-hud-live-dot"></span>
         <span id="akHudStatusText">✦ COLMENA ACTIVA · MEMORIA PERSISTENTE</span>
       </div>
-      <div style="display:flex;gap:10px;align-items:center;">
-        <button class="akira-live-trigger-btn ak-hud-live-btn" onclick="toggleAkiraLiveVoice()" title="Conversar por voz en 3D con Akira">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="nav-quick-btn" onclick="window.akiraOpenSearchModal && window.akiraOpenSearchModal()" title="Búsqueda Vectorial Rápida (Ctrl+K)" style="background:#111827;border:1px solid rgba(0,240,255,0.4);color:#00f0ff;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">🔍 Buscar (Ctrl+K)</button>
+        <button class="nav-quick-btn" onclick="window.akiraOpenCronModal && window.akiraOpenCronModal()" title="Tareas Autónomas Programadas" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">⏰ Cron</button>
+        <button class="nav-quick-btn" onclick="window.akiraOpenCrmModal && window.akiraOpenCrmModal()" title="Pipeline CRM Freelance" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">💼 CRM</button>
+        <button class="nav-quick-btn" onclick="window.akiraOpenRoiModal && window.akiraOpenRoiModal()" title="Telemetría de Productividad y ROI" style="background:#111827;border:1px solid rgba(16,185,129,0.3);color:#10b981;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">📈 ROI</button>
+        <button class="nav-quick-btn" onclick="window.akiraOpenThemeModal && window.akiraOpenThemeModal()" title="Estudio de Temas y Accesibilidad" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">🎨</button>
+        <button class="akira-live-trigger-btn ak-hud-live-btn" onclick="toggleAkiraLiveVoice()" title="Conversar por voz con Akira">
           <span class="live-wave-dot"></span>
-          <span>✨ Akira Live 3D</span>
+          <span>✨ Akira Live</span>
         </button>
         <button id="userAvatar" onclick="showSection('keys')" class="ak-hud-avatar-btn" title="Mi Cuenta y Sesión">👑</button>
       </div>
@@ -362,7 +379,7 @@
         const topPill = document.getElementById("akHudStatusText");
         if(topPill) topPill.textContent = "✦ COLMENA ACTIVA · " + count(n) + " NODOS · MEMORIA PERSISTENTE";
         const telem = document.querySelector(".ak-sidebar-telemetry .ak-telemetry-sub");
-        if(telem) telem.textContent = count(n) + " Nodos · 20/20 Verificadas";
+        if(telem) telem.textContent = count(n) + " Nodos · 40/40 Verificadas";
       }
     }catch(_){}
   });

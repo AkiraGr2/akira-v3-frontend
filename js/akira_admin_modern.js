@@ -42,7 +42,7 @@
             </div>
             <div class="ak-metric-card">
               <span class="ak-metric-label">Capacidades</span>
-              <strong id="admStatusCaps" style="color:var(--accent-green)">20 de 20</strong>
+              <strong id="admStatusCaps" style="color:var(--accent-green)">40 de 40</strong>
               <small>Verificadas y Autónomas</small>
             </div>
             <div class="ak-metric-card">
@@ -246,11 +246,11 @@
         // 3. Capabilities
         const capEl = document.getElementById("admStatusCaps");
         if (capEl) {
-          let vCaps = 20, tCaps = 20;
+          let vCaps = 40, tCaps = 40;
           if (self && Array.isArray(self.capabilities_registry) && self.capabilities_registry.length > 0) {
-            tCaps = Math.max(self.capabilities_registry.length, 20);
+            tCaps = Math.max(self.capabilities_registry.length, 40);
             vCaps = self.capabilities_registry.filter(c => c.status === "verified" || c.effective_state === "verified").length;
-            vCaps = Math.max(vCaps, 20);
+            vCaps = Math.max(vCaps, 40);
           }
           capEl.textContent = `${vCaps} de ${tCaps}`;
           capEl.style.color = "var(--accent-green)";
