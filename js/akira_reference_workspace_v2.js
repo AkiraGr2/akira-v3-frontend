@@ -13,6 +13,10 @@
   function qs(s,r){return (r||document).querySelector(s)}
   function qsa(s,r){return Array.from((r||document).querySelectorAll(s))}
   function clickSection(name){
+    if(name === "voice"){
+      if(typeof window.toggleAkiraLiveVoice === "function") window.toggleAkiraLiveVoice();
+      return;
+    }
     if(name === "crm" && window.akiraOpenCrmModal){ window.akiraOpenCrmModal(); return; }
     if(name === "agent_studio" && window.akiraOpenAgentStudioModal){ window.akiraOpenAgentStudioModal(); return; }
     if(name === "roi" && window.akiraOpenRoiModal){ window.akiraOpenRoiModal(); return; }
@@ -237,7 +241,6 @@
       items: [
         ["home", "🏠 Inicio", "Centro de mando"],
         ["chat", "💬 Chat", "Hablar con Akira"],
-        ["voice", "✨ Voz en Vivo", "Akira Live 3D"],
         ["membrane", "🧠 Memoria", "Cerebro de Akira"]
       ]
     },

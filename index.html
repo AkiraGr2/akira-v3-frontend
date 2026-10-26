@@ -1478,11 +1478,26 @@ window.akiraAuthHeaders=akiraAuthHeaders;
 window.akiraVerifySession=akiraVerifySession;
 
 function showSection(name){
+  if(name === 'voice'){
+    if(typeof toggleAkiraLiveVoice === 'function') toggleAkiraLiveVoice();
+    return;
+  }
+  const sec=document.getElementById(name+'Section');
+  if(!sec){
+    const homeSec = document.getElementById('homeSection');
+    if(homeSec){
+      document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+      homeSec.classList.add('active');
+      const homeBtn = document.getElementById('btn-home');
+      if(homeBtn) homeBtn.classList.add('active');
+    }
+    return;
+  }
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  const sec=document.getElementById(name+'Section');
+  sec.classList.add('active');
   const btn=document.getElementById('btn-'+name);
-  if(sec)sec.classList.add('active');
   if(btn)btn.classList.add('active');
   closeSidebar();
   const hudSec = document.getElementById("akHudCurrentSection");

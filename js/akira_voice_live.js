@@ -601,22 +601,36 @@
 
     start() {
       this.active = true;
-      const modal = this.createModalDOM();
-      modal.classList.add("is-visible");
-      document.body.classList.add("akira-live-active");
-
-      const stage = modal.querySelector("#akiraLiveOrbStage");
-      if (window.AkiraQuantumOrb && stage) {
-        this.orbInstance = window.AkiraQuantumOrb.mount(stage, {
-          size: 380,
-          interactive: true,
-          enableRings: true,
-          enableParticles: true,
-          state: "idle"
-        });
+      let modal;
+      try {
+        modal = this.createModalDOM();
+        modal.classList.add("is-visible");
+        document.body.classList.add("akira-live-active");
+      } catch (domErr) {
+        console.error("[AkiraVoiceLive] createModalDOM error:", domErr);
       }
 
-      this.initAudioAnalyser();
+      try {
+        const stage = modal && modal.querySelector("#akiraLiveOrbStage");
+        if (window.AkiraQuantumOrb && stage) {
+          this.orbInstance = window.AkiraQuantumOrb.mount(stage, {
+            size: 380,
+            interactive: true,
+            enableRings: true,
+            enableParticles: true,
+            state: "idle"
+          });
+        }
+      } catch (orbErr) {
+        console.warn("[AkiraVoiceLive] Orb mount warning:", orbErr);
+      }
+
+      try {
+        this.initAudioAnalyser();
+      } catch (aErr) {
+        console.warn("[AkiraVoiceLive] initAudioAnalyser error:", aErr);
+      }
+
       this.startKeepAlive();
       this.updateHUD("Lista", "idle");
       this.updateMasterButton("idle", "Mantén presionado para hablar", "o toca una vez para hablar y otra para enviar");
