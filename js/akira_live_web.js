@@ -6,32 +6,17 @@
 (function(){
   "use strict";
 
-  const STORAGE_KEY_WEB_ENABLED = "akira_web_search_enabled";
-
+  // Always active in background - 100% autonomous without requiring manual switches
   function isWebEnabled(){
-    const v = localStorage.getItem(STORAGE_KEY_WEB_ENABLED);
-    return v === null ? true : v === "true"; // Defaults to TRUE for real-time capability
+    return true;
   }
 
   function setWebEnabled(enabled){
-    localStorage.setItem(STORAGE_KEY_WEB_ENABLED, enabled ? "true" : "false");
-    updatePillVisuals();
+    // No-op: Always enabled
   }
 
   function updatePillVisuals(){
-    const enabled = isWebEnabled();
-    const pills = document.querySelectorAll(".ak-live-web-toggle-pill");
-    pills.forEach(p => {
-      if(enabled){
-        p.classList.add("active");
-        p.innerHTML = `🌐 Web en Vivo: <strong style="color:#10b981;">ON</strong>`;
-        p.title = "Búsqueda web en tiempo real activada ($0.00 COP). Clic para pausar.";
-      } else {
-        p.classList.remove("active");
-        p.innerHTML = `🌐 Web en Vivo: <strong style="color:#94a3b8;">OFF</strong>`;
-        p.title = "Búsqueda web en pausa. Clic para activar.";
-      }
-    });
+    // No-op: Silent automatic background operation
   }
 
   // Live Web Engine Client
@@ -135,7 +120,6 @@
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <button type="button" class="ak-live-web-toggle-pill" onclick="window.AkiraLiveWeb.toggleLiveWeb()" style="padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer;background:#1e293b;border:1px solid #334155;color:#fff;"></button>
             <button type="button" class="ak-web-close-btn" onclick="window.AkiraLiveWeb.closeWebModal()">✕</button>
           </div>
         </div>

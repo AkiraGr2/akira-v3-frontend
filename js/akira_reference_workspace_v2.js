@@ -233,33 +233,28 @@
 
   const navCategories = [
     {
-      title: "Núcleo Principal",
+      title: "Principal",
       items: [
-        ["home", "⌂ Inicio", "Centro de mando"],
-        ["chat", "💬 Chat", "Puente neuronal"],
-        ["membrane", "🧠 Cerebro", "Memoria & sinapsis"]
+        ["home", "🏠 Inicio", "Centro de mando"],
+        ["chat", "💬 Chat", "Hablar con Akira"],
+        ["voice", "✨ Voz en Vivo", "Akira Live 3D"],
+        ["membrane", "🧠 Memoria", "Cerebro de Akira"]
       ]
     },
     {
-      title: "Colmena & Agentes",
+      title: "Operación & Proyectos",
       items: [
-        ["office", "🏢 Oficina", "Telemetría en vivo"],
+        ["office", "🏢 Oficina", "Especialistas activos"],
         ["missions", "🎯 Misiones", "Operaciones autónomas"],
-        ["upwork", "💼 Upwork AI", "Monetización"],
-        ["crm", "💼 CRM Pipeline", "Deals y Facturación"],
-        ["agent_studio", "🧩 Colmena Studio", "Crear Agentes"],
-        ["roi", "📈 Telemetría ROI", "Métricas y Horas"]
+        ["upwork", "💼 Proyectos & Negocio", "Oportunidades Upwork"]
       ]
     },
     {
-      title: "Control & Sistema",
+      title: "Supervisión & Sistema",
       items: [
-        ["levels", "📊 Niveles", "41/41 capacidades"],
-        ["live_web", "🌐 Búsqueda Web", "Tiempo Real"],
-        ["cron", "⏰ Cron Jobs", "Automatizaciones"],
-        ["sheet", "📑 Hojas Excel", "Wrangler CSV"],
-        ["keys", "🔑 Cuenta", "Sesión & seguridad"],
-        ["admin", "⚙️ Admin", "Consola ejecutiva"]
+        ["levels", "📊 Capacidades", "41/41 Verificadas"],
+        ["admin", "⚙️ Panel de Control", "Supervisión y estado"],
+        ["keys", "🔑 Mi Cuenta", "Sesión y ajustes"]
       ]
     }
   ];
@@ -330,15 +325,9 @@
       </div>
       <div class="ak-hud-center-chip">
         <span class="ak-hud-live-dot"></span>
-        <span id="akHudStatusText">✦ COLMENA ACTIVA · MEMORIA PERSISTENTE</span>
+        <span id="akHudStatusText">✦ AKIRA EN LÍNEA · AUTÓNOMA</span>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <button class="nav-quick-btn ak-live-web-toggle-pill" onclick="window.AkiraLiveWeb && window.AkiraLiveWeb.openWebModal()" title="Búsqueda Web en Vivo ($0.00 COP)" style="background:#111827;border:1px solid rgba(16,185,129,0.5);color:#10b981;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">🌐 Web</button>
-        <button class="nav-quick-btn" onclick="window.akiraOpenSearchModal && window.akiraOpenSearchModal()" title="Búsqueda Vectorial Rápida (Ctrl+K)" style="background:#111827;border:1px solid rgba(0,240,255,0.4);color:#00f0ff;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">🔍 Buscar (Ctrl+K)</button>
-        <button class="nav-quick-btn" onclick="window.akiraOpenCronModal && window.akiraOpenCronModal()" title="Tareas Autónomas Programadas" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">⏰ Cron</button>
-        <button class="nav-quick-btn" onclick="window.akiraOpenCrmModal && window.akiraOpenCrmModal()" title="Pipeline CRM Freelance" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">💼 CRM</button>
-        <button class="nav-quick-btn" onclick="window.akiraOpenRoiModal && window.akiraOpenRoiModal()" title="Telemetría de Productividad y ROI" style="background:#111827;border:1px solid rgba(16,185,129,0.3);color:#10b981;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">📈 ROI</button>
-        <button class="nav-quick-btn" onclick="window.akiraOpenThemeModal && window.akiraOpenThemeModal()" title="Estudio de Temas y Accesibilidad" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">🎨</button>
+      <div style="display:flex;gap:10px;align-items:center;">
         <button class="akira-live-trigger-btn ak-hud-live-btn" onclick="toggleAkiraLiveVoice()" title="Conversar por voz con Akira">
           <span class="live-wave-dot"></span>
           <span>✨ Akira Live</span>
