@@ -908,6 +908,9 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           <button class="ak-vault-btn primary" style="background: linear-gradient(135deg, #0284c7, #0369a1); border-color: #38bdf8;" onclick="akiraTestTelegramConnection()">
             <span>📲</span> Probar Conexión con mi Celular
           </button>
+          <button class="ak-vault-btn" style="background: rgba(0, 136, 204, 0.2); border: 1px solid rgba(0, 136, 204, 0.4); color: #7dd3fc;" onclick="akiraDiagnoseTelegram()">
+            <span>🪺</span> Diagnosticar y Reparar
+          </button>
           <button class="ak-vault-btn danger" onclick="akiraClearTelegram()">
             <span>🗑️</span> Desconectar
           </button>
@@ -2327,17 +2330,11 @@ function akiraRefreshTelegramUI(){
   const msg = document.getElementById("telegramStatusMsg");
   const token = localStorage.getItem("akira_telegram_token") || "";
   const chatId = localStorage.getItem("akira_telegram_chat_id") || "";
+  const botUsername = localStorage.getItem("akira_telegram_bot_username") || "";
+  const botLink = localStorage.getItem("akira_telegram_bot_link") || "";
   if(!badge) return;
   if(token){
-    try {
-      const b = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
-      fetch(b + "/api/v8/telegram/poll", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: token })
-      }).catch(()=>{});
-    } catch(_){}
-    badge.textContent = "🟢 Conectado con tu Celular";
+    badge.textContent = botUsername ? `🟢 Conectado: ${botUsername}` : "🟢 Conectado con tu Celular";
     badge.style.background = "rgba(16,185,129,0.15)";
     badge.style.color = "#34d399";
     badge.style.borderColor = "rgba(16,185,129,0.3)";
@@ -2345,7 +2342,8 @@ function akiraRefreshTelegramUI(){
       msg.style.display = "block";
       msg.style.color = "#38bdf8";
       const masked = token.slice(0, 6) + "••••••••" + token.slice(-4);
-      msg.innerHTML = `✅ <strong>Bot de Telegram Vinculado:</strong> <code>${masked}</code>${chatId ? ` (Chat: ${chatId})` : ''} — Tu celular está listo para recibir el briefing diario y notificaciones de Akira.`;
+      let linkBtn = botLink ? `<br><a href="${botLink}" target="_blank" style="display:inline-block;margin-top:8px;padding:6px 14px;background:#0284c7;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:12px">👉 Abrir ${botUsername || 'Bot'} en Telegram</a>` : '';
+      msg.innerHTML = `✅ <strong>Bot Vinculado:</strong> <code>${masked}</code>${chatId ? ` (Chat: ${chatId})` : ''} — Webhook y comandos nativos activos.${linkBtn}`;
     }
   } else {
     badge.textContent = "⚪ Desconectado";
@@ -2375,7 +2373,7 @@ async function akiraTestTelegramConnection(){
   if(msg){
     msg.style.display = "block";
     msg.style.color = "#38bdf8";
-    msg.innerHTML = "⏳ Conectando con Telegram y detectando tu celular...";
+    msg.innerHTML = "⏳ Conectando con Telegram, configurando menú nativo y detectando tu celular...";
   }
   try {
     const b = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
@@ -2388,12 +2386,15 @@ async function akiraTestTelegramConnection(){
     if(data.ok){
       localStorage.setItem("akira_telegram_token", token);
       if(data.chat_id) localStorage.setItem("akira_telegram_chat_id", String(data.chat_id));
+      if(data.bot_username) localStorage.setItem("akira_telegram_bot_username", data.bot_username);
+      if(data.bot_link) localStorage.setItem("akira_telegram_bot_link", data.bot_link);
       if(input) input.value = "";
       akiraRefreshTelegramUI();
       if(msg){
         msg.style.display = "block";
         msg.style.color = "#34d399";
-        msg.innerHTML = "🎉 <strong>¡Conexión Exitosa!</strong> Akira acaba de enviarte un mensaje privado de bienvenida a tu Telegram. Revisa tu celular.";
+        let linkBtn = data.bot_link ? `<br><a href="${data.bot_link}" target="_blank" style="display:inline-block;margin-top:8px;padding:6px 14px;background:#0284c7;color:#fff;border-radius:6px;text-decoration:none;font-weight:600">👉 Abrir ${data.bot_username || 'Bot'} en Telegram</a>` : '';
+        msg.innerHTML = `🎉 <strong>¡Conexión Exitosa y Blindada!</strong> Akira vinculó tu bot, registró los 13 comandos nativos y te envió la confirmación táctil a tu celular.${linkBtn}`;
       }
     } else {
       if(msg){
@@ -2407,6 +2408,53 @@ async function akiraTestTelegramConnection(){
       msg.style.display = "block";
       msg.style.color = "#f87171";
       msg.innerHTML = "❌ Error de conexión con el servidor: " + err.message;
+    }
+  }
+}
+
+async function akiraDiagnoseTelegram(){
+  const msg = document.getElementById("telegramStatusMsg");
+  let token = localStorage.getItem("akira_telegram_token") || "";
+  const input = document.getElementById("telegramTokenInput");
+  if(!token && input && input.value.trim()){
+    token = input.value.trim();
+  }
+  if(msg){
+    msg.style.display = "block";
+    msg.style.color = "#38bdf8";
+    msg.innerHTML = "⏳ Auditando conexión, estado de webhook y comandos de Telegram...";
+  }
+  try {
+    const b = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
+    const resp = await fetch(b + "/api/v8/telegram/repair", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: token })
+    });
+    const data = await resp.json();
+    if(data.ok){
+      if(data.bot_username) localStorage.setItem("akira_telegram_bot_username", data.bot_username);
+      if(data.bot_link) localStorage.setItem("akira_telegram_bot_link", data.bot_link);
+      akiraRefreshTelegramUI();
+      if(msg){
+        msg.style.display = "block";
+        msg.style.color = "#34d399";
+        let linkBtn = data.bot_link ? `<br><a href="${data.bot_link}" target="_blank" style="display:inline-block;margin-top:8px;padding:6px 14px;background:#0284c7;color:#fff;border-radius:6px;text-decoration:none;font-weight:600">👉 Abrir ${data.bot_username || 'Bot'} en Telegram</a>` : '';
+        let lastErr = data.last_error_message ? `<br><span style="color:#fbbf24">⚠️ Último reporte de Telegram: ${data.last_error_message}</span>` : '';
+        msg.innerHTML = `✅ <strong>Diagnóstico OK:</strong> Bot: ${data.bot_username} | Webhook: ${data.webhook_registered ? 'Activo' : 'En cola'} | Comandos: ${data.commands_count || 13} registrados | Mensajes pendientes en Telegram: ${data.pending_update_count || 0}.${lastErr}${linkBtn}`;
+      }
+    } else {
+      if(msg){
+        msg.style.display = "block";
+        msg.style.color = "#f87171";
+        msg.innerHTML = `❌ Diagnóstico: ${data.error || "No se pudo auditar el bot."}`;
+      }
+    }
+  } catch(err){
+    if(msg){
+      msg.style.display = "block";
+      msg.style.color = "#f87171";
+      msg.innerHTML = "❌ Error en diagnóstico: " + err.message;
     }
   }
 }
