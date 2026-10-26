@@ -10,9 +10,9 @@
   const COP_EXCHANGE_RATE = 4100; // Estimated COP per USD
 
   function computeProductivityMetrics(){
-    // Count historical actions, deals, and neurons
-    let dealsCount = 3;
-    let pipelineUSD = 2500;
+    // Count real historical actions, deals, and neurons (Default: 0 for real transparency)
+    let dealsCount = 0;
+    let pipelineUSD = 0;
     try {
       const deals = JSON.parse(localStorage.getItem("akira_crm_deals") || "[]");
       if(deals.length > 0){
@@ -21,21 +21,23 @@
       }
     } catch(e){}
 
-    let memoriesCount = 12;
+    let memoriesCount = 0;
     try {
       const mems = JSON.parse(localStorage.getItem("akira_learning_candidates") || "[]");
       if(mems.length > 0) memoriesCount = mems.length;
     } catch(e){}
 
-    let cronRuns = 8;
+    let cronRuns = 0;
     try {
       const hist = JSON.parse(localStorage.getItem("akira_cron_history") || "[]");
       if(hist.length > 0) cronRuns = hist.length;
     } catch(e){}
 
-    // Estimated hours saved:
-    // ~4 hrs per project/deal + ~1.5 hrs per verified memory + ~0.5 hr per cron run + base baseline
-    const hoursSaved = Math.round(48 + (dealsCount * 5) + (memoriesCount * 1.5) + (cronRuns * 0.5));
+    // Real hours saved calculation without fake baseline numbers
+    const hasActivity = (dealsCount > 0 || memoriesCount > 0 || cronRuns > 0);
+    const hoursSaved = hasActivity
+      ? Math.round((dealsCount * 4) + (memoriesCount * 0.5) + (cronRuns * 0.2))
+      : 0;
     const totalValueUSD = Math.round((hoursSaved * HOURLY_RATE_USD) + pipelineUSD);
     const totalValueCOP = Math.round(totalValueUSD * COP_EXCHANGE_RATE);
 
@@ -51,17 +53,29 @@
   }
 
   /**
-   * Generate 30-day simulated activity heatmap
+   * Generate 30-day activity heatmap based on real historical log timestamps
    */
   function generate30DayHeatmap(){
     const days = [];
     const today = new Date();
+    
+    // Tally real events by date
+    const dateCounts = {};
+    try {
+      const hist = JSON.parse(localStorage.getItem("akira_cron_history") || "[]");
+      hist.forEach(h => {
+        if(h.timestamp){
+          const dStr = h.timestamp.split("T")[0];
+          dateCounts[dStr] = (dateCounts[dStr] || 0) + 1;
+        }
+      });
+    } catch(e){}
+
     for(let i = 29; i >= 0; i--){
       const d = new Date(today);
       d.setDate(d.getDate() - i);
       const dayStr = d.toISOString().split("T")[0];
-      // Activity intensity (0 to 4)
-      const count = (i % 7 === 0 || i % 5 === 0) ? Math.floor(Math.random() * 8) + 4 : Math.floor(Math.random() * 5) + 1;
+      const count = dateCounts[dayStr] || 0;
       days.push({ date: dayStr, count });
     }
     return days;
@@ -113,6 +127,13 @@
 
     if(body){
       body.innerHTML = `
+        <div style="background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.25);border-radius:6px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">
+          <span style="font-size:20px;">🧪</span>
+          <div style="font-size:11.5px;color:#94a3b8;line-height:1.4;">
+            <strong style="color:#00f0ff;">Transparencia y Fase de Pruebas:</strong> Akira se encuentra en fase de desarrollo y verificación técnica. Actualmente <strong>no hay contratos comerciales reales ni servicios de alquileres</strong>. Las métricas reflejan exclusivamente el trabajo verificado ($0.00 COP / $0.00 USD).
+          </div>
+        </div>
+
         <div class="ak-roi-kpi-grid">
           <div class="roi-kpi-card highlight-cyan">
             <small>Horas de Desarrollo Ahorradas</small>

@@ -6,11 +6,11 @@
 (function(){
   "use strict";
 
-  const DEFAULT_DEALS = [
+  const DEMO_DEALS = [
     {
-      id: "deal_upwork_101",
-      title: "Desarrollo SaaS FastAPI & Next.js",
-      client: "Horizon Media LLC (Upwork)",
+      id: "demo_deal_101",
+      title: "[DEMO] Desarrollo SaaS FastAPI & Next.js",
+      client: "Horizon Media LLC (Cliente Ejemplo)",
       stage: "development",
       amountUSD: 850,
       commander: "Nexo (Orquestador Central)",
@@ -23,9 +23,9 @@
       ]
     },
     {
-      id: "deal_upwork_102",
-      title: "Automatización de Web Scraping & Extracción",
-      client: "Apex Data Group",
+      id: "demo_deal_102",
+      title: "[DEMO] Automatización de Web Scraping & Extracción",
+      client: "Apex Data Group (Cliente Ejemplo)",
       stage: "proposal",
       amountUSD: 450,
       commander: "Cipher (Cripto & Seguridad)",
@@ -37,9 +37,9 @@
       ]
     },
     {
-      id: "deal_upwork_103",
-      title: "Chatbot RAG Personalizado con Vector Search",
-      client: "Vanguardia Legal",
+      id: "demo_deal_103",
+      title: "[DEMO] Chatbot RAG Personalizado con Vector Search",
+      client: "Vanguardia Legal (Cliente Ejemplo)",
       stage: "paid",
       amountUSD: 1200,
       commander: "Athena (Estrategia & Lógica)",
@@ -53,6 +53,9 @@
     }
   ];
 
+  // REAL INITIAL STATE: $0.00 (Zero real contracts or rentals assumed)
+  const DEFAULT_DEALS = [];
+
   const STAGES = [
     { id: "lead", name: "🎯 Prospectos" },
     { id: "proposal", name: "📨 Propuesta Enviada" },
@@ -64,8 +67,15 @@
 
   function loadDeals(){
     try {
+      // Force clean initialization for transparency (no fake client money)
+      const v2Clean = localStorage.getItem("akira_crm_v2_clean");
+      if(!v2Clean){
+        localStorage.setItem("akira_crm_v2_clean", "true");
+        localStorage.setItem("akira_crm_deals", "[]");
+        return [];
+      }
       const saved = localStorage.getItem("akira_crm_deals");
-      if(saved) return JSON.parse(saved);
+      if(saved !== null) return JSON.parse(saved);
     } catch(e){}
     return DEFAULT_DEALS;
   }
@@ -77,6 +87,19 @@
   }
 
   let currentDeals = loadDeals();
+
+  window.akiraClearCrmDeals = function(){
+    if(!confirm("¿Vaciar el CRM a $0.00 USD (Estado inicial limpio de pruebas)?")) return;
+    currentDeals = [];
+    saveDeals(currentDeals);
+    window.akiraRenderCrmModal();
+  };
+
+  window.akiraLoadDemoCrmDeals = function(){
+    currentDeals = JSON.parse(JSON.stringify(DEMO_DEALS));
+    saveDeals(currentDeals);
+    window.akiraRenderCrmModal();
+  };
 
   window.akiraAddCrmDeal = function(deal){
     const newDeal = {
@@ -381,9 +404,15 @@
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;">
+            <button type="button" class="ak-crm-add-btn" onclick="window.akiraLoadDemoCrmDeals()" style="background:#1e293b;border:1px solid #475569;color:#94a3b8;font-size:11px;padding:5px 10px;border-radius:4px;cursor:pointer;">🔄 Ejemplos Demo</button>
+            <button type="button" class="ak-crm-add-btn" onclick="window.akiraClearCrmDeals()" style="background:#1e293b;border:1px solid #ef4444;color:#ef4444;font-size:11px;padding:5px 10px;border-radius:4px;cursor:pointer;">🧹 Vaciar a $0</button>
             <button type="button" class="ak-crm-add-btn" onclick="promptNewDeal()">+ Nuevo Trato</button>
             <button type="button" class="ak-crm-close-btn" onclick="window.akiraCloseCrmModal()">✕</button>
           </div>
+        </div>
+        <div style="background:rgba(56,189,248,0.06);border-bottom:1px solid rgba(56,189,248,0.2);padding:8px 16px;display:flex;align-items:center;gap:10px;font-size:11.5px;color:#94a3b8;">
+          <span style="font-size:16px;">🧪</span>
+          <span><strong>Modo Pruebas / Sandbox:</strong> Akira opera en fase de desarrollo y verificación técnica. No hay clientes reales ni alquileres en curso. Estado inicial: <strong>$0.00 USD / $0.00 COP</strong>.</span>
         </div>
         <div class="ak-crm-stats-bar" id="akCrmStatsBar"></div>
         <div class="ak-crm-kanban-board" id="akCrmBoard"></div>

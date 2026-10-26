@@ -16,33 +16,46 @@
     }
 
     initDefaultData(){
-      // Sample spreadsheet for Upwork automation demo
-      this.setCell("A1", "Cliente");
-      this.setCell("B1", "Proyecto");
-      this.setCell("C1", "Horas");
-      this.setCell("D1", "Tarifa USD");
-      this.setCell("E1", "Total USD");
+      // Clean template: Starts clean with no fictional clients or fake financial data
+      this.data = {};
+      this.setCell("A1", "Ítem");
+      this.setCell("B1", "Descripción");
+      this.setCell("C1", "Cantidad");
+      this.setCell("D1", "Valor");
+      this.setCell("E1", "Total");
+    }
 
-      this.setCell("A2", "Horizon Media");
-      this.setCell("B2", "SaaS Backend");
-      this.setCell("C2", "15");
-      this.setCell("D2", "55");
+    clearAll(){
+      this.data = {};
+      this.setCell("A1", "Ítem");
+      this.setCell("B1", "Descripción");
+      this.setCell("C1", "Cantidad");
+      this.setCell("D1", "Valor");
+      this.setCell("E1", "Total");
+    }
+
+    loadDemoData(){
+      this.data = {};
+      this.setCell("A1", "Módulo (Prueba)");
+      this.setCell("B1", "Descripción Técnica");
+      this.setCell("C1", "Pruebas");
+      this.setCell("D1", "Tiempo (min)");
+      this.setCell("E1", "Total (min)");
+
+      this.setCell("A2", "Pyodide WASM");
+      this.setCell("B2", "Evaluación de scripts");
+      this.setCell("C2", "5");
+      this.setCell("D2", "10");
       this.setCell("E2", "=C2*D2");
 
-      this.setCell("A3", "Apex Data");
-      this.setCell("B3", "Web Scraping");
-      this.setCell("C3", "8");
-      this.setCell("D3", "50");
+      this.setCell("A3", "Vector Search");
+      this.setCell("B3", "Indexación BM25");
+      this.setCell("C3", "3");
+      this.setCell("D3", "15");
       this.setCell("E3", "=C3*D3");
 
-      this.setCell("A4", "Vanguardia Legal");
-      this.setCell("B4", "RAG Chatbot");
-      this.setCell("C4", "20");
-      this.setCell("D4", "60");
-      this.setCell("E4", "=C4*D4");
-
-      this.setCell("A5", "TOTAL GRUPAL");
-      this.setCell("E5", "=SUM(E2:E4)");
+      this.setCell("A4", "TOTAL PRUEBAS");
+      this.setCell("E4", "=SUM(E2:E3)");
     }
 
     setCell(cellRef, val){
@@ -210,11 +223,17 @@
             </div>
           </div>
           <div class="ak-sheet-header-actions">
+            <button type="button" class="ak-sheet-btn" onclick="window.akiraLoadDemoSpreadsheet()" style="border-color:#475569;color:#94a3b8;">🔄 Demo</button>
+            <button type="button" class="ak-sheet-btn" onclick="window.akiraClearSpreadsheet()" style="border-color:#ef4444;color:#ef4444;">🧹 Limpiar</button>
             <button type="button" class="ak-sheet-btn" onclick="window.akiraImportCSVPrompt()">📂 Importar CSV</button>
             <button type="button" class="ak-sheet-btn" onclick="window.akiraExportCSVDownload()">📥 Exportar CSV</button>
             <button type="button" class="ak-sheet-btn" onclick="window.akiraCleanSheetDuplicates()">🧹 Desduplicar</button>
             <button type="button" class="ak-sheet-close-btn" onclick="window.akiraCloseSpreadsheetModal()">✕</button>
           </div>
+        </div>
+        <div style="background:rgba(56,189,248,0.06);border-bottom:1px solid rgba(56,189,248,0.2);padding:6px 16px;display:flex;align-items:center;gap:10px;font-size:11.5px;color:#94a3b8;">
+          <span style="font-size:15px;">🧪</span>
+          <span><strong>Modo Pruebas / Sandbox:</strong> Hoja de cálculo limpia y lista para tus datos reales. Sin clientes comerciales ni alquileres asumidos.</span>
         </div>
         <div class="ak-sheet-formula-bar">
           <span id="akActiveCellRef" class="ak-cell-badge">A1</span>
@@ -255,6 +274,17 @@
   window.akiraCloseSpreadsheetModal = function(){
     const modal = document.getElementById("akiraSpreadsheetModal");
     if(modal) modal.style.display = "none";
+  };
+
+  window.akiraClearSpreadsheet = function(){
+    if(!confirm("¿Vaciar todas las celdas de la hoja de cálculo?")) return;
+    activeSheet.clearAll();
+    window.akiraRenderSpreadsheetGrid();
+  };
+
+  window.akiraLoadDemoSpreadsheet = function(){
+    activeSheet.loadDemoData();
+    window.akiraRenderSpreadsheetGrid();
   };
 
   window.akiraRenderSpreadsheetGrid = function(){
