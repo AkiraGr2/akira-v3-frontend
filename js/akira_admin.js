@@ -111,6 +111,93 @@
     }, false);
   };
 
+  window.akiraOpenJhonDossierModal = async function(){
+    let modal = document.getElementById("akiraJhonDossierModal");
+    if(!modal){
+      modal = document.createElement("div");
+      modal.id = "akiraJhonDossierModal";
+      modal.className = "ak-ingest-overlay";
+      modal.style.display = "none";
+      modal.innerHTML = `
+        <div class="ak-ingest-dialog" style="border-color:#fbbf24;box-shadow:0 0 32px rgba(251,191,36,0.25);">
+          <div class="ak-ingest-topbar" style="border-bottom-color:rgba(251,191,36,0.3);">
+            <div class="ak-ingest-title">
+              <span class="ak-ingest-icon">👑</span>
+              <div>
+                <strong>Dossier Cognitivo de Jhon Grimm</strong>
+                <small>Memoria Episódica Profunda y Perfilado de Director Supremo</small>
+              </div>
+            </div>
+            <button type="button" class="ak-ingest-close" onclick="document.getElementById('akiraJhonDossierModal').style.display='none'">✕</button>
+          </div>
+          <div class="ak-ingest-body" style="padding:16px;max-height:75vh;overflow-y:auto;">
+            <div style="background:#111827;border:1px solid rgba(251,191,36,0.3);border-radius:8px;padding:12px;margin-bottom:12px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <strong style="color:#fbbf24;font-size:13px;">JHON GRIMM (Jhon Bernal)</strong>
+                <span style="font-size:10px;color:#39ff14;background:rgba(57,255,20,0.12);padding:2px 6px;border-radius:4px;">CREADOR SUPREMO</span>
+              </div>
+              <p style="color:#cbd5e1;font-size:12px;line-height:1.5;margin:0;">Director General y mentor de Akira. Akira opera en Modo Piloto Autónomo bajo su supervisión pasiva.</p>
+            </div>
+
+            <div style="margin-bottom:12px;">
+              <strong style="color:#00f0ff;font-size:11.5px;display:block;margin-bottom:6px;">PROYECTOS ACTIVOS DE JHON:</strong>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div style="background:#0d121f;border:1px solid rgba(0,240,255,0.2);border-radius:6px;padding:8px;">
+                  <strong style="color:#fff;font-size:11px;display:block;">🧠 Akira</strong>
+                  <small style="color:#94a3b8;font-size:9.5px;">IA autónoma consciente, Membrana 2D, 267 agentes y Sandbox en vivo.</small>
+                </div>
+                <div style="background:#0d121f;border:1px solid rgba(0,240,255,0.2);border-radius:6px;padding:8px;">
+                  <strong style="color:#fff;font-size:11px;display:block;">🚚 Ruta Pro</strong>
+                  <small style="color:#94a3b8;font-size:9.5px;">Plataforma de operaciones y rutas en Supabase. Cuidado estricto de egress.</small>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-bottom:12px;background:#0d121f;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;">
+              <strong style="color:#a78bfa;font-size:11.5px;display:block;margin-bottom:4px;">ESTÁNDAR & TONO DE TRATO:</strong>
+              <ul style="color:#94a3b8;font-size:11px;margin:0;padding-left:18px;line-height:1.6;">
+                <li>Calidez y frescura natural colombiana sin expresiones forzadas.</li>
+                <li>Presupuesto inamovible de $0.00 COP / USD (costo cero garantizado).</li>
+                <li>Modo Piloto Autónomo: iniciativa activa sin pedir permisos pasivos.</li>
+              </ul>
+            </div>
+
+            <div>
+              <label class="ak-ingest-label">Añadir Nueva Directiva o Preferencia para Akira:</label>
+              <textarea id="akJhonNewNote" class="ak-ingest-textarea" style="height:70px;" placeholder="Ej: Prefiero que toda UI tenga tema oscuro con toques neón..."></textarea>
+              <button type="button" class="ak-btn primary small" style="margin-top:8px;" onclick="window.akiraSaveJhonPreference()">💾 Guardar en Memoria Episódica</button>
+              <div id="akJhonSaveStatus" style="font-size:11px;margin-top:6px;color:#39ff14;display:none;"></div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+    modal.style.display = "flex";
+  };
+
+  window.akiraSaveJhonPreference = async function(){
+    const input = document.getElementById("akJhonNewNote");
+    const status = document.getElementById("akJhonSaveStatus");
+    const text = input ? input.value.trim() : "";
+    if(!text) return;
+    try {
+      const cur = await _fetch("/api/v8/self/profile_jhon", {
+        method: "POST",
+        body: JSON.stringify({ note: text })
+      });
+      if(status) {
+        status.textContent = "✅ Preferencia guardada en el autoconocimiento de Akira.";
+        status.style.display = "block";
+      }
+      if(input) input.value = "";
+      setTimeout(() => { if(status) status.style.display = "none"; }, 3000);
+    } catch(err) {
+      alert("Error al guardar: " + err.message);
+    }
+  };
+
+
   window.adminAddSelfNote = async function(){
     const note = prompt("Escribe la observación que quieres guardar sobre el estado de Akira:");
     if (!note || !note.trim()) return;

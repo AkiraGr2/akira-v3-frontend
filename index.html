@@ -497,6 +497,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           <button type="button" class="ak-chip" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('🤖 Analiza las mejores oportunidades para automatizar y aplicar en Upwork hoy.')">💼 Trabajos Upwork</button>
           <button type="button" class="ak-chip" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('🧠 Muestra un resumen de tu autoconocimiento y memoria verificada.')">🧠 Auditar Memoria</button>
           <button type="button" class="ak-chip" onclick="window.akiraOpenKnowledgeIngestModal && window.akiraOpenKnowledgeIngestModal()">📚 Ingestar Conocimiento</button>
+          <button type="button" class="ak-chip" onclick="window.akiraOpenJhonDossierModal && window.akiraOpenJhonDossierModal()">👑 Dossier Jhon</button>
           <button type="button" class="ak-chip" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('🎯 Planifica una nueva misión táctica con tus agentes especialistas.')">🎯 Crear Misión</button>
           <button type="button" class="ak-chip" onclick="window.AkiraHive && window.AkiraHive.openCatalogModal()" style="border-color:rgba(168,85,247,0.3);color:#c084fc;">🌐 Invocar Agente (267)</button>
           <button type="button" class="ak-chip" onclick="generateImageAkira()">🎨 Crear Imagen</button>
@@ -1126,6 +1127,10 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
             <button class="admin-v2-action" onclick="adminAddSelfNote()">
               <strong>📝 Añadir una nota al autoconocimiento</strong>
               <small>Escribe una observación en lenguaje normal. Akira la guarda como una nota.</small>
+            </button>
+            <button class="admin-v2-action" onclick="window.akiraOpenJhonDossierModal && window.akiraOpenJhonDossierModal()">
+              <strong>👑 Dossier Cognitivo de Jhon Grimm</strong>
+              <small>Ver lo que sabe Akira sobre ti, tus proyectos (Akira y Ruta Pro) y tus preferencias.</small>
             </button>
             <button class="admin-v2-action" onclick="smReset()">
               <strong>🧹 Limpiar esta pantalla</strong>
