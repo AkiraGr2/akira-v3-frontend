@@ -11,6 +11,21 @@
 
   const TEMPLATES = [
     {
+      title: "🐝 Enjambre Full-Stack SaaS",
+      goal: "[ENJAMBRE EN CADENA] Construir una aplicación web completa: 1. Comandante Nexo define requerimientos, 2. Arquitecto diseña esquema y API, 3. Desarrollador escribe código, 4. Auditor QA valida seguridad y ejecución.",
+      priority: "critical"
+    },
+    {
+      title: "💼 Enjambre Bidding Upwork",
+      goal: "[ENJAMBRE EN CADENA] Diseñar propuesta de alto cierre para Upwork: 1. Nexo evalúa viabilidad y precio, 2. Copywriter redacta propuesta persuasiva, 3. Especialista técnico prepara muestra de código, 4. Auditor valida entrega.",
+      priority: "high"
+    },
+    {
+      title: "🔬 Enjambre Investigación Neuronal",
+      goal: "[ENJAMBRE EN CADENA] Investigar y estructurar conocimiento: 1. Investigador rastrea fuentes, 2. Analista extrae conceptos clave, 3. Tejedora enlaza nodos en la Membrana.",
+      priority: "normal"
+    },
+    {
       title: "🧠 Auditoría del Cerebro",
       goal: "Auditar los nodos y relaciones del Cerebro, verificando la consistencia semántica y el estado de la memoria persistente.",
       priority: "normal"
@@ -363,8 +378,42 @@
       const steps = (m.plan && m.plan.steps) || m.steps || [];
       let stepsHtml = "";
 
+      const isSwarm = (m.objective || "").includes("[ENJAMBRE EN CADENA]") || (m.title || "").includes("Enjambre") || steps.length >= 3;
+      const swarmHandoffHtml = isSwarm ? `
+        <div class="ak-swarm-chain-wrap" style="margin:14px 0;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.3);border-radius:8px;padding:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <strong style="color:#a78bfa;font-size:11.5px;letter-spacing:0.5px;display:flex;align-items:center;gap:6px;">
+              <span>🐝</span> CADENA DE ENJAMBRE MULTI-AGENTE (SWARM PIPELINE)
+            </strong>
+            <span style="font-size:10px;color:#00f2fe;background:rgba(0,242,254,0.1);padding:2px 6px;border-radius:4px;">Handoff Activo</span>
+          </div>
+          <div class="ak-swarm-nodes-row" style="display:flex;align-items:center;gap:8px;overflow-x:auto;padding-bottom:6px;">
+            <div class="ak-swarm-node" style="background:#111827;border:1px solid #10b981;border-radius:6px;padding:6px 10px;text-align:center;min-width:110px;">
+              <small style="color:#10b981;font-size:9px;font-weight:700;display:block;">1. ESTRATEGIA</small>
+              <strong style="color:#fff;font-size:11px;">Comandante Nexo</strong>
+            </div>
+            <span style="color:#a78bfa;font-weight:bold;">➔</span>
+            <div class="ak-swarm-node" style="background:#111827;border:1px solid #8b5cf6;border-radius:6px;padding:6px 10px;text-align:center;min-width:110px;">
+              <small style="color:#8b5cf6;font-size:9px;font-weight:700;display:block;">2. ARQUITECTURA</small>
+              <strong style="color:#fff;font-size:11px;">Arquitecto Colmena</strong>
+            </div>
+            <span style="color:#a78bfa;font-weight:bold;">➔</span>
+            <div class="ak-swarm-node" style="background:#111827;border:1px solid #00f2fe;border-radius:6px;padding:6px 10px;text-align:center;min-width:110px;">
+              <small style="color:#00f2fe;font-size:9px;font-weight:700;display:block;">3. DESARROLLO</small>
+              <strong style="color:#fff;font-size:11px;">Dev Specialist</strong>
+            </div>
+            <span style="color:#a78bfa;font-weight:bold;">➔</span>
+            <div class="ak-swarm-node" style="background:#111827;border:1px solid #f59e0b;border-radius:6px;padding:6px 10px;text-align:center;min-width:110px;">
+              <small style="color:#f59e0b;font-size:9px;font-weight:700;display:block;">4. QA & AUDITORÍA</small>
+              <strong style="color:#fff;font-size:11px;">Auditor Seguridad</strong>
+            </div>
+          </div>
+        </div>
+      ` : "";
+
       if (Array.isArray(steps) && steps.length) {
         stepsHtml = `
+          ${swarmHandoffHtml}
           <h5 style="margin:16px 0 10px;color:#fff;">Pasos Tácticos Asignados (${steps.length}):</h5>
           <div class="ak-steps-timeline">
             ${steps.map((s, i) => `
