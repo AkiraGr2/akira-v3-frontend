@@ -49,6 +49,7 @@
           <div class="ak-ingest-tabs">
             <button type="button" class="ak-ingest-tab active" id="akIngestTabFile" onclick="window.akiraSwitchIngestTab('file')">📁 Subir Archivo (PDF, MD, TXT)</button>
             <button type="button" class="ak-ingest-tab" id="akIngestTabDirect" onclick="window.akiraSwitchIngestTab('text')">📝 Pegar Texto o Apuntes</button>
+            <button type="button" class="ak-ingest-tab" id="akIngestTabRadar" onclick="window.akiraSwitchIngestTab('radar')">📡 Radar Feeds (RSS / Tech)</button>
           </div>
 
           <!-- Tab 1: File Upload -->
@@ -72,6 +73,31 @@
             
             <label class="ak-ingest-label" style="margin-top:10px">Contenido a Ingestar:</label>
             <textarea id="akIngestDocContent" class="ak-ingest-textarea" placeholder="Pega aquí el contenido, lecciones, resumen o apuntes que deseas que Akira aprenda..."></textarea>
+          </div>
+
+          <!-- Tab 3: Autonomous Radar Feeds -->
+          <div class="ak-ingest-panel" id="akIngestPanelRadar" style="display:none">
+            <label class="ak-ingest-label">Selecciona una fuente pública o introduce una URL RSS:</label>
+            <div class="ak-radar-feeds-grid">
+              <button type="button" class="ak-radar-feed-btn active" data-feed="hn" onclick="window.akiraSelectRadarFeed('hn', this)">
+                <span class="ak-rf-icon">🌐</span>
+                <div class="ak-rf-info"><strong>Hacker News</strong><small>Tendencias Tech & IA</small></div>
+              </button>
+              <button type="button" class="ak-radar-feed-btn" data-feed="github" onclick="window.akiraSelectRadarFeed('github', this)">
+                <span class="ak-rf-icon">🐙</span>
+                <div class="ak-rf-info"><strong>GitHub Blog</strong><small>Ingeniería & Software</small></div>
+              </button>
+              <button type="button" class="ak-radar-feed-btn" data-feed="devto" onclick="window.akiraSelectRadarFeed('devto', this)">
+                <span class="ak-rf-icon">💻</span>
+                <div class="ak-rf-info"><strong>Dev.to</strong><small>Arquitectura & Código</small></div>
+              </button>
+              <button type="button" class="ak-radar-feed-btn" data-feed="python" onclick="window.akiraSelectRadarFeed('python', this)">
+                <span class="ak-rf-icon">🐍</span>
+                <div class="ak-rf-info"><strong>Python News</strong><small>Noticias Oficiales</small></div>
+              </button>
+            </div>
+            <label class="ak-ingest-label" style="margin-top:10px">O URL personalizada de RSS/Atom:</label>
+            <input type="url" id="akRadarCustomUrl" class="ak-ingest-input" placeholder="https://ejemplo.com/feed.xml">
           </div>
 
           <!-- Options -->
@@ -208,22 +234,39 @@
     if(modal) modal.style.display = "none";
   };
 
+  let selectedRadarFeed = "hn";
+  window.akiraSelectRadarFeed = function(feedKey, btn){
+    selectedRadarFeed = feedKey;
+    document.querySelectorAll(".ak-radar-feed-btn").forEach(b => b.classList.remove("active"));
+    if(btn) btn.classList.add("active");
+    const customInput = document.getElementById("akRadarCustomUrl");
+    if(customInput) customInput.value = "";
+  };
+
   window.akiraSwitchIngestTab = function(tab){
     const tabFile = document.getElementById("akIngestTabFile");
     const tabText = document.getElementById("akIngestTabDirect");
+    const tabRadar = document.getElementById("akIngestTabRadar");
     const panelFile = document.getElementById("akIngestPanelFile");
     const panelText = document.getElementById("akIngestPanelText");
+    const panelRadar = document.getElementById("akIngestPanelRadar");
+    const submitBtn = document.getElementById("akIngestSubmitBtn");
+
+    [tabFile, tabText, tabRadar].forEach(b => b && b.classList.remove("active"));
+    [panelFile, panelText, panelRadar].forEach(p => p && (p.style.display = "none"));
 
     if(tab === "file") {
       tabFile.classList.add("active");
-      tabText.classList.remove("active");
       panelFile.style.display = "block";
-      panelText.style.display = "none";
-    } else {
+      if(submitBtn) submitBtn.innerHTML = "<span>🚀 Ingestar Archivo</span>";
+    } else if(tab === "text") {
       tabText.classList.add("active");
-      tabFile.classList.remove("active");
       panelText.style.display = "block";
-      panelFile.style.display = "none";
+      if(submitBtn) submitBtn.innerHTML = "<span>🚀 Ingestar Texto</span>";
+    } else if(tab === "radar") {
+      tabRadar.classList.add("active");
+      panelRadar.style.display = "block";
+      if(submitBtn) submitBtn.innerHTML = "<span>📡 Asimilar Radar Feed</span>";
     }
   };
 
@@ -234,6 +277,65 @@
     const resultBox = document.getElementById("akIngestResultBox");
     const domain = document.getElementById("akIngestDomain").value;
     const autoWeave = document.getElementById("akIngestWeaveGraph").checked;
+
+    const isRadarTab = document.getElementById("akIngestTabRadar") && document.getElementById("akIngestTabRadar").classList.contains("active");
+
+    if (isRadarTab) {
+      const customUrl = (document.getElementById("akRadarCustomUrl")?.value || "").trim();
+      btn.disabled = true;
+      statusBox.style.display = "flex";
+      resultBox.style.display = "none";
+      statusMsg.textContent = "Conectando al radar y asimilando tendencias tecnológicas...";
+
+      try {
+        const resp = await fetch(BACKEND() + "/api/v8/knowledge/radar", {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            feed_key: selectedRadarFeed,
+            url: customUrl,
+            domain: domain,
+            auto_weave_graph: autoWeave
+          })
+        });
+
+        if (resp.status === 401 && window.akiraHandleAuthFailure) {
+          window.akiraHandleAuthFailure(401);
+        }
+
+        const data = await resp.json();
+        if (!resp.ok || !data.ok) {
+          statusMsg.innerHTML = `<span style="color:#ef4444">❌ Error en Radar: ${escapeHtml(data.reason || "Fallo en asimilación")}</span>`;
+          btn.disabled = false;
+          return;
+        }
+
+        statusBox.style.display = "none";
+        resultBox.style.display = "block";
+        document.getElementById("akStatChunks").textContent = data.knowledge_created || 0;
+        document.getElementById("akStatNodes").textContent = data.nodes_created || 0;
+        document.getElementById("akStatEdges").textContent = data.edges_created || 0;
+
+        const conceptsEl = document.getElementById("akResultConcepts");
+        conceptsEl.innerHTML = "";
+        (data.articles || []).forEach(art => {
+          const pill = document.createElement("span");
+          pill.className = "ak-concept-pill";
+          pill.textContent = art;
+          conceptsEl.appendChild(pill);
+        });
+
+        try { if(typeof window.refreshMembrane === "function") window.refreshMembrane(true); }catch(_){}
+        try { if(typeof window.countNeuronas === "function") window.countNeuronas(); }catch(_){}
+
+        btn.disabled = false;
+        return;
+      } catch (err) {
+        statusMsg.innerHTML = `<span style="color:#ef4444">❌ Error: ${escapeHtml(err.message)}</span>`;
+        btn.disabled = false;
+        return;
+      }
+    }
 
     let docName = "";
     let content = "";
@@ -608,6 +710,35 @@
         transition: opacity 0.15s ease;
       }
       .ak-ingest-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      .ak-radar-feeds-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-top: 6px;
+      }
+      .ak-radar-feed-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #111827;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 6px;
+        padding: 8px 10px;
+        color: #e2e8f0;
+        cursor: pointer;
+        text-align: left;
+        transition: all 0.15s ease;
+      }
+      .ak-radar-feed-btn:hover { border-color: #00f0ff; background: #1a2234; }
+      .ak-radar-feed-btn.active {
+        background: rgba(0, 240, 255, 0.15);
+        border-color: #00f0ff;
+        color: #fff;
+      }
+      .ak-rf-icon { font-size: 18px; }
+      .ak-rf-info strong { display: block; font-size: 11px; }
+      .ak-rf-info small { display: block; font-size: 9px; color: #94a3b8; }
     `;
     document.head.appendChild(st);
   })();
