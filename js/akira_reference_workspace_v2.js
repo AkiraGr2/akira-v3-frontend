@@ -145,7 +145,7 @@
       const topPill = document.getElementById("akHudStatusText");
       if(topPill) topPill.textContent = "✦ COLMENA ACTIVA · " + count(nodes) + " NODOS · MEMORIA PERSISTENTE";
       const telem = document.querySelector(".ak-sidebar-telemetry .ak-telemetry-sub");
-      if(telem) telem.textContent = count(nodes) + " Nodos · 40/40 Verificadas";
+      if(telem) telem.textContent = count(nodes) + " Nodos · 41/41 Verificadas";
       try{ window.dispatchEvent(new CustomEvent("akira:brain-stats",{detail:{nodes:nodes,edges:edges}})); }catch(_){}
     }
     const brainBar=home.querySelector("#akRefBrainBar");
@@ -254,7 +254,8 @@
     {
       title: "Control & Sistema",
       items: [
-        ["levels", "📊 Niveles", "40/40 capacidades"],
+        ["levels", "📊 Niveles", "41/41 capacidades"],
+        ["live_web", "🌐 Búsqueda Web", "Tiempo Real"],
         ["cron", "⏰ Cron Jobs", "Automatizaciones"],
         ["sheet", "📑 Hojas Excel", "Wrangler CSV"],
         ["keys", "🔑 Cuenta", "Sesión & seguridad"],
@@ -306,7 +307,7 @@
           <span class="ak-live-dot"></span>
           <span>Colmena: Activa & Persistente</span>
         </div>
-        <div class="ak-telemetry-sub">40/40 Verificadas · Render 0$</div>
+        <div class="ak-telemetry-sub">41/41 Verificadas · Render 0$</div>
       `;
       const sidebar = qs("#sidebar");
       if(sidebar) sidebar.appendChild(telem);
@@ -332,6 +333,7 @@
         <span id="akHudStatusText">✦ COLMENA ACTIVA · MEMORIA PERSISTENTE</span>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="nav-quick-btn ak-live-web-toggle-pill" onclick="window.AkiraLiveWeb && window.AkiraLiveWeb.openWebModal()" title="Búsqueda Web en Vivo ($0.00 COP)" style="background:#111827;border:1px solid rgba(16,185,129,0.5);color:#10b981;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">🌐 Web</button>
         <button class="nav-quick-btn" onclick="window.akiraOpenSearchModal && window.akiraOpenSearchModal()" title="Búsqueda Vectorial Rápida (Ctrl+K)" style="background:#111827;border:1px solid rgba(0,240,255,0.4);color:#00f0ff;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">🔍 Buscar (Ctrl+K)</button>
         <button class="nav-quick-btn" onclick="window.akiraOpenCronModal && window.akiraOpenCronModal()" title="Tareas Autónomas Programadas" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">⏰ Cron</button>
         <button class="nav-quick-btn" onclick="window.akiraOpenCrmModal && window.akiraOpenCrmModal()" title="Pipeline CRM Freelance" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">💼 CRM</button>
@@ -379,7 +381,7 @@
         const topPill = document.getElementById("akHudStatusText");
         if(topPill) topPill.textContent = "✦ COLMENA ACTIVA · " + count(n) + " NODOS · MEMORIA PERSISTENTE";
         const telem = document.querySelector(".ak-sidebar-telemetry .ak-telemetry-sub");
-        if(telem) telem.textContent = count(n) + " Nodos · 40/40 Verificadas";
+        if(telem) telem.textContent = count(n) + " Nodos · 41/41 Verificadas";
       }
     }catch(_){}
   });

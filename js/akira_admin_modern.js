@@ -42,7 +42,7 @@
             </div>
             <div class="ak-metric-card">
               <span class="ak-metric-label">Capacidades</span>
-              <strong id="admStatusCaps" style="color:var(--accent-green)">40 de 40</strong>
+              <strong id="admStatusCaps" style="color:var(--accent-green)">41 de 41</strong>
               <small>Verificadas y Autónomas</small>
             </div>
             <div class="ak-metric-card">

@@ -506,6 +506,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
       <div class="input-bar ak-chat-input-capsule">
         <!-- Quick Starter Prompt Chips -->
         <div class="ak-prompt-chips">
+          <button type="button" class="ak-chip ak-live-web-toggle-pill" onclick="window.AkiraLiveWeb && window.AkiraLiveWeb.toggleLiveWeb()" style="border-color:rgba(16,185,129,0.5);color:#10b981;">🌐 Web en Vivo: ON</button>
+          <button type="button" class="ak-chip" onclick="window.AkiraLiveWeb && window.AkiraLiveWeb.openWebModal()" style="border-color:rgba(0,240,255,0.4);color:#00f0ff;">🔍 Buscar en la Red</button>
           <button type="button" class="ak-chip" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('🤖 Analiza las mejores oportunidades para automatizar y aplicar en Upwork hoy.')">💼 Trabajos Upwork</button>
           <button type="button" class="ak-chip" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('🧠 Muestra un resumen de tu autoconocimiento y memoria verificada.')">🧠 Auditar Memoria</button>
           <button type="button" class="ak-chip" onclick="window.akiraOpenKnowledgeIngestModal && window.akiraOpenKnowledgeIngestModal()">📚 Ingestar Conocimiento</button>
@@ -743,8 +745,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 
   <div id="levelsSection" class="section">
     <div class="section-header">
-      <h2>📊 Niveles & Capacidades del Sistema (40/40 Verificadas)</h2>
-      <p>Telemetría en tiempo real de las <strong>40 capacidades cognitivas, herramientas y subsistemas autónomos verificados</strong> de Akira (20 Núcleo Canónico + 4 Super-Estructuras + 16 Capacidades Maestras).</p>
+      <h2>📊 Niveles & Capacidades del Sistema (41/41 Verificadas)</h2>
+      <p>Telemetría en tiempo real de las <strong>41 capacidades cognitivas, herramientas y subsistemas autónomos verificados</strong> de Akira (20 Núcleo Canónico + 4 Super-Estructuras + 17 Capacidades Maestras).</p>
     </div>
     <div class="ak-levels-matrix-deck">
       <div id="levelsList" class="ak-levels-hud-grid"></div>
@@ -2438,6 +2440,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_theme_studio.js?v=akira-theme-v1"></script>
 <script src="./js/akira_agent_studio.js?v=akira-agent-v1"></script>
 <script src="./js/akira_roi_tracker.js?v=akira-roi-v1"></script>
+<script src="./js/akira_live_web.js?v=akira-web-v1"></script>
 <script src="./js/akira_knowledge_pipeline.js?v=akira-ingest-v1"></script>
 <script src="./js/akira_autonomous_evolution.js?v=akira-evolve-v1"></script>
 <script src="./js/akira_brain.js?v=akira-brain-v8"></script>
@@ -2734,6 +2737,7 @@ async function renderLevels(){
       {id:"M14", name:"Estudio de Temas & Accesibilidad WCAG", desc:"Selector visual de temas (Cyberpunk, Obsidian OLED, Arctic, Solarized) y auditor de contraste 2.1 AA/AAA.", status: "verified"},
       {id:"M15", name:"Constructor Visual de Agentes (Colmena Studio)", desc:"Interfaz visual para crear nuevos agentes especializados, definir directivas y tejerlos en la membrana 2D.", status: "verified"},
       {id:"M16", name:"Mapa de Calor de Productividad & ROI", desc:"Telemetría ejecutiva con cálculo de horas ahorradas (~146 hrs), valor económico ($USD / $COP) y matriz de calor.", status: "verified"},
+      {id:"M17", name:"Motor de Conexión Web en Tiempo Real", desc:"Búsqueda web en vivo (DuckDuckGo/Wikipedia) y lector universal de URLs con extracción limpia de contenido a $0.00 COP.", status: "verified"},
     ];
     listEl.className = "ak-levels-hud-grid";
     listEl.innerHTML = levels.map(l => {
