@@ -205,6 +205,12 @@
             <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenSecurityModal && window.akiraOpenSecurityModal(currentSandboxCode)" title="Auditar seguridad de este artefacto">
               🛡️ Seguridad
             </button>
+            <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenUxModal && window.akiraOpenUxModal()" title="Auditar calidad UX, accesibilidad y responsive">
+              🌐 Pruebas UX
+            </button>
+            <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenSpreadsheetModal && window.akiraOpenSpreadsheetModal()" title="Abrir motor de hojas de cálculo y CSV">
+              📑 Hojas Excel
+            </button>
             <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenPythonREPL && window.akiraOpenPythonREPL()" title="Abrir Consola Python REPL WebAssembly">
               🐍 Python REPL
             </button>
