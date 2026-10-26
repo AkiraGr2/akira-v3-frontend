@@ -549,6 +549,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
     </div>
     <div class="brain-shell">
       <div class="brain-toolbar ak-brain-cyber-toolbar">
+        <button id="brainMode2d" class="brain-mode active" type="button" onclick="window.akiraBrainSetMode && akiraBrainSetMode('2d')" style="display:none;" aria-hidden="true">2D</button>
         <div class="ak-brain-controls-left">
           <button id="brainFullscreenBtn" class="ak-brain-pill-btn active" type="button" onclick="akiraToggleBrainFullscreen()" title="Pantalla Completa">
             <span id="brainFsIcon">⛶</span> <span id="brainFsText">Pantalla Completa</span>
@@ -1040,7 +1041,318 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
   </div>
 
     <div id="adminSection" class="section">
-    <!-- Mounted dynamically by AkiraAdminModern -->
+    <div class="section-header">
+      <h2>👑 Control de Akira</h2>
+      <p>Este espacio es para administrar y comprobar a Akira. No necesitas saber programación: cada botón explica para qué sirve.</p>
+    </div>
+
+    <div class="admin-v2-wrap">
+      <div id="adminLogin" class="admin-v2-login">
+        <p style="font:12px/1.5 var(--font-sans);color:var(--muted)">Primero verifica que tu sesión de propietario está activa. Esto protege las funciones de administración.</p>
+        <button class="admin-v2-action" onclick="adminCheckSession()" style="margin-top:12px;width:100%;min-height:64px">
+          <strong>🔐 Comprobar que soy el propietario</strong>
+          <small>Confirma con el servidor que tu sesión tiene permisos de administración.</small>
+        </button>
+        <div id="adminLoginStatus" style="font:12px var(--font-sans);color:var(--warning);margin-top:10px"></div>
+      </div>
+
+      <div id="adminPanel" style="display:none">
+        <div class="admin-v2-header">
+          <div class="admin-v2-title">
+            <h3>Centro de control de Akira</h3>
+            <p>Aquí puedes conocer cómo está Akira, comprobar que sus funciones siguen funcionando, revisar a sus agentes y cuidar sus datos.</p>
+          </div>
+          <button class="admin-v2-close" onclick="adminLogout()">Cerrar</button>
+        </div>
+
+        <div class="admin-v2-summary">
+          <div class="admin-v2-summary-card"><span>🧠 Elementos del Cerebro</span><b id="neuronCount">—</b></div>
+          <div class="admin-v2-summary-card"><span>💾 Datos locales</span><b id="localCount">—</b></div>
+          <div class="admin-v2-summary-card"><span>☁️ Datos compartidos</span><b id="sharedCount">—</b></div>
+          <div class="admin-v2-summary-card"><span>📚 Conocimiento</span><b id="knowledgeCount">—</b></div>
+        </div>
+
+
+        <div class="learning-review" id="learningReviewPanel">
+          <div class="learning-review-head">
+            <div>
+              <span class="learning-review-title">🧠 CONOCIMIENTO EN REVISIÓN</span>
+              <span id="learningReviewCount" class="learning-review-count">0 candidatos</span>
+            </div>
+            <div class="learning-review-head-actions">
+              <button type="button" class="learning-review-refresh" onclick="window.akiraLearningReview && akiraLearningReview.load()">↻ ACTUALIZAR</button>
+              <button type="button" class="learning-review-refresh" onclick="window.akiraLearningRunSelfTest && akiraLearningRunSelfTest()">🧬 SELFTEST E2E</button>
+              <button type="button" class="learning-review-refresh" onclick="window.akiraLearningRunSemanticSelfTest && akiraLearningRunSemanticSelfTest()">🧠 SEMÁNTICO</button>
+            </div>
+          </div>
+          <div class="learning-review-note">Las enseñanzas explícitas llegan como candidatas. Verificar las convierte en conocimiento confiable; consolidar permite que Akira las use como conocimiento normal.</div>
+          <div id="learningReviewList"></div>
+        </div>
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🟢 ¿Cómo está Akira ahora?</h4>
+            <p>Consulta el estado real del servidor, tu sesión, el autoconocimiento, los agentes y el almacenamiento. El resultado aparece abajo.</p>
+          </div>
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action" onclick="adminDashboard()">
+              <strong>🔄 Actualizar estado de Akira</strong>
+              <small>Vuelve a comprobar cómo están sus principales sistemas.</small>
+            </button>
+            <button class="admin-v2-action" onclick="showSection('office')">
+              <strong>🏢 Ver la Oficina de Akira</strong>
+              <small>Abre el espacio donde puedes ver a los agentes trabajando y sus estados.</small>
+            </button>
+          </div>
+          <pre id="adminMembrana" class="admin-v2-output">Todavía no se ha consultado el estado.</pre>
+        </div>
+
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🪞 Conocer a Akira</h4>
+            <p>Estas opciones te permiten ver qué sabe Akira sobre sí misma y añadir una nota sencilla a su autoconocimiento.</p>
+          </div>
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action" onclick="smGet()">
+              <strong>👁️ Ver qué sabe Akira sobre sí misma</strong>
+              <small>Muestra su identidad, estado, capacidades verificadas e incertidumbres.</small>
+            </button>
+            <button class="admin-v2-action" onclick="adminAddSelfNote()">
+              <strong>📝 Añadir una nota al autoconocimiento</strong>
+              <small>Escribe una observación en lenguaje normal. Akira la guarda como una nota.</small>
+            </button>
+            <button class="admin-v2-action" onclick="smReset()">
+              <strong>🧹 Limpiar esta pantalla</strong>
+              <small>Solo borra el resultado mostrado aquí; no borra el autoconocimiento.</small>
+            </button>
+          </div>
+          <pre id="smOutput" class="admin-v2-output">Todavía no se ha consultado el autoconocimiento.</pre>
+        </div>
+
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🧠 Probar cómo piensa Akira</h4>
+            <p>Estas pruebas sirven para comprobar que el ciclo cognitivo sigue funcionando. Son pruebas controladas; no cambian la arquitectura de Akira.</p>
+          </div>
+          <input id="f7Message" class="admin-v2-input" placeholder="Escribe algo para que Akira procese una prueba, por ejemplo: Analiza el estado de mi sistema.">
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action" onclick="f7Run()">
+              <strong>▶️ Probar un ciclo de pensamiento</strong>
+              <small>Envía el texto de arriba a las etapas cognitivas persistentes.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f7ReadLast()">
+              <strong>👁️ Ver el último ciclo</strong>
+              <small>Muestra qué ocurrió en la última ejecución.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f7ListCycles()">
+              <strong>📚 Ver ciclos anteriores</strong>
+              <small>Consulta las últimas ejecuciones registradas.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f7Reset()">
+              <strong>🧹 Limpiar esta pantalla</strong>
+              <small>No elimina los ciclos guardados; solo limpia el resultado visible.</small>
+            </button>
+          </div>
+          <pre id="f7Output" class="admin-v2-output">Todavía no se ha ejecutado una prueba.</pre>
+        </div>
+
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🧰 Herramientas que puede usar Akira</h4>
+            <p>Revisa las herramientas disponibles y prueba dos funciones concretas. Las pruebas dejan registro de la actividad.</p>
+          </div>
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action" onclick="f8AuditAllTools()">
+              <strong>🔬 Auditar todas las herramientas registradas</strong>
+              <small>Ejecuta una comprobación E2E de cada herramienta: permisos, entradas, ejecución, persistencia e idempotencia.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f8ListTools()">
+              <strong>📋 Ver las herramientas disponibles</strong>
+              <small>Te muestra qué herramientas tiene registradas Akira.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f8TestWebSearch()">
+              <strong>🔎 Probar que Akira puede buscar en Internet</strong>
+              <small>Hace una búsqueda de prueba y muestra el resultado.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f8TestSelfModel()">
+              <strong>🪞 Comprobar que Akira puede consultar su autoconocimiento</strong>
+              <small>Prueba que una herramienta pueda leer el estado de Akira.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f8ViewInvocations()">
+              <strong>📜 Ver las herramientas que se han usado</strong>
+              <small>Muestra actividad reciente registrada por el sistema.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f8Reset()">
+              <strong>🧹 Limpiar esta pantalla</strong>
+              <small>No borra el historial; solo limpia el resultado visible.</small>
+            </button>
+          </div>
+          <pre id="adminTools" class="admin-v2-output">Las herramientas disponibles aparecerán aquí.</pre>
+          <pre id="f8Output" class="admin-v2-output">Todavía no se ha hecho una comprobación.</pre>
+        </div>
+
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🤖 Agentes de Akira</h4>
+            <p>Desde aquí puedes comprobar quiénes están registrados, pedir una acción controlada a algunos agentes y revisar las tareas que han realizado.</p>
+          </div>
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action" onclick="f9ListAgents()">
+              <strong>👥 Ver todos los agentes y su estado</strong>
+              <small>Lista los agentes registrados, su función y su estado actual.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f9RunResearcher()">
+              <strong>🔎 Pedirle al agente investigador que busque algo</strong>
+              <small>Escribe una consulta y Researcher hará una búsqueda controlada.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f9RunMemorizer()">
+              <strong>💾 Pedirle a Memorizador que guarde algo</strong>
+              <small>Escribe un dato y se enviará al agente encargado de memoria.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f9RunInternal()">
+              <strong>🧠 Pedirle al agente interno que revise a Akira</strong>
+              <small>Comprueba que el agente interno pueda leer el autoconocimiento.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f9ListTasks()">
+              <strong>📜 Ver las tareas que han realizado los agentes</strong>
+              <small>Muestra la actividad reciente de los agentes.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f9AuditAllAgents()">
+              <strong>🔬 Auditar todos los agentes registrados</strong>
+              <small>Comprueba que cada agente exista, use solo sus capacidades permitidas, ejecute una tarea real, persista la evidencia y vuelva a quedar libre.</small>
+            </button>
+          </div>
+          <pre id="f9Output" class="admin-v2-output">Todavía no se ha consultado la actividad de los agentes.</pre>
+        </div>
+
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🕸️ Cerebro, conexiones y aprendizaje</h4>
+            <p>Estas acciones permiten comprobar el Cerebro de Akira y mantener limpias sus conexiones de prueba.</p>
+          </div>
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action" onclick="f6TestFull()">
+              <strong>🧪 Comprobar que el Cerebro y el aprendizaje funcionan juntos</strong>
+              <small>Crea datos de prueba controlados y comprueba que pueden relacionarse.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f6ReadAll()">
+              <strong>👁️ Ver el estado del Cerebro</strong>
+              <small>Consulta cantidades y tipos de nodos y conexiones.</small>
+            </button>
+            <button class="admin-v2-action" onclick="graphReinforce()">
+              <strong>🔗 Mejorar conexiones existentes</strong>
+              <small>Ejecuta el proceso que refuerza relaciones detectadas por Akira.</small>
+            </button>
+            <button class="admin-v2-action danger" onclick="graphCleanupTests()">
+              <strong>🧹 Limpiar datos de prueba del Cerebro</strong>
+              <small>Archiva únicamente los elementos creados con el identificador de prueba.</small>
+            </button>
+            <button class="admin-v2-action" onclick="reorganizeMembrane()">
+              <strong>🔄 Ordenar visualmente el Cerebro</strong>
+              <small>Reorganiza la vista de la membrana; no es una nueva forma de pensar.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f6Reset()">
+              <strong>🧹 Limpiar esta pantalla</strong>
+              <small>No borra el Cerebro; solo limpia el resultado visible.</small>
+            </button>
+          </div>
+          <pre id="f6Output" class="admin-v2-output">Todavía no se ha hecho una comprobación.</pre>
+        </div>
+
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🎯 Misiones</h4>
+            <p>Las misiones son el espacio donde Akira puede planificar, pedir aprobación y supervisar trabajos más grandes.</p>
+          </div>
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action" onclick="showSection('missions')">
+              <strong>🎯 Abrir el centro de Misiones</strong>
+              <small>Ve las misiones, sus planes, aprobaciones, progreso y resultados.</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="admin-v2-section" id="f14Section">
+          <div class="admin-v2-section-head">
+            <h4>🛡️ F14 — Autonomía controlada</h4>
+            <p>Prueba canónica de producción para cerrar F14. Esta ejecución añade un documento Markdown y una prueba que valida su título y contenido dentro del sandbox. No toca <code>main</code>, exige aprobación humana y termina creando un Draft PR en una rama aislada.</p>
+          </div>
+          <div style="background:#0e0e12;border:3px solid var(--border);padding:14px;">
+            <div style="display:grid;gap:10px;">
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">OBJETIVO</div>
+                <div style="font-size:13px;">Verificación de producción F14: crear el documento de evidencia y añadir una prueba automatizada de su contenido.</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">ALCANCE EXACTO</div>
+                <code style="font-size:12px;word-break:break-word;">AkiraGr2/akira-empresa → main → docs/F14_PRODUCTION_VERIFICATION.md + test_controlled_autonomy_contract.py</code>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">PRUEBAS</div>
+                <code style="font-size:12px;word-break:break-word;">test_controlled_autonomy_contract (incluye test_docs_F14_PRODUCTION_VERIFICATION_exists_and_contains_title_and_human_approval_note) · test_route_security_contract · test_authorization_contract</code>
+              </div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.6;">
+                Seguridad: sin merge, sin force-push, sin escritura de <code>main</code>, sin workflows, sin secretos y con aprobación explícita del propietario antes de la acción externa.
+              </div>
+            </div>
+          </div>
+          <div class="admin-v2-actions" style="margin-top:12px;">
+            <button class="admin-v2-action" onclick="f14Start()">
+              <strong>▶️ Iniciar verificación F14</strong>
+              <small>Ejecuta la fase hasta la compuerta de aprobación humana.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f14Refresh()">
+              <strong>🔄 Revisar última ejecución F14</strong>
+              <small>Consulta el resultado persistente de la última prueba conocida en este navegador.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f14ShowHistory()">
+              <strong>📜 Ver historial F14</strong>
+              <small>Lista las últimas 50 ejecuciones guardadas en el servidor, incluidas las fallidas.</small>
+            </button>
+            <button class="admin-v2-action" onclick="f14FindRecoverable()">
+              <strong>♻️ Buscar recuperación de F14</strong>
+              <small>Busca una ejecución anterior fallida tras crear un Draft PR, sin volver a escribir en GitHub.</small>
+            </button>
+          </div>
+          <div id="f14History" style="display:none;margin-top:12px;padding:12px;background:#0e0e12;border:1px solid var(--border);border-radius:8px;gap:8px;" aria-live="polite"></div>
+          <div id="f14ApprovalActions" class="admin-v2-actions" style="margin-top:12px;display:none;">
+            <button id="f14ApproveBtn" class="admin-v2-action" onclick="f14Approve()">
+              <strong>✅ Aprobar como propietario</strong>
+              <small>Autoriza únicamente la acción externa de esta ejecución.</small>
+            </button>
+            <button id="f14ActBtn" class="admin-v2-action" onclick="f14Act()" style="display:none;">
+              <strong>🚀 Ejecutar acción controlada</strong>
+              <small>Crea la rama aislada y el Draft PR después de la aprobación.</small>
+            </button>
+            <button class="admin-v2-action danger" onclick="f14Reject()">
+              <strong>⛔ Rechazar ejecución</strong>
+              <small>Cierra la ejecución sin realizar la acción externa.</small>
+            </button>
+          </div>
+          <pre id="f14Output" class="admin-v2-output" style="margin-top:12px;">La verificación F14 todavía no se ha ejecutado en esta sesión.</pre>
+        </div>
+
+        <div class="admin-v2-section">
+          <div class="admin-v2-section-head">
+            <h4>🧹 Cuidar y guardar los datos</h4>
+            <p>Estas acciones afectan datos del navegador o ayudan a conservar una copia. Las dos primeras son especialmente importantes para no confundir datos locales con los datos de Akira guardados en servidor.</p>
+          </div>
+          <div class="admin-v2-actions">
+            <button class="admin-v2-action danger" onclick="clearLocalDB()">
+              <strong>🗑️ Borrar los datos locales de este teléfono</strong>
+              <small>Borra la base de datos guardada en este navegador. No es lo mismo que borrar los datos de Akira del servidor.</small>
+            </button>
+            <button class="admin-v2-action" onclick="forceSyncR2()">
+              <strong>☁️ Comprobar los datos compartidos de Akira</strong>
+              <small>Verifica que los datos del Cerebro compartido puedan consultarse desde el servidor.</small>
+            </button>
+            <button class="admin-v2-action" onclick="exportBackup()">
+              <strong>💾 Guardar una copia de seguridad</strong>
+              <small>Descarga una copia de los datos locales disponibles en este dispositivo.</small>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 <script>
 if(!localStorage.getItem("akira_backend_url")) localStorage.setItem("akira_backend_url", "https://akira-empresa.onrender.com");
@@ -2085,6 +2397,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_admin_modern.js?v=akira-admin-v6-20caps-active-supervision"></script>
 <script src="./js/akira_reference_workspace_v2.js?v=akira-reference-v18-20caps-verified"></script>
 <script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>
+<script src="./js/akira_sandbox.js?v=akira-sandbox-v1"></script>
 <script src="./js/akira_brain.js?v=akira-brain-v8"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
 <script src="./js/akira_conversations.js?v=akira-conv-v8-hive"></script>

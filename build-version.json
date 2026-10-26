@@ -1,8 +1,9 @@
 {
-  "version": "akira-cache-v20261025-autopilot-protocol-v17",
-  "generated_at": "2026-10-26T00:15:00.000Z",
+  "version": "akira-cache-v20261025-live-artifacts-sandbox-v18",
+  "generated_at": "2026-10-26T01:30:00.000Z",
   "assets": {
     "js/akira_brain.js": "akira-brain-v8-performance",
+    "js/akira_sandbox.js": "akira-sandbox-v1",
     "js/obsidian_membrane.js": "akira-membrane-v58-nodes-restored",
     "js/akira_learning.js": "akira-learning-v13-root-auth",
     "js/akira-office-living-v5.js": "akira-office-v11-visual-root-v7",

@@ -297,7 +297,7 @@ async function sendMsgStream(){
               }
               const b = document.getElementById(bubbleId);
               if(b){
-                let finalHtml = escapeHtml(fullText).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
+                let finalHtml = (window.akiraFormatMarkdown ? window.akiraFormatMarkdown(fullText) : escapeHtml(fullText).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>'));
                 b.innerHTML = finalHtml;
               }
               try {
@@ -399,7 +399,7 @@ function addMsg(t,who,imgBase64=null){
   if(who==='user'){
     row.innerHTML=`<div class="bubble">${escapeHtml(t)}${imgHtml}</div>`;
   }else{
-    const formatted = t.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
+    const formatted = (window.akiraFormatMarkdown ? window.akiraFormatMarkdown(t) : t.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>'));
     row.innerHTML=`<div class="avatar akira-entity-slot" data-akira-entity data-state="success" data-size="42" aria-label="Akira · Lista"></div><div class="bubble">${formatted}${imgHtml}</div>`;
     try{const entity=row.querySelector("[data-akira-entity]");if(entity&&window.akiraEntityMount)window.akiraEntityMount(entity);}catch(_){}
   }
