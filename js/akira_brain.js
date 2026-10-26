@@ -400,12 +400,52 @@ function addMsg(t,who,imgBase64=null){
     row.innerHTML=`<div class="bubble">${escapeHtml(t)}${imgHtml}</div>`;
   }else{
     const formatted = (window.akiraFormatMarkdown ? window.akiraFormatMarkdown(t) : t.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>'));
-    row.innerHTML=`<div class="avatar akira-entity-slot" data-akira-entity data-state="success" data-size="42" aria-label="Akira · Lista"></div><div class="bubble">${formatted}${imgHtml}</div>`;
+    const isDeliverable = t && (t.includes('###') || t.includes('Propuesta') || t.includes('Documento') || t.includes('Informe') || t.includes('Plan') || t.includes('Entregable') || t.length > 500);
+    const deliverableToolbar = isDeliverable ? `
+      <div class="ak-deliverable-actions no-print" style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);display:flex;gap:8px;flex-wrap:wrap;">
+        <button type="button" class="ak-btn small secondary" style="font-size:11.5px;padding:4px 10px;background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.3);color:#38bdf8;" onclick="window.akiraPrintDeliverable && window.akiraPrintDeliverable(this)">
+          📄 Imprimir / Guardar en PDF
+        </button>
+        <button type="button" class="ak-btn small secondary" style="font-size:11.5px;padding:4px 10px;" onclick="window.akiraCopyDeliverable && window.akiraCopyDeliverable(this)">
+          📋 Copiar Documento
+        </button>
+      </div>` : '';
+    row.innerHTML=`<div class="avatar akira-entity-slot" data-akira-entity data-state="success" data-size="42" aria-label="Akira · Lista"></div><div class="bubble">${formatted}${imgHtml}${deliverableToolbar}</div>`;
     try{const entity=row.querySelector("[data-akira-entity]");if(entity&&window.akiraEntityMount)window.akiraEntityMount(entity);}catch(_){}
   }
   inner.appendChild(row);
   inner.scrollTop=inner.scrollHeight;
 }
+
+window.akiraCopyDeliverable = function(btn){
+  try{
+    const bubble = btn.closest(".bubble");
+    if(!bubble) return;
+    const clone = bubble.cloneNode(true);
+    const tb = clone.querySelector(".ak-deliverable-actions");
+    if(tb) tb.remove();
+    const text = clone.innerText || clone.textContent;
+    navigator.clipboard.writeText(text.trim()).then(() => {
+      const orig = btn.innerHTML;
+      btn.innerHTML = "✅ ¡Copiado!";
+      setTimeout(() => { btn.innerHTML = orig; }, 2000);
+    });
+  }catch(e){
+    alert("No se pudo copiar: " + e.message);
+  }
+};
+
+window.akiraPrintDeliverable = function(btn){
+  try{
+    const bubble = btn.closest(".bubble");
+    if(!bubble) return;
+    document.querySelectorAll(".ak-print-target").forEach(el => el.classList.remove("ak-print-target"));
+    bubble.classList.add("ak-print-target");
+    window.print();
+  }catch(e){
+    alert("Error al abrir impresión: " + e.message);
+  }
+};
 async function sendFeedback(tipo, texto, btn){
   try{
     const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";

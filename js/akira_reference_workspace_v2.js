@@ -96,6 +96,46 @@
           '<aside class="ak-ref-date-card"><div id="akRefDate" class="date">—</div><div id="akRefTime" class="time">—:—</div><p>Datos y estados mostrados desde el runtime cuando están disponibles.</p></aside>',
         '</section>',
         '<div class="ak-ref-lower">',
+        '<article class="ak-ref-card ak-ref-briefing-card" id="akRefBriefingCard" style="grid-column:1/-1;border:1px solid rgba(56,189,248,0.3);background:linear-gradient(135deg,rgba(15,23,42,0.95),rgba(17,24,39,0.95));padding:18px 20px;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:10px;">' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+              '<span style="font-size:22px;">👑</span>' +
+              '<div>' +
+                '<h3 style="margin:0;font-size:15px;color:#f0fdf4;display:flex;align-items:center;gap:8px;">Briefing Ejecutivo Diario <span id="akRefBriefingDate" style="font-size:12px;color:#94a3b8;font-weight:normal;"></span></h3>' +
+                '<p style="margin:2px 0 0;font-size:11.5px;color:#94a3b8;">Pulso del mercado en tiempo real, estado de colmena y costo cero blindado.</p>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:6px;align-items:center;">' +
+              '<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(16,185,129,0.12);color:#34d399;border:1px solid rgba(16,185,129,0.25);">🟢 Presupuesto: $0.00 COP</span>' +
+              '<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.25);">41/41 Verificadas</span>' +
+            '</div>' +
+          '</div>' +
+          '<div id="akRefBriefingContent" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:12px;margin-bottom:14px;">' +
+            '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px;">' +
+              '<div style="font-size:11px;color:#38bdf8;font-weight:600;margin-bottom:4px;">🌐 MERCADO TECH &amp; IA</div>' +
+              '<div style="font-size:12px;color:#e2e8f0;line-height:1.4;">Crecimiento acelerado en automatización y asistentes locales sin costo por API.</div>' +
+            '</div>' +
+            '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px;">' +
+              '<div style="font-size:11px;color:#c084fc;font-weight:600;margin-bottom:4px;">⚡ COLMENA TÁCTICA</div>' +
+              '<div style="font-size:12px;color:#e2e8f0;line-height:1.4;">267 especialistas en guardia para proyectos de desarrollo, logística y análisis.</div>' +
+            '</div>' +
+            '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px;">' +
+              '<div style="font-size:11px;color:#34d399;font-weight:600;margin-bottom:4px;">🛡️ BLINDAJE $0.00 COP</div>' +
+              '<div style="font-size:12px;color:#e2e8f0;line-height:1.4;">Infraestructura optimizada en Render sin cobros inesperados ni consumo de saldo.</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
+            '<button type="button" class="ak-ref-btn primary" id="akBtnBriefingVoice" style="font-size:12px;padding:6px 14px;" onclick="window.akiraPlayBriefingVoice()">' +
+              '✨ Escuchar con Akira (Voz)' +
+            '</button>' +
+            '<button type="button" class="ak-ref-btn" style="font-size:12px;padding:6px 14px;border-color:rgba(0,136,204,0.35);color:#38bdf8;" onclick="window.akiraSendBriefingTelegram()">' +
+              '📲 Enviar a mi Celular' +
+            '</button>' +
+            '<button type="button" class="ak-ref-btn" style="font-size:12px;padding:6px 14px;" data-ak-ref-go="chat">' +
+              '💬 Conversar con Akira' +
+            '</button>' +
+          '</div>' +
+        '</article>',
           '<article class="ak-ref-card"><h3>Estado del sistema <span id="akRefSystemPill" class="ak-ref-pill">● comprobando</span></h3><div class="ak-ref-stat-grid"><div class="ak-ref-stat"><div class="ring"><b id="akRefMetricNodes">—</b></div><small>Nodos</small></div><div class="ak-ref-stat"><div class="ring"><b id="akRefMetricEdges">—</b></div><small>Relaciones</small></div><div class="ak-ref-stat"><div class="ring"><b id="akRefMetricAgents">—</b></div><small>Agentes</small></div><div class="ak-ref-stat"><div class="ring"><b id="akRefMetricMissions">—</b></div><small>En curso</small></div></div><p id="akRefSystemNote" class="ak-ref-truth-note">Las métricas se derivan del backend; no se usan porcentajes ficticios.</p></article>',
           '<article class="ak-ref-card"><h3>Actividad reciente <span>Datos reales</span></h3><div id="akRefActivity"><div class="ak-ref-empty">Consultando actividad…</div></div></article>',
           '<article class="ak-ref-card"><h3>Misiones recientes <span data-ak-ref-go="missions" style="cursor:pointer">Ver todas</span></h3><div id="akRefMissions"><div class="ak-ref-empty">Consultando misiones…</div></div></article>',
@@ -119,11 +159,12 @@
       apiGet("/api/v8/me"),
       apiGet("/api/v8/agents"),
       apiGet("/api/v8/missions/recent?limit=4"),
-      apiGet("/api/v8/tasks?limit=4")
+      apiGet("/api/v8/tasks?limit=4"),
+      apiGet("/api/v8/executive/briefing")
     ]);
     const health=results[0];
     let graph=results[1];
-    const me=results[2], agents=results[3], missions=results[4], tasks=results[5];
+    const me=results[2], agents=results[3], missions=results[4], tasks=results[5], briefing=results[6];
     if(!graph.ok && (graph.status === 401 || graph.status === 403)){
       graph = await apiGet("/api/v8/graph/public-overview");
     }
@@ -226,6 +267,35 @@
         ? '<div class="ak-ref-empty">La actividad de tareas requiere una sesión.</div>'
         : '<div class="ak-ref-empty">No hay actividad reciente disponible.</div>');
     }
+
+    // Hydrate Executive Briefing
+    try {
+      if(briefing && briefing.ok && briefing.data){
+        const bData = briefing.data;
+        if(bData.date) setText(home, "akRefBriefingDate", "· " + bData.date);
+        if(bData.voice_text) window.__akiraLatestBriefingVoiceText = bData.voice_text;
+        if(Array.isArray(bData.headlines) && bData.headlines.length > 0){
+          const cont = home.querySelector("#akRefBriefingContent");
+          if(cont){
+            let bHtml = "";
+            const badges = ["🌐 PULSO DEL MERCADO", "⚡ TECNOLOGÍA & IA", "💼 INNOVACIÓN & NEGOCIOS"];
+            const colors = ["#38bdf8", "#c084fc", "#34d399"];
+            bData.headlines.slice(0, 3).forEach((h, idx) => {
+              const bg = badges[idx] || "📌 TITULAR";
+              const col = colors[idx] || "#38bdf8";
+              bHtml += '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px;">' +
+                '<div style="font-size:11px;color:' + col + ';font-weight:600;margin-bottom:4px;">' + bg + '</div>' +
+                '<div style="font-size:12px;color:#e2e8f0;line-height:1.4;font-weight:500;">' +
+                  '<a href="' + esc(h.link) + '" target="_blank" rel="noopener noreferrer" style="color:#f1f5f9;text-decoration:none;">' + esc(h.title) + ' ↗</a>' +
+                '</div>' +
+                (h.snippet ? '<div style="font-size:11px;color:#94a3b8;margin-top:4px;line-height:1.3;">' + esc(h.snippet.slice(0, 110)) + '...</div>' : '') +
+              '</div>';
+            });
+            cont.innerHTML = bHtml;
+          }
+        }
+      }
+    } catch(_){}
 
     setText(home,"akRefHeroBrain",Number.isFinite(nodes)
       ? count(nodes)+" nodos · "+(Number.isFinite(edges)?count(edges):"n/d")+" relaciones · "+scopeLabel
@@ -396,6 +466,62 @@
     if(window.AkiraEntity&&window.AkiraEntity.mountAll)window.AkiraEntity.mountAll(document);
     if(typeof window.showSection==="function"&&!qsa(".section.active").some(function(s){return s.id&&s.id!=="chatSection"}))window.showSection("home");
   });
+
+  window.akiraPlayBriefingVoice = function(){
+    const text = window.__akiraLatestBriefingVoiceText || "¡Hola Jhon! Tu ecosistema Akira está en línea al cien por ciento y con presupuesto cero intacto. Todas tus capacidades están operativas.";
+    if("speechSynthesis" in window){
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "es-CO";
+      utter.rate = 1.05;
+      utter.pitch = 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const esVoice = voices.find(v => v.lang.startsWith("es") && (v.name.includes("Sabina") || v.name.includes("Paulina") || v.name.includes("Helena") || v.name.includes("Female") || v.name.includes("Google")));
+      if(esVoice) utter.voice = esVoice;
+      window.speechSynthesis.speak(utter);
+      const btn = document.getElementById("akBtnBriefingVoice");
+      if(btn){
+        const orig = btn.innerHTML;
+        btn.innerHTML = "🔊 Reproduciendo Briefing...";
+        utter.onend = function(){ btn.innerHTML = orig; };
+      }
+    } else if(typeof window.toggleAkiraLiveVoice === "function"){
+      window.toggleAkiraLiveVoice();
+    }
+  };
+
+  window.akiraSendBriefingTelegram = async function(){
+    const token = localStorage.getItem("akira_telegram_token");
+    const chatId = localStorage.getItem("akira_telegram_chat_id");
+    if(!token){
+      alert("📲 Para recibir el Briefing en tu celular, primero conecta tu Bot de Telegram en 'Mi Cuenta' (toma 1 minuto y cuesta $0.00 COP).");
+      if(typeof window.showSection === "function") window.showSection("keys");
+      return;
+    }
+    const b = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
+    try {
+      const btn = event && event.target;
+      if(btn) btn.textContent = "⏳ Enviando a Telegram...";
+      const r = await fetch(b + "/api/v8/executive/briefing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telegram_token: token,
+          chat_id: chatId || undefined,
+          send_telegram: true
+        })
+      });
+      const res = await r.json();
+      if(res.telegram_sent){
+        alert("✅ ¡Briefing Ejecutivo enviado a tu Telegram! Revisa tu celular.");
+      } else {
+        alert("⚠️ No se pudo entregar a Telegram. Verifica que hayas iniciado el bot con /start.");
+      }
+      if(btn) btn.textContent = "📲 Enviar a mi Celular";
+    } catch(err){
+      alert("Error enviando a Telegram: " + err.message);
+    }
+  };
 
   window.AkiraReferenceWorkspace={mountHome:mountHome,setupNav:setupNav,setupTopbar:setupTopbar,hydrateHome:hydrateHome};
 })();

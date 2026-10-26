@@ -89,6 +89,41 @@
   <link rel="stylesheet" href="./css/akira_modern_cyber.css?v=akira-cyber-v20-touch-action-none">
 
 <style>
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .ak-print-target, .ak-print-target * {
+    visibility: visible !important;
+  }
+  .ak-print-target {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    padding: 30px !important;
+    font-size: 13pt !important;
+    line-height: 1.6 !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  }
+  .ak-print-target a {
+    color: #0369a1 !important;
+    text-decoration: underline !important;
+  }
+  .ak-print-target .ak-deliverable-actions,
+  .no-print,
+  #sidebar,
+  .topbar,
+  .input-bar,
+  .ak-chat-header-bar {
+    display: none !important;
+  }
+}
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0b0b0e;--sidebar:rgba(18,18,22,0.95);--border:#2a2a36;--text:#ececf1;--muted:#8a8a93;--accent:#6366f1;--coral:#FF6B6B;--mint:#6BCF7F;--sky:#4ECDC4;--lemon:#FFD93D;--lilac:#a78bfa;--peach:#FFA07A;}
 body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-serif;height:100dvh;overflow:hidden;display:flex;}
@@ -840,6 +875,45 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
           <div id="userInfo" style="margin-top:14px;font-size:13px;display:none;background:rgba(14,14,18,0.9);border:1px solid rgba(0,242,254,0.25);border-radius:10px;padding:12px;font-family:'Outfit',sans-serif;color:#e2e8f0;"></div>
         </div>
+      </div>
+
+      <!-- CARD TELEGRAM: CONEXIÓN PRIVADA CON TU CELULAR ($0.00 COP) -->
+      <div class="ak-vault-card" style="border: 1px solid rgba(0, 136, 204, 0.4); background: linear-gradient(135deg, rgba(14,22,38,0.95), rgba(10,25,48,0.95)); box-shadow: 0 4px 20px rgba(0, 136, 204, 0.15);">
+        <div class="ak-vault-header">
+          <div class="ak-vault-title-group">
+            <div class="ak-vault-icon-badge" style="background:rgba(0,136,204,0.18);border-color:rgba(0,136,204,0.4);color:#29b6f6">📲</div>
+            <div>
+              <h3 class="ak-vault-title" style="color:#e0f2fe">Conexión con tu Celular vía Telegram ($0.00 COP)</h3>
+              <p class="ak-vault-subtitle" style="margin:2px 0 0 0;color:#94a3b8">Recibe el Briefing Diario, alertas de oportunidades y reportes de misiones directo en tu teléfono.</p>
+            </div>
+          </div>
+          <span id="telegramStatusBadge" style="font-size:11px;font-weight:600;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,0.06);color:#94a3b8;border:1px solid rgba(255,255,255,0.1)">⚪ Desconectado</span>
+        </div>
+
+        <div style="margin: 14px 0; background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px 16px; border: 1px solid rgba(0,136,204,0.2);">
+          <div style="font-size: 12px; color: #7dd3fc; font-weight: 600; margin-bottom: 6px;">💡 Conexión en 2 sencillos pasos:</div>
+          <ol style="margin: 0; padding-left: 20px; font-size: 12px; color: #94a3b8; line-height: 1.6;">
+            <li>En Telegram busca a <strong>@BotFather</strong>, escribe <code>/newbot</code> y ponle un nombre a tu bot para recibir tu Token.</li>
+            <li>Abre tu nuevo bot en Telegram y presiona <strong>"Iniciar" (/start)</strong>. Luego pega el Token aquí abajo y presiona "Probar Conexión".</li>
+          </ol>
+        </div>
+
+        <div class="ak-key-input-container">
+          <span style="font-size:16px;margin-right:8px;opacity:0.8">🤖</span>
+          <input id="telegramTokenInput" type="password" placeholder="Pega aquí el Token de tu bot (ej: 789123456:AAFlk...)" autocomplete="off" spellcheck="false" class="ak-key-field" oninput="akiraOnTelegramInput(this.value)">
+          <button id="toggleTgVisibilityBtn" type="button" class="ak-key-toggle-btn" onclick="akiraToggleTelegramVisibility()" title="Mostrar/Ocultar Token">👁️</button>
+        </div>
+
+        <div class="ak-vault-btn-row">
+          <button class="ak-vault-btn primary" style="background: linear-gradient(135deg, #0284c7, #0369a1); border-color: #38bdf8;" onclick="akiraTestTelegramConnection()">
+            <span>📲</span> Probar Conexión con mi Celular
+          </button>
+          <button class="ak-vault-btn danger" onclick="akiraClearTelegram()">
+            <span>🗑️</span> Desconectar
+          </button>
+        </div>
+
+        <div id="telegramStatusMsg" style="margin-top:14px;font-size:13px;padding:10px 14px;border-radius:10px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.08);display:none;"></div>
       </div>
 
       <!-- CARD 2: BÓVEDA PRIVADA DE CLAVES (BYOK) -->
@@ -2186,7 +2260,7 @@ function saveKey(){
   try{
     localStorage.setItem("akira_user_key", key);
     if(input) input.value = "";
-    akiraRefreshSavedKeyUI();
+    akiraRefreshSavedKeyUI(); try{ akiraRefreshTelegramUI(); }catch(_){}
     if(status){
       status.style.display = "block";
       status.style.color = "#34d399";
@@ -2215,6 +2289,131 @@ function clearKey(){
     }
   }catch(e){
     if(status) status.textContent = "No se pudo eliminar la API Key.";
+  }
+}
+
+function akiraOnTelegramInput(val){
+  const badge = document.getElementById("telegramStatusBadge");
+  const trimmed = String(val||"").trim();
+  if(!badge) return;
+  if(trimmed.includes(":")){
+    badge.textContent = "🤖 Formato de Token válido";
+    badge.style.background = "rgba(56,189,248,0.15)";
+    badge.style.color = "#38bdf8";
+  } else if(trimmed.length > 0){
+    badge.textContent = "Escribiendo...";
+    badge.style.background = "rgba(255,255,255,0.08)";
+    badge.style.color = "#e2e8f0";
+  } else {
+    akiraRefreshTelegramUI();
+  }
+}
+
+function akiraToggleTelegramVisibility(){
+  const input = document.getElementById("telegramTokenInput");
+  const btn = document.getElementById("toggleTgVisibilityBtn");
+  if(!input) return;
+  if(input.type === "password"){
+    input.type = "text";
+    if(btn) btn.textContent = "🔒";
+  } else {
+    input.type = "password";
+    if(btn) btn.textContent = "👁️";
+  }
+}
+
+function akiraRefreshTelegramUI(){
+  const badge = document.getElementById("telegramStatusBadge");
+  const msg = document.getElementById("telegramStatusMsg");
+  const token = localStorage.getItem("akira_telegram_token") || "";
+  const chatId = localStorage.getItem("akira_telegram_chat_id") || "";
+  if(!badge) return;
+  if(token){
+    badge.textContent = "🟢 Conectado con tu Celular";
+    badge.style.background = "rgba(16,185,129,0.15)";
+    badge.style.color = "#34d399";
+    badge.style.borderColor = "rgba(16,185,129,0.3)";
+    if(msg){
+      msg.style.display = "block";
+      msg.style.color = "#38bdf8";
+      const masked = token.slice(0, 6) + "••••••••" + token.slice(-4);
+      msg.innerHTML = `✅ <strong>Bot de Telegram Vinculado:</strong> <code>${masked}</code>${chatId ? ` (Chat: ${chatId})` : ''} — Tu celular está listo para recibir el briefing diario y notificaciones de Akira.`;
+    }
+  } else {
+    badge.textContent = "⚪ Desconectado";
+    badge.style.background = "rgba(255,255,255,0.06)";
+    badge.style.color = "#94a3b8";
+    badge.style.borderColor = "rgba(255,255,255,0.1)";
+    if(msg) msg.style.display = "none";
+  }
+}
+
+async function akiraTestTelegramConnection(){
+  const input = document.getElementById("telegramTokenInput");
+  const msg = document.getElementById("telegramStatusMsg");
+  const badge = document.getElementById("telegramStatusBadge");
+  let token = input ? String(input.value || "").trim() : "";
+  if(!token){
+    token = localStorage.getItem("akira_telegram_token") || "";
+  }
+  if(!token){
+    if(msg){
+      msg.style.display = "block";
+      msg.style.color = "#fbbf24";
+      msg.innerHTML = "⚠️ Por favor ingresa el Token de tu bot antes de probar.";
+    }
+    return;
+  }
+  if(msg){
+    msg.style.display = "block";
+    msg.style.color = "#38bdf8";
+    msg.innerHTML = "⏳ Conectando con Telegram y detectando tu celular...";
+  }
+  try {
+    const b = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
+    const resp = await fetch(b + "/api/v8/telegram/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: token })
+    });
+    const data = await resp.json();
+    if(data.ok){
+      localStorage.setItem("akira_telegram_token", token);
+      if(data.chat_id) localStorage.setItem("akira_telegram_chat_id", String(data.chat_id));
+      if(input) input.value = "";
+      akiraRefreshTelegramUI();
+      if(msg){
+        msg.style.display = "block";
+        msg.style.color = "#34d399";
+        msg.innerHTML = "🎉 <strong>¡Conexión Exitosa!</strong> Akira acaba de enviarte un mensaje privado de bienvenida a tu Telegram. Revisa tu celular.";
+      }
+    } else {
+      if(msg){
+        msg.style.display = "block";
+        msg.style.color = "#f87171";
+        msg.innerHTML = `❌ ${data.error || "No se pudo conectar con el bot. Verifica el Token e intenta de nuevo."}`;
+      }
+    }
+  } catch(err){
+    if(msg){
+      msg.style.display = "block";
+      msg.style.color = "#f87171";
+      msg.innerHTML = "❌ Error de conexión con el servidor: " + err.message;
+    }
+  }
+}
+
+function akiraClearTelegram(){
+  const msg = document.getElementById("telegramStatusMsg");
+  const input = document.getElementById("telegramTokenInput");
+  localStorage.removeItem("akira_telegram_token");
+  localStorage.removeItem("akira_telegram_chat_id");
+  if(input) input.value = "";
+  akiraRefreshTelegramUI();
+  if(msg){
+    msg.style.display = "block";
+    msg.style.color = "#38bdf8";
+    msg.textContent = "🗑️ Desconectado de Telegram en este dispositivo.";
   }
 }
 
