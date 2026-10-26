@@ -402,6 +402,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
     <button class="nav-btn" id="btn-crm" onclick="window.akiraOpenCrmModal && window.akiraOpenCrmModal()">💼 CRM Pipeline</button>
     <button class="nav-btn" id="btn-cron" onclick="window.akiraOpenCronModal && window.akiraOpenCronModal()">⏰ Cron Jobs</button>
     <button class="nav-btn" id="btn-sheet" onclick="window.akiraOpenSpreadsheetModal && window.akiraOpenSpreadsheetModal()">📑 Excel / CSV</button>
+    <button class="nav-btn" id="btn-agent-studio" onclick="window.akiraOpenAgentStudioModal && window.akiraOpenAgentStudioModal()">🧩 Crear Agentes</button>
+    <button class="nav-btn" id="btn-roi" onclick="window.akiraOpenRoiModal && window.akiraOpenRoiModal()">📈 Métricas ROI</button>
     <button class="nav-btn" id="btn-keys" onclick="showSection('keys')">🔑 Cuenta</button>
     <button class="nav-btn" id="btn-admin" onclick="showSection('admin')">👑 Admin</button>
   </div>
@@ -430,6 +432,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
       <button class="nav-quick-btn" onclick="window.akiraOpenCronModal && window.akiraOpenCronModal()" title="Tareas Autónomas Programadas" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">⏰ Cron</button>
       <button class="nav-quick-btn" onclick="window.akiraOpenCrmModal && window.akiraOpenCrmModal()" title="Pipeline CRM Freelance" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">💼 CRM</button>
       <button class="nav-quick-btn" onclick="window.akiraOpenSelfHealingModal && window.akiraOpenSelfHealingModal()" title="Vigilante de Auto-Curación Técnica" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">🧬 Salud</button>
+      <button class="nav-quick-btn" onclick="window.akiraOpenRoiModal && window.akiraOpenRoiModal()" title="Telemetría de Productividad y Retorno de Inversión" style="background:#111827;border:1px solid rgba(16,185,129,0.3);color:#10b981;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">📈 ROI</button>
+      <button class="nav-quick-btn" onclick="window.akiraOpenThemeModal && window.akiraOpenThemeModal()" title="Estudio de Temas y Accesibilidad" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">🎨</button>
       <div id="streamToggleBtn" style="display:none"></div>
       <button id="userAvatar" onclick="showSection('keys')" style="width:32px;height:32px;background:#1e1e26;border:3px solid var(--border);display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;border-radius:50%" title="Cuenta">🔒</button>
     </div>
@@ -2430,6 +2434,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_ux_tester.js?v=akira-ux-v1"></script>
 <script src="./js/akira_offline_pwa.js?v=akira-pwa-v1"></script>
 <script src="./js/akira_self_healing.js?v=akira-heal-v1"></script>
+<script src="./js/akira_api_tester.js?v=akira-api-v1"></script>
+<script src="./js/akira_theme_studio.js?v=akira-theme-v1"></script>
+<script src="./js/akira_agent_studio.js?v=akira-agent-v1"></script>
+<script src="./js/akira_roi_tracker.js?v=akira-roi-v1"></script>
 <script src="./js/akira_knowledge_pipeline.js?v=akira-ingest-v1"></script>
 <script src="./js/akira_autonomous_evolution.js?v=akira-evolve-v1"></script>
 <script src="./js/akira_brain.js?v=akira-brain-v8"></script>

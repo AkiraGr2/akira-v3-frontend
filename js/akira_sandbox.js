@@ -211,6 +211,12 @@
             <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenSpreadsheetModal && window.akiraOpenSpreadsheetModal()" title="Abrir motor de hojas de cálculo y CSV">
               📑 Hojas Excel
             </button>
+            <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenApiTesterModal && window.akiraOpenApiTesterModal()" title="Probar APIs REST y simular respuestas Mock">
+              🔌 Probar API
+            </button>
+            <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenThemeModal && window.akiraOpenThemeModal()" title="Estudio de Temas y Accesibilidad WCAG">
+              🎨 Temas
+            </button>
             <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenPythonREPL && window.akiraOpenPythonREPL()" title="Abrir Consola Python REPL WebAssembly">
               🐍 Python REPL
             </button>
