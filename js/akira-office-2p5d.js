@@ -863,7 +863,12 @@
     }
   }
 
-  async function pollTruth(){
+  async function pollTruth(force=false){
+    if(!force){
+      if(document.hidden)return;
+      const officeSec=document.getElementById("officeSection");
+      if(!officeSec||!officeSec.classList.contains("active"))return;
+    }
     try{
       const backend=backendUrl();
       const [ar,tr]=await Promise.all([
@@ -2154,8 +2159,8 @@
       raf=requestAnimationFrame(loop);
       clearInterval(pollTimer);
       pollTimer=setInterval(
-        pollTruth,
-        Number(config&&config.ambient_routines&&config.ambient_routines.poll_ms||2500)
+        () => pollTruth(false),
+        Number(config&&config.ambient_routines&&config.ambient_routines.poll_ms||30000)
       );
     }catch(err){
       eventText="Error cargando Oficina 2.5D: "+err.message;
@@ -2180,6 +2185,13 @@
   window.addEventListener("beforeunload",()=>{
     try{window.removeEventListener("resize",resize);}catch(_){}
     try{if(resizeObserver)resizeObserver.disconnect();}catch(_){}
+  });
+
+  window.refreshOfficeTruth = () => pollTruth(true);
+  window.addEventListener("akira:section-shown", e => {
+    if(e && e.detail && e.detail.section === "office"){
+      pollTruth(true);
+    }
   });
 
   window.initAkiraOfficePixel=init;

@@ -172,14 +172,15 @@
       this.setupTabs();
       this.pollData();
 
-      // Faster polling when tab is active (every 4 seconds)
+      // Optimized telemetry polling (25 seconds, tab & section guarded)
       if (this.pollInterval) clearInterval(this.pollInterval);
       this.pollInterval = setInterval(() => {
+        if (document.hidden) return;
         const sec = document.getElementById("officeSection");
         if (sec && sec.classList.contains("active")) {
           this.pollData();
         }
-      }, 4000);
+      }, 25000);
 
       // Reactive event listeners
       window.addEventListener("akira:section-shown", (e) => {

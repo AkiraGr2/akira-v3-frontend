@@ -629,7 +629,12 @@
     }
   }
 
-  async function pollTruth(){
+  async function pollTruth(force=false){
+    if(!force){
+      if(document.hidden)return;
+      const officeSec=document.getElementById("officeSection");
+      if(!officeSec||!officeSec.classList.contains("active"))return;
+    }
     try{
       const backend=backendUrl();
       const [ar,tr]=await Promise.all([
@@ -1728,7 +1733,7 @@
       cancelAnimationFrame(raf);
       raf=requestAnimationFrame(loop);
       clearInterval(pollTimer);
-      pollTimer=setInterval(pollTruth,5000);
+      pollTimer=setInterval(() => pollTruth(false),30000);
     }catch(err){
       eventText="Error cargando Oficina V5: "+err.message;
       render();

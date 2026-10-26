@@ -1141,6 +1141,7 @@ function showSection(name){
 }
   else if(name==='office'){
     if(window.initAkiraOfficePixel) initAkiraOfficePixel();
+    if(typeof window.refreshOfficeTruth === 'function') window.refreshOfficeTruth();
     if(window.AkiraHologramBridge && typeof window.AkiraHologramBridge.pollData === 'function') window.AkiraHologramBridge.pollData();
     window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"office"}}));
     requestAnimationFrame(()=>{
@@ -2028,7 +2029,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_quantum_orb.js?v=akira-quantum-orb-v2"></script>
 <script src="./js/akira_voice_live.js?v=akira-voice-live-v15-mobile-uncontested"></script>
 <script src="./js/akira_monetization.js?v=akira-monetize-v2"></script>
-<script src="./js/akira_office_hologram.js?v=akira-office-commanders-dossier-v2"></script>
+<script src="./js/akira_office_hologram.js?v=akira-office-v3-egress-optimized"></script>
 <script src="./js/akira_hive_catalog.js?v=akira-hive-v1"></script>
 <script src="./js/akira_missions_modern.js?v=akira-missions-hive-specialists-v1"></script>
 <script src="./js/akira_admin_modern.js?v=akira-admin-v6-20caps-active-supervision"></script>
@@ -2145,7 +2146,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 })();
 </script>
 <script src="./js/akira_missions_panel.js?v=akira-missions-v5"></script>
-<script src="./js/akira-office-2p5d.js?v=akira-office-v8-responsive-canvas"></script>
+<script src="./js/akira-office-2p5d.js?v=akira-office-v9-egress-optimized"></script>
 <script src="./js/akira-hive-office-v1.js?v=akira-hive-office-v1-f15"></script>
 <script>
 /* BRAIN 2D COMPATIBILITY ADAPTER
@@ -2574,6 +2575,18 @@ window.installAkiraPWA = async () => {
     alert("📲 Instalación de Akira:\n\nEn celular o PC: Toca el menú de tu navegador (los tres puntos ⋮ o el icono Compartir ⬆️) y selecciona 'Instalar aplicación' o 'Agregar a la pantalla principal'.");
   }
 };
+</script>
+<script>
+// Sincronización reactiva en cambio de visibilidad: despierta datos al volver a la pestaña
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    const activeSec = document.querySelector(".section.active");
+    if (activeSec && activeSec.id === "officeSection") {
+      if (typeof window.refreshOfficeTruth === "function") window.refreshOfficeTruth();
+      if (window.AkiraHologramBridge && typeof window.AkiraHologramBridge.pollData === "function") window.AkiraHologramBridge.pollData();
+    }
+  }
+});
 </script>
 </body>
 </html>

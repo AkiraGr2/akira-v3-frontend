@@ -8,7 +8,7 @@
   "use strict";
 
   const API = "https://akira-empresa.onrender.com";
-  const REFRESH_MS = 7000;
+  const REFRESH_MS = 30000;
   const MAX_NODES = 500;
   const MAX_EDGES = 1200;
 
@@ -2067,6 +2067,7 @@
     if(refreshTimer) clearInterval(refreshTimer);
     refreshTimer = null;
     refreshTimer = setInterval(() => {
+      if(document.hidden) return;
       const section = document.getElementById("membraneSection");
       if(currentMode === "3d" && section && section.classList.contains("active")){
         fetchGraph();

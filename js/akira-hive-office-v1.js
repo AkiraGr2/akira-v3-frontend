@@ -353,6 +353,7 @@
     });
     if (officeIsVisible()) refresh();
     setInterval(() => {
+      if (document.hidden) return;
       if (officeIsVisible()) refresh();
     }, 45000);
   }
