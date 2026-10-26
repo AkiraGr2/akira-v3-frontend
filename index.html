@@ -2329,6 +2329,14 @@ function akiraRefreshTelegramUI(){
   const chatId = localStorage.getItem("akira_telegram_chat_id") || "";
   if(!badge) return;
   if(token){
+    try {
+      const b = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
+      fetch(b + "/api/v8/telegram/poll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: token })
+      }).catch(()=>{});
+    } catch(_){}
     badge.textContent = "🟢 Conectado con tu Celular";
     badge.style.background = "rgba(16,185,129,0.15)";
     badge.style.color = "#34d399";

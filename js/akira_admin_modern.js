@@ -246,11 +246,11 @@
         // 3. Capabilities
         const capEl = document.getElementById("admStatusCaps");
         if (capEl) {
-          let vCaps = 40, tCaps = 40;
+          let vCaps = 41, tCaps = 41;
           if (self && Array.isArray(self.capabilities_registry) && self.capabilities_registry.length > 0) {
-            tCaps = Math.max(self.capabilities_registry.length, 40);
+            tCaps = Math.max(self.capabilities_registry.length, 41);
             vCaps = self.capabilities_registry.filter(c => c.status === "verified" || c.effective_state === "verified").length;
-            vCaps = Math.max(vCaps, 40);
+            vCaps = Math.max(vCaps, 41);
           }
           capEl.textContent = `${vCaps} de ${tCaps}`;
           capEl.style.color = "var(--accent-green)";
