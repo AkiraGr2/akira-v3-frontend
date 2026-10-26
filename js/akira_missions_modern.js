@@ -396,10 +396,20 @@
       `;
 
       if (m.status === "waiting_approval" || m.status === "awaiting_approval") {
-        actionButtons += `
-          <button class="ak-btn primary small" onclick="window.AkiraMissionsModern.approveAndExecute('${m.id}')">⚡ Aprobar y Ejecutar Misión</button>
-          <button class="ak-btn secondary small" onclick="window.AkiraMissionsModern.reject('${m.id}')">✕ Cancelar</button>
-        `;
+        if (window.akiraIsAutopilot && window.akiraIsAutopilot()) {
+          actionButtons += `
+            <div style="background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);border-radius:6px;padding:6px 12px;font-size:11.5px;color:#c4b5fd;display:inline-flex;align-items:center;gap:6px;">
+              <span>⚡</span> Modo Autopilot: auto-ejecutando misión en segundo plano.
+            </div>
+            <button class="ak-btn secondary small" onclick="window.AkiraMissionsModern.reject('${m.id}')">✕ Cancelar Misión</button>
+          `;
+          setTimeout(() => { try { this.approveAndExecute(m.id, true); } catch(_) {} }, 200);
+        } else {
+          actionButtons += `
+            <button class="ak-btn primary small" onclick="window.AkiraMissionsModern.approveAndExecute('${m.id}')">⚡ Aprobar y Ejecutar Misión</button>
+            <button class="ak-btn secondary small" onclick="window.AkiraMissionsModern.reject('${m.id}')">✕ Cancelar</button>
+          `;
+        }
       } else if (m.status === "failed") {
         actionButtons += `
           <button class="ak-btn secondary small" onclick="window.AkiraMissionsModern.diagnose('${m.id}')">🔍 Ver Diagnóstico de Fallo</button>
