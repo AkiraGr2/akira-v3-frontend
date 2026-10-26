@@ -57,7 +57,10 @@
           <!-- Header Hero -->
           <div class="ak-monetize-hero">
             <div class="ak-monetize-badge">MOTOR DE MONETIZACIÓN AUTÓNOMO</div>
-            <h2>Gana Dinero en Upwork con Akira</h2>
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+              <h2>Gana Dinero en Upwork con Akira</h2>
+              <button type="button" class="ak-btn primary small" onclick="window.akiraOpenCrmModal && window.akiraOpenCrmModal()" style="font-weight:700;box-shadow:0 0 12px rgba(0,240,255,0.4);">💼 Abrir Pipeline CRM &amp; Facturación</button>
+            </div>
             <p>Pega cualquier oferta de trabajo. Akira evalúa la viabilidad, redacta la propuesta ganadora de alto cierre y construye el entregable final para que tú cobres.</p>
           </div>
 
@@ -106,6 +109,7 @@
               <div class="ak-card-actions" style="margin-top:14px;">
                 <button class="ak-btn primary" id="akBtnGenerateProposal">⚡ Redactar Propuesta Ganadora</button>
                 <button class="ak-btn success" id="akBtnCopyProposal" style="display:none;">📋 Copiar al Portapapeles</button>
+                <button class="ak-btn secondary" id="akBtnCrmProposal" style="display:none;">💼 Agregar al CRM</button>
               </div>
               <div id="akProposalOutput" class="ak-result-box ak-output-card" style="display:none;"></div>
             </div>
@@ -120,6 +124,7 @@
                 <button class="ak-btn primary" id="akBtnBuildDeliverable">🚀 Construir Entregable Listo para Cobrar</button>
                 <button class="ak-btn success" id="akBtnCopyDeliverable" style="display:none;">📋 Copiar Trabajo Completo</button>
                 <button class="ak-btn secondary" id="akBtnZipDeliverable" style="display:none;">📦 Descargar Entregable (.ZIP)</button>
+                <button class="ak-btn secondary" id="akBtnCrmDeliverable" style="display:none;">💼 Agregar al CRM</button>
               </div>
               <div id="akDeliverableOutput" class="ak-result-box ak-output-card" style="display:none;"></div>
             </div>
@@ -192,6 +197,40 @@
           alert("¡Propuesta copiada al portapapeles! Lista para pegar en Upwork.");
         });
       });
+
+      const btnCrmProp = container.querySelector("#akBtnCrmProposal");
+      if (btnCrmProp) {
+        btnCrmProp.addEventListener("click", () => {
+          const desc = document.getElementById("akJobDesc").value.trim();
+          const title = desc ? desc.slice(0, 50).replace(/\n/g, " ") + "..." : "Propuesta Upwork";
+          if (window.akiraAddCrmDeal) {
+            window.akiraAddCrmDeal({
+              title: title,
+              client: "Cliente Upwork",
+              stage: "proposal",
+              amountUSD: 450,
+              items: [{ desc: title, amount: 450 }]
+            });
+          }
+        });
+      }
+
+      const btnCrmDel = container.querySelector("#akBtnCrmDeliverable");
+      if (btnCrmDel) {
+        btnCrmDel.addEventListener("click", () => {
+          const spec = document.getElementById("akDeliverSpec").value.trim();
+          const title = spec ? spec.slice(0, 50).replace(/\n/g, " ") + "..." : "Entregable Upwork";
+          if (window.akiraAddCrmDeal) {
+            window.akiraAddCrmDeal({
+              title: title,
+              client: "Cliente Upwork",
+              stage: "development",
+              amountUSD: 650,
+              items: [{ desc: title, amount: 650 }]
+            });
+          }
+        });
+      }
 
       container.querySelector("#akBtnBuildDeliverable").addEventListener("click", () => {
         const spec = document.getElementById("akDeliverSpec").value.trim();
@@ -347,6 +386,8 @@ Reglas estrictas:
         this.currentProposal = reply;
         out.innerHTML = `<div class="ak-formatted-output">${this.formatMarkdown(reply)}</div>`;
         copyBtn.style.display = "inline-flex";
+        const crmPBtn = document.getElementById("akBtnCrmProposal");
+        if (crmPBtn) crmPBtn.style.display = "inline-flex";
       } catch (err) {
         out.innerHTML = `<div class="ak-error">Error al generar la propuesta: ${err.message}</div>`;
       }
@@ -378,6 +419,8 @@ Entrega un resultado 100% profesional que el cliente pueda calificar con 5 estre
         copyBtn.style.display = "inline-flex";
         const zipBtn = document.getElementById("akBtnZipDeliverable");
         if (zipBtn) zipBtn.style.display = "inline-flex";
+        const crmDBtn = document.getElementById("akBtnCrmDeliverable");
+        if (crmDBtn) crmDBtn.style.display = "inline-flex";
       } catch (err) {
         out.innerHTML = `<div class="ak-error">Error al construir el entregable: ${err.message}</div>`;
       }

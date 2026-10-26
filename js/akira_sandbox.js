@@ -54,10 +54,17 @@
       window.akiraCodeRegistry[blockId] = rawCode;
 
       const canPreview = isPreviewableWebCode(cleanLang, rawCode);
+      const isPython = (cleanLang === "python" || cleanLang === "py" || cleanLang === "py3");
 
       const previewBtnHtml = canPreview
         ? `<button type="button" class="ak-code-btn ak-code-preview-btn" onclick="window.akiraOpenSandbox && window.akiraOpenSandbox('${blockId}')" title="Ejecutar en Sandbox en vivo">
              <span>🚀 Vista Previa</span>
+           </button>`
+        : "";
+
+      const pythonBtnHtml = isPython
+        ? `<button type="button" class="ak-code-btn ak-code-python-btn" onclick="window.akiraRunPythonSandbox && window.akiraRunPythonSandbox('${blockId}')" title="Ejecutar en Consola Python WebAssembly">
+             <span>🐍 Ejecutar Python</span>
            </button>`
         : "";
 
@@ -75,9 +82,11 @@
             <div class="ak-code-meta">
               <span class="ak-code-badge">${escapeHtml(cleanLang.toUpperCase())}</span>
               ${canPreview ? '<span class="ak-code-pill-runnable">INTERACTIVO</span>' : ''}
+              ${isPython ? '<span class="ak-code-pill-runnable" style="background:rgba(59,130,246,0.2);color:#60a5fa;border:1px solid #3b82f6;">PYTHON WASM</span>' : ''}
             </div>
             <div class="ak-code-actions">
               ${previewBtnHtml}
+              ${pythonBtnHtml}
               ${copyBtnHtml}
             </div>
           </div>
@@ -189,6 +198,9 @@
             </button>
             <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenSandboxNewTab()" title="Abrir en pestaña nueva">
               ↗ Pestaña
+            </button>
+            <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenPythonREPL && window.akiraOpenPythonREPL()" title="Abrir Consola Python REPL WebAssembly">
+              🐍 Python REPL
             </button>
             <button type="button" class="ak-sandbox-btn" onclick="window.akiraDownloadCurrentSandboxZip()" title="Descargar proyecto completo en ZIP">
               📦 Descargar ZIP
