@@ -87,6 +87,9 @@
             <div class="ak-code-actions">
               ${previewBtnHtml}
               ${pythonBtnHtml}
+              <button type="button" class="ak-code-btn ak-code-sec-btn" onclick="window.akiraOpenSecurityModal && window.akiraOpenSecurityModal('${blockId}')" title="Auditar seguridad y OWASP">
+                <span>🛡️ Seguridad</span>
+              </button>
               ${copyBtnHtml}
             </div>
           </div>
@@ -198,6 +201,9 @@
             </button>
             <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenSandboxNewTab()" title="Abrir en pestaña nueva">
               ↗ Pestaña
+            </button>
+            <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenSecurityModal && window.akiraOpenSecurityModal(currentSandboxCode)" title="Auditar seguridad de este artefacto">
+              🛡️ Seguridad
             </button>
             <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenPythonREPL && window.akiraOpenPythonREPL()" title="Abrir Consola Python REPL WebAssembly">
               🐍 Python REPL
