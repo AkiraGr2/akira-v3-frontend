@@ -496,6 +496,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
         <div class="ak-prompt-chips">
           <button type="button" class="ak-chip" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('🤖 Analiza las mejores oportunidades para automatizar y aplicar en Upwork hoy.')">💼 Trabajos Upwork</button>
           <button type="button" class="ak-chip" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('🧠 Muestra un resumen de tu autoconocimiento y memoria verificada.')">🧠 Auditar Memoria</button>
+          <button type="button" class="ak-chip" onclick="window.akiraOpenKnowledgeIngestModal && window.akiraOpenKnowledgeIngestModal()">📚 Ingestar Conocimiento</button>
           <button type="button" class="ak-chip" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('🎯 Planifica una nueva misión táctica con tus agentes especialistas.')">🎯 Crear Misión</button>
           <button type="button" class="ak-chip" onclick="window.AkiraHive && window.AkiraHive.openCatalogModal()" style="border-color:rgba(168,85,247,0.3);color:#c084fc;">🌐 Invocar Agente (267)</button>
           <button type="button" class="ak-chip" onclick="generateImageAkira()">🎨 Crear Imagen</button>
@@ -562,6 +563,9 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           </button>
           <button id="brainViewAllBtn" class="ak-brain-pill-btn" type="button" onclick="akiraToggleExploreAll()" title="Ver todos los nodos de la red">
             <span>👁️</span> Toda la Red
+          </button>
+          <button id="brainIngestBtn" class="ak-brain-pill-btn" type="button" onclick="window.akiraOpenKnowledgeIngestModal && window.akiraOpenKnowledgeIngestModal()" title="Ingestar documento o texto en el Cerebro Neuronal">
+            <span>📚</span> Ingestar
           </button>
         </div>
         <div class="ak-brain-controls-right">
@@ -2398,6 +2402,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_reference_workspace_v2.js?v=akira-reference-v18-20caps-verified"></script>
 <script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>
 <script src="./js/akira_sandbox.js?v=akira-sandbox-v1"></script>
+<script src="./js/akira_knowledge_pipeline.js?v=akira-ingest-v1"></script>
 <script src="./js/akira_brain.js?v=akira-brain-v8"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
 <script src="./js/akira_conversations.js?v=akira-conv-v8-hive"></script>
