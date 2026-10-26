@@ -567,6 +567,9 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           <button id="brainIngestBtn" class="ak-brain-pill-btn" type="button" onclick="window.akiraOpenKnowledgeIngestModal && window.akiraOpenKnowledgeIngestModal()" title="Ingestar documento o texto en el Cerebro Neuronal">
             <span>📚</span> Ingestar
           </button>
+          <button id="brainEvolveBtn" class="ak-brain-pill-btn" type="button" onclick="window.akiraRunAutonomousEvolution && window.akiraRunAutonomousEvolution(true)" title="Ejecutar ciclo de auto-reflexión y evolución neuronal">
+            <span>🌙</span> Auto-Reflexión
+          </button>
         </div>
         <div class="ak-brain-controls-right">
           <div id="brainStatsPill" class="ak-brain-stats-pill">
@@ -2403,6 +2406,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>
 <script src="./js/akira_sandbox.js?v=akira-sandbox-v1"></script>
 <script src="./js/akira_knowledge_pipeline.js?v=akira-ingest-v1"></script>
+<script src="./js/akira_autonomous_evolution.js?v=akira-evolve-v1"></script>
 <script src="./js/akira_brain.js?v=akira-brain-v8"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
 <script src="./js/akira_conversations.js?v=akira-conv-v8-hive"></script>
