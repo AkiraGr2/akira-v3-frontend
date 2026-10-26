@@ -36,6 +36,7 @@
       this.currentTurnTranscript = "";
       this.watchdogTimer = null;
       this.silenceTimer = null;
+      this.waitingForFinalResult = false;
 
       // Audio & Speech handles
       this.recognition = null;
@@ -106,9 +107,11 @@
       }
 
       this.recognition = new SpeechRecognition();
-      this.recognition.continuous = true;
+      // On mobile devices and in Push-to-Talk (street mode), continuous MUST be false
+      // because continuous=true on mobile Android Chrome frequently drops results or fails!
+      this.recognition.continuous = !this.streetMode;
       this.recognition.interimResults = true;
-      this.recognition.lang = "es-CO";
+      this.recognition.lang = (navigator.language && navigator.language.startsWith("es")) ? navigator.language : "es-CO";
 
       this.recognition.onstart = () => {
         this.isListening = true;
@@ -141,6 +144,14 @@
         this.currentTurnTranscript = currentSpoken;
         this.setSubtitles("Tú: “" + currentSpoken + "”");
 
+        // If user already released the button and we were waiting for this transcript on mobile:
+        if (this.waitingForFinalResult) {
+          clearTimeout(this.watchdogTimer);
+          this.waitingForFinalResult = false;
+          this.dispatchRecognizedTurn();
+          return;
+        }
+
         // If in Hands-Free mode (non-street): auto-detect silence
         if (!this.streetMode && this.isRecording) {
           clearTimeout(this.silenceTimer);
@@ -155,28 +166,82 @@
       };
 
       this.recognition.onerror = (event) => {
-        if (event.error === "no-speech") return;
+        console.warn("[AkiraVoiceLive] recognition error:", event.error);
+        if (event.error === "no-speech") {
+          if (this.waitingForFinalResult) {
+            this.waitingForFinalResult = false;
+            this.dispatchRecognizedTurn();
+          }
+          return;
+        }
         if (event.error === "not-allowed") {
           this.updateHUD("Micrófono no permitido", "idle");
-          this.setSubtitles("Por favor permite el acceso al micrófono para hablar.");
+          this.setSubtitles("Por favor permite el acceso al micrófono en tu navegador móvil.");
+        } else if (event.error === "audio-capture") {
+          this.updateHUD("Error de micrófono", "idle");
+          this.setSubtitles("El micrófono está ocupado por otra app o no se pudo acceder.");
+        } else if (event.error === "network") {
+          this.updateHUD("Error de red", "idle");
+          this.setSubtitles("Conexión inestable para voz. Intenta de nuevo.");
+        }
+        if (this.isRecording) {
+          this.isRecording = false;
+          this.waitingForFinalResult = false;
+          this.updateHUD("Lista", "idle");
+          this.updateMasterButton("idle", "Mantén presionado para hablar", "o toca una vez para hablar y otra para enviar");
         }
       };
 
       this.recognition.onend = () => {
         this.isListening = false;
+        // If we were waiting for the final result on mobile:
+        if (this.waitingForFinalResult) {
+          clearTimeout(this.watchdogTimer);
+          this.waitingForFinalResult = false;
+          setTimeout(() => {
+            this.dispatchRecognizedTurn();
+          }, 80);
+          return;
+        }
+
         // In hands-free mode: if active and not speaking, restart
         if (this.active && !this.streetMode && !this.isSpeaking && !this.isThinking) {
-          try { this.recognition.start(); } catch(_) {}
+          setTimeout(() => {
+            if (this.active && !this.streetMode && !this.isSpeaking && !this.isThinking && this.recognition) {
+              try { this.recognition.start(); } catch(_) {}
+            }
+          }, 300);
         }
       };
     }
 
     async initAudioAnalyser() {
       try {
+        // On mobile devices, acquiring getUserMedia locks Android AudioRecord / iOS mic,
+        // which starves SpeechRecognition or causes zero audio samples!
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isMobile) {
+          console.log("[AkiraVoiceLive] Mobile device: prioritizing SpeechRecognition hardware exclusivity.");
+          // Still animate visual pulse when recording on mobile without stealing mic
+          const pollAudioMobile = () => {
+            if (!this.active) return;
+            this.audioAnimId = requestAnimationFrame(pollAudioMobile);
+            if (this.isRecording) {
+              const reactiveLevel = 0.45 + Math.sin(Date.now() / 140) * 0.25;
+              if (this.orbInstance) this.orbInstance.setAudioLevel(reactiveLevel);
+              const ring = document.querySelector(".akira-master-voice-pulse");
+              if (ring) {
+                ring.style.transform = `scale(${1 + reactiveLevel * 0.45})`;
+                ring.style.opacity = `${0.35 + reactiveLevel * 0.65}`;
+              }
+            }
+          };
+          pollAudioMobile();
+          return;
+        }
+
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
 
-        // Hardware DSP constraints for street immunity:
-        // autoGainControl: false is ESSENTIAL to stop mobile phone from boosting ambient noise when user pauses.
         this.micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: { ideal: true },
@@ -323,7 +388,6 @@
         elem.addEventListener("pointerdown", (e) => this.handlePointerDown(e));
         elem.addEventListener("pointerup", (e) => this.handlePointerUp(e));
         elem.addEventListener("pointercancel", (e) => this.handlePointerCancel(e));
-        elem.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
       };
 
       bindMasterEvents(masterBtn);
@@ -334,7 +398,12 @@
     }
 
     handlePointerDown(e) {
-      if (e) e.preventDefault();
+      if (e && e.cancelable) e.preventDefault();
+      try {
+        if (e && e.target && e.target.setPointerCapture) {
+          e.target.setPointerCapture(e.pointerId);
+        }
+      } catch(_) {}
       this.touchStartTime = Date.now();
       this.isPointerDown = true;
 
@@ -350,7 +419,12 @@
     }
 
     handlePointerUp(e) {
-      if (e) e.preventDefault();
+      if (e && e.cancelable) e.preventDefault();
+      try {
+        if (e && e.target && e.target.releasePointerCapture) {
+          e.target.releasePointerCapture(e.pointerId);
+        }
+      } catch(_) {}
       if (!this.isPointerDown) return;
       this.isPointerDown = false;
 
@@ -392,20 +466,30 @@
     startVoiceCapture() {
       if (this.isSpeaking) this.stopSpeaking();
       this.isRecording = true;
+      this.waitingForFinalResult = false;
       this.userSpeechBuffer = "";
       this.currentTurnTranscript = "";
       this.speechStartTime = Date.now();
+      clearTimeout(this.silenceTimer);
+      clearTimeout(this.watchdogTimer);
 
       try { navigator.vibrate && navigator.vibrate(28); } catch(_) {}
 
       this.updateHUD("Escuchando...", "listening");
-      this.updateMasterButton("listening", "🔴 Escuchando tu voz...", "Suelta o toca para enviar a Akira");
-      this.setSubtitles("Te escucho atentamente...");
+      this.updateMasterButton("listening", "🔴 Escuchando tu voz...", "Suelta para enviar a Akira");
+      this.setSubtitles("Te escucho... habla ahora");
 
       if (this.orbInstance) this.orbInstance.setState("listening");
 
       if (this.recognition) {
-        try { this.recognition.start(); } catch(_) {}
+        try { this.recognition.abort(); } catch(_) {}
+        setTimeout(() => {
+          if (this.isRecording && this.recognition) {
+            try { this.recognition.start(); } catch(err) {
+              console.warn("[AkiraVoiceLive] recognition.start error:", err);
+            }
+          }
+        }, 40);
       }
     }
 
@@ -423,16 +507,32 @@
         try { this.recognition.stop(); } catch(_) {}
       }
 
-      this.updateMasterButton("thinking", "🧠 Pensando...", "Procesando tu mensaje con la colmena...");
+      this.updateHUD("Procesando...", "thinking");
+      this.updateMasterButton("thinking", "🧠 Procesando tu voz...", "Un segundo, Akira te responde...");
 
-      // Fast watchdog: do not hang waiting for Google speech recognition
-      this.watchdogTimer = setTimeout(() => {
-        this.dispatchRecognizedTurn();
-      }, 180);
+      const currentBuffer = (this.userSpeechBuffer || this.currentTurnTranscript || "").trim();
+
+      // If we already have a transcript (interim results already arrived):
+      if (currentBuffer.length >= 2) {
+        // Wait 350ms in case the final phoneme is arriving, then dispatch
+        this.watchdogTimer = setTimeout(() => {
+          this.dispatchRecognizedTurn();
+        }, 350);
+      } else {
+        // If buffer is still empty (typical on mobile devices where recognition result arrives after stop):
+        this.waitingForFinalResult = true;
+        this.setSubtitles("Procesando lo que dijiste...");
+        // Generous watchdog of 2500ms for mobile speech engine to deliver the transcript
+        this.watchdogTimer = setTimeout(() => {
+          this.waitingForFinalResult = false;
+          this.dispatchRecognizedTurn();
+        }, 2500);
+      }
     }
 
     dispatchRecognizedTurn() {
       clearTimeout(this.watchdogTimer);
+      this.waitingForFinalResult = false;
       const query = (this.userSpeechBuffer || this.currentTurnTranscript || "").trim();
       this.userSpeechBuffer = "";
       this.currentTurnTranscript = "";
@@ -442,7 +542,7 @@
       } else {
         this.updateHUD("Lista", "idle");
         this.updateMasterButton("idle", "Mantén presionado para hablar", "o toca una vez para hablar y otra para enviar");
-        this.setSubtitles("No te alcancé a escuchar bien. Mantén presionado el botón central y habla.");
+        this.setSubtitles("No alcancé a captar tu voz. Mantén presionado el botón central mientras hablas.");
         if (this.orbInstance) this.orbInstance.setState("idle");
       }
     }
@@ -478,8 +578,11 @@
         if (noisePill) noisePill.textContent = "🔇 Filtro Anti-Ruido Activo";
         this.updateMasterButton("idle", "Mantén presionado para hablar", "Modo Calle: Suelta para enviar sin ruidos");
         this.setSubtitles("Modo Calle activo. Mantén presionado el botón central para hablar y suelta para enviar.");
-        if (this.recognition && !this.isRecording) {
-          try { this.recognition.stop(); } catch(_) {}
+        if (this.recognition) {
+          this.recognition.continuous = false;
+          if (!this.isRecording) {
+            try { this.recognition.stop(); } catch(_) {}
+          }
         }
       } else {
         if (icon) icon.textContent = "🍃";
@@ -487,8 +590,11 @@
         if (noisePill) noisePill.textContent = "🍃 Manos Libres Activo";
         this.updateMasterButton("idle", "Toca para activar micrófono", "Manos Libres: Akira detecta tus pausas");
         this.setSubtitles("Modo Manos Libres activo. Habla normalmente y Akira detectará tus pausas.");
-        if (this.recognition && !this.isSpeaking && !this.isThinking) {
-          try { this.recognition.start(); } catch(_) {}
+        if (this.recognition) {
+          this.recognition.continuous = true;
+          if (!this.isSpeaking && !this.isThinking) {
+            try { this.recognition.start(); } catch(_) {}
+          }
         }
       }
     }

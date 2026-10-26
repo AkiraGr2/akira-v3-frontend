@@ -1,6 +1,6 @@
 {
-  "version": "akira-cache-v20261025-salome-colombian-clean-v2",
-  "generated_at": "2026-10-25T20:56:00.000Z",
+  "version": "akira-cache-v20261025-mobile-voice-v15",
+  "generated_at": "2026-10-26T00:15:00.000Z",
   "assets": {
     "js/akira_brain.js": "akira-brain-v8-performance",
     "js/obsidian_membrane.js": "akira-membrane-v58-nodes-restored",
@@ -16,7 +16,7 @@
     "js/akira_office_hologram.js": "akira-office-commanders-dossier-v2",
     "js/akira_missions_modern.js": "akira-missions-hive-specialists-v1",
     "js/akira_admin_modern.js": "akira-admin-v6-20caps-active-supervision",
-    "js/akira_voice_live.js": "akira-voice-live-v14-colombian-clean",
-    "css/akira_modern_cyber.css": "akira-cyber-v19-street-voice-ptt-mobile"
+    "js/akira_voice_live.js": "akira-voice-live-v15-mobile-uncontested",
+    "css/akira_modern_cyber.css": "akira-cyber-v20-touch-action-none"
   }
 }
