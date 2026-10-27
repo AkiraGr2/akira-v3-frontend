@@ -25,9 +25,9 @@
       this.isRecording = false;
       this.isSpeaking = false;
       this.isThinking = false;
-      let savedMode = "jarvis";
-      try { savedMode = localStorage.getItem("akira_voice_mode_pref") || "jarvis"; } catch(_) {}
-      this.streetMode = (savedMode === "street");
+      let savedMode = "button";
+      try { savedMode = localStorage.getItem("akira_voice_mode_pref") || "button"; } catch(_) {}
+      this.streetMode = (savedMode !== "jarvis");
       this.tapToTalkActive = false;
 
       // Gesture timing
@@ -319,9 +319,9 @@
             <div class="akira-live-brand">
               <span class="akira-live-dot"></span>
               <span class="akira-live-title">AKIRA LIVE</span>
-              <button class="akira-live-mode-toggle" id="akiraLiveModeToggle" title="Toca para alternar entre Modo J.A.R.V.I.S. (Manos Libres) y Modo Calle (Pulsar)">
-                <span id="akiraLiveModeIcon">⚡</span>
-                <span id="akiraLiveModeLabel">Modo J.A.R.V.I.S. (Manos Libres)</span>
+              <button class="akira-live-mode-toggle" id="akiraLiveModeToggle" title="Toca para alternar entre Modo Botón Maestro y Manos Libres">
+                <span id="akiraLiveModeIcon">🎙️</span>
+                <span id="akiraLiveModeLabel">Modo Botón Maestro (Pulsar)</span>
               </button>
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
@@ -575,12 +575,12 @@
       const noisePill = document.getElementById("akiraLiveNoisePill");
 
       if (this.streetMode) {
-        if (icon) icon.textContent = "🛡️";
-        if (label) label.textContent = "Modo Calle (Pulsar)";
+        if (icon) icon.textContent = "🎙️";
+        if (label) label.textContent = "Modo Botón Maestro (Pulsar)";
         if (noisePill) noisePill.textContent = "🔇 Filtro Anti-Ruido Activo";
-        this.updateMasterButton("idle", "Mantén presionado para hablar", "Modo Calle: Suelta para enviar sin ruidos");
-        this.setSubtitles("Modo Calle activo. Mantén presionado el botón central para hablar y suelta para enviar.");
-        try { localStorage.setItem("akira_voice_mode_pref", "street"); } catch(_) {}
+        this.updateMasterButton("idle", "Mantén presionado para hablar", "Modo Botón: Suelta o toca de nuevo para enviar");
+        this.setSubtitles("Modo Botón Maestro activo. Mantén presionado para hablar o toca para dictar y enviar.");
+        try { localStorage.setItem("akira_voice_mode_pref", "button"); } catch(_) {}
         if (this.recognition) {
           this.recognition.continuous = false;
           if (!this.isRecording) {
@@ -656,11 +656,11 @@
           }, 450);
         }
       } else {
-        if (icon) icon.textContent = "🛡️";
-        if (label) label.textContent = "Modo Calle (Pulsar)";
+        if (icon) icon.textContent = "🎙️";
+        if (label) label.textContent = "Modo Botón Maestro (Pulsar)";
         if (noisePill) noisePill.textContent = "🔇 Filtro Anti-Ruido Activo";
         this.updateMasterButton("idle", "Mantén presionado para hablar", "o toca una vez para hablar y otra para enviar");
-        this.setSubtitles("Modo Calle activo. Mantén presionado el botón central para hablar y suelta para enviar.");
+        this.setSubtitles("Modo Botón Maestro activo. Mantén presionado el botón central para hablar y suelta para enviar.");
       }
     }
 
