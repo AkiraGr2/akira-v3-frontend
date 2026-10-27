@@ -25,7 +25,9 @@
       this.isRecording = false;
       this.isSpeaking = false;
       this.isThinking = false;
-      this.streetMode = true; // Default to Modo Calle (Push-to-Talk) for 100% noise immunity
+      let savedMode = "jarvis";
+      try { savedMode = localStorage.getItem("akira_voice_mode_pref") || "jarvis"; } catch(_) {}
+      this.streetMode = (savedMode === "street");
       this.tapToTalkActive = false;
 
       // Gesture timing
@@ -317,9 +319,9 @@
             <div class="akira-live-brand">
               <span class="akira-live-dot"></span>
               <span class="akira-live-title">AKIRA LIVE</span>
-              <button class="akira-live-mode-toggle" id="akiraLiveModeToggle" title="Toca para alternar Modo Calle y Manos Libres">
-                <span id="akiraLiveModeIcon">🛡️</span>
-                <span id="akiraLiveModeLabel">Modo Calle (Pulsar)</span>
+              <button class="akira-live-mode-toggle" id="akiraLiveModeToggle" title="Toca para alternar entre Modo J.A.R.V.I.S. (Manos Libres) y Modo Calle (Pulsar)">
+                <span id="akiraLiveModeIcon">⚡</span>
+                <span id="akiraLiveModeLabel">Modo J.A.R.V.I.S. (Manos Libres)</span>
               </button>
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
@@ -578,6 +580,7 @@
         if (noisePill) noisePill.textContent = "🔇 Filtro Anti-Ruido Activo";
         this.updateMasterButton("idle", "Mantén presionado para hablar", "Modo Calle: Suelta para enviar sin ruidos");
         this.setSubtitles("Modo Calle activo. Mantén presionado el botón central para hablar y suelta para enviar.");
+        try { localStorage.setItem("akira_voice_mode_pref", "street"); } catch(_) {}
         if (this.recognition) {
           this.recognition.continuous = false;
           if (!this.isRecording) {
@@ -585,11 +588,12 @@
           }
         }
       } else {
-        if (icon) icon.textContent = "🍃";
-        if (label) label.textContent = "Manos Libres";
-        if (noisePill) noisePill.textContent = "🍃 Manos Libres Activo";
-        this.updateMasterButton("idle", "Toca para activar micrófono", "Manos Libres: Akira detecta tus pausas");
-        this.setSubtitles("Modo Manos Libres activo. Habla normalmente y Akira detectará tus pausas.");
+        if (icon) icon.textContent = "⚡";
+        if (label) label.textContent = "Modo J.A.R.V.I.S. (Manos Libres)";
+        if (noisePill) noisePill.textContent = "⚡ Protocolo Jarvis: Conversación Continua";
+        this.updateMasterButton("idle", "Te escucho continuamente", "Modo Jarvis: Habla con naturalidad, detecto tus pausas");
+        this.setSubtitles("Protocolo J.A.R.V.I.S. activo. Habla con libertad, te escucho continuamente.");
+        try { localStorage.setItem("akira_voice_mode_pref", "jarvis"); } catch(_) {}
         if (this.recognition) {
           this.recognition.continuous = true;
           if (!this.isSpeaking && !this.isThinking) {
@@ -633,8 +637,31 @@
 
       this.startKeepAlive();
       this.updateHUD("Lista", "idle");
-      this.updateMasterButton("idle", "Mantén presionado para hablar", "o toca una vez para hablar y otra para enviar");
       this.updateVoiceLabel();
+      const icon = document.getElementById("akiraLiveModeIcon");
+      const label = document.getElementById("akiraLiveModeLabel");
+      const noisePill = document.getElementById("akiraLiveNoisePill");
+      if (!this.streetMode) {
+        if (icon) icon.textContent = "⚡";
+        if (label) label.textContent = "Modo J.A.R.V.I.S. (Manos Libres)";
+        if (noisePill) noisePill.textContent = "⚡ Protocolo Jarvis: Conversación Continua";
+        this.updateMasterButton("idle", "Te escucho continuamente", "Modo Jarvis: Habla con naturalidad, detecto tus pausas");
+        this.setSubtitles("Protocolo J.A.R.V.I.S. activo. Habla con libertad, te escucho continuamente.");
+        if (this.recognition) {
+          this.recognition.continuous = true;
+          setTimeout(() => {
+            if (this.active && !this.isSpeaking && !this.isThinking && this.recognition) {
+              try { this.recognition.start(); } catch(_) {}
+            }
+          }, 450);
+        }
+      } else {
+        if (icon) icon.textContent = "🛡️";
+        if (label) label.textContent = "Modo Calle (Pulsar)";
+        if (noisePill) noisePill.textContent = "🔇 Filtro Anti-Ruido Activo";
+        this.updateMasterButton("idle", "Mantén presionado para hablar", "o toca una vez para hablar y otra para enviar");
+        this.setSubtitles("Modo Calle activo. Mantén presionado el botón central para hablar y suelta para enviar.");
+      }
     }
 
     stop() {
