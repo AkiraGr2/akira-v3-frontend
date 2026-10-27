@@ -395,6 +395,7 @@
     modal.style.display = "none";
     modal.innerHTML = `
       <div class="ak-crm-dialog">
+        <button type="button" class="ak-crm-floating-close-btn" onclick="window.akiraCloseCrmModal()" title="Cerrar (Esc)" aria-label="Cerrar modal de CRM">✕</button>
         <div class="ak-crm-header">
           <div class="ak-crm-title-wrap">
             <span class="ak-crm-icon">💼</span>
@@ -403,7 +404,7 @@
               <small style="color:#94a3b8;font-size:11px;">Gestión de prospectos, contratos activos y recibos de cobro ($0.00 COP)</small>
             </div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <button type="button" class="ak-crm-add-btn" onclick="window.akiraLoadDemoCrmDeals()" style="background:#1e293b;border:1px solid #475569;color:#94a3b8;font-size:11px;padding:5px 10px;border-radius:4px;cursor:pointer;">🔄 Ejemplos Demo</button>
             <button type="button" class="ak-crm-add-btn" onclick="window.akiraClearCrmDeals()" style="background:#1e293b;border:1px solid #ef4444;color:#ef4444;font-size:11px;padding:5px 10px;border-radius:4px;cursor:pointer;">🧹 Vaciar a $0</button>
             <button type="button" class="ak-crm-add-btn" onclick="promptNewDeal()">+ Nuevo Trato</button>
@@ -422,6 +423,16 @@
 
     modal.addEventListener("click", (e) => {
       if(e.target === modal) window.akiraCloseCrmModal();
+    });
+    modal.addEventListener("touchstart", (e) => {
+      if(e.target === modal) window.akiraCloseCrmModal();
+    }, {passive: true});
+
+    document.addEventListener("keydown", (e) => {
+      if(e.key === "Escape" || e.key === "Esc"){
+        const m = document.getElementById("akiraCrmModal");
+        if(m && m.style.display !== "none") window.akiraCloseCrmModal();
+      }
     });
 
     return modal;
@@ -533,13 +544,28 @@
         display: flex; align-items: center; justify-content: center; padding: 16px;
       }
       .ak-crm-dialog {
+        position: relative;
         background: #0b1120; border: 2px solid #00f0ff; border-radius: 12px;
         box-shadow: 0 0 35px rgba(0, 240, 255, 0.25); width: 95vw; max-width: 1200px;
         height: 90vh; display: flex; flex-direction: column; overflow: hidden;
       }
+      .ak-crm-floating-close-btn {
+        position: absolute; top: 10px; right: 12px; z-index: 100;
+        width: 32px; height: 32px; border-radius: 50%;
+        background: #ef4444; color: #ffffff; border: 2px solid #ffffff;
+        font-size: 15px; font-weight: 800; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.6);
+        transition: transform 0.15s ease, background 0.15s ease;
+      }
+      .ak-crm-floating-close-btn:hover {
+        background: #dc2626; transform: scale(1.1);
+      }
       .ak-crm-header {
         display: flex; justify-content: space-between; align-items: center;
-        padding: 12px 18px; background: #0e1526; border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+        padding: 12px 18px; padding-right: 56px; background: #0e1526;
+        border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+        flex-wrap: wrap; gap: 8px;
       }
       .ak-crm-title-wrap { display: flex; align-items: center; gap: 10px; }
       .ak-crm-icon { font-size: 22px; }

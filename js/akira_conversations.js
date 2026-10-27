@@ -9,6 +9,15 @@
 
   const BACKEND = () => localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
   const LS_CURRENT = "akira_current_conversation_id";
+  const LS_LOCAL_CONVS = "akira_local_conversations_v3";
+
+  function _getLocalConvs(){
+    try { return JSON.parse(localStorage.getItem(LS_LOCAL_CONVS) || '[]'); } catch(_){ return []; }
+  }
+  function _saveLocalConvs(list){
+    try { localStorage.setItem(LS_LOCAL_CONVS, JSON.stringify((list || []).slice(0, 50))); } catch(_){}
+  }
+
   const LONG_PRESS_MS = 600;
 
   function _akiraH(){
@@ -234,46 +243,87 @@
     }, 120);
   }
 
-  async function _renameConversation(convId, currentTitle){
-    const newTitle = prompt("Nuevo nombre:", currentTitle || "");
-    if (newTitle === null) return;
-    const t = String(newTitle).trim();
-    if (!t) return;
-    if (t === currentTitle) return;
-    const r = await _fetchJson("/api/v8/conversations/" + encodeURIComponent(convId), {
-      method: "PATCH",
-      body: JSON.stringify({title: t})
-    });
-    if (!r.ok || !r.data || !r.data.ok) {
-      const reason = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
-      alert("No se pudo renombrar: " + reason);
-      return;
-    }
-    const idx = api.convsCache.findIndex(function(c){ return c.id === convId; });
-    if (idx >= 0) {
-      api.convsCache[idx].title = t;
+  function _renameConversation(convId, currentTitle){
+    const itemEl = document.querySelector('.conv-item[data-conv-id="' + convId + '"]');
+    if(!itemEl) return;
+    const mainBtn = itemEl.querySelector('.conv-main');
+    const titleSpan = itemEl.querySelector('.conv-title');
+    if(!titleSpan || !mainBtn) return;
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'conv-rename-input';
+    input.value = currentTitle || '';
+    input.style.cssText = 'background:#0f172a;border:1px solid #38bdf8;color:#fff;border-radius:4px;padding:3px 6px;font-size:12px;width:100%;outline:none;font-family:inherit;box-shadow:0 0 8px rgba(56,189,248,0.4);';
+    
+    titleSpan.style.display = 'none';
+    mainBtn.insertBefore(input, titleSpan);
+    input.focus();
+    input.select();
+    
+    let finished = false;
+    async function commitRename(){
+      if(finished) return;
+      finished = true;
+      const newT = input.value.trim() || currentTitle || "Chat sin título";
+      input.remove();
+      titleSpan.style.display = '';
+      titleSpan.textContent = _formatTitle(newT);
+      
+      // Update local storage
+      const convs = _getLocalConvs();
+      const cIdx = convs.findIndex(c => c.id === convId);
+      if(cIdx >= 0){ convs[cIdx].title = newT; _saveLocalConvs(convs); }
+      const cacheIdx = api.convsCache.findIndex(c => c.id === convId);
+      if(cacheIdx >= 0){ api.convsCache[cacheIdx].title = newT; }
+      
+      // Try backend sync
+      _fetchJson("/api/v8/conversations/" + encodeURIComponent(convId), {
+        method: "PATCH",
+        body: JSON.stringify({title: newT})
+      }).catch(function(){});
+      
       api.renderList(api.convsCache);
     }
+    
+    input.addEventListener('keydown', function(e){
+      if(e.key === 'Enter') commitRename();
+      else if(e.key === 'Escape'){ finished = true; input.remove(); titleSpan.style.display = ''; }
+    });
+    input.addEventListener('blur', commitRename);
   }
 
-  async function _deleteConversation(convId, title){
-    const ok = confirm("¿Eliminar el chat '" + (title || "") + "'?\n\nDesaparecerá de la lista. No se puede deshacer desde aquí.");
-    if (!ok) return;
-    const r = await _fetchJson("/api/v8/conversations/" + encodeURIComponent(convId), {
-      method: "DELETE"
+  function _deleteConversation(convId, title){
+    const itemEl = document.querySelector('.conv-item[data-conv-id="' + convId + '"]');
+    if(!itemEl) return;
+    
+    itemEl.innerHTML = ''
+      + '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:5px 8px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);border-radius:4px;font-size:11px;color:#fca5a5;">'
+      +   '<span>¿Eliminar este chat?</span>'
+      +   '<div style="display:flex;gap:4px;">'
+      +     '<button type="button" class="btn-del-yes" style="background:#ef4444;color:#fff;border:none;padding:2px 8px;border-radius:4px;font-weight:700;font-size:10px;cursor:pointer;">Sí, borrar</button>'
+      +     '<button type="button" class="btn-del-no" style="background:#334155;color:#fff;border:none;padding:2px 8px;border-radius:4px;font-size:10px;cursor:pointer;">No</button>'
+      +   '</div>'
+      + '</div>';
+      
+    itemEl.querySelector('.btn-del-yes').addEventListener('click', function(e){
+      e.stopPropagation();
+      let convs = _getLocalConvs().filter(function(c){ return c.id !== convId; });
+      _saveLocalConvs(convs);
+      api.convsCache = api.convsCache.filter(function(c){ return c.id !== convId; });
+      api.renderList(api.convsCache);
+      if (_getCurrentId() === convId) {
+        api.currentId = null;
+        _setCurrentId(null);
+        _showEmptyChat();
+      }
+      _fetchJson("/api/v8/conversations/" + encodeURIComponent(convId), { method: "DELETE" }).catch(function(){});
     });
-    if (!r.ok || !r.data || !r.data.ok) {
-      const reason = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
-      alert("No se pudo eliminar: " + reason);
-      return;
-    }
-    api.convsCache = api.convsCache.filter(function(c){ return c.id !== convId; });
-    api.renderList(api.convsCache);
-    if (_getCurrentId() === convId) {
-      api.currentId = null;
-      _setCurrentId(null);
-      _showEmptyChat();
-    }
+    
+    itemEl.querySelector('.btn-del-no').addEventListener('click', function(e){
+      e.stopPropagation();
+      api.renderList(api.convsCache);
+    });
   }
 
   // ============================================================
@@ -355,11 +405,73 @@
     async loadList(){
       const listEl = document.getElementById('historyList');
       if (!listEl) return;
+      
+      // 1. Carga inmediata desde almacenamiento local (0ms de latencia, nunca se pierden)
+      const localConvs = _getLocalConvs();
+      if(localConvs.length && (!api.convsCache || !api.convsCache.length)){
+        api.convsCache = localConvs;
+        api.renderList(localConvs);
+      }
+      
+      // 2. Sincronización en segundo plano con el servidor
       const r = await _fetchJson("/api/v8/conversations?limit=30");
-      if (!r.ok || !r.data || !r.data.ok) return;
-      const convs = r.data.conversations || [];
+      if (r.ok && r.data && r.data.ok) {
+        const remoteConvs = r.data.conversations || [];
+        // Merge evitando duplicados
+        const merged = [].concat(remoteConvs);
+        localConvs.forEach(function(lc){
+          if(!merged.some(function(rc){ return rc.id === lc.id; })){
+            merged.push(lc);
+          }
+        });
+        api.convsCache = merged;
+        _saveLocalConvs(merged);
+        api.renderList(merged);
+      } else if(localConvs.length) {
+        api.convsCache = localConvs;
+        api.renderList(localConvs);
+      }
+    },
+
+    recordMessage(role, content){
+      const curId = api.currentId || _getCurrentId() || ('local_' + Date.now());
+      if(!api.currentId) { api.currentId = curId; _setCurrentId(curId); }
+      const convs = _getLocalConvs();
+      let idx = convs.findIndex(function(c){ return c.id === curId; });
+      const nowIso = new Date().toISOString();
+      if(idx < 0){
+        const cleanTitle = String(content || "Nuevo chat").trim().slice(0, 36);
+        convs.unshift({
+          id: curId,
+          title: cleanTitle,
+          created_at: nowIso,
+          last_message_at: nowIso,
+          message_count: 1,
+          messages: [{role: role, content: content, timestamp: nowIso}]
+        });
+      } else {
+        convs[idx].messages = convs[idx].messages || [];
+        convs[idx].messages.push({role: role, content: content, timestamp: nowIso});
+        convs[idx].message_count = convs[idx].messages.length;
+        convs[idx].last_message_at = nowIso;
+        const item = convs.splice(idx, 1)[0];
+        convs.unshift(item);
+      }
+      _saveLocalConvs(convs);
       api.convsCache = convs;
       api.renderList(convs);
+    },
+
+    toggleChatSidebar(){
+      const sidebar = document.getElementById('sidebar');
+      if(sidebar){
+        sidebar.classList.toggle('open');
+        const overlay = document.getElementById('overlay');
+        if(overlay) overlay.classList.toggle('active', sidebar.classList.contains('open'));
+        // Focus en history list
+        const hList = document.getElementById('historyList');
+        if(hList) hList.scrollIntoView({behavior:'smooth'});
+      }
     },
 
     renderList(convs){

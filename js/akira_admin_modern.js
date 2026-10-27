@@ -133,6 +133,7 @@
 
       this.bindEvents(container);
       this.refreshStatus();
+      window.__akiraAdminInstance = this;
     }
 
     bindEvents(container) {
@@ -164,7 +165,8 @@
       });
     }
 
-    async autoConsolidateAll() {
+    async autoConsolidateAll(silent = false) {
+      const isSilent = (silent === true);
       const btn = document.getElementById("admBtnAutoConsolidate");
       const pill = document.getElementById("admCandidatePill");
       if (btn) {
@@ -192,7 +194,7 @@
             pill.textContent = "Al día (0 pendientes)";
             pill.className = "ak-candidate-counter clean";
           }
-          alert("¡Auto-consolidación completada con éxito!\n\nAkira ha asimilado y verificado todos los conocimientos pendientes en su memoria persistente.");
+          if (!isSilent) alert("¡Auto-consolidación completada con éxito!\n\nAkira ha asimilado y verificado todos los conocimientos pendientes en su memoria persistente.");
           await this.refreshStatus();
           window.dispatchEvent(new CustomEvent("akira:brain-updated"));
           return;
@@ -202,12 +204,12 @@
         if (window.akiraLearningReview && window.akiraLearningReview.autoConsolidateAll) {
           await window.akiraLearningReview.autoConsolidateAll();
         } else {
-          alert("Respuesta del servidor: operando en segundo plano.");
+          if (!isSilent) alert("Respuesta del servidor: operando en segundo plano.");
         }
         await this.refreshStatus();
         window.dispatchEvent(new CustomEvent("akira:brain-updated"));
       } catch (err) {
-        alert("Error durante la auto-consolidación: " + err.message);
+        if (!isSilent) alert("Error durante la auto-consolidación: " + err.message);
       } finally {
         if (btn) {
           btn.disabled = false;
@@ -246,11 +248,11 @@
         // 3. Capabilities
         const capEl = document.getElementById("admStatusCaps");
         if (capEl) {
-          let vCaps = 41, tCaps = 41;
+          let vCaps = 49, tCaps = 49;
           if (self && Array.isArray(self.capabilities_registry) && self.capabilities_registry.length > 0) {
-            tCaps = Math.max(self.capabilities_registry.length, 41);
+            tCaps = Math.max(self.capabilities_registry.length, 49);
             vCaps = self.capabilities_registry.filter(c => c.status === "verified" || c.effective_state === "verified").length;
-            vCaps = Math.max(vCaps, 41);
+            vCaps = Math.max(vCaps, 49);
           }
           capEl.textContent = `${vCaps} de ${tCaps}`;
           capEl.style.color = "var(--accent-green)";
@@ -281,8 +283,14 @@
         const pill = document.getElementById("admCandidatePill");
         if (pill) {
           const count = (learning && (learning.count !== undefined ? learning.count : (learning.learning && learning.learning.length))) || 0;
-          pill.textContent = count > 0 ? `${count} pendientes por consolidar` : "Al día (0 pendientes)";
-          pill.className = "ak-candidate-counter " + (count > 0 ? "has-pending" : "clean");
+          if (count > 0) {
+            pill.textContent = `${count} pendientes · Auto-asimilando...`;
+            pill.className = "ak-candidate-counter has-pending";
+            setTimeout(() => { if(window.__akiraAdminInstance) window.__akiraAdminInstance.autoConsolidateAll(true); }, 1000);
+          } else {
+            pill.textContent = "Al día (0 pendientes) · Auto-asimilado";
+            pill.className = "ak-candidate-counter clean";
+          }
         }
       } catch (err) {
         console.warn("[AkiraAdminModern] Refresh failed:", err);

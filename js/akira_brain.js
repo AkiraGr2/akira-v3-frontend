@@ -301,6 +301,9 @@ async function sendMsgStream(){
                 b.innerHTML = finalHtml;
               }
               try {
+                if (window.akiraConversations && window.akiraConversations.recordMessage) {
+                  window.akiraConversations.recordMessage('akira', fullText);
+                }
                 if (j.conversation_id && window.akiraConversations && window.akiraConversations.onConversationIdReceived) {
                   window.akiraConversations.onConversationIdReceived(j.conversation_id, j.conversation_message_count);
                 }
@@ -415,6 +418,11 @@ function addMsg(t,who,imgBase64=null){
   }
   inner.appendChild(row);
   inner.scrollTop=inner.scrollHeight;
+  try {
+    if (window.akiraConversations && window.akiraConversations.recordMessage) {
+      window.akiraConversations.recordMessage(who, t);
+    }
+  } catch(_){}
 }
 
 window.akiraCopyDeliverable = function(btn){
