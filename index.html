@@ -786,8 +786,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 
   <div id="levelsSection" class="section">
     <div class="section-header">
-      <h2>📊 Niveles & Capacidades del Sistema (50/50 Verificadas · Nivel 4 Proactivo)</h2>
-      <p>Telemetría en tiempo real de las <strong>50 capacidades cognitivas, herramientas y subsistemas autónomos verificados</strong> de Akira (20 Núcleo Canónico + 4 Super-Estructuras + 17 Capacidades Maestras + 4 Suites Ejecutivas & Móviles + Motor Proactivo Nivel 4 J.A.R.V.I.S. · 100% Verificadas).</p>
+      <h2>📊 Niveles & Capacidades del Sistema (60/60 Verificadas · Nivel 4 Proactivo & Suite de Ingeniería)</h2>
+      <p>Telemetría en tiempo real de las <strong>60 capacidades cognitivas, herramientas y subsistemas autónomos verificados</strong> de Akira (20 Núcleo Canónico + 4 Super-Estructuras + 17 Capacidades Maestras + 4 Suites Ejecutivas & Móviles + Motor Proactivo Nivel 4 J.A.R.V.I.S. + 10 Capacidades de Ingeniería y Diseño de Software — 100% Verificadas).</p>
     </div>
     <div class="ak-levels-matrix-deck">
       <div id="levelsList" class="ak-levels-hud-grid"></div>
@@ -2750,6 +2750,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_reference_workspace_v2.js?v=akira-reference-v18-20caps-verified"></script>
 <script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>
 <script src="./js/akira_sandbox.js?v=akira-sandbox-v1"></script>
+<script src="./js/akira_software_lab.js?v=akira-software-lab-v1"></script>
 <script src="./js/akira_python_repl.js?v=akira-python-v1"></script>
 <script src="./js/akira_search_vector.js?v=akira-vector-v1"></script>
 <script src="./js/akira_cron_scheduler.js?v=akira-cron-v1"></script>
@@ -3069,6 +3070,16 @@ async function renderLevels(){
       {id:"T2", name:"Doble Motor de Transcripción Multimodal", desc:"Transcripción dual Whisper Large v3 Turbo + Gemini Flash Audio nativo con conmutación en milisegundos a $0.00 COP.", status: "verified"},
       {id:"T3", name:"Facturación Proforma & Minutas en PDF", desc:"Generador formal de cuentas de cobro #AK-2026, actas de reunión ejecutivas y bóveda de contratos listos para firma.", status: "verified"},
       {id:"T4", name:"Sincronización Web ⟷ Telegram", desc:"Memoria rodante y puente de contexto unificado en tiempo real entre la plataforma web y el móvil de Jhon.", status: "verified"},
+      {id:"E1", name:"Arquitectura & Diagramas Mermaid en Vivo", desc:"Modelado visual de diagramas de arquitectura, bases de datos ERD, microservicios y secuencias.", status: "verified"},
+      {id:"E2", name:"Laboratorio SQL & Base de Datos In-Browser (SQLite WASM)", desc:"Motor SQLite real en WebAssembly para ejecutar DDL, DML, consultas JOIN y generar archivos .db.", status: "verified"},
+      {id:"E3", name:"Generador de Blueprints Full-Stack & Boilerplates", desc:"Estructuras de proyectos limpias con arquitectura modular (React/Vite, FastAPI, Node.js Express).", status: "verified"},
+      {id:"E4", name:"Auditor Estático Clean Code & Principios SOLID", desc:"Análisis de complejidad ciclomática, acoplamiento, anti-patrones y refactorización guiada.", status: "verified"},
+      {id:"E5", name:"Diseñador OpenAPI 3.0 & Simulador Swagger", desc:"Modelado interactivo de contratos RESTful con esquemas JSON, simulación de endpoints y validación.", status: "verified"},
+      {id:"E6", name:"Laboratorio Regex & Tokenizador de Código (AST)", desc:"Probador avanzado de expresiones regulares con desglose sintáctico, visualización de grupos y parsing.", status: "verified"},
+      {id:"E7", name:"Auditor Sintético WCAG AAA & SEO de Alto Rendimiento", desc:"Inspección cromática de contraste, accesibilidad ARIA, semántica HTML5 y estimación de carga web.", status: "verified"},
+      {id:"E8", name:"Transformador Políglota de Estructuras de Datos", desc:"Conversión bidireccional instantánea entre JSON, YAML, CSV, SQL Inserts y TypeScript Interfaces.", status: "verified"},
+      {id:"E9", name:"Terminal Virtual Shell & Simulador CLI (Bash/Git)", desc:"Consola interactiva en navegador para simulación de flujos Git, árbol de directorios y comandos CLI.", status: "verified"},
+      {id:"E10", name:"Laboratorio de Pruebas Unitarias Automatizadas", desc:"Generación instantánea de suites de pruebas PyTest y Jest con fixtures, casos límite y assertions.", status: "verified"},
     ];
     listEl.className = "ak-levels-hud-grid";
     listEl.innerHTML = levels.map(l => {

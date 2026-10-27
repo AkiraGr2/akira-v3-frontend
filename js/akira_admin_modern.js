@@ -1,7 +1,7 @@
 /**
  * AKIRA MODERN ADMIN CONTROLLER (Centro de Control Ejecutivo y Sencillo)
  * Designed for intuitive, non-technical management of Akira:
- *  1. Live System Status (50/50 Verified Capacities, Server, Storage)
+ *  1. Live System Status (60/60 Verified Capacities, Server, Storage)
  *  2. Autoknowledge & Memory Dashboard with 1-Click Auto-Consolidate All
  *  3. Instant "Teach Akira" Natural Language Form
  *  4. Full Interactive System Tools & Diagnostics Suite with Real Live Console
@@ -42,7 +42,7 @@
             </div>
             <div class="ak-metric-card">
               <span class="ak-metric-label">Capacidades</span>
-              <strong id="admStatusCaps" style="color:var(--accent-green)">50 de 50</strong>
+              <strong id="admStatusCaps" style="color:var(--accent-green)">60 de 60</strong>
               <small>Verificadas y Autónomas</small>
             </div>
             <div class="ak-metric-card">
@@ -139,6 +139,9 @@
                 </button>
                 <button class="ak-btn secondary small" id="admBtnSemanticSelftest" style="display:flex;align-items:center;justify-content:center;gap:6px;">
                   <span>🧠</span> Selftest Semántico
+                </button>
+                <button type="button" class="ak-btn primary small" onclick="window.akiraOpenSoftwareLab && window.akiraOpenSoftwareLab()" style="grid-column: 1 / -1; background: linear-gradient(90deg, rgba(0,242,254,0.22), rgba(139,92,246,0.22)); border: 1px solid #00f2fe; color: #fff; font-weight: 700; padding: 10px 16px; font-size: 12.5px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 6px; cursor: pointer; margin-top: 4px; box-shadow: 0 0 15px rgba(0,242,254,0.15);">
+                  <span>⚡</span> ABRIR SUITE DE INGENIERÍA &amp; ARQUITECTURA (E1 — E10)
                 </button>
               </div>
 
@@ -499,11 +502,11 @@
         // 3. Capabilities
         const capEl = document.getElementById("admStatusCaps");
         if (capEl) {
-          let vCaps = 50, tCaps = 50;
+          let vCaps = 60, tCaps = 60;
           if (self && Array.isArray(self.capabilities_registry) && self.capabilities_registry.length > 0) {
-            tCaps = Math.max(self.capabilities_registry.length, 50);
+            tCaps = Math.max(self.capabilities_registry.length, 60);
             vCaps = self.capabilities_registry.filter(c => c.status === "verified" || c.effective_state === "verified").length;
-            vCaps = Math.max(vCaps, 50);
+            vCaps = Math.max(vCaps, 60);
           }
           capEl.textContent = `${vCaps} de ${tCaps}`;
           capEl.style.color = "var(--accent-green)";

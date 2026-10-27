@@ -217,6 +217,9 @@
             <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenThemeModal && window.akiraOpenThemeModal()" title="Estudio de Temas y Accesibilidad WCAG">
               🎨 Temas
             </button>
+            <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenSoftwareLab && window.akiraOpenSoftwareLab()" title="Abrir Suite de Ingeniería &amp; Arquitectura (E1 - E10)" style="border-color:#00f2fe;color:#00f2fe;">
+              ⚡ Software Lab
+            </button>
             <button type="button" class="ak-sandbox-btn" onclick="window.akiraOpenPythonREPL && window.akiraOpenPythonREPL()" title="Abrir Consola Python REPL WebAssembly">
               🐍 Python REPL
             </button>
