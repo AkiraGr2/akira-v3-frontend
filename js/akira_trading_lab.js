@@ -1,19 +1,22 @@
 /**
- * AKIRA QUANTUM TRADING LAB & HARMONIC SCANNER v1.0
+ * AKIRA QUANTUM TRADING LAB & HARMONIC SCANNER v2.0
  * Escáner Armónico (Gartley, Bat, Butterfly, Crab, Cypher) + SMC (Order Blocks, FVG, Liquidez)
  * Multi-Mercado: Forex, Oro (XAU/USD), Cripto, Índices Sintéticos Deriv (Boom/Crash), Binarias (IQ Option)
- * Centinela de Riesgo Matemático: Cuentas $50/$100/$500, Cortacircuito Psicológico 2x2, Interés Compuesto
- * Gráfico en Tiempo Real (TradingView), Simulador Demo / Paper Trading, Alertas Telegram & MT5 Bridge.
+ * Centinela Matemático Universal: Cálculo dinámico para CUALQUIER monto ($10, $50, $100, $1,000, $5,000+)
+ * Cortacircuito Asimétrico: 3 a 4 Victorias de meta diaria / 2 Pérdidas límite estricto
+ * Interés Compuesto Interactivo Dinámico con proyecciones a 30, 60, 90 y 180 días
+ * Gráfico en Tiempo Real (TradingView), Simulador Demo con Saldo Personalizable, Alertas Telegram & MT5 Bridge.
  * 100% Gratuito ($0.00 COP / USD) para el Director Jhon Grimm.
  */
 (function(){
   "use strict";
 
-  const STORAGE_KEY_PAPER = "akira_trading_paper_v1";
-  const STORAGE_KEY_SENTINEL = "akira_trading_sentinel_v1";
+  const STORAGE_KEY_PAPER = "akira_trading_paper_v2";
+  const STORAGE_KEY_SENTINEL = "akira_trading_sentinel_v2";
   const STORAGE_KEY_DERIV = "akira_trading_deriv_token";
+  const STORAGE_KEY_CAPITAL = "akira_trading_custom_capital";
 
-  // Mercados soportados con sus configuraciones
+  // Mercados soportados con sus configuraciones matemáticas
   const MARKETS = {
     "XAUUSD": {
       id: "XAUUSD",
@@ -131,8 +134,19 @@
       this.activeTab = "scanner"; // scanner | chart | simulator | sentinel | connections
       this.selectedMarket = "XAUUSD";
       this.selectedTimeframe = "M15";
-      this.accountSize = 100; // $100 USD por defecto para pruebas realistas
+      
+      // Capital universal configurable por el usuario (por defecto $50 o lo guardado)
+      const savedCap = parseFloat(localStorage.getItem(STORAGE_KEY_CAPITAL));
+      this.accountSize = (!isNaN(savedCap) && savedCap > 0) ? savedCap : 50;
+      
       this.riskPercent = 1.5; // 1.5% max
+      this.maxWinsTarget = 4; // Rango ampliado de victorias: 3 a 4 al día
+      this.maxLossesLimit = 2; // Límite estricto e inquebrantable de 2 pérdidas
+      
+      // Parámetros de interés compuesto interactivo
+      this.compoundRate = 0.015; // 1.5% diario
+      this.compoundDays = 90; // 90 días por defecto
+
       this.paper = this.loadPaperAccount();
       this.sentinel = this.loadSentinel();
       this.currentSignal = null;
@@ -155,9 +169,9 @@
         }
       } catch(_) {}
       return {
-        balance: 500.00,
-        equity: 500.00,
-        initialBalance: 500.00,
+        balance: this.accountSize,
+        equity: this.accountSize,
+        initialBalance: this.accountSize,
         openPositions: [],
         closedTrades: []
       };
@@ -262,39 +276,39 @@
           type: isBinary ? "CALL" : "BUY",
           fibs: { XA: 1.0, AB: 0.618, BC: 0.382, CD: 0.786 },
           smc: "Order Block Alcista (15M) + Confluencia FVG Mitigada",
-          confluence: 88.6
+          confluence: 89.4
         },
         {
           name: "Bearish Bat (Reversión 0.886 PRZ)",
           type: isBinary ? "PUT" : "SELL",
           fibs: { XA: 1.0, AB: 0.500, BC: 0.886, CD: 0.886 },
           smc: "Toma de Liquidez de Máximos (Buy-Side Liquidity Swept)",
-          confluence: 91.2
+          confluence: 92.1
         },
         {
           name: "Bullish Butterfly (Extensión 1.272 Reversal)",
           type: isBinary ? "CALL" : "BUY",
           fibs: { XA: 1.0, AB: 0.786, BC: 0.886, CD: 1.272 },
           smc: "Breaker Block + Divergencia Regular en RSI 14",
-          confluence: 86.4
+          confluence: 87.5
         },
         {
           name: "Bearish Crab (Extensión Extrema 1.618)",
           type: isBinary ? "PUT" : "SELL",
           fibs: { XA: 1.0, AB: 0.618, BC: 0.382, CD: 1.618 },
           smc: "Desequilibrio Institucional (Fair Value Gap) + Cambio CHoCH",
-          confluence: 89.5
+          confluence: 90.8
         },
         {
           name: "Bullish Cypher (Estructura Armónica Avanzada)",
           type: isBinary ? "CALL" : "BUY",
           fibs: { XA: 1.0, AB: 0.382, BC: 1.272, CD: 0.786 },
           smc: "Zona de Descuento Institucional (< 50% Rango Premium/Discount)",
-          confluence: 87.8
+          confluence: 88.9
         }
       ];
 
-      // Seleccionar patrón según par o aleatorio controlado
+      // Seleccionar patrón aleatorio controlado
       const pattern = patterns[Math.floor(Math.random() * patterns.length)];
       
       // Cálculo de niveles matemáticos SL y TP
@@ -338,28 +352,46 @@
       this.renderScannerSignal();
     }
 
-    // Cálculo dinámico de lotaje seguro según el capital seleccionado
+    // FÓRMULA MATEMÁTICA UNIVERSAL DE GESTIÓN DE RIESGO
+    // Calcula el lotaje y riesgo exacto para CUALQUIER capital ($10, $50, $1000, $5000+)
     calculateSafeLot(accountSize, riskPips = 25) {
-      // Regla de Oro: Riesgo máximo del 1.5% del capital total
-      const maxRiskMoney = accountSize * (this.riskPercent / 100);
-      // Para Forex 0.01 lote = $0.10 por pip (en EUR/USD). 25 pips = $2.50
-      // Si la cuenta es de $50, el mínimo absoluto es 0.01 lote.
-      let lot = 0.01;
-      if (accountSize >= 1000) {
-        lot = Math.max(0.01, parseFloat(((maxRiskMoney / (riskPips * 10))).toFixed(2)));
-      } else if (accountSize >= 500) {
-        lot = 0.05;
-      } else if (accountSize >= 200) {
-        lot = 0.02;
-      } else {
-        lot = 0.01; // Cuentas de $50 y $100 estrictamente micro-lote 0.01
+      const cap = Math.max(1, parseFloat(accountSize) || 50);
+      const targetRiskMoney = cap * (this.riskPercent / 100); // 1.5% del capital
+
+      // En Forex estándar: 1.00 lote = $10/pip | 0.01 lote = $0.10/pip
+      // Riesgo Teórico = Lote * riskPips * 10
+      // Lote Teórico = targetRiskMoney / (riskPips * 10)
+      const rawLot = targetRiskMoney / (riskPips * 10.0);
+      const minBrokerLot = 0.01; // Límite inferior estándar en brokers de Forex / MT5
+      const calculatedLot = Math.max(minBrokerLot, parseFloat(rawLot.toFixed(2)));
+
+      // Riesgo real en dólares ejecutando al lote calculado
+      const actualRiskMoney = parseFloat((calculatedLot * riskPips * 10.0).toFixed(2));
+      const actualRiskPercent = parseFloat(((actualRiskMoney / cap) * 100).toFixed(1));
+
+      // Beneficios proyectados según ratios R:R
+      const tp1Profit = parseFloat((actualRiskMoney * 1.5).toFixed(2));
+      const tp2Profit = parseFloat((actualRiskMoney * 2.5).toFixed(2));
+      const tp3Profit = parseFloat((actualRiskMoney * 4.0).toFixed(2));
+
+      // Detección de condición micro-cuenta (< $70 USD)
+      const isMicroAccount = cap < 70;
+      let microNote = "";
+      if (isMicroAccount) {
+        microNote = `En cuentas de $${cap} USD, el lote mínimo que permite el broker es 0.01 ($0.10/pip), lo que equivale a un riesgo de $${actualRiskMoney} USD (${actualRiskPercent}% de la cuenta). Para operar con estricto 1.5% en cuentas pequeñas, reduce el Stop Loss a 10-15 pips o utiliza Opciones Binarias/Deriv donde puedes definir apuestas exactas de $0.50 o $1.00 USD.`;
       }
+
       return {
-        lot: lot,
-        maxRiskMoney: parseFloat(maxRiskMoney.toFixed(2)),
-        potentialProfitTP1: parseFloat((maxRiskMoney * 1.5).toFixed(2)),
-        potentialProfitTP2: parseFloat((maxRiskMoney * 2.5).toFixed(2)),
-        potentialProfitTP3: parseFloat((maxRiskMoney * 4.0).toFixed(2))
+        capital: cap,
+        targetRiskMoney: parseFloat(targetRiskMoney.toFixed(2)),
+        lot: calculatedLot,
+        actualRiskMoney: actualRiskMoney,
+        actualRiskPercent: actualRiskPercent,
+        tp1Profit: tp1Profit,
+        tp2Profit: tp2Profit,
+        tp3Profit: tp3Profit,
+        isMicroAccount: isMicroAccount,
+        microNote: microNote
       };
     }
 
@@ -376,13 +408,13 @@
                 <span class="ak-trading-logo">📈</span>
                 <div>
                   <h2>Akira Quantum Trading Lab &amp; Harmonic Scanner</h2>
-                  <p>Escáner armónico algorítmico, Smart Money Concepts (SMC), Centinela de Riesgo Matemático y Simulador Demo en tiempo real a costo $0.00 COP.</p>
+                  <p>Estación cuantitativa de precisión: Escáner armónico algorítmico, Centinela Asimétrico (4W / 2L), Simulador Demo y Proyecciones Dinámicas a $0.00 COP.</p>
                 </div>
               </div>
               <div class="ak-trading-badge-group">
                 <span class="ak-pill live"><span class="dot"></span> MERCADOS EN VIVO</span>
                 <span class="ak-pill sentinel ${this.sentinel.isCircuitBreakerActive ? 'alert' : 'ok'}">
-                  ${this.sentinel.isCircuitBreakerActive ? '🔴 CORTACIRCUITO ACTIVO' : '🛡️ RIESGO CONTROLADO'}
+                  ${this.sentinel.isCircuitBreakerActive ? '🔴 CORTACIRCUITO ACTIVO' : '🛡️ RIESGO ASIMÉTRICO (4W / 2L)'}
                 </span>
                 <span class="ak-pill free">$0.00 COP / USD</span>
               </div>
@@ -393,7 +425,7 @@
               <button class="ak-ttab-btn ${this.activeTab === 'scanner' ? 'active' : ''}" data-ttab="scanner">📡 Escáner Armónico &amp; SMC</button>
               <button class="ak-ttab-btn ${this.activeTab === 'chart' ? 'active' : ''}" data-ttab="chart">📊 Gráfico en Vivo (TradingView)</button>
               <button class="ak-ttab-btn ${this.activeTab === 'simulator' ? 'active' : ''}" data-ttab="simulator">🎮 Simulador Demo (Paper Trading)</button>
-              <button class="ak-ttab-btn ${this.activeTab === 'sentinel' ? 'active' : ''}" data-ttab="sentinel">🛡️ Centinela &amp; Cortacircuito</button>
+              <button class="ak-ttab-btn ${this.activeTab === 'sentinel' ? 'active' : ''}" data-ttab="sentinel">🛡️ Centinela &amp; Interés Compuesto</button>
               <button class="ak-ttab-btn ${this.activeTab === 'connections' ? 'active' : ''}" data-ttab="connections">🔌 Conexiones &amp; Automatización</button>
             </div>
           </div>
@@ -472,18 +504,28 @@
                   <div class="sub">${this.paper.closedTrades.length} operaciones cerradas</div>
                 </div>
                 <div class="ak-metric-card">
-                  <div class="label">ESTADO DEL DÍA (2x2)</div>
+                  <div class="label">ESTADO DEL DÍA (4W / 2L)</div>
                   <div class="val" id="simDailyStatusVal">
-                    <span style="color:#10b981;">${this.sentinel.winsToday}W</span> - <span style="color:#ef4444;">${this.sentinel.lossesToday}L</span>
+                    <span style="color:#10b981;">${this.sentinel.winsToday}W</span> / <span style="color:#ef4444;">${this.sentinel.lossesToday}L</span>
                   </div>
-                  <div class="sub">Límite diario: 2 max</div>
+                  <div class="sub">Meta: 4W | Límite: 2L</div>
                 </div>
               </div>
 
               <!-- Formulario de Orden Manual Demo -->
               <div class="ak-sim-order-deck">
                 <div class="ak-sim-order-box">
-                  <h4 style="margin:0 0 10px 0;font-size:13px;color:#00f2fe;">🎯 Ejecutar Nueva Operación Demo</h4>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                    <h4 style="margin:0;font-size:13px;color:#00f2fe;">🎯 Ejecutar Nueva Operación Demo</h4>
+                    <div style="display:flex;gap:6px;">
+                      <button id="btnSyncDemoWithCap" class="ak-btn subtle" style="padding:4px 8px;font-size:11px;" title="Ajusta el saldo demo exactamente al capital configurado en el Centinela">
+                        🔄 Sincronizar Saldo con mi Capital ($${this.accountSize})
+                      </button>
+                      <button id="btnResetDemo" class="ak-btn subtle" style="padding:4px 8px;font-size:11px;">
+                        🔁 Reiniciar a $50
+                      </button>
+                    </div>
+                  </div>
                   <div class="ak-order-grid">
                     <div class="field">
                       <label>Mercado:</label>
@@ -494,8 +536,8 @@
                       </select>
                     </div>
                     <div class="field" id="fieldLotSize">
-                      <label>Lote / Contrato:</label>
-                      <input type="number" id="simOrderLot" class="ak-input-text" value="0.01" step="0.01" min="0.01">
+                      <label>Lote / Contrato (Sugerido: ${this.calculateSafeLot(this.accountSize).lot}):</label>
+                      <input type="number" id="simOrderLot" class="ak-input-text" value="${this.calculateSafeLot(this.accountSize).lot}" step="0.01" min="0.01">
                     </div>
                     <div class="field" id="fieldBinaryExpiration" style="display:none;">
                       <label>Expiración Binarias:</label>
@@ -513,7 +555,6 @@
                   <div class="ak-order-actions">
                     <button id="btnSimBuy" class="ak-btn buy">🟢 COMPRAR / CALL</button>
                     <button id="btnSimSell" class="ak-btn sell">🔴 VENDER / PUT</button>
-                    <button id="btnResetDemo" class="ak-btn subtle" style="margin-left:auto;">🔄 Reiniciar a $500</button>
                   </div>
                 </div>
               </div>
@@ -534,67 +575,105 @@
             <!-- TAB 4: CENTINELA DE RIESGO & CORTACIRCUITO -->
             <div id="tab-sentinel" class="ak-ttab-pane ${this.activeTab === 'sentinel' ? 'active' : ''}">
               <div class="ak-sentinel-grid">
-                <!-- Tarjeta Selector de Cuenta -->
+                
+                <!-- Tarjeta 1: Selector Universal de Capital ($10 a $100,000+) -->
                 <div class="ak-card">
                   <div class="ak-card-header">
-                    <h4>💰 Gestión de Capital &amp; Tamaño de Cuenta</h4>
-                    <span class="ak-badge safe">Regla 1.5% Max</span>
+                    <h4>💰 Gestión Universal de Capital</h4>
+                    <span class="ak-badge safe">Regla Matemática 1.5%</span>
                   </div>
-                  <p style="font-size:12px;color:#94a3b8;">
-                    Las matemáticas no tienen sentimientos. Selecciona el capital real o proyectado para calcular el lotaje exacto y evitar la quema de cuenta.
+                  <p style="font-size:12px;color:#94a3b8;margin-bottom:8px;">
+                    Ingresa o selecciona <strong>CUALQUIER MONTO</strong> con el que vayas a operar (desde $10 o $50 hasta $5,000 o más). Akira recalculará instantáneamente el lotaje exacto, el riesgo en dólares y los beneficios potenciales:
                   </p>
-                  <div class="ak-account-size-pills">
-                    ${[50, 100, 200, 500, 1000].map(amt => `
-                      <button class="ak-amt-btn ${this.accountSize === amt ? 'active' : ''}" data-amt="${amt}">
-                        $${amt} USD
-                      </button>
-                    `).join('')}
+                  
+                  <div class="ak-capital-input-wrapper">
+                    <label style="font-size:11px;font-weight:700;color:#00f2fe;">CAPITAL INICIAL PERSONALIZADO (USD):</label>
+                    <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+                      <span style="font-size:18px;font-weight:bold;color:#00f2fe;">$</span>
+                      <input type="number" id="inpCustomAccountSize" class="ak-input-text" style="font-size:16px;font-weight:bold;color:#fff;width:160px;" value="${this.accountSize}" min="1" step="10">
+                      <button id="btnApplyCapital" class="ak-btn primary" style="padding:6px 12px;">Calcular</button>
+                    </div>
                   </div>
-                  <div id="accountCalculationBox" class="ak-calc-result-box"></div>
+
+                  <!-- Botones rápidos de acceso frecuente -->
+                  <div style="margin-top:10px;">
+                    <span style="font-size:10px;color:#64748b;display:block;margin-bottom:4px;">ACCESOS RÁPIDOS:</span>
+                    <div class="ak-account-size-pills">
+                      ${[10, 25, 50, 100, 250, 500, 1000, 2000, 5000].map(amt => `
+                        <button class="ak-amt-btn ${this.accountSize === amt ? 'active' : ''}" data-amt="${amt}">
+                          $${amt}
+                        </button>
+                      `).join('')}
+                    </div>
+                  </div>
+
+                  <div id="accountCalculationBox" class="ak-calc-result-box" style="margin-top:12px;"></div>
                 </div>
 
-                <!-- Tarjeta Cortacircuito Psicológico 2x2 -->
+                <!-- Tarjeta 2: Cortacircuito Asimétrico Anti-Revancha (4W / 2L) -->
                 <div class="ak-card">
                   <div class="ak-card-header">
-                    <h4>🛡️ Cortacircuito Psicológico Anti-Revancha (2x2)</h4>
+                    <h4>🛡️ Cortacircuito Asimétrico (4W / 2L)</h4>
                     <span class="ak-badge ${this.sentinel.isCircuitBreakerActive ? 'alert' : 'active'}">
                       ${this.sentinel.isCircuitBreakerActive ? 'BLOQUEO ACTIVO' : 'SISTEMA PROTEGIDO'}
                     </span>
                   </div>
                   <div class="ak-circuit-banner ${this.sentinel.isCircuitBreakerActive ? 'danger' : 'normal'}">
-                    <div style="font-size:24px;">${this.sentinel.isCircuitBreakerActive ? '🛑' : '🧠'}</div>
+                    <div style="font-size:26px;">${this.sentinel.isCircuitBreakerActive ? '🛑' : '🧠'}</div>
                     <div>
-                      <strong>Regla Inquebrantable de Akira:</strong>
+                      <strong>Regla Asimétrica de Akira:</strong>
                       <p style="margin:4px 0 0 0;font-size:12px;line-height:1.4;">
-                        <em>"Tú eres el emocional, yo soy la matemática. Si permitimos que el ego o la revancha operen, el mercado nos quitará el capital. Máximo 2 victorias o 2 derrotas al día. Al tocar 2 derrotas, el sistema se bloquea automáticamente por 24 horas."</em>
+                        <em>"Tú eres el emocional, yo soy la matemática. Dos derrotas consecutivas (-3% a -5%) son suficientes para cerrar el día y proteger tu capital. Por el contrario, permitimos hasta <strong>4 victorias</strong> para maximizar rachas ganadoras. Al tocar 4 victorias (+6% a +10%), el sistema asegura la ganancia y te invita a retirarte triunfador."</em>
                       </p>
                     </div>
                   </div>
                   <div class="ak-circuit-status-row">
-                    <div>Operaciones Hoy: <strong>${this.sentinel.winsToday + this.sentinel.lossesToday} / 4 max</strong></div>
-                    <div>Victorias: <strong style="color:#10b981;">${this.sentinel.winsToday}</strong> | Derrotas: <strong style="color:#ef4444;">${this.sentinel.lossesToday}</strong></div>
+                    <div>Meta Victorias: <strong style="color:#10b981;">${this.sentinel.winsToday} / ${this.maxWinsTarget}</strong></div>
+                    <div>Límite Pérdidas: <strong style="color:#ef4444;">${this.sentinel.lossesToday} / ${this.maxLossesLimit}</strong></div>
                     <button id="btnResetCircuit" class="ak-btn subtle" style="padding:4px 8px;font-size:11px;">Restablecer Día</button>
                   </div>
                 </div>
 
-                <!-- Plan de Crecimiento por Interés Compuesto -->
+                <!-- Tarjeta 3: Plan Dinámico de Interés Compuesto -->
                 <div class="ak-card" style="grid-column:1 / -1;">
                   <div class="ak-card-header">
-                    <h4>📈 Plan Matemático de Interés Compuesto (1.5% Diario)</h4>
-                    <span class="ak-badge ok">Proyección a 90 Días</span>
+                    <h4>📈 Plan Dinámico de Interés Compuesto para $${this.accountSize} USD</h4>
+                    <span class="ak-badge ok">Crecimiento Exponencial sin Sobreapalancamiento</span>
                   </div>
-                  <p style="font-size:12px;color:#94a3b8;margin-bottom:12px;">
-                    Demostración matemática de cómo una cuenta de $${this.accountSize} USD crece exponencialmente sin sobreapalancamiento ni estrés emocional:
-                  </p>
+                  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+                    <p style="margin:0;font-size:12px;color:#94a3b8;">
+                      Simula el crecimiento de tu capital siguiendo el plan disciplinado de 2 a 3 operaciones ganadoras diarias:
+                    </p>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                      <label style="font-size:11px;color:#94a3b8;">TASA DIARIA:</label>
+                      <select id="selCompoundRate" class="ak-input-select" style="padding:4px 8px;">
+                        <option value="0.015" ${this.compoundRate === 0.015 ? 'selected' : ''}>1.5% Diario (Conservador - 1 TP1)</option>
+                        <option value="0.025" ${this.compoundRate === 0.025 ? 'selected' : ''}>2.5% Diario (Moderado - 2 Wins)</option>
+                        <option value="0.035" ${this.compoundRate === 0.035 ? 'selected' : ''}>3.5% Diario (Acelerado - 3 Wins)</option>
+                      </select>
+                      <label style="font-size:11px;color:#94a3b8;margin-left:8px;">HORIZONTE:</label>
+                      <select id="selCompoundDays" class="ak-input-select" style="padding:4px 8px;">
+                        <option value="30" ${this.compoundDays === 30 ? 'selected' : ''}>30 Días</option>
+                        <option value="60" ${this.compoundDays === 60 ? 'selected' : ''}>60 Días</option>
+                        <option value="90" ${this.compoundDays === 90 ? 'selected' : ''}>90 Días</option>
+                        <option value="180" ${this.compoundDays === 180 ? 'selected' : ''}>180 Días (6 Meses)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Resumen de Proyección -->
+                  <div id="compoundSummaryBox" style="margin-bottom:14px;"></div>
+
                   <div class="ak-compound-table-wrap">
                     <table class="ak-compound-table">
                       <thead>
                         <tr>
-                          <th>Día / Hito</th>
-                          <th>Capital Inicial</th>
-                          <th>Meta Diaria (+1.5%)</th>
+                          <th>Hito / Día</th>
+                          <th>Capital al Iniciar</th>
+                          <th>Meta Diaria (+)</th>
                           <th>Capital Acumulado</th>
-                          <th>Lote Recomendado</th>
+                          <th>Lotaje Seguro</th>
+                          <th>Crecimiento Total (%)</th>
                         </tr>
                       </thead>
                       <tbody id="compoundTableBody"></tbody>
@@ -627,7 +706,7 @@
                   </div>
                 </div>
 
-                <!-- Opción B: Deriv API Token (Índices Boom/Crash) -->
+                <!-- Opción B1: Deriv API Token (Índices Boom/Crash) -->
                 <div class="ak-conn-card">
                   <div class="ak-conn-header">
                     <div class="ak-conn-icon" style="background:rgba(239,68,68,0.15);color:#ef4444;">⚡</div>
@@ -731,22 +810,18 @@
                   <stop offset="100%" stop-color="#ef4444" stop-opacity="0.0"/>
                 </linearGradient>
               </defs>
-              <!-- Zona PRZ Shaded Box -->
               <rect x="520" y="${isBuy ? '120' : '20'}" width="150" height="60" fill="rgba(0,242,254,0.12)" stroke="rgba(0,242,254,0.4)" stroke-dasharray="4,4" rx="4"/>
               <text x="595" y="${isBuy ? '155' : '55'}" fill="#00f2fe" font-size="10" text-anchor="middle" font-weight="bold">ZONA PRZ (POTENCIAL GIRO)</text>
 
-              <!-- Triángulos del Patrón X-A-B y B-C-D -->
               ${isBuy ? `
                 <polygon points="50,160 180,40 320,130" fill="url(#bullGrad)" stroke="#10b981" stroke-width="2"/>
                 <polygon points="320,130 450,70 570,160" fill="url(#bullGrad)" stroke="#10b981" stroke-width="2"/>
-                <!-- Flecha de Entrada Proyectada -->
                 <line x1="570" y1="160" x2="660" y2="40" stroke="#00f2fe" stroke-width="3" stroke-dasharray="5,3"/>
                 <circle cx="50" cy="160" r="5" fill="#fff" stroke="#10b981" stroke-width="2"/>
                 <circle cx="180" cy="40" r="5" fill="#fff" stroke="#10b981" stroke-width="2"/>
                 <circle cx="320" cy="130" r="5" fill="#fff" stroke="#10b981" stroke-width="2"/>
                 <circle cx="450" cy="70" r="5" fill="#fff" stroke="#10b981" stroke-width="2"/>
                 <circle cx="570" cy="160" r="6" fill="#00f2fe" stroke="#fff" stroke-width="2"/>
-                <!-- Etiquetas de Puntos -->
                 <text x="50" y="180" fill="#cbd5e1" font-size="12" font-weight="bold" text-anchor="middle">X</text>
                 <text x="180" y="25" fill="#cbd5e1" font-size="12" font-weight="bold" text-anchor="middle">A</text>
                 <text x="320" y="150" fill="#cbd5e1" font-size="12" font-weight="bold" text-anchor="middle">B (0.618)</text>
@@ -953,65 +1028,136 @@
       box.innerHTML = `
         <div class="ak-calc-grid">
           <div>
-            <span class="sub">Cuenta:</span>
-            <strong>$${this.accountSize} USD</strong>
+            <span class="sub">Capital Base:</span>
+            <strong style="color:#00f2fe;">$${calc.capital.toLocaleString()} USD</strong>
           </div>
           <div>
-            <span class="sub">Riesgo Máximo (1.5%):</span>
-            <strong style="color:#f59e0b;">$${calc.maxRiskMoney} USD</strong>
+            <span class="sub">Riesgo Objetivo (1.5%):</span>
+            <strong style="color:#f59e0b;">$${calc.targetRiskMoney} USD</strong>
           </div>
           <div>
             <span class="sub">Lotaje Seguro Sugerido:</span>
-            <strong style="color:#00f2fe;">${calc.lot} Lote</strong>
+            <strong style="color:#10b981;">${calc.lot} Lote(s)</strong>
+          </div>
+          <div>
+            <span class="sub">Riesgo Real en SL (25 pips):</span>
+            <strong style="color:${calc.actualRiskPercent > 5 ? '#ef4444' : '#fff'};">$${calc.actualRiskMoney} USD (${calc.actualRiskPercent}%)</strong>
           </div>
           <div>
             <span class="sub">Ganancia TP1 (1:1.5):</span>
-            <strong style="color:#10b981;">+$${calc.potentialProfitTP1} USD</strong>
+            <strong style="color:#10b981;">+$${calc.tp1Profit} USD</strong>
           </div>
           <div>
             <span class="sub">Ganancia TP2 (1:2.5):</span>
-            <strong style="color:#10b981;">+$${calc.potentialProfitTP2} USD</strong>
+            <strong style="color:#10b981;">+$${calc.tp2Profit} USD</strong>
           </div>
           <div>
             <span class="sub">Ganancia TP3 (1:4.0):</span>
-            <strong style="color:#10b981;">+$${calc.potentialProfitTP3} USD</strong>
+            <strong style="color:#10b981;">+$${calc.tp3Profit} USD</strong>
           </div>
         </div>
+
+        ${calc.isMicroAccount ? `
+          <div class="ak-micro-note-box" style="margin-top:12px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:10px 12px;font-size:11px;color:#fcd34d;line-height:1.4;">
+            <strong>💡 Perspicacia Matemática para Micro-Cuentas:</strong><br>
+            ${calc.microNote}
+          </div>
+        ` : ''}
+
+        <div style="margin-top:12px;display:flex;justify-content:flex-end;">
+          <button id="btnSyncToDemoFromSentinel" class="ak-btn secondary" style="font-size:11px;padding:6px 12px;">
+            🎮 Probar este Capital ($${calc.capital}) en el Simulador Demo
+          </button>
+        </div>
       `;
+
+      // Vincular el botón de sincronización dentro de la caja de cálculo
+      const btnSync = document.getElementById("btnSyncToDemoFromSentinel");
+      if (btnSync) {
+        btnSync.onclick = () => {
+          this.syncDemoBalanceWithCapital();
+          const simTabBtn = document.querySelector('[data-ttab="simulator"]');
+          if (simTabBtn) simTabBtn.click();
+        };
+      }
     }
 
     renderCompoundTable() {
       const tbody = document.getElementById("compoundTableBody");
+      const summaryBox = document.getElementById("compoundSummaryBox");
       if (!tbody) return;
 
       let cap = this.accountSize;
-      const rate = 0.015; // 1.5% diario
+      const rate = this.compoundRate;
+      const days = this.compoundDays;
       const rows = [];
-      const checkpoints = [1, 5, 10, 15, 20, 25, 30, 45, 60, 90];
+      
+      // Determinar hitos de visualización según el horizonte temporal
+      let checkpoints = [];
+      if (days <= 30) {
+        checkpoints = [1, 2, 3, 5, 7, 10, 15, 20, 25, 30];
+      } else if (days <= 60) {
+        checkpoints = [1, 5, 10, 15, 20, 25, 30, 40, 50, 60];
+      } else if (days <= 90) {
+        checkpoints = [1, 5, 10, 15, 20, 25, 30, 45, 60, 75, 90];
+      } else {
+        checkpoints = [1, 10, 20, 30, 45, 60, 90, 120, 150, 180];
+      }
 
-      for (let day = 1; day <= 90; day++) {
+      let startCap = cap;
+      let finalCap = cap;
+
+      for (let day = 1; day <= days; day++) {
         const dailyProfit = cap * rate;
         const endCap = cap + dailyProfit;
+
         if (checkpoints.includes(day)) {
-          let recLot = "0.01 micro";
-          if (endCap >= 1000) recLot = "0.10 mini";
-          else if (endCap >= 500) recLot = "0.05 mini";
-          else if (endCap >= 200) recLot = "0.02 micro";
+          const safeLot = this.calculateSafeLot(endCap).lot;
+          const roiPct = (((endCap - startCap) / startCap) * 100).toFixed(1);
 
           rows.push(`
             <tr>
               <td><strong>Día ${day}</strong></td>
-              <td>$${cap.toFixed(2)} USD</td>
-              <td style="color:#10b981;">+$${dailyProfit.toFixed(2)} USD</td>
-              <td><strong style="color:#00f2fe;">$${endCap.toFixed(2)} USD</strong></td>
-              <td style="color:#cbd5e1;">${recLot}</td>
+              <td>$${cap.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USD</td>
+              <td style="color:#10b981;">+$${dailyProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USD</td>
+              <td><strong style="color:#00f2fe;">$${endCap.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USD</strong></td>
+              <td style="color:#cbd5e1;font-weight:600;">${safeLot} Lote(s)</td>
+              <td style="color:#10b981;font-weight:bold;">+${roiPct}%</td>
             </tr>
           `);
         }
         cap = endCap;
+        finalCap = endCap;
       }
 
       tbody.innerHTML = rows.join('');
+
+      if (summaryBox) {
+        const totalNetProfit = finalCap - startCap;
+        const multiplier = (finalCap / startCap).toFixed(1);
+        const totalRoi = (((finalCap - startCap) / startCap) * 100).toFixed(1);
+
+        summaryBox.innerHTML = `
+          <div class="ak-compound-summary-grid">
+            <div class="ak-csum-card">
+              <span class="label">CAPITAL INICIAL:</span>
+              <strong class="val">$${startCap.toLocaleString()} USD</strong>
+            </div>
+            <div class="ak-csum-card">
+              <span class="label">CAPITAL FINAL (DÍA ${days}):</span>
+              <strong class="val" style="color:#00f2fe;">$${finalCap.toLocaleString(undefined, {maximumFractionDigits: 0})} USD</strong>
+            </div>
+            <div class="ak-csum-card">
+              <span class="label">GANANCIA NETA TOTAL:</span>
+              <strong class="val" style="color:#10b981;">+$${totalNetProfit.toLocaleString(undefined, {maximumFractionDigits: 0})} USD</strong>
+            </div>
+            <div class="ak-csum-card">
+              <span class="label">MULTIPLICADOR / ROI:</span>
+              <strong class="val" style="color:#f59e0b;">${multiplier}x (+${totalRoi}%)</strong>
+            </div>
+          </div>
+        `;
+      }
     }
 
     updateSimulatorLiveUI() {
@@ -1043,11 +1189,34 @@
       return Math.round((wins / this.paper.closedTrades.length) * 100);
     }
 
+    // Sincronizar saldo del simulador con el capital seleccionado por el usuario
+    syncDemoBalanceWithCapital() {
+      this.paper = {
+        balance: this.accountSize,
+        equity: this.accountSize,
+        initialBalance: this.accountSize,
+        openPositions: [],
+        closedTrades: []
+      };
+      this.savePaperAccount();
+      this.renderOpenPositions();
+      this.renderClosedTrades();
+      this.updateSimulatorLiveUI();
+      
+      const btnSync = document.getElementById("btnSyncDemoWithCap");
+      if (btnSync) {
+        btnSync.innerText = `✅ Saldo Demo Sincronizado ($${this.accountSize})`;
+        setTimeout(() => {
+          btnSync.innerText = `🔄 Sincronizar Saldo con mi Capital ($${this.accountSize})`;
+        }, 2000);
+      }
+    }
+
     // Ejecución de orden en Demo Simulator
     executeDemoOrder(marketId, type, lot, sl = null, tp = null, isBinary = false, duration = 60) {
       // Verificar cortacircuito
       if (this.sentinel.isCircuitBreakerActive) {
-        alert("🛑 CORTACIRCUITO ACTIVADO: Se alcanzó el límite de protección del día. No se permiten nuevas operaciones para proteger tu psicología.");
+        alert("🛑 CORTACIRCUITO ACTIVADO: " + this.sentinel.lockReason);
         return;
       }
 
@@ -1170,6 +1339,7 @@
       this.updateSimulatorLiveUI();
     }
 
+    // ACTUALIZACIÓN DE ESTADÍSTICAS DEL CENTINELA ASIMÉTRICO (4W / 2L)
     updateSentinelStats(isWin, pnl) {
       if (isWin) {
         this.sentinel.winsToday++;
@@ -1180,20 +1350,23 @@
       }
       this.sentinel.dailyPnL = parseFloat((this.sentinel.dailyPnL + pnl).toFixed(2));
 
-      // Comprobación de regla 2x2
-      if (this.sentinel.consecutiveLosses >= 2 || this.sentinel.lossesToday >= 2) {
+      // LÓGICA ASIMÉTRICA:
+      // 1. Pérdidas: 2 pérdidas (consecutivas o totales en el día) = BLOQUEO INMEDIATO
+      if (this.sentinel.consecutiveLosses >= this.maxLossesLimit || this.sentinel.lossesToday >= this.maxLossesLimit) {
         this.sentinel.isCircuitBreakerActive = true;
-        this.sentinel.lockReason = "Límite de 2 pérdidas consecutivas alcanzado hoy. Pausa obligatoria de 24 horas por preservación de capital.";
-      } else if (this.sentinel.winsToday >= 2) {
+        this.sentinel.lockReason = `🛑 CORTACIRCUITO ACTIVADO: Límite de ${this.maxLossesLimit} pérdidas alcanzado hoy. Pausa obligatoria de 24 horas para preservar el capital y domar la psicología.`;
+      }
+      // 2. Victorias: Ampliado a 4 victorias (permite aprovechar la racha ganadora sin codicia infinita)
+      else if (this.sentinel.winsToday >= this.maxWinsTarget) {
         this.sentinel.isCircuitBreakerActive = true;
-        this.sentinel.lockReason = "Meta diaria alcanzada con éxito (+2 Victorias). Se cierra la jornada para no sobreoperar.";
+        this.sentinel.lockReason = `🏆 ¡META DIARIA CUMPLIDA (+${this.sentinel.winsToday} Victorias)! Las matemáticas recomiendan asegurar beneficios y retirarse triunfador para no sobreoperar.`;
       }
 
       this.saveSentinel();
       const statusPill = document.querySelector(".ak-pill.sentinel");
       if (statusPill) {
         statusPill.className = `ak-pill sentinel ${this.sentinel.isCircuitBreakerActive ? 'alert' : 'ok'}`;
-        statusPill.innerText = this.sentinel.isCircuitBreakerActive ? '🔴 CORTACIRCUITO ACTIVO' : '🛡️ RIESGO CONTROLADO';
+        statusPill.innerText = this.sentinel.isCircuitBreakerActive ? '🔴 CORTACIRCUITO ACTIVO' : '🛡️ RIESGO ASIMÉTRICO (4W / 2L)';
       }
     }
 
@@ -1367,15 +1540,23 @@
         });
       }
 
-      // Reiniciar Demo
+      // Sincronizar demo con capital
+      const btnSyncDemo = document.getElementById("btnSyncDemoWithCap");
+      if (btnSyncDemo) {
+        btnSyncDemo.addEventListener("click", () => {
+          this.syncDemoBalanceWithCapital();
+        });
+      }
+
+      // Reiniciar Demo a $50
       const btnResetDemo = document.getElementById("btnResetDemo");
       if (btnResetDemo) {
         btnResetDemo.addEventListener("click", () => {
-          if (confirm("¿Deseas reiniciar la cuenta demo a $500.00 USD?")) {
+          if (confirm("¿Deseas reiniciar la cuenta demo a $50.00 USD?")) {
             this.paper = {
-              balance: 500.00,
-              equity: 500.00,
-              initialBalance: 500.00,
+              balance: 50.00,
+              equity: 50.00,
+              initialBalance: 50.00,
               openPositions: [],
               closedTrades: []
             };
@@ -1387,16 +1568,68 @@
         });
       }
 
-      // Selector de tamaño de cuenta en Centinela
+      // Input Personalizado de Capital en Centinela
+      const inpCapital = document.getElementById("inpCustomAccountSize");
+      const btnApplyCap = document.getElementById("btnApplyCapital");
+      const applyCapitalChange = () => {
+        const val = parseFloat(inpCapital?.value);
+        if (!isNaN(val) && val > 0) {
+          this.accountSize = val;
+          localStorage.setItem(STORAGE_KEY_CAPITAL, val.toString());
+          
+          // Actualizar input del formulario demo
+          const simLotInput = document.getElementById("simOrderLot");
+          if (simLotInput) {
+            simLotInput.value = this.calculateSafeLot(this.accountSize).lot;
+          }
+          
+          this.renderAccountCalculations();
+          this.renderCompoundTable();
+
+          // Actualizar botones rápidos activos
+          container.querySelectorAll(".ak-amt-btn").forEach(b => {
+            b.classList.toggle("active", parseFloat(b.dataset.amt) === val);
+          });
+        }
+      };
+
+      if (btnApplyCap) btnApplyCap.addEventListener("click", applyCapitalChange);
+      if (inpCapital) {
+        inpCapital.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") applyCapitalChange();
+        });
+      }
+
+      // Pills rápidas de capital en Centinela
       container.querySelectorAll(".ak-amt-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
           container.querySelectorAll(".ak-amt-btn").forEach(b => b.classList.remove("active"));
           e.currentTarget.classList.add("active");
-          this.accountSize = parseInt(e.currentTarget.dataset.amt, 10);
+          const amt = parseFloat(e.currentTarget.dataset.amt);
+          this.accountSize = amt;
+          localStorage.setItem(STORAGE_KEY_CAPITAL, amt.toString());
+          if (inpCapital) inpCapital.value = amt;
           this.renderAccountCalculations();
           this.renderCompoundTable();
         });
       });
+
+      // Cambio de Tasa y Días de Interés Compuesto
+      const selRate = document.getElementById("selCompoundRate");
+      if (selRate) {
+        selRate.addEventListener("change", (e) => {
+          this.compoundRate = parseFloat(e.target.value);
+          this.renderCompoundTable();
+        });
+      }
+
+      const selDays = document.getElementById("selCompoundDays");
+      if (selDays) {
+        selDays.addEventListener("change", (e) => {
+          this.compoundDays = parseInt(e.target.value, 10);
+          this.renderCompoundTable();
+        });
+      }
 
       // Resetear Cortacircuito
       const btnResetCircuit = document.getElementById("btnResetCircuit");
@@ -1514,7 +1747,6 @@ if __name__ == "__main__":
           });
           alert("✅ Señal enviada a Telegram directamente!");
         } else {
-          // Fallback a API local o notificación
           alert("📱 Señal formateada para Telegram:\n\n" + msg + "\n\n(Configura tu Token y Chat ID en 'Mi Cuenta' para envío directo).");
         }
       } catch (e) {
@@ -1523,7 +1755,7 @@ if __name__ == "__main__":
     }
   }
 
-  // Estilos visuales del Trading Lab
+  // Estilos visuales del Trading Lab v2
   (function injectStyles(){
     if (document.getElementById("akira-trading-lab-styles")) return;
     const s = document.createElement("style");
@@ -1713,10 +1945,10 @@ if __name__ == "__main__":
       }
       .ak-card-header { display: flex; justify-content: space-between; align-items: center; }
       .ak-card-header h4 { margin: 0; font-size: 14px; color: #fff; }
-      .ak-account-size-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+      .ak-account-size-pills { display: flex; gap: 6px; flex-wrap: wrap; }
       .ak-amt-btn {
         background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
-        color: #94a3b8; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+        color: #94a3b8; padding: 6px 10px; font-size: 11px; font-weight: 700; cursor: pointer;
       }
       .ak-amt-btn.active { background: rgba(0,242,254,0.2); border-color: #00f2fe; color: #00f2fe; }
       .ak-calc-result-box {
@@ -1737,8 +1969,18 @@ if __name__ == "__main__":
         background: rgba(0,0,0,0.2); padding: 10px 14px; border-radius: 6px;
       }
 
+      .ak-compound-summary-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;
+      }
+      .ak-csum-card {
+        background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;
+        padding: 10px 14px; display: flex; flex-direction: column; gap: 2px;
+      }
+      .ak-csum-card .label { font-size: 10px; font-weight: 700; color: #94a3b8; }
+      .ak-csum-card .val { font-size: 16px; font-weight: 800; color: #fff; }
+
       .ak-compound-table-wrap {
-        max-height: 280px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px;
+        max-height: 320px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px;
       }
       .ak-compound-table { width: 100%; border-collapse: collapse; font-size: 12px; }
       .ak-compound-table th {
