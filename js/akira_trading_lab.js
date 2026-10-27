@@ -817,25 +817,26 @@
         };
       }
 
-      // CÁLCULO ASIMÉTRICO RIGUROSO DE SL Y TAKE PROFITS:
-      // COMPRA: SL < Entrada < TP1 < TP2 < TP3
-      // VENTA:  TP3 < TP2 < TP1 < Entrada < SL
+      // CÁLCULO SNIPER MILIMÉTRICO (STOP LOSS CORTO Y TIGHT, RATIO 1:3.19 EXACTO):
+      // COMPRA: SL (Corto) < Entrada < TP1 < TP2 < TP3 (Target 3.19)
+      // VENTA:  TP3 (Target 3.19) < TP2 < TP1 < Entrada < SL (Corto)
       const isBullTrade = type === "BUY" || type === "CALL";
-      const riskDistance = Math.max(m.pipSize * 15, pipDist);
+      const sniperRiskPips = (m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash") ? 12 : (m.pipSize < 0.001 ? 15 : 12);
+      const riskDistance = parseFloat((m.pipSize * sniperRiskPips).toFixed(decimals));
 
       if (isBullTrade) {
         sl = parseFloat((entry - riskDistance).toFixed(decimals));
         tp1 = parseFloat((entry + (riskDistance * 1.5)).toFixed(decimals));
-        tp2 = parseFloat((entry + (riskDistance * 2.5)).toFixed(decimals));
-        tp3 = parseFloat((entry + (riskDistance * 4.0)).toFixed(decimals));
+        tp2 = parseFloat((entry + (riskDistance * 2.2)).toFixed(decimals));
+        tp3 = parseFloat((entry + (riskDistance * 3.19)).toFixed(decimals));
       } else {
         sl = parseFloat((entry + riskDistance).toFixed(decimals));
         tp1 = parseFloat((entry - (riskDistance * 1.5)).toFixed(decimals));
-        tp2 = parseFloat((entry - (riskDistance * 2.5)).toFixed(decimals));
-        tp3 = parseFloat((entry - (riskDistance * 4.0)).toFixed(decimals));
+        tp2 = parseFloat((entry - (riskDistance * 2.2)).toFixed(decimals));
+        tp3 = parseFloat((entry - (riskDistance * 3.19)).toFixed(decimals));
       }
 
-      const riskPips = Math.max(5, Math.round(Math.abs(entry - sl) / m.pipSize));
+      const riskPips = sniperRiskPips;
       const confluence = Math.min(98, Math.max(88, Math.round(92 + (Math.random() * 4))));
 
       this.currentSignal = {
@@ -1672,23 +1673,33 @@
     calculateSniperChannel(candles) {
       if (!candles || candles.length < 15) return null;
       const N = candles.length;
-      
-      let peak1 = { idx: 4, price: candles[4].high };
-      let peak2 = { idx: Math.min(N - 5, 25), price: candles[Math.min(N - 5, 25)].high };
-      for (let i = 2; i < Math.floor(N * 0.55); i++) {
-        if (candles[i].high > peak1.price) peak1 = { idx: i, price: candles[i].high };
+      // Ventana activa reciente de 28 velas para que el canal envuelva exactamente la acción del precio actual
+      const windowStart = Math.max(0, N - 28);
+      const activeCandles = candles.slice(windowStart);
+      const actN = activeCandles.length;
+
+      // Resistencia reciente (techo dinámico)
+      let peak1 = { idx: windowStart + 2, price: activeCandles[2].high };
+      let peak2 = { idx: windowStart + actN - 3, price: activeCandles[actN - 3].high };
+      for (let i = 1; i < Math.floor(actN * 0.5); i++) {
+        if (activeCandles[i].high > peak1.price) peak1 = { idx: windowStart + i, price: activeCandles[i].high };
       }
-      for (let i = Math.floor(N * 0.45); i < N - 2; i++) {
-        if (candles[i].high > peak2.price && i !== peak1.idx) peak2 = { idx: i, price: candles[i].high };
+      for (let i = Math.floor(actN * 0.5); i < actN - 1; i++) {
+        if (activeCandles[i].high > peak2.price && (windowStart + i) !== peak1.idx) {
+          peak2 = { idx: windowStart + i, price: activeCandles[i].high };
+        }
       }
 
-      let trough1 = { idx: 2, price: candles[2].low };
-      let trough2 = { idx: Math.min(N - 4, 30), price: candles[Math.min(N - 4, 30)].low };
-      for (let i = 2; i < Math.floor(N * 0.55); i++) {
-        if (candles[i].low < trough1.price) trough1 = { idx: i, price: candles[i].low };
+      // Soporte reciente (piso dinámico)
+      let trough1 = { idx: windowStart + 2, price: activeCandles[2].low };
+      let trough2 = { idx: windowStart + actN - 2, price: activeCandles[actN - 2].low };
+      for (let i = 1; i < Math.floor(actN * 0.5); i++) {
+        if (activeCandles[i].low < trough1.price) trough1 = { idx: windowStart + i, price: activeCandles[i].low };
       }
-      for (let i = Math.floor(N * 0.50); i < N; i++) {
-        if (candles[i].low < trough2.price && i !== trough1.idx) trough2 = { idx: i, price: candles[i].low };
+      for (let i = Math.floor(actN * 0.5); i < actN; i++) {
+        if (activeCandles[i].low < trough2.price && (windowStart + i) !== trough1.idx) {
+          trough2 = { idx: windowStart + i, price: activeCandles[i].low };
+        }
       }
 
       return {
@@ -2059,10 +2070,11 @@
             const sig = this.currentSignal;
             const isBuy = sig.type === "BUY" || sig.type === "CALL";
             const chulitoX = pD_coord.x;
+            const yEntry = getY(sig.entry || pD_coord.price);
 
             if (isBuy) {
-              // CHULITO VERDE (✓) en la línea púrpura de soporte
-              const chulitoY = getY(chan.support.p2.price);
+              // CHULITO VERDE (✓) directamente en el rebote de la entrada
+              const chulitoY = yEntry + 22;
 
               ctx.strokeStyle = "#16a34a";
               ctx.lineWidth = 3.5;
@@ -2084,8 +2096,7 @@
 
               // CAJA DE POSICIÓN ESTILO TRADINGVIEW (LONG POSITION BOX)
               // Compra: Entrada en sig.entry, Target ARRIBA (yTp < yEntry), Stop ABAJO (ySl > yEntry)
-              const yEntry = getY(sig.entry || pD_coord.price);
-              const yTp = getY(sig.tp2 || sig.tp1);
+              const yTp = getY(sig.tp3 || sig.tp2 || sig.tp1);
               const ySl = getY(sig.sl);
               // Dejar 105px a la derecha para que NO colisione con los badges del eje derecho
               const boxW = Math.max(60, chartWidth - chulitoX - 105);
@@ -2105,7 +2116,7 @@
               ctx.fillStyle = "#ffffff";
               ctx.font = "bold 9px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Target: +${(sig.riskPips * 2.5).toFixed(1)} pips (Ratio: 3.19)`, chulitoX + 6, targetTop - 3);
+              ctx.fillText(`Target: +${(sig.riskPips * 3.19).toFixed(1)} pips (Ratio: 3.19)`, chulitoX + 6, targetTop - 3);
 
               // 2. Caja Roja (Stop Loss / Riesgo)
               const stopTop = yEntry;
@@ -2151,8 +2162,8 @@
               });
 
             } else {
-              // CHULITO ROJO (✓) en la línea roja de resistencia
-              const chulitoY = getY(chan.resistance.p2.price);
+              // CHULITO ROJO (✓) directamente en el rechazo de la entrada
+              const chulitoY = yEntry - 22;
 
               ctx.strokeStyle = "#dc2626";
               ctx.lineWidth = 3.5;
@@ -2174,8 +2185,7 @@
 
               // CAJA DE POSICIÓN ESTILO TRADINGVIEW (SHORT POSITION BOX)
               // Venta: Entrada en sig.entry, Target ABAJO (yTp > yEntry), Stop ARRIBA (ySl < yEntry)
-              const yEntry = getY(sig.entry || pD_coord.price);
-              const yTp = getY(sig.tp2 || sig.tp1);
+              const yTp = getY(sig.tp3 || sig.tp2 || sig.tp1);
               const ySl = getY(sig.sl);
               // Dejar 105px a la derecha para que NO colisione con los badges del eje derecho
               const boxW = Math.max(60, chartWidth - chulitoX - 105);
@@ -2212,7 +2222,7 @@
               ctx.fillStyle = "#ffffff";
               ctx.font = "bold 9px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Target: +${(sig.riskPips * 2.5).toFixed(1)} pips (Ratio: 3.19)`, chulitoX + 6, targetTop + targetH + 11);
+              ctx.fillText(`Target: +${(sig.riskPips * 3.19).toFixed(1)} pips (Ratio: 3.19)`, chulitoX + 6, targetTop + targetH + 11);
 
               // Píldora de R:R en el centro
               ctx.fillStyle = isLight ? "#e2e8f0" : "#1e293b";
