@@ -859,6 +859,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 
   <div id="shopifySection" class="section"></div>
 
+  <div id="tradingSection" class="section"></div>
+
   <div id="keysSection" class="section">
     <div class="section-header">
       <h2>🛡️ Centro de Control & Bóveda de Claves</h2>
@@ -1592,7 +1594,7 @@ function showSection(name){
   closeSidebar();
   const hudSec = document.getElementById("akHudCurrentSection");
   if(hudSec) {
-    const secLabels = { home: "INICIO", chat: "CHAT DIRECTO", membrane: "CEREBRO", office: "OFICINA", missions: "MISIONES", levels: "NIVELES", upwork: "UPWORK", keys: "CUENTA", admin: "ADMINISTRACIÓN" };
+    const secLabels = { home: "INICIO", chat: "CHAT DIRECTO", membrane: "CEREBRO", office: "OFICINA", missions: "MISIONES", levels: "NIVELES", upwork: "UPWORK", shopify: "SHOPIFY", trading: "TRADING LAB", keys: "CUENTA", admin: "ADMINISTRACIÓN" };
     hudSec.textContent = secLabels[name] || name.toUpperCase();
   }
   if(name==='home'){
@@ -1646,6 +1648,18 @@ function showSection(name){
     window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"admin"}}));
     if(window.AkiraAdminModern && typeof window.AkiraAdminModern.init === 'function') {
       window.AkiraAdminModern.init();
+    }
+  }
+  else if(name==='shopify'){
+    window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"shopify"}}));
+    if(window.AkiraShopifyHub && typeof window.AkiraShopifyHub.init === 'function') {
+      window.AkiraShopifyHub.init();
+    }
+  }
+  else if(name==='trading'){
+    window.dispatchEvent(new CustomEvent("akira:section-shown",{detail:{section:"trading"}}));
+    if(window.AkiraTradingLab && typeof window.AkiraTradingLab.init === 'function') {
+      window.AkiraTradingLab.init();
     }
   }
 }
@@ -2754,6 +2768,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_sandbox.js?v=akira-sandbox-v1"></script>
 <script src="./js/akira_software_lab.js?v=akira-software-lab-v1"></script>
 <script src="./js/akira_shopify_hub.js?v=akira-shopify-v1"></script>
+<script src="./js/akira_trading_lab.js?v=akira-trading-lab-v1"></script>
 <script src="./js/akira_python_repl.js?v=akira-python-v1"></script>
 <script src="./js/akira_search_vector.js?v=akira-vector-v1"></script>
 <script src="./js/akira_cron_scheduler.js?v=akira-cron-v1"></script>
