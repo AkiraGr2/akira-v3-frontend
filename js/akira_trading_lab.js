@@ -1678,7 +1678,6 @@
         }
       });
 
-      const cur = this.marketPrices[this.selectedMarket] || candles[candles.length - 1].close;
       const diff = isBuy ? (cur - sig.entry) : (sig.entry - cur);
       const pipsFloating = parseFloat((diff / (MARKETS[this.selectedMarket]?.pipSize || 1)).toFixed(1));
 
@@ -1755,6 +1754,7 @@
       if (allCandles.length === 0) return;
 
       const isLight = this.chartTheme === "light";
+      const targetSync = this.calculateTargetSync(allCandles);
 
       // Viewport & Scrolling
       const totalCandles = allCandles.length;
@@ -2091,8 +2091,6 @@
           ctx.stroke();
 
           // C. DIBUJAR LOS CHULITOS (✓) DE ENTRADA SNIPER Y LA CAJA DE POSICIÓN ESTILO TRADINGVIEW
-          const targetSync = this.calculateTargetSync(allCandles);
-
           if (pD_coord && this.currentSignal && !MARKETS[this.selectedMarket]?.isBinary) {
             const sig = this.currentSignal;
             const isBuy = sig.type === "BUY" || sig.type === "CALL";
