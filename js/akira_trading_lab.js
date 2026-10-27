@@ -773,6 +773,15 @@
       };
     }
 
+        getMarketSniperRiskPips(marketId, m) {
+      if (m.isBinary) return 0;
+      if (marketId === "BTCUSDT") return 180; // $180 USD swing proporcional en Bitcoin
+      if (marketId === "ETHUSDT") return 140; // $14.0 USD swing proporcional en Ethereum
+      if (marketId === "XAUUSD") return 25;   // 25 pips ($2.50 USD) swing milimétrico en Oro
+      if (m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash") return 12; // 12 ticks en Boom/Crash
+      return 12; // 12 pips en Forex Mayor (EUR/USD, GBP/USD, USD/JPY)
+    }
+
     generateHarmonicSignal(marketId, timeframe) {
       const m = MARKETS[marketId] || MARKETS["XAUUSD"];
       const curPrice = this.marketPrices[marketId] || m.basePrice;
@@ -817,14 +826,20 @@
         };
       }
 
-      // CÁLCULO SNIPER MILIMÉTRICO (STOP LOSS CORTO Y TIGHT, RATIO 1:3.19 EXACTO):
-      // COMPRA: SL (Corto) < Entrada < TP1 < TP2 < TP3 (Target 3.19)
-      // VENTA:  TP3 (Target 3.19) < TP2 < TP1 < Entrada < SL (Corto)
+      // AUDITORÍA Y PROTECCIÓN MATEMÁTICA MULTI-MERCADO:
+      // FOREX: 12 pips | ORO: 25 pips ($2.50) | CRIPTO: 180 pips BTC / 140 pips ETH | ÍNDICES: 12 ticks
+      // BINARIAS: Sin SL/TP en precio (Opera por tiempo y Strike Price +85% Payout)
       const isBullTrade = type === "BUY" || type === "CALL";
-      const sniperRiskPips = (m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash") ? 12 : (m.pipSize < 0.001 ? 15 : 12);
+      const sniperRiskPips = this.getMarketSniperRiskPips(marketId, m);
       const riskDistance = parseFloat((m.pipSize * sniperRiskPips).toFixed(decimals));
 
-      if (isBullTrade) {
+      if (isBinary) {
+        // En Opciones Binarias NO existen niveles numéricos de SL/TP en precio
+        sl = null;
+        tp1 = null;
+        tp2 = null;
+        tp3 = null;
+      } else if (isBullTrade) {
         sl = parseFloat((entry - riskDistance).toFixed(decimals));
         tp1 = parseFloat((entry + (riskDistance * 1.5)).toFixed(decimals));
         tp2 = parseFloat((entry + (riskDistance * 2.2)).toFixed(decimals));
@@ -836,7 +851,7 @@
         tp3 = parseFloat((entry - (riskDistance * 3.19)).toFixed(decimals));
       }
 
-      const riskPips = sniperRiskPips;
+      const riskPips = isBinary ? 0 : sniperRiskPips;
       const confluence = Math.min(98, Math.max(88, Math.round(92 + (Math.random() * 4))));
 
       this.currentSignal = {
@@ -1622,7 +1637,19 @@
     calculateTargetSync(candles) {
       if (!this.currentSignal || !candles || candles.length === 0) return null;
       const sig = this.currentSignal;
+      const isBinary = sig.type === "CALL" || sig.type === "PUT";
       const isBuy = sig.type === "BUY" || sig.type === "CALL";
+      const cur = this.marketPrices[this.selectedMarket] || candles[candles.length - 1].close;
+
+      if (isBinary) {
+        const isItm = sig.type === "CALL" ? (cur > sig.entry) : (cur < sig.entry);
+        return {
+          isBinary: true,
+          isItm: isItm,
+          payoutPercent: 85,
+          currentPrice: cur
+        };
+      }
       const startIdx = Math.max(0, candles.length - 15);
       const relevantCandles = candles.slice(startIdx);
 
@@ -2066,7 +2093,7 @@
           // C. DIBUJAR LOS CHULITOS (✓) DE ENTRADA SNIPER Y LA CAJA DE POSICIÓN ESTILO TRADINGVIEW
           const targetSync = this.calculateTargetSync(allCandles);
 
-          if (pD_coord && this.currentSignal) {
+          if (pD_coord && this.currentSignal && !MARKETS[this.selectedMarket]?.isBinary) {
             const sig = this.currentSignal;
             const isBuy = sig.type === "BUY" || sig.type === "CALL";
             const chulitoX = pD_coord.x;
@@ -2370,8 +2397,53 @@
       const decimals = MARKETS[this.selectedMarket]?.pipSize < 0.001 ? 5 : 2;
       ctx.fillText(curPrice.toFixed(decimals), chartWidth + (rightMargin / 2), yCur + 3);
 
-      // 8. NIVELES DE STOP LOSS Y TAKE PROFIT (SINCRONIZADOS EN VIVO CON LAS VELAS)
-      if (this.showLevels && this.currentSignal && this.currentSignal.sl && this.currentSignal.tp1) {
+      // 8. NIVELES DE MERCADO: EN BINARIAS = STRIKE & ZONA ITM (+85%) | EN OTROS = SL/TP 1:3.19
+      const isCurrentBinary = Boolean(MARKETS[this.selectedMarket]?.isBinary);
+
+      if (isCurrentBinary && this.currentSignal) {
+        // RENDERIZADO EXCLUSIVO PARA OPCIONES BINARIAS (IQ OPTION / POCKET OPTION)
+        const sig = this.currentSignal;
+        const yStrike = getY(sig.entry);
+        const isCall = sig.type === "CALL";
+        const isItm = targetSync ? targetSync.isItm : (isCall ? (curPrice > sig.entry) : (curPrice < sig.entry));
+
+        // 1. ZONA IN THE MONEY (ITM: +85% GANANCIA NETA)
+        const itmTop = isCall ? 0 : yStrike;
+        const itmH = isCall ? yStrike : (height - yStrike);
+        ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.12)" : "rgba(16, 185, 129, 0.14)";
+        ctx.fillRect(0, itmTop, chartWidth, itmH);
+
+        // 2. ZONA OUT OF THE MONEY (OTM: RIESGO FIJO)
+        const otmTop = isCall ? yStrike : 0;
+        const otmH = isCall ? (height - yStrike) : yStrike;
+        ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.08)" : "rgba(239, 68, 68, 0.09)";
+        ctx.fillRect(0, otmTop, chartWidth, otmH);
+
+        // 3. LÍNEA DE PRECIO STRIKE PALPITANTE
+        ctx.strokeStyle = isLight ? "#0284c7" : "#00f2fe";
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 3]);
+        ctx.beginPath();
+        ctx.moveTo(0, yStrike);
+        ctx.lineTo(chartWidth, yStrike);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Badges de Binarias
+        ctx.fillStyle = isItm ? "#16a34a" : "#dc2626";
+        ctx.fillRect(chartWidth - 110, yStrike - 12, 106, 16);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 9px monospace";
+        ctx.textAlign = "right";
+        ctx.fillText(isItm ? "🔥 ITM (+85% GANADO)" : "⚠️ OTM (EN RIESGO)", chartWidth - 6, yStrike + 1);
+
+        ctx.fillStyle = isLight ? "#0f172a" : "#f8fafc";
+        ctx.font = "bold 9.5px sans-serif";
+        ctx.textAlign = "left";
+        const itmLabelY = isCall ? Math.max(25, yStrike - 18) : Math.min(height - 25, yStrike + 24);
+        ctx.fillText(`⚡ ZONA ITM (+85% PAYOUT) • EXPIRACIÓN 60s/2m TURBO`, 16, itmLabelY);
+      }
+      else if (this.showLevels && this.currentSignal && this.currentSignal.sl && this.currentSignal.tp1) {
         const sync = targetSync;
         const ySl = getY(this.currentSignal.sl);
         const yTp1 = getY(this.currentSignal.tp1);
