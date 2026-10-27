@@ -3122,22 +3122,24 @@ code, pre, .ak-mono, .badge, .status-pill, .step-num, .task-val, .ak-metric-labe
 .brain-fs-exit-btn {
   display: none;
   position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 1000000;
-  background: rgba(15, 23, 42, 0.92);
-  backdrop-filter: blur(8px);
-  border: 1.5px solid #ef4444;
-  color: #fca5a5;
+  top: max(16px, env(safe-area-inset-top, 16px));
+  right: max(16px, env(safe-area-inset-right, 16px));
+  z-index: 2147483647;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px solid #ef4444;
+  color: #ffffff;
   font-weight: 700;
-  font-size: 13px;
-  padding: 8px 16px;
+  font-size: 14px;
+  padding: 10px 20px;
   border-radius: 999px;
   cursor: pointer;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.7), 0 0 10px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.8), 0 0 16px rgba(239, 68, 68, 0.4);
   transition: all 0.2s ease;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  touch-action: manipulation;
 }
 .brain-fs-exit-btn:hover, .brain-fs-exit-btn:active {
   background: #ef4444;

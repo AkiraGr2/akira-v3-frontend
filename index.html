@@ -552,7 +552,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           <button type="button" class="ak-chip" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('Hola Akira, ¿cómo estás hoy y en qué estás trabajando?')">✨ ¿Cómo estás hoy?</button>
           <button type="button" class="ak-chip" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('Analiza las mejores oportunidades para aplicar en Upwork hoy.')">💼 Explorar Upwork</button>
           <button type="button" class="ak-chip" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('Muestra un resumen sencillo de lo que tienes en tu memoria y aprendizaje.')">🧠 Tu Memoria</button>
-          <button type="button" class="ak-chip" onclick="generateImageAkira()">🎨 Crear Imagen</button>
+          <button type="button" class="ak-chip" onclick="window.sendSuggestedPrompt && window.sendSuggestedPrompt('Ejecuta una evaluación proactiva de nivel 4 bajo la directiva J.A.R.V.I.S.')">⚡ Proactividad Nivel 4</button>
         </div>
 
         <div class="ak-input-deck-box">
@@ -786,8 +786,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 
   <div id="levelsSection" class="section">
     <div class="section-header">
-      <h2>📊 Niveles & Capacidades del Sistema (49/49 Verificadas)</h2>
-      <p>Telemetría en tiempo real de las <strong>49 capacidades cognitivas, herramientas y subsistemas autónomos verificados</strong> de Akira (20 Núcleo Canónico + 4 Super-Estructuras + 17 Capacidades Maestras + 4 Suites Ejecutivas & Móviles · 100% Verificadas).</p>
+      <h2>📊 Niveles & Capacidades del Sistema (50/50 Verificadas · Nivel 4 Proactivo)</h2>
+      <p>Telemetría en tiempo real de las <strong>50 capacidades cognitivas, herramientas y subsistemas autónomos verificados</strong> de Akira (20 Núcleo Canónico + 4 Super-Estructuras + 17 Capacidades Maestras + 4 Suites Ejecutivas & Móviles + Motor Proactivo Nivel 4 J.A.R.V.I.S. · 100% Verificadas).</p>
     </div>
     <div class="ak-levels-matrix-deck">
       <div id="levelsList" class="ak-levels-hud-grid"></div>
@@ -2310,16 +2310,21 @@ function clearKey(){
 window.sendSuggestedPrompt = function(promptText){
   if(typeof window.showSection === 'function') window.showSection('chat');
   const inp = document.getElementById('msg');
-  if(!inp) return;
-  inp.value = String(promptText || '').trim();
-  inp.focus();
+  if(inp){
+    inp.value = String(promptText || '').trim();
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+    inp.focus();
+  }
   setTimeout(function(){
     if(typeof window.sendMsg === 'function'){
       window.sendMsg();
     } else if(typeof sendMsg === 'function'){
       sendMsg();
+    } else {
+      const sendBtn = document.getElementById('sendBtn');
+      if(sendBtn) sendBtn.click();
     }
-  }, 50);
+  }, 60);
 };
 
 function akiraOnTelegramInput(val){
@@ -3053,6 +3058,7 @@ async function renderLevels(){
       {id:"M9", name:"Motor de Hojas de Cálculo & Data Wrangler", desc:"Grid tabular interactivo con evaluación de fórmulas (=SUM, =AVERAGE, =COUNT), import/export CSV y limpieza.", status: "verified"},
       {id:"M10", name:"Simulador de Pruebas Web & Auditoría UX", desc:"Validador sintético automático de accesibilidad (a11y), responsive viewport móvil, enlaces rotos y SEO.", status: "verified"},
       {id:"M11", name:"Modo Offline Resiliente PWA & IndexedDB", desc:"Cola local en segundo plano que almacena mensajes y acciones durante caídas de red y sincroniza al volver.", status: "verified"},
+      {id:"L4", name:"Motor Proactivo J.A.R.V.I.S. (Nivel 4)", desc:"Evaluación contextual autónoma de necesidades, radar de oportunidades y recomendación de siguiente paso lógico.", status: "verified"},
       {id:"M12", name:"Vigilante de Auto-Curación Técnica", desc:"Guardián contra corrupción de almacenamiento local, recuperación de fallbacks y reintentos en cold-starts.", status: "verified"},
       {id:"M13", name:"Probador de APIs REST & Servidor Mock", desc:"Cliente HTTP para probar endpoints con headers/parámetros y simular respuestas mockeadas para frontend.", status: "verified"},
       {id:"M14", name:"Estudio de Temas & Accesibilidad WCAG", desc:"Selector visual de temas (Cyberpunk, Obsidian OLED, Arctic, Solarized) y auditor de contraste 2.1 AA/AAA.", status: "verified"},

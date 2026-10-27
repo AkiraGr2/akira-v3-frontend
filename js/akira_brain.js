@@ -514,6 +514,7 @@ async function generateImageAkira(prompt){
 
 
 document.addEventListener("DOMContentLoaded", ()=>{
+  window.sendMsg = sendMsg;
   // UX-first: los controles del chat se conectan de inmediato, sin esperar a Render.
   const ta=document.getElementById('msg');
   if(ta){
