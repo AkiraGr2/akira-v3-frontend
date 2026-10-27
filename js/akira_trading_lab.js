@@ -777,7 +777,18 @@
       const m = MARKETS[marketId] || MARKETS["XAUUSD"];
       const curPrice = this.marketPrices[marketId] || m.basePrice;
       const isBinary = Boolean(m.isBinary);
-      const isBullPreferred = isBinary ? (Math.random() > 0.5) : (Math.random() > 0.5);
+
+      // DIRECCIÓN ESTRATÉGICA SEGÚN FÍSICA DEL MERCADO:
+      // En Boom 1000 los spikes son SIEMPRE alcistas (+). ¡JAMÁS operar ventas en Boom!
+      // En Crash 1000 los spikes son SIEMPRE bajistas (-). ¡JAMÁS operar compras en Crash!
+      let isBullPreferred;
+      if (m.platformMode === "deriv_boom" || marketId.startsWith("BOOM")) {
+        isBullPreferred = true;
+      } else if (m.platformMode === "deriv_crash" || marketId.startsWith("CRASH")) {
+        isBullPreferred = false;
+      } else {
+        isBullPreferred = isBinary ? (Math.random() > 0.5) : (Math.random() > 0.5);
+      }
 
       const marketCandles = this.candles[marketId] || this.generateHistoricalCandles(marketId, 90);
       const geom = this.detectHarmonicPivots(marketCandles, isBullPreferred ? (isBinary ? "CALL" : "BUY") : (isBinary ? "PUT" : "SELL"));
@@ -787,7 +798,7 @@
 
       let entry = curPrice;
       let sl, tp1, tp2, tp3;
-      let patternName = "Bullish Gartley (Retracción 0.786 Fibonacci)";
+      let patternName = isBullPreferred ? "Bullish Gartley (Retracción 0.786 Fibonacci)" : "Bearish Bat (Retracción 0.886 Fibonacci)";
       let fibs = { XA: 1.0, AB: 0.618, BC: 0.382, CD: 1.272, XD: 0.786 };
       let type = isBinary ? (isBullPreferred ? "CALL" : "PUT") : (isBullPreferred ? "BUY" : "SELL");
       let pivots = null;
@@ -804,33 +815,27 @@
           C: parseFloat(geom.pC_price.toFixed(decimals)),
           D: parseFloat(geom.pD_price.toFixed(decimals))
         };
-
-        if (geom.isBull) {
-          sl = parseFloat((geom.pX_price - (m.pipSize * 15)).toFixed(decimals));
-          tp1 = parseFloat((entry + (pipDist * 1.5)).toFixed(decimals));
-          tp2 = parseFloat((entry + (pipDist * 2.5)).toFixed(decimals));
-          tp3 = parseFloat(geom.pC_price.toFixed(decimals));
-        } else {
-          sl = parseFloat((geom.pX_price + (m.pipSize * 15)).toFixed(decimals));
-          tp1 = parseFloat((entry - (pipDist * 1.5)).toFixed(decimals));
-          tp2 = parseFloat((entry - (pipDist * 2.5)).toFixed(decimals));
-          tp3 = parseFloat(geom.pC_price.toFixed(decimals));
-        }
-      } else {
-        if (type === "BUY" || type === "CALL") {
-          sl = parseFloat((entry - pipDist).toFixed(decimals));
-          tp1 = parseFloat((entry + (pipDist * 1.5)).toFixed(decimals));
-          tp2 = parseFloat((entry + (pipDist * 2.5)).toFixed(decimals));
-          tp3 = parseFloat((entry + (pipDist * 4.0)).toFixed(decimals));
-        } else {
-          sl = parseFloat((entry + pipDist).toFixed(decimals));
-          tp1 = parseFloat((entry - (pipDist * 1.5)).toFixed(decimals));
-          tp2 = parseFloat((entry - (pipDist * 2.5)).toFixed(decimals));
-          tp3 = parseFloat((entry - (pipDist * 4.0)).toFixed(decimals));
-        }
       }
 
-      const riskPips = Math.max(5, Math.round(Math.abs(entry - (sl || entry)) / m.pipSize));
+      // CÁLCULO ASIMÉTRICO RIGUROSO DE SL Y TAKE PROFITS:
+      // COMPRA: SL < Entrada < TP1 < TP2 < TP3
+      // VENTA:  TP3 < TP2 < TP1 < Entrada < SL
+      const isBullTrade = type === "BUY" || type === "CALL";
+      const riskDistance = Math.max(m.pipSize * 15, pipDist);
+
+      if (isBullTrade) {
+        sl = parseFloat((entry - riskDistance).toFixed(decimals));
+        tp1 = parseFloat((entry + (riskDistance * 1.5)).toFixed(decimals));
+        tp2 = parseFloat((entry + (riskDistance * 2.5)).toFixed(decimals));
+        tp3 = parseFloat((entry + (riskDistance * 4.0)).toFixed(decimals));
+      } else {
+        sl = parseFloat((entry + riskDistance).toFixed(decimals));
+        tp1 = parseFloat((entry - (riskDistance * 1.5)).toFixed(decimals));
+        tp2 = parseFloat((entry - (riskDistance * 2.5)).toFixed(decimals));
+        tp3 = parseFloat((entry - (riskDistance * 4.0)).toFixed(decimals));
+      }
+
+      const riskPips = Math.max(5, Math.round(Math.abs(entry - sl) / m.pipSize));
       const confluence = Math.min(98, Math.max(88, Math.round(92 + (Math.random() * 4))));
 
       this.currentSignal = {
@@ -1613,6 +1618,57 @@
     }
 
     
+    calculateTargetSync(candles) {
+      if (!this.currentSignal || !candles || candles.length === 0) return null;
+      const sig = this.currentSignal;
+      const isBuy = sig.type === "BUY" || sig.type === "CALL";
+      const startIdx = Math.max(0, candles.length - 15);
+      const relevantCandles = candles.slice(startIdx);
+
+      let maxPrice = -Infinity;
+      let minPrice = Infinity;
+      let hitTp1Idx = -1;
+      let hitTp2Idx = -1;
+      let hitTp3Idx = -1;
+      let hitSlIdx = -1;
+
+      relevantCandles.forEach((c, idx) => {
+        const globalIdx = startIdx + idx;
+        if (c.high > maxPrice) maxPrice = c.high;
+        if (c.low < minPrice) minPrice = c.low;
+
+        if (isBuy) {
+          if (hitTp1Idx === -1 && c.high >= sig.tp1) hitTp1Idx = globalIdx;
+          if (hitTp2Idx === -1 && c.high >= sig.tp2) hitTp2Idx = globalIdx;
+          if (hitTp3Idx === -1 && c.high >= sig.tp3) hitTp3Idx = globalIdx;
+          if (hitSlIdx === -1 && c.low <= sig.sl) hitSlIdx = globalIdx;
+        } else {
+          if (hitTp1Idx === -1 && c.low <= sig.tp1) hitTp1Idx = globalIdx;
+          if (hitTp2Idx === -1 && c.low <= sig.tp2) hitTp2Idx = globalIdx;
+          if (hitTp3Idx === -1 && c.low <= sig.tp3) hitTp3Idx = globalIdx;
+          if (hitSlIdx === -1 && c.high >= sig.sl) hitSlIdx = globalIdx;
+        }
+      });
+
+      const cur = this.marketPrices[this.selectedMarket] || candles[candles.length - 1].close;
+      const diff = isBuy ? (cur - sig.entry) : (sig.entry - cur);
+      const pipsFloating = parseFloat((diff / (MARKETS[this.selectedMarket]?.pipSize || 1)).toFixed(1));
+
+      return {
+        tp1Hit: hitTp1Idx !== -1,
+        tp2Hit: hitTp2Idx !== -1,
+        tp3Hit: hitTp3Idx !== -1,
+        slHit: hitSlIdx !== -1,
+        hitTp1Idx: hitTp1Idx,
+        hitTp2Idx: hitTp2Idx,
+        hitTp3Idx: hitTp3Idx,
+        hitSlIdx: hitSlIdx,
+        pipsFloating: pipsFloating,
+        isProfit: pipsFloating >= 0,
+        currentPrice: cur
+      };
+    }
+
     calculateSniperChannel(candles) {
       if (!candles || candles.length < 15) return null;
       const N = candles.length;
@@ -1997,6 +2053,8 @@
           ctx.stroke();
 
           // C. DIBUJAR LOS CHULITOS (✓) DE ENTRADA SNIPER Y LA CAJA DE POSICIÓN ESTILO TRADINGVIEW
+          const targetSync = this.calculateTargetSync(allCandles);
+
           if (pD_coord && this.currentSignal) {
             const sig = this.currentSignal;
             const isBuy = sig.type === "BUY" || sig.type === "CALL";
@@ -2025,14 +2083,16 @@
               ctx.fillText("✓ CHULITO VERDE (BUY)", chulitoX, chulitoY + 22);
 
               // CAJA DE POSICIÓN ESTILO TRADINGVIEW (LONG POSITION BOX)
+              // Compra: Entrada en sig.entry, Target ARRIBA (yTp < yEntry), Stop ABAJO (ySl > yEntry)
               const yEntry = getY(sig.entry || pD_coord.price);
               const yTp = getY(sig.tp2 || sig.tp1);
               const ySl = getY(sig.sl);
-              const boxW = Math.max(80, chartWidth - chulitoX);
+              // Dejar 105px a la derecha para que NO colisione con los badges del eje derecho
+              const boxW = Math.max(60, chartWidth - chulitoX - 105);
 
               // 1. Caja Verde (Take Profit / Ganancia)
-              const targetH = Math.abs(yEntry - yTp);
-              const targetTop = Math.min(yEntry, yTp);
+              const targetTop = yTp;
+              const targetH = Math.max(4, yEntry - yTp);
               ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.16)" : "rgba(16, 185, 129, 0.18)";
               ctx.fillRect(chulitoX, targetTop, boxW, targetH);
               ctx.strokeStyle = isLight ? "#16a34a" : "#10b981";
@@ -2041,15 +2101,15 @@
 
               // Barra de cabecera verde de la caja
               ctx.fillStyle = isLight ? "#16a34a" : "#10b981";
-              ctx.fillRect(chulitoX, targetTop - 14, Math.min(boxW, 220), 14);
+              ctx.fillRect(chulitoX, targetTop - 14, Math.min(boxW, 210), 14);
               ctx.fillStyle = "#ffffff";
               ctx.font = "bold 9px monospace";
               ctx.textAlign = "left";
               ctx.fillText(`Target: +${(sig.riskPips * 2.5).toFixed(1)} pips (Ratio: 3.19)`, chulitoX + 6, targetTop - 3);
 
               // 2. Caja Roja (Stop Loss / Riesgo)
-              const stopH = Math.abs(ySl - yEntry);
-              const stopTop = Math.min(yEntry, ySl);
+              const stopTop = yEntry;
+              const stopH = Math.max(4, ySl - yEntry);
               ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.16)" : "rgba(239, 68, 68, 0.18)";
               ctx.fillRect(chulitoX, stopTop, boxW, stopH);
               ctx.strokeStyle = isLight ? "#dc2626" : "#ef4444";
@@ -2058,7 +2118,7 @@
 
               // Barra de pie roja de la caja
               ctx.fillStyle = isLight ? "#dc2626" : "#ef4444";
-              ctx.fillRect(chulitoX, stopTop + stopH, Math.min(boxW, 200), 14);
+              ctx.fillRect(chulitoX, stopTop + stopH, Math.min(boxW, 190), 14);
               ctx.fillStyle = "#ffffff";
               ctx.font = "bold 9px monospace";
               ctx.textAlign = "left";
@@ -2113,42 +2173,46 @@
               ctx.fillText("✓ CHULITO ROJO (SELL)", chulitoX, chulitoY - 12);
 
               // CAJA DE POSICIÓN ESTILO TRADINGVIEW (SHORT POSITION BOX)
+              // Venta: Entrada en sig.entry, Target ABAJO (yTp > yEntry), Stop ARRIBA (ySl < yEntry)
               const yEntry = getY(sig.entry || pD_coord.price);
               const yTp = getY(sig.tp2 || sig.tp1);
               const ySl = getY(sig.sl);
-              const boxW = Math.max(80, chartWidth - chulitoX);
+              // Dejar 105px a la derecha para que NO colisione con los badges del eje derecho
+              const boxW = Math.max(60, chartWidth - chulitoX - 105);
 
-              // 1. Caja Verde (Ganancia hacia abajo)
-              const targetH = Math.abs(yTp - yEntry);
-              const targetTop = Math.min(yEntry, yTp);
-              ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.16)" : "rgba(16, 185, 129, 0.18)";
-              ctx.fillRect(chulitoX, targetTop, boxW, targetH);
-              ctx.strokeStyle = isLight ? "#16a34a" : "#10b981";
-              ctx.lineWidth = 1.2;
-              ctx.strokeRect(chulitoX, targetTop, boxW, targetH);
-
-              ctx.fillStyle = isLight ? "#16a34a" : "#10b981";
-              ctx.fillRect(chulitoX, targetTop + targetH, Math.min(boxW, 220), 14);
-              ctx.fillStyle = "#ffffff";
-              ctx.font = "bold 9px monospace";
-              ctx.textAlign = "left";
-              ctx.fillText(`Target: +${(sig.riskPips * 2.5).toFixed(1)} pips (Ratio: 3.19)`, chulitoX + 6, targetTop + targetH + 11);
-
-              // 2. Caja Roja (Riesgo hacia arriba)
-              const stopH = Math.abs(yEntry - ySl);
-              const stopTop = Math.min(yEntry, ySl);
+              // 1. Caja Roja (Stop Loss / Riesgo hacia arriba)
+              const stopTop = ySl;
+              const stopH = Math.max(4, yEntry - ySl);
               ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.16)" : "rgba(239, 68, 68, 0.18)";
               ctx.fillRect(chulitoX, stopTop, boxW, stopH);
               ctx.strokeStyle = isLight ? "#dc2626" : "#ef4444";
               ctx.lineWidth = 1.2;
               ctx.strokeRect(chulitoX, stopTop, boxW, stopH);
 
+              // Barra de cabecera roja de la caja
               ctx.fillStyle = isLight ? "#dc2626" : "#ef4444";
-              ctx.fillRect(chulitoX, stopTop - 14, Math.min(boxW, 200), 14);
+              ctx.fillRect(chulitoX, stopTop - 14, Math.min(boxW, 190), 14);
               ctx.fillStyle = "#ffffff";
               ctx.font = "bold 9px monospace";
               ctx.textAlign = "left";
               ctx.fillText(`Stop: -${sig.riskPips} pips (Amount: 0)`, chulitoX + 6, stopTop - 3);
+
+              // 2. Caja Verde (Ganancia hacia abajo)
+              const targetTop = yEntry;
+              const targetH = Math.max(4, yTp - yEntry);
+              ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.16)" : "rgba(16, 185, 129, 0.18)";
+              ctx.fillRect(chulitoX, targetTop, boxW, targetH);
+              ctx.strokeStyle = isLight ? "#16a34a" : "#10b981";
+              ctx.lineWidth = 1.2;
+              ctx.strokeRect(chulitoX, targetTop, boxW, targetH);
+
+              // Barra de pie verde de la caja
+              ctx.fillStyle = isLight ? "#16a34a" : "#10b981";
+              ctx.fillRect(chulitoX, targetTop + targetH, Math.min(boxW, 210), 14);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 9px monospace";
+              ctx.textAlign = "left";
+              ctx.fillText(`Target: +${(sig.riskPips * 2.5).toFixed(1)} pips (Ratio: 3.19)`, chulitoX + 6, targetTop + targetH + 11);
 
               // Píldora de R:R en el centro
               ctx.fillStyle = isLight ? "#e2e8f0" : "#1e293b";
@@ -2180,7 +2244,6 @@
         }
       }
 
-
       // 6. LÍNEA Y FLECHA GIGANTE DE ENTRADA (ENTRY POINT)
       if (this.currentSignal && pD_coord) {
         const sig = this.currentSignal;
@@ -2205,6 +2268,18 @@
         ctx.font = "bold 9px monospace";
         ctx.textAlign = "right";
         ctx.fillText("🎯 ENTRADA: " + sig.entry, chartWidth - 6, yEntry + 1);
+
+        // Píldora de Pips Flotantes en Vivo sobre la línea de entrada
+        if (targetSync) {
+          const isProf = targetSync.isProfit;
+          ctx.fillStyle = isProf ? (isLight ? "#16a34a" : "#10b981") : (isLight ? "#dc2626" : "#ef4444");
+          ctx.fillRect(chartWidth - 215, yEntry - 10, 114, 15);
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 8.5px monospace";
+          ctx.textAlign = "center";
+          const pipsTxt = (targetSync.pipsFloating >= 0 ? "+" : "") + targetSync.pipsFloating + " Pips Flotantes";
+          ctx.fillText(pipsTxt, chartWidth - 158, yEntry + 2);
+        }
 
         // FLECHA VISUAL DIRECTA DE ENTRADA (▲ COMPRAR o ▼ VENDER)
         if (pD_coord.x >= 0 && pD_coord.x <= chartWidth) {
@@ -2285,8 +2360,9 @@
       const decimals = MARKETS[this.selectedMarket]?.pipSize < 0.001 ? 5 : 2;
       ctx.fillText(curPrice.toFixed(decimals), chartWidth + (rightMargin / 2), yCur + 3);
 
-      // 8. NIVELES DE STOP LOSS Y TAKE PROFIT (Extendidos limpiamente hacia la derecha)
+      // 8. NIVELES DE STOP LOSS Y TAKE PROFIT (SINCRONIZADOS EN VIVO CON LAS VELAS)
       if (this.showLevels && this.currentSignal && this.currentSignal.sl && this.currentSignal.tp1) {
+        const sync = targetSync;
         const ySl = getY(this.currentSignal.sl);
         const yTp1 = getY(this.currentSignal.tp1);
         const yTp2 = this.currentSignal.tp2 ? getY(this.currentSignal.tp2) : null;
@@ -2294,60 +2370,120 @@
 
         const lineStartX = (safeScroll === 0 && pD_coord) ? Math.max(0, pD_coord.x) : 0;
 
-        // Stop Loss
-        ctx.strokeStyle = isLight ? "#dc2626" : "rgba(239, 68, 68, 0.85)";
-        ctx.lineWidth = 1.4;
-        ctx.setLineDash([4, 4]);
+        // A. STOP LOSS
+        const isSlHit = sync && sync.slHit;
+        ctx.strokeStyle = isSlHit ? "#dc2626" : (isLight ? "#dc2626" : "rgba(239, 68, 68, 0.85)");
+        ctx.lineWidth = isSlHit ? 2.5 : 1.4;
+        if (!isSlHit) ctx.setLineDash([4, 4]);
         ctx.beginPath();
         ctx.moveTo(lineStartX, ySl);
         ctx.lineTo(chartWidth, ySl);
         ctx.stroke();
+        ctx.setLineDash([]);
 
-        ctx.fillStyle = isLight ? "#dc2626" : "rgba(239, 68, 68, 0.25)";
-        ctx.fillRect(chartWidth - 85, ySl - 12, 80, 14);
+        ctx.fillStyle = isSlHit ? "#dc2626" : (isLight ? "#dc2626" : "rgba(239, 68, 68, 0.35)");
+        ctx.fillRect(chartWidth - 95, ySl - 12, 92, 16);
         ctx.fillStyle = "#ffffff";
         ctx.font = "bold 9px monospace";
         ctx.textAlign = "right";
-        ctx.fillText("SL: " + this.currentSignal.sl, chartWidth - 8, ySl - 2);
+        ctx.fillText(isSlHit ? "🛑 SL TOCADO: " + this.currentSignal.sl : "🛡️ SL: " + this.currentSignal.sl, chartWidth - 6, ySl + 1);
 
-        // Take Profit 1
-        ctx.strokeStyle = isLight ? "#16a34a" : "rgba(16, 185, 129, 0.85)";
+        // B. TAKE PROFIT 1
+        const isTp1Hit = sync && sync.tp1Hit;
+        ctx.strokeStyle = isTp1Hit ? "#16a34a" : (isLight ? "#16a34a" : "rgba(16, 185, 129, 0.85)");
+        ctx.lineWidth = isTp1Hit ? 2.6 : 1.4;
+        if (!isTp1Hit) ctx.setLineDash([5, 3]);
         ctx.beginPath();
         ctx.moveTo(lineStartX, yTp1);
         ctx.lineTo(chartWidth, yTp1);
         ctx.stroke();
+        ctx.setLineDash([]);
 
-        ctx.fillStyle = isLight ? "#16a34a" : "rgba(16, 185, 129, 0.25)";
-        ctx.fillRect(chartWidth - 85, yTp1 - 12, 80, 14);
+        ctx.fillStyle = isTp1Hit ? "#16a34a" : (isLight ? "#16a34a" : "rgba(16, 185, 129, 0.35)");
+        ctx.fillRect(chartWidth - 95, yTp1 - 12, 92, 16);
         ctx.fillStyle = "#ffffff";
-        ctx.fillText("TP1: " + this.currentSignal.tp1, chartWidth - 8, yTp1 - 2);
+        ctx.font = "bold 9px monospace";
+        ctx.textAlign = "right";
+        ctx.fillText(isTp1Hit ? "✅ TP1 HIT: " + this.currentSignal.tp1 : "🎯 TP1: " + this.currentSignal.tp1, chartWidth - 6, yTp1 + 1);
 
-        // Take Profit 2
+        // Si TP1 fue tocado por una vela visible, pintar la estrella de celebración sobre esa vela
+        if (isTp1Hit && sync.hitTp1Idx !== -1) {
+          const candleSlot = sync.hitTp1Idx - startIdx;
+          if (candleSlot >= 0 && candleSlot < visibleCount) {
+            const hitX = (candleSlot * stepX) + (stepX / 2);
+            ctx.fillStyle = "#16a34a";
+            ctx.fillRect(hitX - 35, yTp1 - 22, 70, 15);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 8.5px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("⭐ TP1 ALCANZADO", hitX, yTp1 - 11);
+          }
+        }
+
+        // C. TAKE PROFIT 2
         if (yTp2) {
-          ctx.strokeStyle = isLight ? "#15803d" : "rgba(16, 185, 129, 0.65)";
+          const isTp2Hit = sync && sync.tp2Hit;
+          ctx.strokeStyle = isTp2Hit ? "#059669" : (isLight ? "#15803d" : "rgba(16, 185, 129, 0.65)");
+          ctx.lineWidth = isTp2Hit ? 2.6 : 1.3;
+          if (!isTp2Hit) ctx.setLineDash([5, 3]);
           ctx.beginPath();
           ctx.moveTo(lineStartX, yTp2);
           ctx.lineTo(chartWidth, yTp2);
           ctx.stroke();
+          ctx.setLineDash([]);
 
-          ctx.fillStyle = isLight ? "#15803d" : "rgba(16, 185, 129, 0.18)";
-          ctx.fillRect(chartWidth - 85, yTp2 - 12, 80, 14);
+          ctx.fillStyle = isTp2Hit ? "#059669" : (isLight ? "#15803d" : "rgba(16, 185, 129, 0.28)");
+          ctx.fillRect(chartWidth - 95, yTp2 - 12, 92, 16);
           ctx.fillStyle = "#ffffff";
-          ctx.fillText("TP2: " + this.currentSignal.tp2, chartWidth - 8, yTp2 - 2);
+          ctx.font = "bold 9px monospace";
+          ctx.textAlign = "right";
+          ctx.fillText(isTp2Hit ? "🚀 TP2 HIT: " + this.currentSignal.tp2 : "🎯 TP2: " + this.currentSignal.tp2, chartWidth - 6, yTp2 + 1);
+
+          if (isTp2Hit && sync.hitTp2Idx !== -1) {
+            const candleSlot = sync.hitTp2Idx - startIdx;
+            if (candleSlot >= 0 && candleSlot < visibleCount) {
+              const hitX = (candleSlot * stepX) + (stepX / 2);
+              ctx.fillStyle = "#059669";
+              ctx.fillRect(hitX - 35, yTp2 - 22, 70, 15);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 8.5px sans-serif";
+              ctx.textAlign = "center";
+              ctx.fillText("🚀 TP2 ALCANZADO", hitX, yTp2 - 11);
+            }
+          }
         }
 
-        // Take Profit 3
+        // D. TAKE PROFIT 3
         if (yTp3) {
-          ctx.strokeStyle = isLight ? "#166534" : "rgba(16, 185, 129, 0.45)";
+          const isTp3Hit = sync && sync.tp3Hit;
+          ctx.strokeStyle = isTp3Hit ? "#eab308" : (isLight ? "#166534" : "rgba(16, 185, 129, 0.45)");
+          ctx.lineWidth = isTp3Hit ? 2.8 : 1.2;
+          if (!isTp3Hit) ctx.setLineDash([5, 3]);
           ctx.beginPath();
           ctx.moveTo(lineStartX, yTp3);
           ctx.lineTo(chartWidth, yTp3);
           ctx.stroke();
+          ctx.setLineDash([]);
 
-          ctx.fillStyle = isLight ? "#166534" : "rgba(16, 185, 129, 0.12)";
-          ctx.fillRect(chartWidth - 85, yTp3 - 12, 80, 14);
+          ctx.fillStyle = isTp3Hit ? "#ca8a04" : (isLight ? "#166534" : "rgba(16, 185, 129, 0.20)");
+          ctx.fillRect(chartWidth - 95, yTp3 - 12, 92, 16);
           ctx.fillStyle = "#ffffff";
-          ctx.fillText("TP3: " + this.currentSignal.tp3, chartWidth - 8, yTp3 - 2);
+          ctx.font = "bold 9px monospace";
+          ctx.textAlign = "right";
+          ctx.fillText(isTp3Hit ? "💎 TP3 HIT: " + this.currentSignal.tp3 : "🎯 TP3: " + this.currentSignal.tp3, chartWidth - 6, yTp3 + 1);
+
+          if (isTp3Hit && sync.hitTp3Idx !== -1) {
+            const candleSlot = sync.hitTp3Idx - startIdx;
+            if (candleSlot >= 0 && candleSlot < visibleCount) {
+              const hitX = (candleSlot * stepX) + (stepX / 2);
+              ctx.fillStyle = "#ca8a04";
+              ctx.fillRect(hitX - 42, yTp3 - 22, 84, 15);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 8.5px sans-serif";
+              ctx.textAlign = "center";
+              ctx.fillText("💎 TP3 COMPLETO", hitX, yTp3 - 11);
+            }
+          }
         }
         ctx.setLineDash([]);
       }
@@ -2480,6 +2616,55 @@
               <div style="background:rgba(0,0,0,0.3);padding:8px 10px;border-radius:6px;border-left:3px solid #ef4444;">
                 <strong style="color:#ef4444;">🔴 Punta D hacia ARRIBA = SEÑAL DE VENTA:</strong><br/>
                 La subida culmina en la cima superior <strong>D</strong>. Como el precio tocó el techo de Fibonacci, los compradores se agotan y entramos en <strong>VENTA (SELL)</strong> con la flecha roja hacia abajo.
+              </div>
+            </div>
+          </div>
+
+          <!-- RADAR DE SEGUIMIENTO EN VIVO: ¿YA LLEGÓ LA VELA AL TAKE PROFIT? -->
+          <div class="ak-candle-sync-radar-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:20px;">⏱️</span>
+                <strong style="color:#00f2fe;font-size:13px;">SINCRONIZACIÓN EN VIVO CON LAS VELAS (RADAR DE METAS)</strong>
+              </div>
+              <span class="ak-pill live" style="font-size:10px;">Auditando Velas en Tiempo Real</span>
+            </div>
+            
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:10px;">
+              <div style="background:rgba(0, 242, 254, 0.08);border:1px solid rgba(0, 242, 254, 0.3);border-radius:8px;padding:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:11px;color:#94a3b8;font-weight:700;">1. ENTRADA SNIPER:</span>
+                  <span class="ak-badge ok">Activa</span>
+                </div>
+                <div style="margin-top:4px;font-size:15px;font-family:monospace;font-weight:bold;color:#00f2fe;">${sig.entry}</div>
+                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Punto exacto de gatillo confirmado.</p>
+              </div>
+
+              <div style="background:rgba(16, 185, 129, 0.08);border:1px solid rgba(16, 185, 129, 0.3);border-radius:8px;padding:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:11px;color:#10b981;font-weight:700;">2. META 1 (TP1):</span>
+                  <span class="ak-badge ${calc.tp1Profit ? 'ok' : 'subtle'}">Meta +1.5R</span>
+                </div>
+                <div style="margin-top:4px;font-size:15px;font-family:monospace;font-weight:bold;color:#10b981;">${sig.tp1}</div>
+                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Línea verde nítida. Si la vela la toca, se ilumina ⭐ TP1 HIT.</p>
+              </div>
+
+              <div style="background:rgba(5, 150, 105, 0.08);border:1px solid rgba(5, 150, 105, 0.3);border-radius:8px;padding:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:11px;color:#34d399;font-weight:700;">3. META 2 (TP2):</span>
+                  <span class="ak-badge ok">Meta +2.5R</span>
+                </div>
+                <div style="margin-top:4px;font-size:15px;font-family:monospace;font-weight:bold;color:#34d399;">${sig.tp2 || '-'}</div>
+                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Extensión institucional de alta ganancia.</p>
+              </div>
+
+              <div style="background:rgba(220, 38, 38, 0.08);border:1px solid rgba(220, 38, 38, 0.3);border-radius:8px;padding:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:11px;color:#ef4444;font-weight:700;">4. STOP LOSS (SL):</span>
+                  <span class="ak-badge alert">Blindaje</span>
+                </div>
+                <div style="margin-top:4px;font-size:15px;font-family:monospace;font-weight:bold;color:#ef4444;">${sig.sl}</div>
+                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Línea roja de protección estricta. Jamás se mueve en contra.</p>
               </div>
             </div>
           </div>
@@ -3791,6 +3976,13 @@ if __name__ == "__main__":
         border-color: #0284c7 !important;
       }
 
+      .ak-candle-sync-radar-card {
+        background: linear-gradient(135deg, rgba(0, 242, 254, 0.06), rgba(16, 185, 129, 0.06));
+        border: 1px solid rgba(0, 242, 254, 0.35);
+        border-radius: 10px;
+        padding: 14px 18px;
+        margin: 10px 0;
+      }
       .ak-sniper-story-card {
         background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(139, 92, 246, 0.08));
         border: 1px solid rgba(0, 242, 254, 0.25);
