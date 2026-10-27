@@ -527,8 +527,27 @@
         const headers = window.akiraAuthHeaders ? window.akiraAuthHeaders() : {};
         const res = await fetch(`${backend}/api/v8/missions/${id}/diagnose`, { headers });
         const d = await res.json();
-        const reason = d.reason || d.diagnostic || "La misión requería herramientas externas no disponibles o excedió el límite de pasos.";
-        alert("Diagnóstico de Akira:\n\n" + JSON.stringify(reason, null, 2));
+        let report = `Diagnóstico de Akira (Misión #${id.slice(0, 8)}):\n\n`;
+        if (d.summary) {
+          report += `Estado: ${d.summary.FAIL === 0 ? '✅ Consistente y saludable' : '⚠️ Hallazgos detectados'} (${d.summary.PASS}/${d.summary.total} pruebas superadas)\n\n`;
+        }
+        if (d.checks && Array.isArray(d.checks)) {
+          const failures = d.checks.filter(c => c.status === "FAIL");
+          if (failures.length > 0) {
+            report += "Detalle de hallazgos:\n";
+            failures.forEach(f => {
+              const msg = (f.detail && (f.detail.message || f.detail.reason)) || f.name;
+              report += `• [${f.name}]: ${msg}\n`;
+            });
+          } else {
+            report += "Todas las comprobaciones de consistencia y ejecución están en orden.";
+          }
+        } else if (d.reason || d.diagnostic) {
+          report += `Motivo: ${d.reason || d.diagnostic}`;
+        } else {
+          report += "No se registraron fallas críticas en las pruebas del orquestador.";
+        }
+        alert(report);
       } catch (err) {
         alert("No se pudo obtener diagnóstico: " + err.message);
       }
