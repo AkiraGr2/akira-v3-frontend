@@ -161,6 +161,9 @@
       this.showHarmonics = true;
       this.showLevels = true;
       this.isFullscreen = false;
+      this.visibleBars = 45;
+      this.rightMarginBars = 8;
+      this.scrollOffset = 0;
 
       const savedCap = parseFloat(localStorage.getItem(STORAGE_KEY_CAPITAL));
       this.accountSize = (!isNaN(savedCap) && savedCap > 0) ? savedCap : 50;
@@ -189,7 +192,7 @@
 
       Object.keys(MARKETS).forEach(k => {
         this.marketPrices[k] = MARKETS[k].basePrice;
-        this.candles[k] = this.generateHistoricalCandles(k, 42);
+        this.candles[k] = this.generateHistoricalCandles(k, 90);
       });
     }
 
@@ -453,25 +456,29 @@
 
         if (m.platformMode === "deriv_boom") {
           this.ticksSinceLastSpike++;
-          if (this.ticksSinceLastSpike >= 32 && Math.random() > 0.65) {
-            delta = pip * (40 + Math.floor(Math.random() * 30));
+          // Spikes en Boom: SIEMPRE ALCISTAS (+)
+          if (this.ticksSinceLastSpike >= 28 && Math.random() > 0.58) {
+            delta = pip * (35 + Math.floor(Math.random() * 45));
             this.ticksSinceLastSpike = 0;
-            this.spikeProbability = 20;
+            this.spikeProbability = 15;
             isSpikeNow = true;
           } else {
-            delta = -pip * (0.8 + Math.random() * 0.8);
-            this.spikeProbability = Math.min(96, Math.round(20 + (this.ticksSinceLastSpike * 2.3)));
+            // Ticks normales en Boom: pequeñas caídas constantes (-)
+            delta = -pip * (0.6 + Math.random() * 0.5);
+            this.spikeProbability = Math.min(95, Math.round(15 + (this.ticksSinceLastSpike * 2.5)));
           }
         } else if (m.platformMode === "deriv_crash") {
           this.ticksSinceLastSpike++;
-          if (this.ticksSinceLastSpike >= 32 && Math.random() > 0.65) {
-            delta = -pip * (40 + Math.floor(Math.random() * 30));
+          // Spikes en Crash: SIEMPRE BAJISTAS (-)
+          if (this.ticksSinceLastSpike >= 28 && Math.random() > 0.58) {
+            delta = -pip * (35 + Math.floor(Math.random() * 45));
             this.ticksSinceLastSpike = 0;
-            this.spikeProbability = 20;
+            this.spikeProbability = 15;
             isSpikeNow = true;
           } else {
-            delta = pip * (0.8 + Math.random() * 0.8);
-            this.spikeProbability = Math.min(96, Math.round(20 + (this.ticksSinceLastSpike * 2.3)));
+            // Ticks normales en Crash: pequeñas subidas constantes (+)
+            delta = pip * (0.6 + Math.random() * 0.5);
+            this.spikeProbability = Math.min(95, Math.round(15 + (this.ticksSinceLastSpike * 2.5)));
           }
         }
 
@@ -506,7 +513,7 @@
             volume: Math.floor(900 + Math.random() * 1500),
             pips: 0
           });
-          if (marketCandles.length > 50) marketCandles.shift();
+          if (marketCandles.length > 120) marketCandles.shift();
           this.renderCandleHistoryTable();
         }
 
@@ -518,7 +525,7 @@
       }, 1000);
     }
 
-    generateHistoricalCandles(marketId, count = 42) {
+    generateHistoricalCandles(marketId, count = 90) {
       const m = MARKETS[marketId] || MARKETS["XAUUSD"];
       const base = m.basePrice;
       const pip = m.pipSize;
@@ -539,34 +546,37 @@
         let isSpike = false;
 
         if (isBoom) {
-          isSpike = (i % 8 === 0) && i > 3;
+          // En Boom 1000: las velas normales son SIEMPRE micro-caídas rojas (-), y los spikes son SIEMPRE compras gigantes hacia arriba (+)
+          isSpike = (i % 7 === 0) && i > 3;
           if (isSpike) {
-            c = o + (pip * (35 + Math.floor(Math.random() * 45)));
-            h = c + (pip * 2);
-            l = o - (pip * 1);
+            c = o + (pip * (35 + Math.floor(Math.random() * 45))); // SIEMPRE ALCISTA
+            h = c + (pip * 1.5);
+            l = o - (pip * 0.3);
           } else {
-            c = o - (pip * (1 + Math.floor(Math.random() * 4)));
-            h = o + (pip * 0.5);
-            l = c - (pip * 0.5);
+            c = o - (pip * (1 + Math.floor(Math.random() * 3))); // Micro-caída normal
+            h = o + (pip * 0.2);
+            l = c - (pip * 0.3);
           }
         } else if (isCrash) {
-          isSpike = (i % 8 === 0) && i > 3;
+          // En Crash 1000: las velas normales son SIEMPRE micro-subidas verdes (+), y los spikes son SIEMPRE caídas gigantes hacia abajo (-)
+          isSpike = (i % 7 === 0) && i > 3;
           if (isSpike) {
-            c = o - (pip * (35 + Math.floor(Math.random() * 45)));
-            h = o + (pip * 1);
-            l = c - (pip * 2);
+            c = o - (pip * (35 + Math.floor(Math.random() * 45))); // SIEMPRE BAJISTA
+            h = o + (pip * 0.3);
+            l = c - (pip * 1.5);
           } else {
-            c = o + (pip * (1 + Math.floor(Math.random() * 4)));
-            h = c + (pip * 0.5);
-            l = o - (pip * 0.5);
+            c = o + (pip * (1 + Math.floor(Math.random() * 3))); // Micro-subida normal
+            h = c + (pip * 0.3);
+            l = o - (pip * 0.2);
           }
         } else {
-          const delta = (Math.random() - 0.485) * pip * (12 + Math.floor(Math.random() * 18));
+          // Forex y Materias Primas: fluctuación continua y natural
+          const delta = (Math.random() - 0.49) * pip * (6 + Math.floor(Math.random() * 8));
           c = o + delta;
           const bodyMax = Math.max(o, c);
           const bodyMin = Math.min(o, c);
-          h = bodyMax + (Math.random() * pip * 6);
-          l = bodyMin - (Math.random() * pip * 6);
+          h = bodyMax + (Math.random() * pip * 2.5);
+          l = bodyMin - (Math.random() * pip * 2.5);
         }
 
         const oR = parseFloat(o.toFixed(decimals));
@@ -588,6 +598,11 @@
           volume: volume,
           pips: parseFloat(((cR - oR) / pip).toFixed(1))
         });
+      }
+
+      // Sincronizar el precio actual con el cierre exacto de la última vela generada (CERO DISCONTINUIDAD)
+      if (list.length > 0) {
+        this.marketPrices[marketId] = list[list.length - 1].close;
       }
 
       return list;
@@ -762,7 +777,7 @@
       const isBinary = Boolean(m.isBinary);
       const isBullPreferred = isBinary ? (Math.random() > 0.5) : (Math.random() > 0.5);
 
-      const marketCandles = this.candles[marketId] || this.generateHistoricalCandles(marketId, 42);
+      const marketCandles = this.candles[marketId] || this.generateHistoricalCandles(marketId, 90);
       const geom = this.detectHarmonicPivots(marketCandles, isBullPreferred ? (isBinary ? "CALL" : "BUY") : (isBinary ? "PUT" : "SELL"));
 
       const decimals = m.pipSize < 0.001 ? 5 : 2;
@@ -960,6 +975,37 @@
               </div>
 
               <canvas id="akiraMarketCanvas" class="ak-market-canvas" width="1100" height="540"></canvas>
+
+              <div class="ak-chart-nav-bar" id="chartNavBar">
+                <div class="ak-nav-left-group">
+                  <button id="btnScrollLeft" class="ak-nav-btn" title="Desplazar hacia la izquierda (ver velas del pasado)">
+                    ◀ Ver Historial
+                  </button>
+                  <div class="ak-slider-wrap">
+                    <span class="ak-slider-lbl">HISTORIAL</span>
+                    <input type="range" id="chartScrollSlider" min="0" max="60" value="0" step="1" class="ak-nav-slider" title="Desliza para mover el gráfico a la izquierda o derecha">
+                    <span class="ak-slider-lbl live">EN VIVO</span>
+                  </div>
+                  <button id="btnScrollRight" class="ak-nav-btn" title="Desplazar hacia la derecha (hacia el tiempo real)">
+                    En Vivo ▶
+                  </button>
+                </div>
+
+                <div class="ak-nav-right-group">
+                  <button id="btnZoomOut" class="ak-nav-btn" title="Ver más velas en pantalla (Alejar)">
+                    🔍 - Alejar
+                  </button>
+                  <button id="btnZoomIn" class="ak-nav-btn" title="Ver velas más grandes (Acercar)">
+                    🔍 + Acercar
+                  </button>
+                  <button id="btnToggleMargin" class="ak-nav-btn" title="Espacio libre a la derecha para ver las metas de TP y Stop Loss con comodidad">
+                    📐 Espacio Derecha (${this.rightMarginBars} velas)
+                  </button>
+                  <button id="btnResetView" class="ak-nav-btn active" title="Centrar gráfico en la vela en vivo actual">
+                    🎯 Centrar En Vivo
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div class="ak-market-data-grid">
@@ -1537,7 +1583,7 @@
           const mainTfBtn = document.querySelector(`.ak-tf-btn[data-tf="${tf}"]`);
           if (mainTfBtn) mainTfBtn.click();
           else {
-            this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 42);
+            this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
             this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
             this.updateChartCanvasHeader();
             this.drawMarketCanvas();
@@ -1566,7 +1612,7 @@
 
       const isFs = this.isFullscreen || Boolean(document.getElementById("akiraChartCanvasWrapper")?.classList.contains("ak-fullscreen"));
       const containerW = isFs ? Math.max(800, window.innerWidth - 32) : Math.max(800, (canvas.parentElement?.clientWidth || 1100));
-      const containerH = isFs ? Math.max(450, window.innerHeight - 150) : 540;
+      const containerH = isFs ? Math.max(450, window.innerHeight - 195) : 540;
 
       if (canvas.width !== containerW || canvas.height !== containerH) {
         canvas.width = containerW;
@@ -1576,8 +1622,28 @@
       const ctx = canvas.getContext("2d");
       const width = canvas.width;
       const height = canvas.height;
-      const candles = this.candles[this.selectedMarket] || [];
-      if (candles.length === 0) return;
+      const allCandles = this.candles[this.selectedMarket] || [];
+      if (allCandles.length === 0) return;
+
+      // Cálculo de Viewport y Desplazamiento Horizontal (Scroll)
+      const totalCandles = allCandles.length;
+      const visibleCount = Math.min(totalCandles, this.visibleBars);
+      const maxScroll = Math.max(0, totalCandles - visibleCount);
+      const safeScroll = Math.max(0, Math.min(maxScroll, this.scrollOffset));
+      this.scrollOffset = safeScroll;
+
+      // Sincronizar slider
+      const slider = document.getElementById("chartScrollSlider");
+      if (slider) {
+        slider.max = maxScroll.toString();
+        slider.value = safeScroll.toString();
+      }
+
+      const endIdx = totalCandles - safeScroll;
+      const startIdx = Math.max(0, endIdx - visibleCount);
+      const visibleCandles = allCandles.slice(startIdx, endIdx);
+      const candleCount = visibleCandles.length;
+      if (candleCount === 0) return;
 
       // Dark Terminal Background
       ctx.fillStyle = "#080c14";
@@ -1585,10 +1651,20 @@
 
       let minPrice = Infinity;
       let maxPrice = -Infinity;
-      candles.forEach(c => {
+      visibleCandles.forEach(c => {
         if (c.low < minPrice) minPrice = c.low;
         if (c.high > maxPrice) maxPrice = c.high;
       });
+
+      // Incluir niveles SL/TP en el rango visible para que no se corten
+      if (this.showLevels && this.currentSignal) {
+        if (this.currentSignal.sl && this.currentSignal.sl < minPrice) minPrice = this.currentSignal.sl;
+        if (this.currentSignal.sl && this.currentSignal.sl > maxPrice) maxPrice = this.currentSignal.sl;
+        if (this.currentSignal.tp1 && this.currentSignal.tp1 > maxPrice) maxPrice = this.currentSignal.tp1;
+        if (this.currentSignal.tp1 && this.currentSignal.tp1 < minPrice) minPrice = this.currentSignal.tp1;
+        if (this.currentSignal.tp3 && this.currentSignal.tp3 > maxPrice) maxPrice = this.currentSignal.tp3;
+        if (this.currentSignal.tp3 && this.currentSignal.tp3 < minPrice) minPrice = this.currentSignal.tp3;
+      }
 
       const priceRange = (maxPrice - minPrice) || 1;
       const paddingY = 36;
@@ -1620,17 +1696,31 @@
         ctx.fillText(pVal.toFixed(decimals), chartWidth + 6, y + 3);
       }
 
-      const candleCount = candles.length;
-      const candleWidth = Math.max(5, Math.floor((chartWidth / candleCount) * 0.72));
-      const stepX = chartWidth / candleCount;
+      // Cálculo de slots horizontales (Velas + Espacio Libre a la Derecha)
+      const freeRightSlots = (safeScroll === 0) ? this.rightMarginBars : 0;
+      const totalSlots = visibleCount + freeRightSlots;
+      const stepX = chartWidth / totalSlots;
+      const candleWidth = Math.max(4, Math.floor(stepX * 0.72));
+
+      // Indicador sombreado de "Espacio a la Derecha"
+      if (freeRightSlots > 0) {
+        ctx.fillStyle = "rgba(0, 242, 254, 0.02)";
+        ctx.fillRect(visibleCount * stepX, 0, freeRightSlots * stepX, height);
+        ctx.strokeStyle = "rgba(0, 242, 254, 0.1)";
+        ctx.setLineDash([2, 4]);
+        ctx.beginPath();
+        ctx.moveTo(visibleCount * stepX, 0);
+        ctx.lineTo(visibleCount * stepX, height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
 
       // Moving Averages (EMA 20 y EMA 50)
-      if (this.showEMA && candleCount > 10) {
-        // Fast EMA (Cyan)
+      if (this.showEMA && candleCount > 5) {
         ctx.strokeStyle = "#00f2fe";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        candles.forEach((c, idx) => {
+        visibleCandles.forEach((c, idx) => {
           const x = (idx * stepX) + (stepX / 2);
           const y = getY(c.close);
           if (idx === 0) ctx.moveTo(x, y);
@@ -1638,11 +1728,10 @@
         });
         ctx.stroke();
 
-        // Slow EMA (Amber)
         ctx.strokeStyle = "#f59e0b";
         ctx.lineWidth = 1.2;
         ctx.beginPath();
-        candles.forEach((c, idx) => {
+        visibleCandles.forEach((c, idx) => {
           const x = (idx * stepX) + (stepX / 2);
           const y = getY((c.open + c.close) / 2);
           if (idx === 0) ctx.moveTo(x, y);
@@ -1651,8 +1740,8 @@
         ctx.stroke();
       }
 
-      // Draw Candlesticks (Wicks and Bodies)
-      candles.forEach((c, idx) => {
+      // Dibujar Velas Visibles
+      visibleCandles.forEach((c, idx) => {
         const x = (idx * stepX) + (stepX / 2);
         const yOpen = getY(c.open);
         const yClose = getY(c.close);
@@ -1662,7 +1751,7 @@
 
         const bodyColor = c.isSpike ? "#00f2fe" : (isBull ? "#10b981" : "#ef4444");
 
-        // High-Low Wick
+        // Mecha
         ctx.strokeStyle = bodyColor;
         ctx.lineWidth = 1.2;
         ctx.beginPath();
@@ -1670,21 +1759,21 @@
         ctx.lineTo(x, yLow);
         ctx.stroke();
 
-        // Candle Body
+        // Cuerpo
         ctx.fillStyle = bodyColor;
         const topY = Math.min(yOpen, yClose);
         const bodyH = Math.max(2, Math.abs(yClose - yOpen));
         ctx.fillRect(x - (candleWidth / 2), topY, candleWidth, bodyH);
 
-        // Spike Halo for Boom/Crash
+        // Spike Halo para Boom/Crash
         if (c.isSpike) {
           ctx.strokeStyle = "rgba(0, 242, 254, 0.5)";
           ctx.lineWidth = 3;
           ctx.strokeRect(x - (candleWidth / 2) - 2, topY - 2, candleWidth + 4, bodyH + 4);
         }
 
-        // Time axis labels every 5 candles
-        if (idx % 5 === 0) {
+        // Etiquetas de tiempo en el eje horizontal
+        if (idx % 6 === 0) {
           ctx.fillStyle = "#64748b";
           ctx.font = "9px monospace";
           ctx.textAlign = "center";
@@ -1692,24 +1781,33 @@
         }
       });
 
-      // ESCÁNER ARMÓNICO ANCLADO MATEMÁTICAMENTE A LAS MECHAS REALES (X, A, B, C, D)
-      if (this.showHarmonics && candleCount >= 18) {
+      // ESCÁNER ARMÓNICO ANCLADO A MECHAS CON DESPLAZAMIENTO DINÁMICO
+      let pD_coord = null;
+      if (this.showHarmonics && allCandles.length >= 18) {
         const sig = this.currentSignal;
         const isBullPreferred = sig ? (sig.type === "BUY" || sig.type === "CALL") : true;
-        const geom = this.detectHarmonicPivots(candles, isBullPreferred ? "BUY" : "SELL");
+        const geom = this.detectHarmonicPivots(allCandles, isBullPreferred ? "BUY" : "SELL");
 
         if (geom) {
           const isBull = geom.isBull;
-          const pX = { x: (geom.idxX * stepX) + (stepX / 2), y: getY(geom.pX_price), price: geom.pX_price, idx: geom.idxX, label: "X" };
-          const pA = { x: (geom.idxA * stepX) + (stepX / 2), y: getY(geom.pA_price), price: geom.pA_price, idx: geom.idxA, label: "A" };
-          const pB = { x: (geom.idxB * stepX) + (stepX / 2), y: getY(geom.pB_price), price: geom.pB_price, idx: geom.idxB, label: `B (${geom.ratios.AB})` };
-          const pC = { x: (geom.idxC * stepX) + (stepX / 2), y: getY(geom.pC_price), price: geom.pC_price, idx: geom.idxC, label: `C (${geom.ratios.BC})` };
-          const pD = { x: (geom.idxD * stepX) + (stepX / 2), y: getY(geom.pD_price), price: geom.pD_price, idx: geom.idxD, label: `D [PRZ] (${geom.ratios.XD})` };
+
+          // Conversor de índice global a coordenada X en pantalla
+          const getScreenX = (globalIdx) => {
+            const localSlot = globalIdx - startIdx;
+            return (localSlot * stepX) + (stepX / 2);
+          };
+
+          const pX = { x: getScreenX(geom.idxX), y: getY(geom.pX_price), price: geom.pX_price, idx: geom.idxX, label: "X" };
+          const pA = { x: getScreenX(geom.idxA), y: getY(geom.pA_price), price: geom.pA_price, idx: geom.idxA, label: "A" };
+          const pB = { x: getScreenX(geom.idxB), y: getY(geom.pB_price), price: geom.pB_price, idx: geom.idxB, label: `B (${geom.ratios.AB})` };
+          const pC = { x: getScreenX(geom.idxC), y: getY(geom.pC_price), price: geom.pC_price, idx: geom.idxC, label: `C (${geom.ratios.BC})` };
+          const pD = { x: getScreenX(geom.idxD), y: getY(geom.pD_price), price: geom.pD_price, idx: geom.idxD, label: `D [PRZ] (${geom.ratios.XD})` };
+          pD_coord = pD;
 
           const mainColor = isBull ? "#10b981" : "#ef4444";
           const fillColor = isBull ? "rgba(16, 185, 129, 0.10)" : "rgba(239, 68, 68, 0.10)";
 
-          // 1. Shaded Geometric Triangles XAB and BCD
+          // 1. Triángulos geométricos XAB y BCD
           ctx.fillStyle = fillColor;
           ctx.beginPath();
           ctx.moveTo(pX.x, pX.y);
@@ -1725,7 +1823,7 @@
           ctx.closePath();
           ctx.fill();
 
-          // 2. Glowing Outer Harmonic Rays: X -> A -> B -> C -> D
+          // 2. Rayos armónicos exteriores X -> A -> B -> C -> D
           ctx.strokeStyle = mainColor;
           ctx.lineWidth = 2.4;
           ctx.beginPath();
@@ -1736,24 +1834,21 @@
           ctx.lineTo(pD.x, pD.y);
           ctx.stroke();
 
-          // 3. Dashed Inner Harmonic Rays: X-B, A-C, X-D
+          // 3. Rayos interiores Fibonacci (X-B, A-C, X-D)
           ctx.strokeStyle = "rgba(0, 242, 254, 0.65)";
           ctx.lineWidth = 1.2;
           ctx.setLineDash([3, 3]);
 
-          // Ray X -> B
           ctx.beginPath();
           ctx.moveTo(pX.x, pX.y);
           ctx.lineTo(pB.x, pB.y);
           ctx.stroke();
 
-          // Ray A -> C
           ctx.beginPath();
           ctx.moveTo(pA.x, pA.y);
           ctx.lineTo(pC.x, pC.y);
           ctx.stroke();
 
-          // Ray X -> D
           ctx.strokeStyle = "rgba(245, 158, 11, 0.75)";
           ctx.beginPath();
           ctx.moveTo(pX.x, pX.y);
@@ -1761,24 +1856,30 @@
           ctx.stroke();
           ctx.setLineDash([]);
 
-          // 4. PRZ Potential Reversal Zone Box at Point D
-          const przHeight = Math.max(16, Math.abs(pD.y - getY(pD.price + (MARKETS[this.selectedMarket]?.pipSize * 12))));
-          const przTop = isBull ? pD.y - (przHeight * 0.3) : pD.y - (przHeight * 0.7);
-          ctx.fillStyle = isBull ? "rgba(16, 185, 129, 0.16)" : "rgba(239, 68, 68, 0.16)";
-          ctx.fillRect(pD.x, przTop, chartWidth - pD.x, przHeight);
-          ctx.strokeStyle = isBull ? "rgba(16, 185, 129, 0.45)" : "rgba(239, 68, 68, 0.45)";
-          ctx.strokeRect(pD.x, przTop, chartWidth - pD.x, przHeight);
+          // 4. Zona PRZ (Potencial Reversión) extendida hacia el espacio libre de la derecha
+          const przLeft = Math.max(0, pD.x);
+          const przWidth = chartWidth - przLeft;
+          if (przWidth > 10) {
+            const przHeight = Math.max(16, Math.abs(pD.y - getY(pD.price + (MARKETS[this.selectedMarket]?.pipSize * 12))));
+            const przTop = isBull ? pD.y - (przHeight * 0.3) : pD.y - (przHeight * 0.7);
+            ctx.fillStyle = isBull ? "rgba(16, 185, 129, 0.14)" : "rgba(239, 68, 68, 0.14)";
+            ctx.fillRect(przLeft, przTop, przWidth, przHeight);
+            ctx.strokeStyle = isBull ? "rgba(16, 185, 129, 0.45)" : "rgba(239, 68, 68, 0.45)";
+            ctx.strokeRect(przLeft, przTop, przWidth, przHeight);
 
-          ctx.fillStyle = isBull ? "#10b981" : "#ef4444";
-          ctx.font = "bold 9px monospace";
-          ctx.textAlign = "left";
-          ctx.fillText("ZONA PRZ (POTENCIAL REVERSIÓN)", pD.x + 8, przTop + 11);
+            ctx.fillStyle = isBull ? "#10b981" : "#ef4444";
+            ctx.font = "bold 9px monospace";
+            ctx.textAlign = "left";
+            ctx.fillText("ZONA PRZ (POTENCIAL REVERSIÓN)", przLeft + 8, przTop + 11);
+          }
 
-          // 5. Draw Anchor Nodes at exact candle wicks
+          // 5. Nodos anclados en las mechas
           const decimals = MARKETS[this.selectedMarket]?.pipSize < 0.001 ? 5 : 2;
-          const points = [pX, pA, pB, pC, pD];
-          points.forEach((p) => {
-            const candle = candles[p.idx];
+          [pX, pA, pB, pC, pD].forEach((p) => {
+            // Solo dibujar si está dentro o muy cerca de la pantalla visible
+            if (p.x < -40 || p.x > chartWidth + 40) return;
+
+            const candle = allCandles[p.idx];
             if (candle) {
               ctx.strokeStyle = "rgba(0, 242, 254, 0.3)";
               ctx.lineWidth = 1;
@@ -1788,13 +1889,11 @@
               ctx.stroke();
             }
 
-            // Halo Ring
             ctx.fillStyle = "rgba(0, 242, 254, 0.25)";
             ctx.beginPath();
             ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
             ctx.fill();
 
-            // Center Node
             ctx.fillStyle = "#080c14";
             ctx.beginPath();
             ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
@@ -1803,7 +1902,6 @@
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Label position: above high wicks, below low wicks
             const isHighWick = (isBull && (p.label.startsWith("A") || p.label.startsWith("C"))) ||
                                (!isBull && (p.label.startsWith("X") || p.label.startsWith("B") || p.label.startsWith("D")));
             const textY = isHighWick ? p.y - 10 : p.y + 16;
@@ -1820,7 +1918,7 @@
         }
       }
 
-      // Current Price Level Line
+      // Línea de Precio Actual
       const curPrice = this.marketPrices[this.selectedMarket];
       const yCur = getY(curPrice);
 
@@ -1841,53 +1939,69 @@
       const decimals = MARKETS[this.selectedMarket]?.pipSize < 0.001 ? 5 : 2;
       ctx.fillText(curPrice.toFixed(decimals), chartWidth + (rightMargin / 2), yCur + 3);
 
-      // Stop Loss and Take Profit Levels (if enabled)
+      // Niveles de Stop Loss y Take Profit extendidos limpiamente hacia el espacio derecho
       if (this.showLevels && this.currentSignal && this.currentSignal.sl && this.currentSignal.tp1) {
         const ySl = getY(this.currentSignal.sl);
         const yTp1 = getY(this.currentSignal.tp1);
         const yTp2 = this.currentSignal.tp2 ? getY(this.currentSignal.tp2) : null;
         const yTp3 = this.currentSignal.tp3 ? getY(this.currentSignal.tp3) : null;
 
+        const lineStartX = (safeScroll === 0 && pD_coord) ? Math.max(0, pD_coord.x) : 0;
+
         // Stop Loss
-        ctx.strokeStyle = "rgba(239, 68, 68, 0.75)";
-        ctx.lineWidth = 1.2;
-        ctx.setLineDash([3, 3]);
+        ctx.strokeStyle = "rgba(239, 68, 68, 0.85)";
+        ctx.lineWidth = 1.3;
+        ctx.setLineDash([4, 4]);
         ctx.beginPath();
-        ctx.moveTo(0, ySl);
+        ctx.moveTo(lineStartX, ySl);
         ctx.lineTo(chartWidth, ySl);
         ctx.stroke();
+
+        ctx.fillStyle = "rgba(239, 68, 68, 0.25)";
+        ctx.fillRect(chartWidth - 80, ySl - 12, 76, 14);
         ctx.fillStyle = "#ef4444";
-        ctx.font = "9px monospace";
+        ctx.font = "bold 9px monospace";
         ctx.textAlign = "right";
-        ctx.fillText("SL: " + this.currentSignal.sl, chartWidth - 10, ySl - 4);
+        ctx.fillText("SL: " + this.currentSignal.sl, chartWidth - 8, ySl - 2);
 
         // Take Profit 1
-        ctx.strokeStyle = "rgba(16, 185, 129, 0.8)";
+        ctx.strokeStyle = "rgba(16, 185, 129, 0.85)";
         ctx.beginPath();
-        ctx.moveTo(0, yTp1);
+        ctx.moveTo(lineStartX, yTp1);
         ctx.lineTo(chartWidth, yTp1);
         ctx.stroke();
+
+        ctx.fillStyle = "rgba(16, 185, 129, 0.25)";
+        ctx.fillRect(chartWidth - 80, yTp1 - 12, 76, 14);
         ctx.fillStyle = "#10b981";
-        ctx.fillText("TP1: " + this.currentSignal.tp1, chartWidth - 10, yTp1 - 4);
+        ctx.fillText("TP1: " + this.currentSignal.tp1, chartWidth - 8, yTp1 - 2);
 
         // Take Profit 2
         if (yTp2) {
-          ctx.strokeStyle = "rgba(16, 185, 129, 0.6)";
+          ctx.strokeStyle = "rgba(16, 185, 129, 0.65)";
           ctx.beginPath();
-          ctx.moveTo(0, yTp2);
+          ctx.moveTo(lineStartX, yTp2);
           ctx.lineTo(chartWidth, yTp2);
           ctx.stroke();
-          ctx.fillText("TP2: " + this.currentSignal.tp2, chartWidth - 10, yTp2 - 4);
+
+          ctx.fillStyle = "rgba(16, 185, 129, 0.18)";
+          ctx.fillRect(chartWidth - 80, yTp2 - 12, 76, 14);
+          ctx.fillStyle = "#10b981";
+          ctx.fillText("TP2: " + this.currentSignal.tp2, chartWidth - 8, yTp2 - 2);
         }
 
         // Take Profit 3
         if (yTp3) {
-          ctx.strokeStyle = "rgba(16, 185, 129, 0.4)";
+          ctx.strokeStyle = "rgba(16, 185, 129, 0.45)";
           ctx.beginPath();
-          ctx.moveTo(0, yTp3);
+          ctx.moveTo(lineStartX, yTp3);
           ctx.lineTo(chartWidth, yTp3);
           ctx.stroke();
-          ctx.fillText("TP3: " + this.currentSignal.tp3, chartWidth - 10, yTp3 - 4);
+
+          ctx.fillStyle = "rgba(16, 185, 129, 0.12)";
+          ctx.fillRect(chartWidth - 80, yTp3 - 12, 76, 14);
+          ctx.fillStyle = "#10b981";
+          ctx.fillText("TP3: " + this.currentSignal.tp3, chartWidth - 8, yTp3 - 2);
         }
         ctx.setLineDash([]);
       }
@@ -1958,84 +2072,87 @@
       const sig = this.currentSignal;
       const isBuy = sig.type === "BUY" || sig.type === "CALL";
       const isBinary = sig.type === "CALL" || sig.type === "PUT";
+      const calc = this.calculateSafeLot(this.accountSize, sig.riskPips);
 
       container.innerHTML = `
         <div class="ak-signal-card ${isBuy ? 'bullish' : 'bearish'}">
           <div class="ak-sig-head">
-            <div style="display:flex;align-items:center;gap:12px;">
-              <span class="ak-sig-type-pill ${isBuy ? 'bull' : 'bear'}">${sig.type}</span>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <span class="ak-sig-type-pill ${isBuy ? 'bull' : 'bear'}">
+                ${isBuy ? '🟢 COMPRA RECOMENDADA (BUY)' : '🔴 VENTA RECOMENDADA (SELL)'}
+              </span>
               <div>
                 <h3 style="margin:0;font-size:16px;color:#fff;">${sig.pattern}</h3>
-                <span style="font-size:12px;color:#94a3b8;">${sig.marketName} &bull; ${sig.timeframe} &bull; Detectado: ${sig.timestamp}</span>
-                ${sig.pivots ? `
-                  <div style="font-size:11px;font-family:monospace;color:#00f2fe;margin-top:4px;">
-                    🎯 Puntos Reales: X:${sig.pivots.X} &bull; A:${sig.pivots.A} &bull; B:${sig.pivots.B} &bull; C:${sig.pivots.C} &bull; D(PRZ):${sig.pivots.D}
-                  </div>
-                ` : ''}
+                <span style="font-size:12px;color:#94a3b8;">${sig.marketName} &bull; Temporalidad: ${sig.timeframe} &bull; Detectado: ${sig.timestamp}</span>
               </div>
             </div>
             <div class="ak-sig-confluence">
               <span class="score">${sig.confluence}%</span>
-              <span class="sub">Confluencia Algorítmica</span>
+              <span class="sub">Probabilidad de Éxito</span>
             </div>
           </div>
 
-          <div class="ak-levels-grid">
-            <div class="ak-lvl-cell entry">
-              <span class="label">Punto de Entrada (D):</span>
-              <strong class="val">${sig.entry}</strong>
+          <!-- GUÍA PRÁCTICA SIMPLIFICADA PARA EL DIRECTOR JHON -->
+          <div class="ak-simple-trade-guide">
+            <div class="ak-guide-card">
+              <div class="ak-guide-badge">PASO 1</div>
+              <div class="title">¿QUÉ OPERACIÓN HACER?</div>
+              <div class="action-desc">
+                Abrir una orden de <strong style="color:${isBuy ? '#10b981' : '#ef4444'};">${isBuy ? 'COMPRA (BUY)' : 'VENTA (SELL)'}</strong> en el precio <strong>${sig.entry}</strong>.
+              </div>
             </div>
-            ${!isBinary ? `
-              <div class="ak-lvl-cell sl">
-                <span class="label">Stop Loss (Protección):</span>
-                <strong class="val">${sig.sl}</strong>
-                <span class="sub">${sig.riskPips} pips de riesgo</span>
+
+            <div class="ak-guide-card">
+              <div class="ak-guide-badge">PASO 2</div>
+              <div class="title">¿CUÁNTO INVERTIR?</div>
+              <div class="action-desc">
+                Con tu cuenta de <strong>$${this.accountSize.toFixed(2)} USD</strong>, inviertes <strong>${calc.lot} lote(s)</strong>. Si la orden toca Stop Loss, arriesgas solo <strong>-$${calc.actualRiskMoney} USD</strong> (${calc.actualRiskPercent}% de tu capital).
               </div>
-              <div class="ak-lvl-cell tp">
-                <span class="label">Take Profit 1 (Ratio 1:1.5):</span>
-                <strong class="val">${sig.tp1}</strong>
-                <span class="sub">+${(sig.riskPips * 1.5).toFixed(1)} pips</span>
+            </div>
+
+            <div class="ak-guide-card">
+              <div class="ak-guide-badge">PASO 3</div>
+              <div class="title">¿DÓNDE PROTEGERTE (STOP LOSS)?</div>
+              <div class="action-desc">
+                ${!isBinary ? `
+                  Coloca tu Stop Loss en <strong style="color:#ef4444;">${sig.sl}</strong>. Si el precio retrocede hasta allí, la orden se cierra sola evitando pérdidas mayores.
+                ` : `
+                  Opciones Binarias: fijas expiración en <strong>60s o 2m</strong>. Si cierra a tu favor, cobras el <strong>85% neto</strong> de inmediato.
+                `}
               </div>
-              <div class="ak-lvl-cell tp">
-                <span class="label">Take Profit 2 (Ratio 1:2.5):</span>
-                <strong class="val">${sig.tp2}</strong>
-                <span class="sub">+${(sig.riskPips * 2.5).toFixed(1)} pips</span>
+            </div>
+
+            <div class="ak-guide-card">
+              <div class="ak-guide-badge">PASO 4</div>
+              <div class="title">¿DÓNDE COBRAR TUS GANANCIAS?</div>
+              <div class="action-desc">
+                ${!isBinary ? `
+                  🎯 <strong>Meta 1:</strong> ${sig.tp1} (+${calc.tp1Profit} USD) &bull;
+                  🚀 <strong>Meta 2:</strong> ${sig.tp2} (+${calc.tp2Profit} USD) &bull;
+                  💎 <strong>Meta 3:</strong> ${sig.tp3} (+${calc.tp3Profit} USD)
+                ` : `
+                  🎯 Retorno estimado por cada $10 invertidos: <strong>+$8.50 USD de ganancia neta</strong>.
+                `}
               </div>
-              <div class="ak-lvl-cell tp">
-                <span class="label">Take Profit 3 (Ratio 1:4.0):</span>
-                <strong class="val">${sig.tp3}</strong>
-                <span class="sub">+${(sig.riskPips * 4.0).toFixed(1)} pips</span>
-              </div>
-            ` : `
-              <div class="ak-lvl-cell tp">
-                <span class="label">Opción Binaria:</span>
-                <strong class="val">${sig.type === 'CALL' ? 'CALL (Sube / Mayor)' : 'PUT (Baja / Menor)'}</strong>
-                <span class="sub">Expiración recomendada: 60s / 2m / 5m</span>
-              </div>
-              <div class="ak-lvl-cell tp">
-                <span class="label">Retorno Payout:</span>
-                <strong class="val">85% Ganancia</strong>
-                <span class="sub">En caso de cierre ITM</span>
-              </div>
-            `}
+            </div>
           </div>
 
-          <div class="ak-smc-rationale">
-            <div style="font-size:12px;color:#00f2fe;font-weight:bold;margin-bottom:2px;">🔬 Confluencia SMC (Smart Money Concepts) &amp; Algoritmo:</div>
-            <p style="margin:0;font-size:12px;color:#cbd5e1;line-height:1.4;">
-              ${sig.smc}. Confirmación de entrada en la zona de reversión PRZ con rechazo de vela y volumen institucional.
-            </p>
-          </div>
+          ${sig.pivots ? `
+            <div style="background:rgba(0,0,0,0.3);padding:8px 12px;border-radius:6px;font-size:11px;font-family:monospace;color:#94a3b8;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+              <span>Pivots Matemáticos: X:${sig.pivots.X} &bull; A:${sig.pivots.A} &bull; B:${sig.pivots.B} &bull; C:${sig.pivots.C} &bull; D(PRZ):${sig.pivots.D}</span>
+              <span style="color:#00f2fe;">Ratios: AB/XA:${sig.fibs.AB} &bull; BC/AB:${sig.fibs.BC} &bull; XD/XA:${sig.fibs.XD}</span>
+            </div>
+          ` : ''}
 
           <div class="ak-sig-actions">
-            <button id="btnExecuteDemoSignal" class="ak-btn primary">
-              🎯 Ejecutar Entrada en Modo Demo
+            <button id="btnExecuteDemoSignal" class="ak-btn primary" style="padding:10px 22px;font-size:13px;font-weight:800;">
+              🟢 EJECUTAR ESTA OPERACIÓN EN MODO DEMO
             </button>
-            <button id="btnSendSignalTelegram" class="ak-btn" style="background:#0088cc;color:#fff;">
+            <button id="btnSendSignalTelegram" class="ak-btn" style="background:#0088cc;color:#fff;padding:10px 16px;">
               📲 Enviar Señal a Telegram
             </button>
-            <button id="btnCopySignalText" class="ak-btn secondary">
-              📋 Copiar Señal
+            <button id="btnCopySignalText" class="ak-btn secondary" style="padding:10px 16px;">
+              📋 Copiar Datos de Entrada
             </button>
           </div>
         </div>
@@ -2546,7 +2663,7 @@
           this.selectedMarket = e.target.value;
           this.updateChartCanvasHeader();
           if (!this.candles[this.selectedMarket] || this.candles[this.selectedMarket].length === 0) {
-            this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 42);
+            this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
           }
           this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
           this.updateLiveHeaderTelemetry();
@@ -2564,7 +2681,7 @@
           e.currentTarget.classList.add("active");
           this.selectedTimeframe = e.currentTarget.dataset.tf;
           this.updateChartCanvasHeader();
-          this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 42);
+          this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
           this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
           this.renderCandleHistoryTable();
           this.drawMarketCanvas();
@@ -2606,6 +2723,102 @@
         });
       }
 
+      // BARRA DE DESPLAZAMIENTO Y CONTROL DE VIEWPORT HORIZONTAL
+      const scrollSlider = document.getElementById("chartScrollSlider");
+      if (scrollSlider) {
+        scrollSlider.addEventListener("input", (e) => {
+          this.scrollOffset = parseInt(e.target.value, 10);
+          this.drawMarketCanvas();
+        });
+      }
+
+      const btnScrollLeft = document.getElementById("btnScrollLeft");
+      if (btnScrollLeft) {
+        btnScrollLeft.addEventListener("click", () => {
+          this.scrollOffset = Math.min(60, this.scrollOffset + 10);
+          this.drawMarketCanvas();
+        });
+      }
+
+      const btnScrollRight = document.getElementById("btnScrollRight");
+      if (btnScrollRight) {
+        btnScrollRight.addEventListener("click", () => {
+          this.scrollOffset = Math.max(0, this.scrollOffset - 10);
+          this.drawMarketCanvas();
+        });
+      }
+
+      const btnZoomOut = document.getElementById("btnZoomOut");
+      if (btnZoomOut) {
+        btnZoomOut.addEventListener("click", () => {
+          this.visibleBars = Math.min(80, this.visibleBars + 10);
+          this.drawMarketCanvas();
+        });
+      }
+
+      const btnZoomIn = document.getElementById("btnZoomIn");
+      if (btnZoomIn) {
+        btnZoomIn.addEventListener("click", () => {
+          this.visibleBars = Math.max(20, this.visibleBars - 10);
+          this.drawMarketCanvas();
+        });
+      }
+
+      const btnToggleMargin = document.getElementById("btnToggleMargin");
+      if (btnToggleMargin) {
+        btnToggleMargin.addEventListener("click", () => {
+          this.rightMarginBars = (this.rightMarginBars === 8) ? 14 : (this.rightMarginBars === 14 ? 4 : 8);
+          btnToggleMargin.innerText = `📐 Espacio Derecha (${this.rightMarginBars} velas)`;
+          this.drawMarketCanvas();
+        });
+      }
+
+      const btnResetView = document.getElementById("btnResetView");
+      if (btnResetView) {
+        btnResetView.addEventListener("click", () => {
+          this.scrollOffset = 0;
+          this.visibleBars = 45;
+          this.rightMarginBars = 8;
+          const sl = document.getElementById("chartScrollSlider");
+          if (sl) sl.value = "0";
+          this.drawMarketCanvas();
+        });
+      }
+
+      // ARRASTRE DE PANTALLA CON EL MOUSE (PAN / DRAG HORIZONTAL DIRECTO EN EL CANVAS)
+      let isCanvasDragging = false;
+      let dragStartX = 0;
+      let initialOffset = 0;
+
+      const chartCanvasEl = document.getElementById("akiraMarketCanvas");
+      if (chartCanvasEl) {
+        chartCanvasEl.addEventListener("mousedown", (e) => {
+          isCanvasDragging = true;
+          dragStartX = e.clientX;
+          initialOffset = this.scrollOffset;
+          chartCanvasEl.style.cursor = "grabbing";
+        });
+
+        window.addEventListener("mousemove", (e) => {
+          if (!isCanvasDragging) return;
+          const dx = e.clientX - dragStartX;
+          const stepX = (chartCanvasEl.width - 85) / (this.visibleBars + this.rightMarginBars);
+          const candleDelta = Math.round(dx / Math.max(1, stepX));
+          const maxScroll = Math.max(0, (this.candles[this.selectedMarket]?.length || 45) - this.visibleBars);
+          this.scrollOffset = Math.max(0, Math.min(maxScroll, initialOffset + candleDelta));
+          const sl = document.getElementById("chartScrollSlider");
+          if (sl) sl.value = this.scrollOffset.toString();
+          this.drawMarketCanvas();
+        });
+
+        window.addEventListener("mouseup", () => {
+          if (isCanvasDragging) {
+            isCanvasDragging = false;
+            chartCanvasEl.style.cursor = "crosshair";
+          }
+        });
+      }
+
       window.addEventListener("keydown", (e) => {
         if (e.key === "Escape" && this.isFullscreen) {
           this.toggleFullscreen(false);
@@ -2631,13 +2844,19 @@
           const rect = canvas.getBoundingClientRect();
           const scaleX = canvas.width / rect.width;
           const mouseX = (e.clientX - rect.left) * scaleX;
-          const candles = this.candles[this.selectedMarket] || [];
-          if (candles.length === 0) return;
+          const allCandles = this.candles[this.selectedMarket] || [];
+          if (allCandles.length === 0) return;
 
-          const chartWidth = canvas.width - 75;
-          const stepX = chartWidth / candles.length;
-          const index = Math.min(candles.length - 1, Math.max(0, Math.floor(mouseX / stepX)));
-          const c = candles[index];
+          const chartWidth = canvas.width - 85;
+          const visibleCount = Math.min(allCandles.length, this.visibleBars);
+          const freeRightSlots = (this.scrollOffset === 0) ? this.rightMarginBars : 0;
+          const totalSlots = visibleCount + freeRightSlots;
+          const stepX = chartWidth / totalSlots;
+
+          const slotIndex = Math.floor(mouseX / stepX);
+          const endIdx = allCandles.length - this.scrollOffset;
+          const startIdx = Math.max(0, endIdx - visibleCount);
+          const c = (slotIndex >= 0 && slotIndex < visibleCount) ? allCandles[startIdx + slotIndex] : null;
 
           if (c) {
             const isBull = c.isBull;
@@ -3093,6 +3312,47 @@ if __name__ == "__main__":
         padding: 6px 16px; font-size: 11px; color: #94a3b8; font-family: monospace;
       }
       .ak-market-canvas { width: 100%; height: 540px; display: block; cursor: crosshair; }
+
+      .ak-chart-nav-bar {
+        display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+        padding: 8px 16px; background: rgba(15, 23, 42, 0.9); border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .ak-nav-left-group, .ak-nav-right-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .ak-nav-btn {
+        background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 5px;
+        color: #cbd5e1; font-size: 11px; font-weight: 600; padding: 5px 10px; cursor: pointer; transition: all 0.2s;
+        display: inline-flex; align-items: center; gap: 4px;
+      }
+      .ak-nav-btn:hover { background: rgba(0, 242, 254, 0.15); border-color: #00f2fe; color: #00f2fe; }
+      .ak-nav-btn.active { background: rgba(0, 242, 254, 0.2); border-color: #00f2fe; color: #00f2fe; font-weight: bold; }
+      .ak-slider-wrap {
+        display: flex; align-items: center; gap: 6px; background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 20px; padding: 3px 10px;
+      }
+      .ak-slider-lbl { font-size: 9px; color: #64748b; font-weight: 700; }
+      .ak-slider-lbl.live { color: #10b981; }
+      .ak-nav-slider {
+        -webkit-appearance: none; appearance: none; width: 140px; height: 5px; border-radius: 5px;
+        background: rgba(255, 255, 255, 0.15); outline: none; cursor: pointer;
+      }
+      .ak-nav-slider::-webkit-slider-thumb {
+        -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%;
+        background: #00f2fe; cursor: pointer; box-shadow: 0 0 6px rgba(0, 242, 254, 0.8);
+      }
+
+      .ak-simple-trade-guide {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 10px 0;
+      }
+      .ak-guide-card {
+        background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px;
+        padding: 12px 14px; position: relative; display: flex; flex-direction: column; gap: 4px;
+      }
+      .ak-guide-badge {
+        font-size: 9px; font-weight: 800; color: #00f2fe; background: rgba(0, 242, 254, 0.15);
+        padding: 2px 6px; border-radius: 4px; width: fit-content; margin-bottom: 2px;
+      }
+      .ak-guide-card .title { font-size: 11px; font-weight: 700; color: #fff; }
+      .ak-guide-card .action-desc { font-size: 12px; color: #cbd5e1; line-height: 1.4; }
 
       .ak-market-data-grid { display: flex; gap: 14px; flex-wrap: wrap; }
       .ak-data-card {
