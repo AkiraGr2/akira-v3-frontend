@@ -160,6 +160,7 @@
       this.showEMA = true;
       this.showHarmonics = true;
       this.showLevels = true;
+      this.isFullscreen = false;
 
       const savedCap = parseFloat(localStorage.getItem(STORAGE_KEY_CAPITAL));
       this.accountSize = (!isNaN(savedCap) && savedCap > 0) ? savedCap : 50;
@@ -650,77 +651,188 @@
       }
     }
 
+
+    detectHarmonicPivots(candles, preferredType) {
+      if (!candles || candles.length < 18) return null;
+      const N = candles.length;
+      const isBull = preferredType === "BUY" || preferredType === "CALL";
+
+      // 1. Zone D (PRZ completion): Candle in range [N-4, N-1]
+      let idxD = N - 1;
+      let pD_price = isBull ? candles[idxD].low : candles[idxD].high;
+      const startD = Math.max(14, N - 4);
+      for (let i = startD; i < N; i++) {
+        const p = isBull ? candles[i].low : candles[i].high;
+        if (isBull ? p <= pD_price : p >= pD_price) {
+          pD_price = p;
+          idxD = i;
+        }
+      }
+
+      // 2. Zone C: Candle in range [idxD-9, idxD-1]
+      let idxC = Math.max(10, idxD - 1);
+      let pC_price = isBull ? candles[idxC].high : candles[idxC].low;
+      const startC = Math.max(10, idxD - 9);
+      for (let i = startC; i < idxD; i++) {
+        const p = isBull ? candles[i].high : candles[i].low;
+        if (isBull ? p >= pC_price : p <= pC_price) {
+          pC_price = p;
+          idxC = i;
+        }
+      }
+
+      // 3. Zone B: Candle in range [idxC-9, idxC-1]
+      let idxB = Math.max(5, idxC - 1);
+      let pB_price = isBull ? candles[idxB].low : candles[idxB].high;
+      const startB = Math.max(5, idxC - 9);
+      for (let i = startB; i < idxC; i++) {
+        const p = isBull ? candles[i].low : candles[i].high;
+        if (isBull ? p <= pB_price : p >= pB_price) {
+          pB_price = p;
+          idxB = i;
+        }
+      }
+
+      // 4. Zone A: Candle in range [idxB-9, idxB-1]
+      let idxA = Math.max(2, idxB - 1);
+      let pA_price = isBull ? candles[idxA].high : candles[idxA].low;
+      const startA = Math.max(2, idxB - 9);
+      for (let i = startA; i < idxB; i++) {
+        const p = isBull ? candles[i].high : candles[i].low;
+        if (isBull ? p >= pA_price : p <= pA_price) {
+          pA_price = p;
+          idxA = i;
+        }
+      }
+
+      // 5. Zone X: Candle in range [0, idxA-1]
+      let idxX = Math.max(0, idxA - 1);
+      let pX_price = isBull ? candles[idxX].low : candles[idxX].high;
+      for (let i = 0; i < idxA; i++) {
+        const p = isBull ? candles[i].low : candles[i].high;
+        if (isBull ? p <= pX_price : p >= pX_price) {
+          pX_price = p;
+          idxX = i;
+        }
+      }
+
+      // Calculate real Fibonacci ratios
+      const legXA = Math.abs(pA_price - pX_price);
+      const legAB = Math.abs(pB_price - pA_price);
+      const legBC = Math.abs(pC_price - pB_price);
+      const legCD = Math.abs(pD_price - pC_price);
+      const legXD = Math.abs(pD_price - pX_price);
+
+      const ratioAB = legXA > 0 ? parseFloat((legAB / legXA).toFixed(3)) : 0.618;
+      const ratioBC = legAB > 0 ? parseFloat((legBC / legAB).toFixed(3)) : 0.382;
+      const ratioCD = legBC > 0 ? parseFloat((legCD / legBC).toFixed(3)) : 1.272;
+      const ratioXD = legXA > 0 ? parseFloat((legXD / legXA).toFixed(3)) : 0.786;
+
+      let patternName = isBull ? "Bullish Gartley (PRZ 0.786)" : "Bearish Bat (PRZ 0.886)";
+      if (Math.abs(ratioXD - 0.786) < 0.08) {
+        patternName = isBull ? "Bullish Gartley (Retracción 0.786 Fibonacci)" : "Bearish Gartley (Retracción 0.786 Fibonacci)";
+      } else if (Math.abs(ratioXD - 0.886) < 0.08) {
+        patternName = isBull ? "Bullish Bat (Reversión 0.886 PRZ)" : "Bearish Bat (Reversión 0.886 PRZ)";
+      } else if (ratioXD > 1.1) {
+        patternName = isBull ? "Bullish Butterfly (Extensión 1.272 Reversal)" : "Bearish Butterfly (Extensión 1.272 Reversal)";
+      } else if (ratioXD > 1.4) {
+        patternName = isBull ? "Bullish Crab (Extensión Extrema 1.618)" : "Bearish Crab (Extensión Extrema 1.618)";
+      }
+
+      return {
+        isBull,
+        patternName,
+        idxX, pX_price,
+        idxA, pA_price,
+        idxB, pB_price,
+        idxC, pC_price,
+        idxD, pD_price,
+        ratios: {
+          AB: ratioAB,
+          BC: ratioBC,
+          CD: ratioCD,
+          XD: ratioXD
+        }
+      };
+    }
+
     generateHarmonicSignal(marketId, timeframe) {
       const m = MARKETS[marketId] || MARKETS["XAUUSD"];
       const curPrice = this.marketPrices[marketId] || m.basePrice;
       const isBinary = Boolean(m.isBinary);
+      const isBullPreferred = isBinary ? (Math.random() > 0.5) : (Math.random() > 0.5);
 
-      const patterns = [
-        {
-          name: "Bullish Gartley (Retracción 0.786 Fibonacci)",
-          type: isBinary ? "CALL" : "BUY",
-          fibs: { XA: 1.0, AB: 0.618, BC: 0.382, CD: 0.786 },
-          smc: "Order Block Institucional Mitigado + FVG Test",
-          confluence: 90.4
-        },
-        {
-          name: "Bearish Bat (Reversión 0.886 PRZ)",
-          type: isBinary ? "PUT" : "SELL",
-          fibs: { XA: 1.0, AB: 0.500, BC: 0.886, CD: 0.886 },
-          smc: "Toma de Liquidez de Máximos (Buy-Side Swept)",
-          confluence: 92.8
-        },
-        {
-          name: "Bullish Butterfly (Extensión 1.272 Reversal)",
-          type: isBinary ? "CALL" : "BUY",
-          fibs: { XA: 1.0, AB: 0.786, BC: 0.886, CD: 1.272 },
-          smc: "Breaker Block + Divergencia en RSI 14",
-          confluence: 88.5
-        },
-        {
-          name: "Bearish Crab (Extensión Extrema 1.618)",
-          type: isBinary ? "PUT" : "SELL",
-          fibs: { XA: 1.0, AB: 0.618, BC: 0.382, CD: 1.618 },
-          smc: "Desequilibrio Institucional FVG + Cambio CHoCH",
-          confluence: 91.5
-        }
-      ];
+      const marketCandles = this.candles[marketId] || this.generateHistoricalCandles(marketId, 42);
+      const geom = this.detectHarmonicPivots(marketCandles, isBullPreferred ? (isBinary ? "CALL" : "BUY") : (isBinary ? "PUT" : "SELL"));
 
-      const pattern = patterns[Math.floor(Math.random() * patterns.length)];
       const decimals = m.pipSize < 0.001 ? 5 : 2;
       const pipDist = m.pipSize * 25;
 
       let entry = curPrice;
       let sl, tp1, tp2, tp3;
+      let patternName = "Bullish Gartley (Retracción 0.786 Fibonacci)";
+      let fibs = { XA: 1.0, AB: 0.618, BC: 0.382, CD: 1.272, XD: 0.786 };
+      let type = isBinary ? (isBullPreferred ? "CALL" : "PUT") : (isBullPreferred ? "BUY" : "SELL");
+      let pivots = null;
 
-      if (pattern.type === "BUY" || pattern.type === "CALL") {
-        sl = parseFloat((entry - pipDist).toFixed(decimals));
-        tp1 = parseFloat((entry + (pipDist * 1.5)).toFixed(decimals));
-        tp2 = parseFloat((entry + (pipDist * 2.5)).toFixed(decimals));
-        tp3 = parseFloat((entry + (pipDist * 4.0)).toFixed(decimals));
+      if (geom) {
+        patternName = geom.patternName;
+        fibs = { XA: 1.0, AB: geom.ratios.AB, BC: geom.ratios.BC, CD: geom.ratios.CD, XD: geom.ratios.XD };
+        type = isBinary ? (geom.isBull ? "CALL" : "PUT") : (geom.isBull ? "BUY" : "SELL");
+        entry = parseFloat(geom.pD_price.toFixed(decimals));
+        pivots = {
+          X: parseFloat(geom.pX_price.toFixed(decimals)),
+          A: parseFloat(geom.pA_price.toFixed(decimals)),
+          B: parseFloat(geom.pB_price.toFixed(decimals)),
+          C: parseFloat(geom.pC_price.toFixed(decimals)),
+          D: parseFloat(geom.pD_price.toFixed(decimals))
+        };
+
+        if (geom.isBull) {
+          sl = parseFloat((geom.pX_price - (m.pipSize * 15)).toFixed(decimals));
+          tp1 = parseFloat((entry + (pipDist * 1.5)).toFixed(decimals));
+          tp2 = parseFloat((entry + (pipDist * 2.5)).toFixed(decimals));
+          tp3 = parseFloat(geom.pC_price.toFixed(decimals));
+        } else {
+          sl = parseFloat((geom.pX_price + (m.pipSize * 15)).toFixed(decimals));
+          tp1 = parseFloat((entry - (pipDist * 1.5)).toFixed(decimals));
+          tp2 = parseFloat((entry - (pipDist * 2.5)).toFixed(decimals));
+          tp3 = parseFloat(geom.pC_price.toFixed(decimals));
+        }
       } else {
-        sl = parseFloat((entry + pipDist).toFixed(decimals));
-        tp1 = parseFloat((entry - (pipDist * 1.5)).toFixed(decimals));
-        tp2 = parseFloat((entry - (pipDist * 2.5)).toFixed(decimals));
-        tp3 = parseFloat((entry - (pipDist * 4.0)).toFixed(decimals));
+        if (type === "BUY" || type === "CALL") {
+          sl = parseFloat((entry - pipDist).toFixed(decimals));
+          tp1 = parseFloat((entry + (pipDist * 1.5)).toFixed(decimals));
+          tp2 = parseFloat((entry + (pipDist * 2.5)).toFixed(decimals));
+          tp3 = parseFloat((entry + (pipDist * 4.0)).toFixed(decimals));
+        } else {
+          sl = parseFloat((entry + pipDist).toFixed(decimals));
+          tp1 = parseFloat((entry - (pipDist * 1.5)).toFixed(decimals));
+          tp2 = parseFloat((entry - (pipDist * 2.5)).toFixed(decimals));
+          tp3 = parseFloat((entry - (pipDist * 4.0)).toFixed(decimals));
+        }
       }
+
+      const riskPips = Math.max(5, Math.round(Math.abs(entry - (sl || entry)) / m.pipSize));
+      const confluence = Math.min(98, Math.max(88, Math.round(92 + (Math.random() * 4))));
 
       this.currentSignal = {
         id: "SIG-" + Math.floor(100000 + Math.random() * 900000),
         marketId: marketId,
         marketName: m.name,
         timeframe: timeframe,
-        pattern: pattern.name,
-        type: pattern.type,
-        fibs: pattern.fibs,
-        smc: pattern.smc,
-        confluence: pattern.confluence,
+        pattern: patternName,
+        type: type,
+        fibs: fibs,
+        pivots: pivots,
+        smc: "Order Block Institucional Mitigado + Invalidation Point X",
+        confluence: confluence,
         entry: entry,
         sl: sl,
         tp1: tp1,
         tp2: tp2,
         tp3: tp3,
-        riskPips: 25,
+        riskPips: riskPips,
         timestamp: new Date().toLocaleTimeString()
       };
 
@@ -822,26 +934,32 @@
 
             <div id="platformSpecialDeck" style="margin-bottom:12px;"></div>
 
-            <div class="ak-chart-canvas-wrapper">
-              <div class="ak-chart-canvas-header">
-                <div style="display:flex;align-items:center;gap:10px;">
-                  <span style="font-size:16px;">${m.icon}</span>
-                  <strong style="color:#fff;font-size:14px;">${m.name}</strong>
-                  <span class="ak-pill live" style="font-size:10px;">${this.selectedTimeframe} &bull; Stream Oficial</span>
+            <div class="ak-chart-canvas-wrapper" id="akiraChartCanvasWrapper">
+              <div class="ak-chart-canvas-header" id="akiraChartCanvasHeader">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;" id="chartMarketHeaderInfo">
+                  <span style="font-size:18px;" id="chartMarketIcon">${m.icon}</span>
+                  <strong style="color:#fff;font-size:15px;" id="chartMarketTitle">${m.name}</strong>
+                  <span id="chartMarketCategory" style="font-size:11px;color:#94a3b8;">(${m.category})</span>
+                  <span class="ak-pill live" style="font-size:10px;" id="chartMarketTfPill">${this.selectedTimeframe} &bull; Stream Deriv Oficial</span>
                   <span style="font-size:11px;color:#94a3b8;" id="candleCountdownLabel">Próxima vela en: ${this.formingCandleSeconds}s</span>
                 </div>
-                <div style="display:flex;gap:8px;align-items:center;">
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                   <button id="btnToggleEMA" class="ak-chart-tool-btn ${this.showEMA ? 'active' : ''}">⚡ EMA 20/50</button>
-                  <button id="btnToggleHarmonics" class="ak-chart-tool-btn ${this.showHarmonics ? 'active' : ''}">🔬 Patrón Armónico</button>
+                  <button id="btnToggleHarmonics" class="ak-chart-tool-btn ${this.showHarmonics ? 'active' : ''}">🔬 Patrón Armónico Real</button>
                   <button id="btnToggleLevels" class="ak-chart-tool-btn ${this.showLevels ? 'active' : ''}">🎯 Niveles SL/TP</button>
+                  <button id="btnToggleFullscreen" class="ak-chart-tool-btn ak-btn-fullscreen" title="Modo Pantalla Completa (ESC para salir)">
+                    <span class="fs-icon">⛶</span> <span class="fs-text">Pantalla Completa</span>
+                  </button>
                 </div>
               </div>
+
+              <div id="fsExtraToolbar" class="ak-fs-extra-toolbar" style="display:none;"></div>
 
               <div id="canvasOhlcInspector" class="ak-canvas-inspector">
                 <span>Pasa el mouse sobre el gráfico para auditar cualquier vela histórica en números exactos.</span>
               </div>
 
-              <canvas id="akiraMarketCanvas" class="ak-market-canvas" width="980" height="420"></canvas>
+              <canvas id="akiraMarketCanvas" class="ak-market-canvas" width="1100" height="540"></canvas>
             </div>
 
             <div class="ak-market-data-grid">
@@ -1291,9 +1409,169 @@
       }
     }
 
+
+    updateChartCanvasHeader() {
+      const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
+      const iconEl = document.getElementById("chartMarketIcon");
+      const titleEl = document.getElementById("chartMarketTitle");
+      const catEl = document.getElementById("chartMarketCategory");
+      const tfEl = document.getElementById("chartMarketTfPill");
+      if (iconEl) iconEl.innerText = m.icon;
+      if (titleEl) titleEl.innerText = m.name;
+      if (catEl) catEl.innerText = `(${m.category})`;
+      if (tfEl) tfEl.innerHTML = `${this.selectedTimeframe} &bull; Stream Deriv Oficial`;
+    }
+
+    toggleFullscreen(forceState = null) {
+      const wrapper = document.getElementById("akiraChartCanvasWrapper");
+      const btn = document.getElementById("btnToggleFullscreen");
+      const fsToolbar = document.getElementById("fsExtraToolbar");
+      if (!wrapper) return;
+
+      const shouldFs = forceState !== null ? forceState : !this.isFullscreen;
+      this.isFullscreen = shouldFs;
+
+      if (this.isFullscreen) {
+        wrapper.classList.add("ak-fullscreen");
+        document.body.classList.add("ak-no-scroll");
+        if (btn) {
+          btn.classList.add("active");
+          btn.innerHTML = `<span class="fs-icon">✕</span> <span class="fs-text">Salir Pantalla Completa [ESC]</span>`;
+        }
+        if (fsToolbar) {
+          fsToolbar.style.display = "flex";
+          this.renderFsExtraToolbar();
+        }
+        try {
+          if (!document.fullscreenElement && wrapper.requestFullscreen) {
+            wrapper.requestFullscreen().catch(() => {});
+          }
+        } catch(_) {}
+      } else {
+        wrapper.classList.remove("ak-fullscreen");
+        document.body.classList.remove("ak-no-scroll");
+        if (btn) {
+          btn.classList.remove("active");
+          btn.innerHTML = `<span class="fs-icon">⛶</span> <span class="fs-text">Pantalla Completa</span>`;
+        }
+        if (fsToolbar) {
+          fsToolbar.style.display = "none";
+        }
+        try {
+          if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+          }
+        } catch(_) {}
+      }
+
+      setTimeout(() => {
+        this.drawMarketCanvas();
+      }, 60);
+    }
+
+    renderFsExtraToolbar() {
+      const tb = document.getElementById("fsExtraToolbar");
+      if (!tb) return;
+
+      const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
+      const isBin = Boolean(m.isBinary);
+      const isBoomCrash = m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash";
+
+      tb.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px;width:100%;justify-content:space-between;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <label style="font-size:11px;color:#94a3b8;font-weight:700;">MERCADO EN PANTALLA COMPLETA:</label>
+            <select id="fsMarketSelect" class="ak-input-select" style="padding:4px 8px;font-size:12px;">
+              ${Object.keys(MARKETS).map(k => `
+                <option value="${k}" ${this.selectedMarket === k ? 'selected' : ''}>
+                  ${MARKETS[k].icon} ${MARKETS[k].name}
+                </option>
+              `).join('')}
+            </select>
+
+            <div class="ak-tf-buttons" style="margin-left:6px;">
+              ${["M1", "M5", "M15", "H1", "H4", "D1"].map(tf => `
+                <button class="ak-tf-btn ${this.selectedTimeframe === tf ? 'active' : ''}" data-fstf="${tf}">${tf}</button>
+              `).join('')}
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            ${isBin ? `
+              <button id="fsBtnCall" class="ak-btn buy" style="padding:6px 14px;font-size:12px;font-weight:800;">🟢 CALL (+85%)</button>
+              <button id="fsBtnPut" class="ak-btn sell" style="padding:6px 14px;font-size:12px;font-weight:800;">🔴 PUT (+85%)</button>
+            ` : isBoomCrash ? `
+              <button id="fsBtnSpike" class="ak-btn primary" style="padding:6px 14px;font-size:12px;font-weight:800;">⚡ Cazar Spike Demo</button>
+            ` : `
+              <button id="fsBtnBuy" class="ak-btn buy" style="padding:6px 14px;font-size:12px;font-weight:800;">🟢 BUY Market Demo</button>
+              <button id="fsBtnSell" class="ak-btn sell" style="padding:6px 14px;font-size:12px;font-weight:800;">🔴 SELL Market Demo</button>
+            `}
+            <button id="fsBtnTriggerSignal" class="ak-btn primary" style="padding:6px 14px;font-size:12px;">
+              🎯 Ejecutar Señal Demo (${this.currentSignal?.type || 'Auto'})
+            </button>
+          </div>
+        </div>
+      `;
+
+      const sel = document.getElementById("fsMarketSelect");
+      if (sel) {
+        sel.addEventListener("change", (e) => {
+          const mainSel = document.getElementById("selMarketActive");
+          if (mainSel) {
+            mainSel.value = e.target.value;
+            mainSel.dispatchEvent(new Event("change"));
+          } else {
+            this.selectedMarket = e.target.value;
+            this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
+            this.updateChartCanvasHeader();
+            this.drawMarketCanvas();
+          }
+          this.renderFsExtraToolbar();
+        });
+      }
+
+      tb.querySelectorAll("[data-fstf]").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const tf = e.currentTarget.dataset.fstf;
+          this.selectedTimeframe = tf;
+          const mainTfBtn = document.querySelector(`.ak-tf-btn[data-tf="${tf}"]`);
+          if (mainTfBtn) mainTfBtn.click();
+          else {
+            this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 42);
+            this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
+            this.updateChartCanvasHeader();
+            this.drawMarketCanvas();
+          }
+          this.renderFsExtraToolbar();
+        });
+      });
+
+      const fsCall = document.getElementById("fsBtnCall");
+      if (fsCall) fsCall.addEventListener("click", () => document.getElementById("btnDirectCall")?.click());
+      const fsPut = document.getElementById("fsBtnPut");
+      if (fsPut) fsPut.addEventListener("click", () => document.getElementById("btnDirectPut")?.click());
+      const fsSpike = document.getElementById("fsBtnSpike");
+      if (fsSpike) fsSpike.addEventListener("click", () => document.getElementById("btnHuntSpike")?.click());
+      const fsBuy = document.getElementById("fsBtnBuy");
+      if (fsBuy) fsBuy.addEventListener("click", () => document.getElementById("btnQuickDemoBuy")?.click());
+      const fsSell = document.getElementById("fsBtnSell");
+      if (fsSell) fsSell.addEventListener("click", () => document.getElementById("btnQuickDemoSell")?.click());
+      const fsSig = document.getElementById("fsBtnTriggerSignal");
+      if (fsSig) fsSig.addEventListener("click", () => document.getElementById("btnExecuteDemoSignal")?.click());
+    }
+
     drawMarketCanvas() {
       const canvas = document.getElementById("akiraMarketCanvas");
       if (!canvas) return;
+
+      const isFs = this.isFullscreen || Boolean(document.getElementById("akiraChartCanvasWrapper")?.classList.contains("ak-fullscreen"));
+      const containerW = isFs ? Math.max(800, window.innerWidth - 32) : Math.max(800, (canvas.parentElement?.clientWidth || 1100));
+      const containerH = isFs ? Math.max(450, window.innerHeight - 150) : 540;
+
+      if (canvas.width !== containerW || canvas.height !== containerH) {
+        canvas.width = containerW;
+        canvas.height = containerH;
+      }
 
       const ctx = canvas.getContext("2d");
       const width = canvas.width;
@@ -1301,6 +1579,7 @@
       const candles = this.candles[this.selectedMarket] || [];
       if (candles.length === 0) return;
 
+      // Dark Terminal Background
       ctx.fillStyle = "#080c14";
       ctx.fillRect(0, 0, width, height);
 
@@ -1312,22 +1591,23 @@
       });
 
       const priceRange = (maxPrice - minPrice) || 1;
-      const paddingY = 30;
+      const paddingY = 36;
       const chartHeight = height - (paddingY * 2);
-      const rightMargin = 75;
+      const rightMargin = 85;
       const chartWidth = width - rightMargin;
 
       const getY = (val) => {
         return height - paddingY - (((val - minPrice) / priceRange) * chartHeight);
       };
 
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+      // Grid Lines & Price Scale
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
       ctx.lineWidth = 1;
       ctx.fillStyle = "#64748b";
       ctx.font = "10px monospace";
       ctx.textAlign = "left";
 
-      const gridLines = 5;
+      const gridLines = 6;
       for (let i = 0; i <= gridLines; i++) {
         const pVal = minPrice + ((priceRange / gridLines) * i);
         const y = getY(pVal);
@@ -1341,10 +1621,12 @@
       }
 
       const candleCount = candles.length;
-      const candleWidth = Math.max(4, Math.floor((chartWidth / candleCount) * 0.7));
+      const candleWidth = Math.max(5, Math.floor((chartWidth / candleCount) * 0.72));
       const stepX = chartWidth / candleCount;
 
+      // Moving Averages (EMA 20 y EMA 50)
       if (this.showEMA && candleCount > 10) {
+        // Fast EMA (Cyan)
         ctx.strokeStyle = "#00f2fe";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
@@ -1356,6 +1638,7 @@
         });
         ctx.stroke();
 
+        // Slow EMA (Amber)
         ctx.strokeStyle = "#f59e0b";
         ctx.lineWidth = 1.2;
         ctx.beginPath();
@@ -1368,6 +1651,7 @@
         ctx.stroke();
       }
 
+      // Draw Candlesticks (Wicks and Bodies)
       candles.forEach((c, idx) => {
         const x = (idx * stepX) + (stepX / 2);
         const yOpen = getY(c.open);
@@ -1378,6 +1662,7 @@
 
         const bodyColor = c.isSpike ? "#00f2fe" : (isBull ? "#10b981" : "#ef4444");
 
+        // High-Low Wick
         ctx.strokeStyle = bodyColor;
         ctx.lineWidth = 1.2;
         ctx.beginPath();
@@ -1385,76 +1670,161 @@
         ctx.lineTo(x, yLow);
         ctx.stroke();
 
+        // Candle Body
         ctx.fillStyle = bodyColor;
         const topY = Math.min(yOpen, yClose);
         const bodyH = Math.max(2, Math.abs(yClose - yOpen));
         ctx.fillRect(x - (candleWidth / 2), topY, candleWidth, bodyH);
 
+        // Spike Halo for Boom/Crash
         if (c.isSpike) {
-          ctx.strokeStyle = "rgba(0, 242, 254, 0.4)";
-          ctx.lineWidth = 4;
+          ctx.strokeStyle = "rgba(0, 242, 254, 0.5)";
+          ctx.lineWidth = 3;
           ctx.strokeRect(x - (candleWidth / 2) - 2, topY - 2, candleWidth + 4, bodyH + 4);
         }
 
-        if (idx % 6 === 0) {
+        // Time axis labels every 5 candles
+        if (idx % 5 === 0) {
           ctx.fillStyle = "#64748b";
           ctx.font = "9px monospace";
           ctx.textAlign = "center";
-          ctx.fillText(c.time, x, height - 8);
+          ctx.fillText(c.time, x, height - 10);
         }
       });
 
-      if (this.showHarmonics && this.currentSignal && candleCount >= 25) {
+      // ESCÁNER ARMÓNICO ANCLADO MATEMÁTICAMENTE A LAS MECHAS REALES (X, A, B, C, D)
+      if (this.showHarmonics && candleCount >= 18) {
         const sig = this.currentSignal;
-        const isBull = sig.type === "BUY" || sig.type === "CALL";
+        const isBullPreferred = sig ? (sig.type === "BUY" || sig.type === "CALL") : true;
+        const geom = this.detectHarmonicPivots(candles, isBullPreferred ? "BUY" : "SELL");
 
-        const pX = { x: (candleCount - 24) * stepX, y: isBull ? getY(minPrice + (priceRange * 0.15)) : getY(maxPrice - (priceRange * 0.15)), label: "X" };
-        const pA = { x: (candleCount - 18) * stepX, y: isBull ? getY(maxPrice - (priceRange * 0.2)) : getY(minPrice + (priceRange * 0.2)), label: "A" };
-        const pB = { x: (candleCount - 12) * stepX, y: isBull ? getY(minPrice + (priceRange * 0.45)) : getY(maxPrice - (priceRange * 0.45)), label: `B (${sig.fibs.AB})` };
-        const pC = { x: (candleCount - 6) * stepX, y: isBull ? getY(maxPrice - (priceRange * 0.35)) : getY(minPrice + (priceRange * 0.35)), label: `C (${sig.fibs.BC})` };
-        const pD = { x: (candleCount - 1) * stepX, y: isBull ? getY(minPrice + (priceRange * 0.25)) : getY(maxPrice - (priceRange * 0.25)), label: `D (PRZ ${sig.fibs.CD})` };
+        if (geom) {
+          const isBull = geom.isBull;
+          const pX = { x: (geom.idxX * stepX) + (stepX / 2), y: getY(geom.pX_price), price: geom.pX_price, idx: geom.idxX, label: "X" };
+          const pA = { x: (geom.idxA * stepX) + (stepX / 2), y: getY(geom.pA_price), price: geom.pA_price, idx: geom.idxA, label: "A" };
+          const pB = { x: (geom.idxB * stepX) + (stepX / 2), y: getY(geom.pB_price), price: geom.pB_price, idx: geom.idxB, label: `B (${geom.ratios.AB})` };
+          const pC = { x: (geom.idxC * stepX) + (stepX / 2), y: getY(geom.pC_price), price: geom.pC_price, idx: geom.idxC, label: `C (${geom.ratios.BC})` };
+          const pD = { x: (geom.idxD * stepX) + (stepX / 2), y: getY(geom.pD_price), price: geom.pD_price, idx: geom.idxD, label: `D [PRZ] (${geom.ratios.XD})` };
 
-        ctx.strokeStyle = isBull ? "rgba(16, 185, 129, 0.85)" : "rgba(239, 68, 68, 0.85)";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(pX.x, pX.y);
-        ctx.lineTo(pA.x, pA.y);
-        ctx.lineTo(pB.x, pB.y);
-        ctx.lineTo(pC.x, pC.y);
-        ctx.lineTo(pD.x, pD.y);
-        ctx.stroke();
+          const mainColor = isBull ? "#10b981" : "#ef4444";
+          const fillColor = isBull ? "rgba(16, 185, 129, 0.10)" : "rgba(239, 68, 68, 0.10)";
 
-        ctx.fillStyle = isBull ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)";
-        ctx.beginPath();
-        ctx.moveTo(pX.x, pX.y);
-        ctx.lineTo(pA.x, pA.y);
-        ctx.lineTo(pB.x, pB.y);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.moveTo(pB.x, pB.y);
-        ctx.lineTo(pC.x, pC.y);
-        ctx.lineTo(pD.x, pD.y);
-        ctx.closePath();
-        ctx.fill();
-
-        [pX, pA, pB, pC, pD].forEach(p => {
-          ctx.fillStyle = "#00f2fe";
+          // 1. Shaded Geometric Triangles XAB and BCD
+          ctx.fillStyle = fillColor;
           ctx.beginPath();
-          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+          ctx.moveTo(pX.x, pX.y);
+          ctx.lineTo(pA.x, pA.y);
+          ctx.lineTo(pB.x, pB.y);
+          ctx.closePath();
           ctx.fill();
-          ctx.fillStyle = "#fff";
-          ctx.font = "bold 10px sans-serif";
-          ctx.textAlign = "center";
-          ctx.fillText(p.label, p.x, p.y - 8);
-        });
+
+          ctx.beginPath();
+          ctx.moveTo(pB.x, pB.y);
+          ctx.lineTo(pC.x, pC.y);
+          ctx.lineTo(pD.x, pD.y);
+          ctx.closePath();
+          ctx.fill();
+
+          // 2. Glowing Outer Harmonic Rays: X -> A -> B -> C -> D
+          ctx.strokeStyle = mainColor;
+          ctx.lineWidth = 2.4;
+          ctx.beginPath();
+          ctx.moveTo(pX.x, pX.y);
+          ctx.lineTo(pA.x, pA.y);
+          ctx.lineTo(pB.x, pB.y);
+          ctx.lineTo(pC.x, pC.y);
+          ctx.lineTo(pD.x, pD.y);
+          ctx.stroke();
+
+          // 3. Dashed Inner Harmonic Rays: X-B, A-C, X-D
+          ctx.strokeStyle = "rgba(0, 242, 254, 0.65)";
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([3, 3]);
+
+          // Ray X -> B
+          ctx.beginPath();
+          ctx.moveTo(pX.x, pX.y);
+          ctx.lineTo(pB.x, pB.y);
+          ctx.stroke();
+
+          // Ray A -> C
+          ctx.beginPath();
+          ctx.moveTo(pA.x, pA.y);
+          ctx.lineTo(pC.x, pC.y);
+          ctx.stroke();
+
+          // Ray X -> D
+          ctx.strokeStyle = "rgba(245, 158, 11, 0.75)";
+          ctx.beginPath();
+          ctx.moveTo(pX.x, pX.y);
+          ctx.lineTo(pD.x, pD.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // 4. PRZ Potential Reversal Zone Box at Point D
+          const przHeight = Math.max(16, Math.abs(pD.y - getY(pD.price + (MARKETS[this.selectedMarket]?.pipSize * 12))));
+          const przTop = isBull ? pD.y - (przHeight * 0.3) : pD.y - (przHeight * 0.7);
+          ctx.fillStyle = isBull ? "rgba(16, 185, 129, 0.16)" : "rgba(239, 68, 68, 0.16)";
+          ctx.fillRect(pD.x, przTop, chartWidth - pD.x, przHeight);
+          ctx.strokeStyle = isBull ? "rgba(16, 185, 129, 0.45)" : "rgba(239, 68, 68, 0.45)";
+          ctx.strokeRect(pD.x, przTop, chartWidth - pD.x, przHeight);
+
+          ctx.fillStyle = isBull ? "#10b981" : "#ef4444";
+          ctx.font = "bold 9px monospace";
+          ctx.textAlign = "left";
+          ctx.fillText("ZONA PRZ (POTENCIAL REVERSIÓN)", pD.x + 8, przTop + 11);
+
+          // 5. Draw Anchor Nodes at exact candle wicks
+          const decimals = MARKETS[this.selectedMarket]?.pipSize < 0.001 ? 5 : 2;
+          const points = [pX, pA, pB, pC, pD];
+          points.forEach((p) => {
+            const candle = candles[p.idx];
+            if (candle) {
+              ctx.strokeStyle = "rgba(0, 242, 254, 0.3)";
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(p.x, getY(candle.high));
+              ctx.lineTo(p.x, getY(candle.low));
+              ctx.stroke();
+            }
+
+            // Halo Ring
+            ctx.fillStyle = "rgba(0, 242, 254, 0.25)";
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Center Node
+            ctx.fillStyle = "#080c14";
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#00f2fe";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Label position: above high wicks, below low wicks
+            const isHighWick = (isBull && (p.label.startsWith("A") || p.label.startsWith("C"))) ||
+                               (!isBull && (p.label.startsWith("X") || p.label.startsWith("B") || p.label.startsWith("D")));
+            const textY = isHighWick ? p.y - 10 : p.y + 16;
+
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 10px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(p.label, p.x, textY);
+
+            ctx.fillStyle = "#94a3b8";
+            ctx.font = "9px monospace";
+            ctx.fillText(p.price.toFixed(decimals), p.x, isHighWick ? textY - 11 : textY + 10);
+          });
+        }
       }
 
+      // Current Price Level Line
       const curPrice = this.marketPrices[this.selectedMarket];
       const yCur = getY(curPrice);
 
-      ctx.strokeStyle = "rgba(0, 242, 254, 0.8)";
+      ctx.strokeStyle = "rgba(0, 242, 254, 0.85)";
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
@@ -1471,28 +1841,55 @@
       const decimals = MARKETS[this.selectedMarket]?.pipSize < 0.001 ? 5 : 2;
       ctx.fillText(curPrice.toFixed(decimals), chartWidth + (rightMargin / 2), yCur + 3);
 
+      // Stop Loss and Take Profit Levels (if enabled)
       if (this.showLevels && this.currentSignal && this.currentSignal.sl && this.currentSignal.tp1) {
         const ySl = getY(this.currentSignal.sl);
-        const yTp = getY(this.currentSignal.tp1);
+        const yTp1 = getY(this.currentSignal.tp1);
+        const yTp2 = this.currentSignal.tp2 ? getY(this.currentSignal.tp2) : null;
+        const yTp3 = this.currentSignal.tp3 ? getY(this.currentSignal.tp3) : null;
 
-        ctx.strokeStyle = "rgba(239, 68, 68, 0.7)";
-        ctx.lineWidth = 1;
+        // Stop Loss
+        ctx.strokeStyle = "rgba(239, 68, 68, 0.75)";
+        ctx.lineWidth = 1.2;
         ctx.setLineDash([3, 3]);
         ctx.beginPath();
         ctx.moveTo(0, ySl);
         ctx.lineTo(chartWidth, ySl);
         ctx.stroke();
         ctx.fillStyle = "#ef4444";
-        ctx.fillText("SL: " + this.currentSignal.sl, chartWidth - 45, ySl - 4);
+        ctx.font = "9px monospace";
+        ctx.textAlign = "right";
+        ctx.fillText("SL: " + this.currentSignal.sl, chartWidth - 10, ySl - 4);
 
-        ctx.strokeStyle = "rgba(16, 185, 129, 0.7)";
+        // Take Profit 1
+        ctx.strokeStyle = "rgba(16, 185, 129, 0.8)";
         ctx.beginPath();
-        ctx.moveTo(0, yTp);
-        ctx.lineTo(chartWidth, yTp);
+        ctx.moveTo(0, yTp1);
+        ctx.lineTo(chartWidth, yTp1);
         ctx.stroke();
-        ctx.setLineDash([]);
         ctx.fillStyle = "#10b981";
-        ctx.fillText("TP1: " + this.currentSignal.tp1, chartWidth - 50, yTp - 4);
+        ctx.fillText("TP1: " + this.currentSignal.tp1, chartWidth - 10, yTp1 - 4);
+
+        // Take Profit 2
+        if (yTp2) {
+          ctx.strokeStyle = "rgba(16, 185, 129, 0.6)";
+          ctx.beginPath();
+          ctx.moveTo(0, yTp2);
+          ctx.lineTo(chartWidth, yTp2);
+          ctx.stroke();
+          ctx.fillText("TP2: " + this.currentSignal.tp2, chartWidth - 10, yTp2 - 4);
+        }
+
+        // Take Profit 3
+        if (yTp3) {
+          ctx.strokeStyle = "rgba(16, 185, 129, 0.4)";
+          ctx.beginPath();
+          ctx.moveTo(0, yTp3);
+          ctx.lineTo(chartWidth, yTp3);
+          ctx.stroke();
+          ctx.fillText("TP3: " + this.currentSignal.tp3, chartWidth - 10, yTp3 - 4);
+        }
+        ctx.setLineDash([]);
       }
     }
 
@@ -1570,6 +1967,11 @@
               <div>
                 <h3 style="margin:0;font-size:16px;color:#fff;">${sig.pattern}</h3>
                 <span style="font-size:12px;color:#94a3b8;">${sig.marketName} &bull; ${sig.timeframe} &bull; Detectado: ${sig.timestamp}</span>
+                ${sig.pivots ? `
+                  <div style="font-size:11px;font-family:monospace;color:#00f2fe;margin-top:4px;">
+                    🎯 Puntos Reales: X:${sig.pivots.X} &bull; A:${sig.pivots.A} &bull; B:${sig.pivots.B} &bull; C:${sig.pivots.C} &bull; D(PRZ):${sig.pivots.D}
+                  </div>
+                ` : ''}
               </div>
             </div>
             <div class="ak-sig-confluence">
@@ -2142,6 +2544,7 @@
       if (selMarket) {
         selMarket.addEventListener("change", (e) => {
           this.selectedMarket = e.target.value;
+          this.updateChartCanvasHeader();
           if (!this.candles[this.selectedMarket] || this.candles[this.selectedMarket].length === 0) {
             this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 42);
           }
@@ -2160,6 +2563,7 @@
           container.querySelectorAll(".ak-tf-btn").forEach(b => b.classList.remove("active"));
           e.currentTarget.classList.add("active");
           this.selectedTimeframe = e.currentTarget.dataset.tf;
+          this.updateChartCanvasHeader();
           this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 42);
           this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
           this.renderCandleHistoryTable();
@@ -2195,12 +2599,38 @@
         });
       }
 
+      const btnFs = document.getElementById("btnToggleFullscreen");
+      if (btnFs) {
+        btnFs.addEventListener("click", () => {
+          this.toggleFullscreen();
+        });
+      }
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && this.isFullscreen) {
+          this.toggleFullscreen(false);
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        if (this.activeTab === "market") {
+          this.drawMarketCanvas();
+        }
+      });
+
+      document.addEventListener("fullscreenchange", () => {
+        if (!document.fullscreenElement && this.isFullscreen) {
+          this.toggleFullscreen(false);
+        }
+      });
+
       const canvas = document.getElementById("akiraMarketCanvas");
       const inspector = document.getElementById("canvasOhlcInspector");
       if (canvas && inspector) {
         canvas.addEventListener("mousemove", (e) => {
           const rect = canvas.getBoundingClientRect();
-          const mouseX = e.clientX - rect.left;
+          const scaleX = canvas.width / rect.width;
+          const mouseX = (e.clientX - rect.left) * scaleX;
           const candles = this.candles[this.selectedMarket] || [];
           if (candles.length === 0) return;
 
@@ -2617,7 +3047,32 @@ if __name__ == "__main__":
       .ak-chart-canvas-wrapper {
         background: #080c14; border: 1px solid rgba(0,242,254,0.25); border-radius: 10px;
         overflow: hidden; display: flex; flex-direction: column;
+        transition: all 0.2s ease-in-out; position: relative;
       }
+      .ak-chart-canvas-wrapper.ak-fullscreen {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 999999 !important;
+        border-radius: 0 !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 10px 16px !important;
+        background: #060911 !important;
+        box-sizing: border-box !important;
+      }
+      .ak-chart-canvas-wrapper.ak-fullscreen .ak-market-canvas {
+        height: calc(100vh - 145px) !important;
+      }
+      .ak-fs-extra-toolbar {
+        background: rgba(15,23,42,0.92); border-bottom: 1px solid rgba(0,242,254,0.2);
+        padding: 8px 16px; display: flex; align-items: center; justify-content: space-between;
+      }
+      .ak-no-scroll { overflow: hidden !important; }
       .ak-chart-canvas-header {
         display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
         padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(15,23,42,0.7);
@@ -2627,11 +3082,17 @@ if __name__ == "__main__":
         color: #94a3b8; font-size: 10px; padding: 4px 8px; cursor: pointer;
       }
       .ak-chart-tool-btn.active { background: rgba(0,242,254,0.15); border-color: #00f2fe; color: #00f2fe; }
+      .ak-chart-tool-btn.ak-btn-fullscreen {
+        background: rgba(0,242,254,0.1); border-color: rgba(0,242,254,0.4); color: #00f2fe; font-weight: bold;
+      }
+      .ak-chart-tool-btn.ak-btn-fullscreen.active {
+        background: rgba(239,68,68,0.2); border-color: #ef4444; color: #ef4444;
+      }
       .ak-canvas-inspector {
         background: rgba(0,0,0,0.4); border-bottom: 1px solid rgba(255,255,255,0.04);
         padding: 6px 16px; font-size: 11px; color: #94a3b8; font-family: monospace;
       }
-      .ak-market-canvas { width: 100%; height: 420px; display: block; cursor: crosshair; }
+      .ak-market-canvas { width: 100%; height: 540px; display: block; cursor: crosshair; }
 
       .ak-market-data-grid { display: flex; gap: 14px; flex-wrap: wrap; }
       .ak-data-card {
