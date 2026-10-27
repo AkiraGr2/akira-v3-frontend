@@ -264,6 +264,16 @@
           const title = m.title || m.objective || m.goal || "Misión sin título";
           const stepsCount = (m.plan && m.plan.steps && m.plan.steps.length) || (m.steps && m.steps.length) || 0;
 
+          const isWaiting = m.status === "waiting_approval" || m.status === "awaiting_approval";
+          const quickActionHtml = isWaiting ? `
+            <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">
+              <span style="font-size:11px;color:#f59e0b;display:flex;align-items:center;gap:4px;">
+                <span>🛡️</span> <em>Guardarraíl: Espera tu autorización</em>
+              </span>
+              <button class="ak-btn primary small" style="padding:4px 12px;font-size:11.5px;border-radius:6px;background:var(--accent-cyan);color:#050508;font-weight:700;cursor:pointer;" onclick="event.stopPropagation();window.AkiraMissionsModern.approveAndExecute('${m.id}')">⚡ Despachar Ahora</button>
+            </div>
+          ` : "";
+
           return `
             <div class="ak-mission-item" onclick="window.AkiraMissionsModern.viewDetail('${m.id}')">
               <div class="ak-mission-item-head">
@@ -274,6 +284,7 @@
                 <span>Prioridad: <strong>${m.priority || 5}/10</strong></span>
                 <span>Pasos Planificados: <strong>${stepsCount}</strong></span>
               </div>
+              ${quickActionHtml}
             </div>
           `;
         }).join("");
