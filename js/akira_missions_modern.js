@@ -246,6 +246,19 @@
 
         this.missions = items;
 
+        // Autonomous J.A.R.V.I.S. Directive: Auto-dispatch non-business missions waiting for approval
+        try {
+          if (window.akiraIsAutopilot && window.akiraIsAutopilot()) {
+            items.forEach(m => {
+              const isBusiness = (m.flow_type === "upwork" || m.flow_type === "business" || (m.objective || "").toLowerCase().includes("upwork") || (m.objective || "").toLowerCase().includes("licitaci") || (m.objective || "").toLowerCase().includes("propuesta"));
+              if ((m.status === "waiting_approval" || m.status === "awaiting_approval") && !isBusiness) {
+                console.log("[AkiraMissionsModern] Auto-despachando misión de aprendizaje autónomo:", m.id, m.title || m.objective);
+                this.approveAndExecute(m.id, true);
+              }
+            });
+          }
+        } catch (_) {}
+
         if (!items.length) {
           listEl.innerHTML = `<div class="ak-empty-msg" style="padding:20px;text-align:center;color:var(--text-muted);">No hay misiones registradas aún. ¡Crea una nueva con las plantillas superiores!</div>`;
           return;
