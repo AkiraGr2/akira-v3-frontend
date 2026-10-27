@@ -87,7 +87,7 @@
       '<div class="ak-ref-scroll">',
         '<section class="ak-ref-hero" aria-label="Espacio de trabajo cognitivo de Akira">',
           '<div class="ak-ref-room-grid"></div>',
-          '<div class="ak-ref-greeting"><div class="ak-ref-kicker">Cognitive Workspace</div><h2>Hola,<br>soy <span>Akira</span></h2><p>Un espacio para conversar, consultar el Cerebro y ejecutar acciones verificables.</p><div class="ak-ref-actions"><button class="ak-ref-btn primary" data-ak-ref-go="chat">Conversar</button><button class="ak-ref-btn" data-ak-ref-go="missions">Planificar</button><button class="ak-ref-btn" data-ak-ref-go="office">Ejecutar</button><button class="ak-ref-btn" data-ak-ref-go="membrane">Explorar</button></div></div>',
+          '<div class="ak-ref-greeting"><div class="ak-ref-kicker">Cognitive Workspace</div><h2>Hola,<br>soy <span>Akira</span></h2><p>Un espacio para conversar, consultar el Cerebro y ejecutar acciones verificables.</p><div class="ak-ref-actions"><button class="ak-ref-btn primary" data-ak-ref-go="chat">Conversar</button><button class="ak-ref-btn" data-ak-ref-go="missions">Planificar</button><button class="ak-ref-btn" data-ak-ref-go="shopify">🛍️ Shopify</button><button class="ak-ref-btn" data-ak-ref-go="office">Ejecutar</button><button class="ak-ref-btn" data-ak-ref-go="membrane">Explorar</button></div></div>',
           '<div class="ak-ref-orb-stage"><div class="akira-entity-slot akira-ref-orb" data-akira-entity data-state="idle" data-size="560" aria-label="Akira · En calma"></div></div>',
           '<div id="akRefHeroBrain" class="ak-ref-floating memory"><strong><span class="ak-ref-status cyan"></span>Memoria</strong><span>Consultando datos del Cerebro…</span></div>',
           '<div id="akRefHeroMissions" class="ak-ref-floating executing"><strong><span class="ak-ref-status cyan"></span>Ejecución</strong><span>Consultando misiones reales…</span></div>',
@@ -319,7 +319,8 @@
       items: [
         ["office", "🏢 Oficina", "Especialistas activos"],
         ["missions", "🎯 Misiones", "Operaciones autónomas"],
-        ["upwork", "💼 Proyectos & Negocio", "Oportunidades Upwork"]
+        ["upwork", "💼 Proyectos & Negocio", "Oportunidades Upwork"],
+        ["shopify", "🛍️ E-Commerce / Shopify", "Tiendas y ventas IA"]
       ]
     },
     {
