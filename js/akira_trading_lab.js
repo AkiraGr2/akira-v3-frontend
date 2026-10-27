@@ -164,6 +164,7 @@
       this.visibleBars = 45;
       this.rightMarginBars = 8;
       this.scrollOffset = 0;
+      this.chartTheme = localStorage.getItem("akira_chart_theme") || "light";
 
       const savedCap = parseFloat(localStorage.getItem(STORAGE_KEY_CAPITAL));
       this.accountSize = (!isNaN(savedCap) && savedCap > 0) ? savedCap : 50;
@@ -962,6 +963,9 @@
                   <button id="btnToggleEMA" class="ak-chart-tool-btn ${this.showEMA ? 'active' : ''}">⚡ EMA 20/50</button>
                   <button id="btnToggleHarmonics" class="ak-chart-tool-btn ${this.showHarmonics ? 'active' : ''}">🔬 Patrón Armónico Real</button>
                   <button id="btnToggleLevels" class="ak-chart-tool-btn ${this.showLevels ? 'active' : ''}">🎯 Niveles SL/TP</button>
+                  <button id="btnToggleTheme" class="ak-chart-tool-btn" title="Alternar entre Fondo Blanco y Fondo Oscuro">
+                    ${this.chartTheme === 'light' ? '🌙 Modo Oscuro' : '☀️ Fondo Blanco'}
+                  </button>
                   <button id="btnToggleFullscreen" class="ak-chart-tool-btn ak-btn-fullscreen" title="Modo Pantalla Completa (ESC para salir)">
                     <span class="fs-icon">⛶</span> <span class="fs-text">Pantalla Completa</span>
                   </button>
@@ -1625,14 +1629,15 @@
       const allCandles = this.candles[this.selectedMarket] || [];
       if (allCandles.length === 0) return;
 
-      // Cálculo de Viewport y Desplazamiento Horizontal (Scroll)
+      const isLight = this.chartTheme === "light";
+
+      // Viewport & Scrolling
       const totalCandles = allCandles.length;
       const visibleCount = Math.min(totalCandles, this.visibleBars);
       const maxScroll = Math.max(0, totalCandles - visibleCount);
       const safeScroll = Math.max(0, Math.min(maxScroll, this.scrollOffset));
       this.scrollOffset = safeScroll;
 
-      // Sincronizar slider
       const slider = document.getElementById("chartScrollSlider");
       if (slider) {
         slider.max = maxScroll.toString();
@@ -1645,8 +1650,8 @@
       const candleCount = visibleCandles.length;
       if (candleCount === 0) return;
 
-      // Dark Terminal Background
-      ctx.fillStyle = "#080c14";
+      // 1. FONDO DEL GRÁFICO (Blanco institucional o Dark Terminal)
+      ctx.fillStyle = isLight ? "#ffffff" : "#080c14";
       ctx.fillRect(0, 0, width, height);
 
       let minPrice = Infinity;
@@ -1656,30 +1661,33 @@
         if (c.high > maxPrice) maxPrice = c.high;
       });
 
-      // Incluir niveles SL/TP en el rango visible para que no se corten
+      // Asegurar que Entrada, SL y TP entren en el rango visual
       if (this.showLevels && this.currentSignal) {
-        if (this.currentSignal.sl && this.currentSignal.sl < minPrice) minPrice = this.currentSignal.sl;
-        if (this.currentSignal.sl && this.currentSignal.sl > maxPrice) maxPrice = this.currentSignal.sl;
-        if (this.currentSignal.tp1 && this.currentSignal.tp1 > maxPrice) maxPrice = this.currentSignal.tp1;
-        if (this.currentSignal.tp1 && this.currentSignal.tp1 < minPrice) minPrice = this.currentSignal.tp1;
-        if (this.currentSignal.tp3 && this.currentSignal.tp3 > maxPrice) maxPrice = this.currentSignal.tp3;
-        if (this.currentSignal.tp3 && this.currentSignal.tp3 < minPrice) minPrice = this.currentSignal.tp3;
+        const s = this.currentSignal;
+        if (s.entry && s.entry < minPrice) minPrice = s.entry;
+        if (s.entry && s.entry > maxPrice) maxPrice = s.entry;
+        if (s.sl && s.sl < minPrice) minPrice = s.sl;
+        if (s.sl && s.sl > maxPrice) maxPrice = s.sl;
+        if (s.tp1 && s.tp1 > maxPrice) maxPrice = s.tp1;
+        if (s.tp1 && s.tp1 < minPrice) minPrice = s.tp1;
+        if (s.tp3 && s.tp3 > maxPrice) maxPrice = s.tp3;
+        if (s.tp3 && s.tp3 < minPrice) minPrice = s.tp3;
       }
 
       const priceRange = (maxPrice - minPrice) || 1;
-      const paddingY = 36;
+      const paddingY = 40;
       const chartHeight = height - (paddingY * 2);
-      const rightMargin = 85;
+      const rightMargin = 90;
       const chartWidth = width - rightMargin;
 
       const getY = (val) => {
         return height - paddingY - (((val - minPrice) / priceRange) * chartHeight);
       };
 
-      // Grid Lines & Price Scale
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+      // 2. CUADRÍCULA Y ESCALA DE PRECIOS
+      ctx.strokeStyle = isLight ? "rgba(0, 0, 0, 0.06)" : "rgba(255, 255, 255, 0.05)";
       ctx.lineWidth = 1;
-      ctx.fillStyle = "#64748b";
+      ctx.fillStyle = isLight ? "#475569" : "#64748b";
       ctx.font = "10px monospace";
       ctx.textAlign = "left";
 
@@ -1696,28 +1704,30 @@
         ctx.fillText(pVal.toFixed(decimals), chartWidth + 6, y + 3);
       }
 
-      // Cálculo de slots horizontales (Velas + Espacio Libre a la Derecha)
+      // Fondo de la escala derecha
+      ctx.fillStyle = isLight ? "#f8fafc" : "#0d131f";
+      ctx.fillRect(chartWidth, 0, rightMargin, height);
+      ctx.strokeStyle = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.08)";
+      ctx.beginPath();
+      ctx.moveTo(chartWidth, 0);
+      ctx.lineTo(chartWidth, height);
+      ctx.stroke();
+
+      // Slots Horizontales (Velas + Espacio Libre a la Derecha)
       const freeRightSlots = (safeScroll === 0) ? this.rightMarginBars : 0;
       const totalSlots = visibleCount + freeRightSlots;
       const stepX = chartWidth / totalSlots;
       const candleWidth = Math.max(4, Math.floor(stepX * 0.72));
 
-      // Indicador sombreado de "Espacio a la Derecha"
+      // Área sombreada de proyección futura
       if (freeRightSlots > 0) {
-        ctx.fillStyle = "rgba(0, 242, 254, 0.02)";
+        ctx.fillStyle = isLight ? "rgba(14, 165, 233, 0.03)" : "rgba(0, 242, 254, 0.02)";
         ctx.fillRect(visibleCount * stepX, 0, freeRightSlots * stepX, height);
-        ctx.strokeStyle = "rgba(0, 242, 254, 0.1)";
-        ctx.setLineDash([2, 4]);
-        ctx.beginPath();
-        ctx.moveTo(visibleCount * stepX, 0);
-        ctx.lineTo(visibleCount * stepX, height);
-        ctx.stroke();
-        ctx.setLineDash([]);
       }
 
-      // Moving Averages (EMA 20 y EMA 50)
+      // 3. MEDIAS MÓVILES (EMA 20 y EMA 50)
       if (this.showEMA && candleCount > 5) {
-        ctx.strokeStyle = "#00f2fe";
+        ctx.strokeStyle = isLight ? "#0284c7" : "#00f2fe";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         visibleCandles.forEach((c, idx) => {
@@ -1728,7 +1738,7 @@
         });
         ctx.stroke();
 
-        ctx.strokeStyle = "#f59e0b";
+        ctx.strokeStyle = isLight ? "#d97706" : "#f59e0b";
         ctx.lineWidth = 1.2;
         ctx.beginPath();
         visibleCandles.forEach((c, idx) => {
@@ -1740,7 +1750,7 @@
         ctx.stroke();
       }
 
-      // Dibujar Velas Visibles
+      // 4. VELAS JAPONESAS (Verdes alcistas / Rojas bajistas nítidas)
       visibleCandles.forEach((c, idx) => {
         const x = (idx * stepX) + (stepX / 2);
         const yOpen = getY(c.open);
@@ -1749,49 +1759,57 @@
         const yLow = getY(c.low);
         const isBull = c.isBull;
 
-        const bodyColor = c.isSpike ? "#00f2fe" : (isBull ? "#10b981" : "#ef4444");
+        const bodyColor = c.isSpike ? (isLight ? "#0284c7" : "#00f2fe") : (isBull ? (isLight ? "#16a34a" : "#10b981") : (isLight ? "#dc2626" : "#ef4444"));
 
         // Mecha
         ctx.strokeStyle = bodyColor;
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 1.3;
         ctx.beginPath();
         ctx.moveTo(x, yHigh);
         ctx.lineTo(x, yLow);
         ctx.stroke();
 
-        // Cuerpo
+        // Cuerpo de la vela
         ctx.fillStyle = bodyColor;
         const topY = Math.min(yOpen, yClose);
         const bodyH = Math.max(2, Math.abs(yClose - yOpen));
         ctx.fillRect(x - (candleWidth / 2), topY, candleWidth, bodyH);
 
+        // Borde fino para mayor nitidez en fondo blanco
+        if (isLight) {
+          ctx.strokeStyle = isBull ? "#15803d" : "#b91c1c";
+          ctx.lineWidth = 0.8;
+          ctx.strokeRect(x - (candleWidth / 2), topY, candleWidth, bodyH);
+        }
+
         // Spike Halo para Boom/Crash
         if (c.isSpike) {
-          ctx.strokeStyle = "rgba(0, 242, 254, 0.5)";
+          ctx.strokeStyle = isLight ? "rgba(2, 132, 199, 0.4)" : "rgba(0, 242, 254, 0.5)";
           ctx.lineWidth = 3;
           ctx.strokeRect(x - (candleWidth / 2) - 2, topY - 2, candleWidth + 4, bodyH + 4);
         }
 
-        // Etiquetas de tiempo en el eje horizontal
+        // Horas en el eje horizontal
         if (idx % 6 === 0) {
-          ctx.fillStyle = "#64748b";
+          ctx.fillStyle = isLight ? "#64748b" : "#64748b";
           ctx.font = "9px monospace";
           ctx.textAlign = "center";
           ctx.fillText(c.time, x, height - 10);
         }
       });
 
-      // ESCÁNER ARMÓNICO ANCLADO A MECHAS CON DESPLAZAMIENTO DINÁMICO
+      // 5. ESCÁNER ARMÓNICO: TRIÁNGULOS AMARILLOS MUY PRONUNCIADOS (X, A, B, C, D)
       let pD_coord = null;
+      let isBullishSignal = true;
+
       if (this.showHarmonics && allCandles.length >= 18) {
         const sig = this.currentSignal;
         const isBullPreferred = sig ? (sig.type === "BUY" || sig.type === "CALL") : true;
         const geom = this.detectHarmonicPivots(allCandles, isBullPreferred ? "BUY" : "SELL");
 
         if (geom) {
-          const isBull = geom.isBull;
+          isBullishSignal = geom.isBull;
 
-          // Conversor de índice global a coordenada X en pantalla
           const getScreenX = (globalIdx) => {
             const localSlot = globalIdx - startIdx;
             return (localSlot * stepX) + (stepX / 2);
@@ -1804,11 +1822,12 @@
           const pD = { x: getScreenX(geom.idxD), y: getY(geom.pD_price), price: geom.pD_price, idx: geom.idxD, label: `D [PRZ] (${geom.ratios.XD})` };
           pD_coord = pD;
 
-          const mainColor = isBull ? "#10b981" : "#ef4444";
-          const fillColor = isBull ? "rgba(16, 185, 129, 0.10)" : "rgba(239, 68, 68, 0.10)";
+          // COLOR AMARILLO DORADO MUY PRONUNCIADO
+          const yellowColor = "#eab308";
+          const yellowFill = "rgba(234, 179, 8, 0.22)";
 
-          // 1. Triángulos geométricos XAB y BCD
-          ctx.fillStyle = fillColor;
+          // 1. Relleno Amarillo Vibrante de Triángulos XAB y BCD
+          ctx.fillStyle = yellowFill;
           ctx.beginPath();
           ctx.moveTo(pX.x, pX.y);
           ctx.lineTo(pA.x, pA.y);
@@ -1823,9 +1842,9 @@
           ctx.closePath();
           ctx.fill();
 
-          // 2. Rayos armónicos exteriores X -> A -> B -> C -> D
-          ctx.strokeStyle = mainColor;
-          ctx.lineWidth = 2.4;
+          // 2. Rayos Exteriores X -> A -> B -> C -> D (Gruesos y Pronunciados: 3.0px)
+          ctx.strokeStyle = yellowColor;
+          ctx.lineWidth = 3.0;
           ctx.beginPath();
           ctx.moveTo(pX.x, pX.y);
           ctx.lineTo(pA.x, pA.y);
@@ -1834,9 +1853,9 @@
           ctx.lineTo(pD.x, pD.y);
           ctx.stroke();
 
-          // 3. Rayos interiores Fibonacci (X-B, A-C, X-D)
-          ctx.strokeStyle = "rgba(0, 242, 254, 0.65)";
-          ctx.lineWidth = 1.2;
+          // 3. Rayos Interiores Fibonacci X-B, A-C, X-D
+          ctx.strokeStyle = "#ca8a04";
+          ctx.lineWidth = 1.4;
           ctx.setLineDash([3, 3]);
 
           ctx.beginPath();
@@ -1849,80 +1868,156 @@
           ctx.lineTo(pC.x, pC.y);
           ctx.stroke();
 
-          ctx.strokeStyle = "rgba(245, 158, 11, 0.75)";
+          ctx.strokeStyle = "#eab308";
           ctx.beginPath();
           ctx.moveTo(pX.x, pX.y);
           ctx.lineTo(pD.x, pD.y);
           ctx.stroke();
           ctx.setLineDash([]);
 
-          // 4. Zona PRZ (Potencial Reversión) extendida hacia el espacio libre de la derecha
+          // 4. Zona PRZ (Potencial Reversión) extendida a la derecha
           const przLeft = Math.max(0, pD.x);
           const przWidth = chartWidth - przLeft;
           if (przWidth > 10) {
             const przHeight = Math.max(16, Math.abs(pD.y - getY(pD.price + (MARKETS[this.selectedMarket]?.pipSize * 12))));
-            const przTop = isBull ? pD.y - (przHeight * 0.3) : pD.y - (przHeight * 0.7);
-            ctx.fillStyle = isBull ? "rgba(16, 185, 129, 0.14)" : "rgba(239, 68, 68, 0.14)";
+            const przTop = isBullishSignal ? pD.y - (przHeight * 0.3) : pD.y - (przHeight * 0.7);
+            ctx.fillStyle = "rgba(234, 179, 8, 0.16)";
             ctx.fillRect(przLeft, przTop, przWidth, przHeight);
-            ctx.strokeStyle = isBull ? "rgba(16, 185, 129, 0.45)" : "rgba(239, 68, 68, 0.45)";
+            ctx.strokeStyle = "#eab308";
+            ctx.lineWidth = 1.5;
             ctx.strokeRect(przLeft, przTop, przWidth, przHeight);
 
-            ctx.fillStyle = isBull ? "#10b981" : "#ef4444";
+            ctx.fillStyle = isLight ? "#854d0e" : "#fef08a";
             ctx.font = "bold 9px monospace";
             ctx.textAlign = "left";
-            ctx.fillText("ZONA PRZ (POTENCIAL REVERSIÓN)", przLeft + 8, przTop + 11);
+            ctx.fillText("⚡ ZONA PRZ (POTENCIAL REVERSIÓN)", przLeft + 8, przTop + 11);
           }
 
-          // 5. Nodos anclados en las mechas
+          // 5. Nodos anclados en las puntas amarillas
           const decimals = MARKETS[this.selectedMarket]?.pipSize < 0.001 ? 5 : 2;
           [pX, pA, pB, pC, pD].forEach((p) => {
-            // Solo dibujar si está dentro o muy cerca de la pantalla visible
             if (p.x < -40 || p.x > chartWidth + 40) return;
 
-            const candle = allCandles[p.idx];
-            if (candle) {
-              ctx.strokeStyle = "rgba(0, 242, 254, 0.3)";
-              ctx.lineWidth = 1;
-              ctx.beginPath();
-              ctx.moveTo(p.x, getY(candle.high));
-              ctx.lineTo(p.x, getY(candle.low));
-              ctx.stroke();
-            }
-
-            ctx.fillStyle = "rgba(0, 242, 254, 0.25)";
+            // Halo amarillo
+            ctx.fillStyle = "rgba(234, 179, 8, 0.35)";
             ctx.beginPath();
-            ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+            ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.fillStyle = "#080c14";
+            // Centro del nodo
+            ctx.fillStyle = isLight ? "#ffffff" : "#080c14";
             ctx.beginPath();
             ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = "#00f2fe";
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = "#eab308";
+            ctx.lineWidth = 2.5;
             ctx.stroke();
 
-            const isHighWick = (isBull && (p.label.startsWith("A") || p.label.startsWith("C"))) ||
-                               (!isBull && (p.label.startsWith("X") || p.label.startsWith("B") || p.label.startsWith("D")));
-            const textY = isHighWick ? p.y - 10 : p.y + 16;
+            const isHighWick = (isBullishSignal && (p.label.startsWith("A") || p.label.startsWith("C"))) ||
+                               (!isBullishSignal && (p.label.startsWith("X") || p.label.startsWith("B") || p.label.startsWith("D")));
+            const textY = isHighWick ? p.y - 12 : p.y + 18;
 
-            ctx.fillStyle = "#ffffff";
+            // Etiqueta del nodo
+            ctx.fillStyle = isLight ? "#0f172a" : "#ffffff";
             ctx.font = "bold 10px sans-serif";
             ctx.textAlign = "center";
             ctx.fillText(p.label, p.x, textY);
 
-            ctx.fillStyle = "#94a3b8";
+            ctx.fillStyle = isLight ? "#475569" : "#94a3b8";
             ctx.font = "9px monospace";
             ctx.fillText(p.price.toFixed(decimals), p.x, isHighWick ? textY - 11 : textY + 10);
           });
         }
       }
 
-      // Línea de Precio Actual
+      // 6. LÍNEA Y FLECHA GIGANTE DE ENTRADA (ENTRY POINT)
+      if (this.currentSignal && pD_coord) {
+        const sig = this.currentSignal;
+        const isBuy = sig.type === "BUY" || sig.type === "CALL";
+        const yEntry = getY(sig.entry || pD_coord.price);
+        const lineStartX = (safeScroll === 0) ? Math.max(0, pD_coord.x) : 0;
+
+        // Línea Horizontal de Entrada (Cyan / Azul Eléctrico)
+        ctx.strokeStyle = isLight ? "#0284c7" : "#00f2fe";
+        ctx.lineWidth = 2.2;
+        ctx.setLineDash([5, 3]);
+        ctx.beginPath();
+        ctx.moveTo(lineStartX, yEntry);
+        ctx.lineTo(chartWidth, yEntry);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Badge de Entrada en el eje derecho
+        ctx.fillStyle = isLight ? "#0284c7" : "#00f2fe";
+        ctx.fillRect(chartWidth - 96, yEntry - 11, 93, 16);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 9px monospace";
+        ctx.textAlign = "right";
+        ctx.fillText("🎯 ENTRADA: " + sig.entry, chartWidth - 6, yEntry + 1);
+
+        // FLECHA VISUAL DIRECTA DE ENTRADA (▲ COMPRAR o ▼ VENDER)
+        if (pD_coord.x >= 0 && pD_coord.x <= chartWidth) {
+          const arrowX = pD_coord.x;
+
+          if (isBuy) {
+            // Flecha apuntando hacia ARRIBA (▲) indicando COMPRA en Punto D
+            const arrowTipY = pD_coord.y + 8;
+            ctx.fillStyle = "#16a34a";
+            ctx.strokeStyle = "#eab308";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(arrowX, arrowTipY);
+            ctx.lineTo(arrowX - 10, arrowTipY + 16);
+            ctx.lineTo(arrowX - 4, arrowTipY + 16);
+            ctx.lineTo(arrowX - 4, arrowTipY + 30);
+            ctx.lineTo(arrowX + 4, arrowTipY + 30);
+            ctx.lineTo(arrowX + 4, arrowTipY + 16);
+            ctx.lineTo(arrowX + 10, arrowTipY + 16);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Cartel de Entrada
+            ctx.fillStyle = "#16a34a";
+            ctx.fillRect(arrowX - 48, arrowTipY + 33, 96, 16);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 9px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("▲ ENTRADA COMPRA", arrowX, arrowTipY + 45);
+          } else {
+            // Flecha apuntando hacia ABAJO (▼) indicando VENTA en Punto D
+            const arrowTipY = pD_coord.y - 8;
+            ctx.fillStyle = "#dc2626";
+            ctx.strokeStyle = "#eab308";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(arrowX, arrowTipY);
+            ctx.lineTo(arrowX - 10, arrowTipY - 16);
+            ctx.lineTo(arrowX - 4, arrowTipY - 16);
+            ctx.lineTo(arrowX - 4, arrowTipY - 30);
+            ctx.lineTo(arrowX + 4, arrowTipY - 30);
+            ctx.lineTo(arrowX + 4, arrowTipY - 16);
+            ctx.lineTo(arrowX + 10, arrowTipY - 16);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Cartel de Entrada
+            ctx.fillStyle = "#dc2626";
+            ctx.fillRect(arrowX - 48, arrowTipY - 49, 96, 16);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 9px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("▼ ENTRADA VENTA", arrowX, arrowTipY - 37);
+          }
+        }
+      }
+
+      // 7. LÍNEA DE PRECIO ACTUAL (Cotización en Vivo)
       const curPrice = this.marketPrices[this.selectedMarket];
       const yCur = getY(curPrice);
 
-      ctx.strokeStyle = "rgba(0, 242, 254, 0.85)";
+      ctx.strokeStyle = isLight ? "rgba(2, 132, 199, 0.85)" : "rgba(0, 242, 254, 0.85)";
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
@@ -1931,15 +2026,15 @@
       ctx.stroke();
       ctx.setLineDash([]);
 
-      ctx.fillStyle = "#00f2fe";
+      ctx.fillStyle = isLight ? "#0284c7" : "#00f2fe";
       ctx.fillRect(chartWidth + 2, yCur - 9, rightMargin - 4, 18);
-      ctx.fillStyle = "#080c14";
+      ctx.fillStyle = "#ffffff";
       ctx.font = "bold 10px monospace";
       ctx.textAlign = "center";
       const decimals = MARKETS[this.selectedMarket]?.pipSize < 0.001 ? 5 : 2;
       ctx.fillText(curPrice.toFixed(decimals), chartWidth + (rightMargin / 2), yCur + 3);
 
-      // Niveles de Stop Loss y Take Profit extendidos limpiamente hacia el espacio derecho
+      // 8. NIVELES DE STOP LOSS Y TAKE PROFIT (Extendidos limpiamente hacia la derecha)
       if (this.showLevels && this.currentSignal && this.currentSignal.sl && this.currentSignal.tp1) {
         const ySl = getY(this.currentSignal.sl);
         const yTp1 = getY(this.currentSignal.tp1);
@@ -1949,58 +2044,58 @@
         const lineStartX = (safeScroll === 0 && pD_coord) ? Math.max(0, pD_coord.x) : 0;
 
         // Stop Loss
-        ctx.strokeStyle = "rgba(239, 68, 68, 0.85)";
-        ctx.lineWidth = 1.3;
+        ctx.strokeStyle = isLight ? "#dc2626" : "rgba(239, 68, 68, 0.85)";
+        ctx.lineWidth = 1.4;
         ctx.setLineDash([4, 4]);
         ctx.beginPath();
         ctx.moveTo(lineStartX, ySl);
         ctx.lineTo(chartWidth, ySl);
         ctx.stroke();
 
-        ctx.fillStyle = "rgba(239, 68, 68, 0.25)";
-        ctx.fillRect(chartWidth - 80, ySl - 12, 76, 14);
-        ctx.fillStyle = "#ef4444";
+        ctx.fillStyle = isLight ? "#dc2626" : "rgba(239, 68, 68, 0.25)";
+        ctx.fillRect(chartWidth - 85, ySl - 12, 80, 14);
+        ctx.fillStyle = "#ffffff";
         ctx.font = "bold 9px monospace";
         ctx.textAlign = "right";
         ctx.fillText("SL: " + this.currentSignal.sl, chartWidth - 8, ySl - 2);
 
         // Take Profit 1
-        ctx.strokeStyle = "rgba(16, 185, 129, 0.85)";
+        ctx.strokeStyle = isLight ? "#16a34a" : "rgba(16, 185, 129, 0.85)";
         ctx.beginPath();
         ctx.moveTo(lineStartX, yTp1);
         ctx.lineTo(chartWidth, yTp1);
         ctx.stroke();
 
-        ctx.fillStyle = "rgba(16, 185, 129, 0.25)";
-        ctx.fillRect(chartWidth - 80, yTp1 - 12, 76, 14);
-        ctx.fillStyle = "#10b981";
+        ctx.fillStyle = isLight ? "#16a34a" : "rgba(16, 185, 129, 0.25)";
+        ctx.fillRect(chartWidth - 85, yTp1 - 12, 80, 14);
+        ctx.fillStyle = "#ffffff";
         ctx.fillText("TP1: " + this.currentSignal.tp1, chartWidth - 8, yTp1 - 2);
 
         // Take Profit 2
         if (yTp2) {
-          ctx.strokeStyle = "rgba(16, 185, 129, 0.65)";
+          ctx.strokeStyle = isLight ? "#15803d" : "rgba(16, 185, 129, 0.65)";
           ctx.beginPath();
           ctx.moveTo(lineStartX, yTp2);
           ctx.lineTo(chartWidth, yTp2);
           ctx.stroke();
 
-          ctx.fillStyle = "rgba(16, 185, 129, 0.18)";
-          ctx.fillRect(chartWidth - 80, yTp2 - 12, 76, 14);
-          ctx.fillStyle = "#10b981";
+          ctx.fillStyle = isLight ? "#15803d" : "rgba(16, 185, 129, 0.18)";
+          ctx.fillRect(chartWidth - 85, yTp2 - 12, 80, 14);
+          ctx.fillStyle = "#ffffff";
           ctx.fillText("TP2: " + this.currentSignal.tp2, chartWidth - 8, yTp2 - 2);
         }
 
         // Take Profit 3
         if (yTp3) {
-          ctx.strokeStyle = "rgba(16, 185, 129, 0.45)";
+          ctx.strokeStyle = isLight ? "#166534" : "rgba(16, 185, 129, 0.45)";
           ctx.beginPath();
           ctx.moveTo(lineStartX, yTp3);
           ctx.lineTo(chartWidth, yTp3);
           ctx.stroke();
 
-          ctx.fillStyle = "rgba(16, 185, 129, 0.12)";
-          ctx.fillRect(chartWidth - 80, yTp3 - 12, 76, 14);
-          ctx.fillStyle = "#10b981";
+          ctx.fillStyle = isLight ? "#166534" : "rgba(16, 185, 129, 0.12)";
+          ctx.fillRect(chartWidth - 85, yTp3 - 12, 80, 14);
+          ctx.fillStyle = "#ffffff";
           ctx.fillText("TP3: " + this.currentSignal.tp3, chartWidth - 8, yTp3 - 2);
         }
         ctx.setLineDash([]);
@@ -2089,6 +2184,26 @@
             <div class="ak-sig-confluence">
               <span class="score">${sig.confluence}%</span>
               <span class="sub">Probabilidad de Éxito</span>
+            </div>
+          </div>
+
+          <!-- GUÍA EDUCATIVA DEL PATRÓN ARMÓNICO PARA EL DIRECTOR JHON -->
+          <div class="ak-harmonic-explanation-box">
+            <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:#eab308;font-size:12px;margin-bottom:6px;">
+              <span>💡</span> <strong>¿CÓMO FUNCIONA ESTE PATRÓN ARMÓNICO Y POR QUÉ ENTRAR AQUÍ?</strong>
+            </div>
+            <p style="margin:0 0 6px 0;font-size:11px;color:#cbd5e1;line-height:1.4;">
+              Los patrones armónicos forman figuras en <strong>forma de "M" (para Compras)</strong> o en <strong>forma de "W" (para Ventas)</strong> mediante 5 puntos clave (X, A, B, C, D).
+            </p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:8px;font-size:11px;">
+              <div style="background:rgba(0,0,0,0.3);padding:8px 10px;border-radius:6px;border-left:3px solid #10b981;">
+                <strong style="color:#10b981;">🟢 Punta D hacia ABAJO = SEÑAL DE COMPRA:</strong><br/>
+                La caída termina en la punta inferior <strong>D</strong>. Como el precio tocó el suelo de Fibonacci, se agota la venta y entramos en <strong>COMPRA (BUY)</strong> con la flecha verde hacia arriba.
+              </div>
+              <div style="background:rgba(0,0,0,0.3);padding:8px 10px;border-radius:6px;border-left:3px solid #ef4444;">
+                <strong style="color:#ef4444;">🔴 Punta D hacia ARRIBA = SEÑAL DE VENTA:</strong><br/>
+                La subida culmina en la cima superior <strong>D</strong>. Como el precio tocó el techo de Fibonacci, los compradores se agotan y entramos en <strong>VENTA (SELL)</strong> con la flecha roja hacia abajo.
+              </div>
             </div>
           </div>
 
@@ -2764,6 +2879,20 @@
         });
       }
 
+      const btnToggleTheme = document.getElementById("btnToggleTheme");
+      if (btnToggleTheme) {
+        btnToggleTheme.addEventListener("click", () => {
+          this.chartTheme = (this.chartTheme === "light") ? "dark" : "light";
+          localStorage.setItem("akira_chart_theme", this.chartTheme);
+          btnToggleTheme.innerHTML = (this.chartTheme === "light") ? "🌙 Modo Oscuro" : "☀️ Fondo Blanco";
+          const wrapper = document.getElementById("akiraChartCanvasWrapper");
+          if (wrapper) {
+            wrapper.classList.toggle("theme-light", this.chartTheme === "light");
+          }
+          this.drawMarketCanvas();
+        });
+      }
+
       const btnToggleMargin = document.getElementById("btnToggleMargin");
       if (btnToggleMargin) {
         btnToggleMargin.addEventListener("click", () => {
@@ -3338,6 +3467,50 @@ if __name__ == "__main__":
       .ak-nav-slider::-webkit-slider-thumb {
         -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%;
         background: #00f2fe; cursor: pointer; box-shadow: 0 0 6px rgba(0, 242, 254, 0.8);
+      }
+
+      .ak-chart-canvas-wrapper.theme-light {
+        background: #ffffff !important;
+        border-color: #cbd5e1 !important;
+      }
+      .ak-chart-canvas-wrapper.theme-light .ak-chart-canvas-header {
+        background: #f8fafc !important;
+        border-bottom-color: #e2e8f0 !important;
+      }
+      .ak-chart-canvas-wrapper.theme-light .ak-chart-canvas-header strong {
+        color: #0f172a !important;
+      }
+      .ak-chart-canvas-wrapper.theme-light .ak-canvas-inspector {
+        background: #f1f5f9 !important;
+        color: #334155 !important;
+        border-bottom-color: #e2e8f0 !important;
+      }
+      .ak-chart-canvas-wrapper.theme-light .ak-chart-nav-bar {
+        background: #f8fafc !important;
+        border-top-color: #e2e8f0 !important;
+      }
+      .ak-chart-canvas-wrapper.theme-light .ak-nav-btn {
+        background: #ffffff !important;
+        border-color: #cbd5e1 !important;
+        color: #334155 !important;
+      }
+      .ak-chart-canvas-wrapper.theme-light .ak-nav-btn:hover {
+        background: #e0f2fe !important;
+        border-color: #0284c7 !important;
+        color: #0284c7 !important;
+      }
+      .ak-chart-canvas-wrapper.theme-light .ak-nav-btn.active {
+        background: #0284c7 !important;
+        color: #ffffff !important;
+        border-color: #0284c7 !important;
+      }
+
+      .ak-harmonic-explanation-box {
+        background: rgba(234, 179, 8, 0.08);
+        border: 1px solid rgba(234, 179, 8, 0.3);
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin: 8px 0;
       }
 
       .ak-simple-trade-guide {
