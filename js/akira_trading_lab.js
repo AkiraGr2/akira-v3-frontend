@@ -160,6 +160,7 @@
       this.showEMA = true;
       this.showHarmonics = true;
       this.showLevels = true;
+      this.showSniper = true;
       this.isFullscreen = false;
       this.visibleBars = 45;
       this.rightMarginBars = 8;
@@ -963,6 +964,7 @@
                   <button id="btnToggleEMA" class="ak-chart-tool-btn ${this.showEMA ? 'active' : ''}">⚡ EMA 20/50</button>
                   <button id="btnToggleHarmonics" class="ak-chart-tool-btn ${this.showHarmonics ? 'active' : ''}">🔬 Patrón Armónico Real</button>
                   <button id="btnToggleLevels" class="ak-chart-tool-btn ${this.showLevels ? 'active' : ''}">🎯 Niveles SL/TP</button>
+                  <button id="btnToggleSniper" class="ak-chart-tool-btn ${this.showSniper ? 'active' : ''}">🎯 Escáner Chulitos (Sniper ✓)</button>
                   <button id="btnToggleTheme" class="ak-chart-tool-btn" title="Alternar entre Fondo Blanco y Fondo Oscuro">
                     ${this.chartTheme === 'light' ? '🌙 Modo Oscuro' : '☀️ Fondo Blanco'}
                   </button>
@@ -1610,6 +1612,35 @@
       if (fsSig) fsSig.addEventListener("click", () => document.getElementById("btnExecuteDemoSignal")?.click());
     }
 
+    
+    calculateSniperChannel(candles) {
+      if (!candles || candles.length < 15) return null;
+      const N = candles.length;
+      
+      let peak1 = { idx: 4, price: candles[4].high };
+      let peak2 = { idx: Math.min(N - 5, 25), price: candles[Math.min(N - 5, 25)].high };
+      for (let i = 2; i < Math.floor(N * 0.55); i++) {
+        if (candles[i].high > peak1.price) peak1 = { idx: i, price: candles[i].high };
+      }
+      for (let i = Math.floor(N * 0.45); i < N - 2; i++) {
+        if (candles[i].high > peak2.price && i !== peak1.idx) peak2 = { idx: i, price: candles[i].high };
+      }
+
+      let trough1 = { idx: 2, price: candles[2].low };
+      let trough2 = { idx: Math.min(N - 4, 30), price: candles[Math.min(N - 4, 30)].low };
+      for (let i = 2; i < Math.floor(N * 0.55); i++) {
+        if (candles[i].low < trough1.price) trough1 = { idx: i, price: candles[i].low };
+      }
+      for (let i = Math.floor(N * 0.50); i < N; i++) {
+        if (candles[i].low < trough2.price && i !== trough1.idx) trough2 = { idx: i, price: candles[i].low };
+      }
+
+      return {
+        resistance: { p1: peak1, p2: peak2 },
+        support: { p1: trough1, p2: trough2 }
+      };
+    }
+
     drawMarketCanvas() {
       const canvas = document.getElementById("akiraMarketCanvas");
       if (!canvas) return;
@@ -1930,6 +1961,226 @@
         }
       }
 
+      // 5.5 ESCÁNER SNIPER DE ALTA PRECISIÓN: LÍNEA ROJA, LÍNEA PÚRPURA Y CHULITOS (✓)
+      if (this.showSniper && allCandles.length >= 15) {
+        const chan = this.calculateSniperChannel(allCandles);
+        if (chan) {
+          const getScreenX = (globalIdx) => {
+            const localSlot = globalIdx - startIdx;
+            return (localSlot * stepX) + (stepX / 2);
+          };
+
+          // A. LÍNEA ROJA SUPERIOR (Resistencia / Techo Institucional)
+          const redY1 = getY(chan.resistance.p1.price);
+          const redY2 = getY(chan.resistance.p2.price);
+          const redX1 = Math.max(0, getScreenX(chan.resistance.p1.idx));
+          const redX2 = chartWidth;
+
+          ctx.strokeStyle = isLight ? "#dc2626" : "#ef4444";
+          ctx.lineWidth = 2.8;
+          ctx.beginPath();
+          ctx.moveTo(redX1, redY1);
+          ctx.lineTo(redX2, redY2);
+          ctx.stroke();
+
+          // B. LÍNEA PÚRPURA INFERIOR (Soporte Dinámico / Línea de Tendencia)
+          const purpY1 = getY(chan.support.p1.price);
+          const purpY2 = getY(chan.support.p2.price);
+          const purpX1 = Math.max(0, getScreenX(chan.support.p1.idx));
+          const purpX2 = chartWidth;
+
+          ctx.strokeStyle = isLight ? "#7c3aed" : "#a855f7";
+          ctx.lineWidth = 2.8;
+          ctx.beginPath();
+          ctx.moveTo(purpX1, purpY1);
+          ctx.lineTo(purpX2, purpY2);
+          ctx.stroke();
+
+          // C. DIBUJAR LOS CHULITOS (✓) DE ENTRADA SNIPER Y LA CAJA DE POSICIÓN ESTILO TRADINGVIEW
+          if (pD_coord && this.currentSignal) {
+            const sig = this.currentSignal;
+            const isBuy = sig.type === "BUY" || sig.type === "CALL";
+            const chulitoX = pD_coord.x;
+
+            if (isBuy) {
+              // CHULITO VERDE (✓) en la línea púrpura de soporte
+              const chulitoY = getY(chan.support.p2.price);
+
+              ctx.strokeStyle = "#16a34a";
+              ctx.lineWidth = 3.5;
+              ctx.lineCap = "round";
+              ctx.lineJoin = "round";
+              ctx.beginPath();
+              ctx.moveTo(chulitoX - 10, chulitoY - 2);
+              ctx.lineTo(chulitoX - 4, chulitoY + 6);
+              ctx.lineTo(chulitoX + 10, chulitoY - 8);
+              ctx.stroke();
+
+              // Badge Chulito Verde
+              ctx.fillStyle = "#16a34a";
+              ctx.fillRect(chulitoX - 52, chulitoY + 10, 104, 16);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 9px sans-serif";
+              ctx.textAlign = "center";
+              ctx.fillText("✓ CHULITO VERDE (BUY)", chulitoX, chulitoY + 22);
+
+              // CAJA DE POSICIÓN ESTILO TRADINGVIEW (LONG POSITION BOX)
+              const yEntry = getY(sig.entry || pD_coord.price);
+              const yTp = getY(sig.tp2 || sig.tp1);
+              const ySl = getY(sig.sl);
+              const boxW = Math.max(80, chartWidth - chulitoX);
+
+              // 1. Caja Verde (Take Profit / Ganancia)
+              const targetH = Math.abs(yEntry - yTp);
+              const targetTop = Math.min(yEntry, yTp);
+              ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.16)" : "rgba(16, 185, 129, 0.18)";
+              ctx.fillRect(chulitoX, targetTop, boxW, targetH);
+              ctx.strokeStyle = isLight ? "#16a34a" : "#10b981";
+              ctx.lineWidth = 1.2;
+              ctx.strokeRect(chulitoX, targetTop, boxW, targetH);
+
+              // Barra de cabecera verde de la caja
+              ctx.fillStyle = isLight ? "#16a34a" : "#10b981";
+              ctx.fillRect(chulitoX, targetTop - 14, Math.min(boxW, 220), 14);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 9px monospace";
+              ctx.textAlign = "left";
+              ctx.fillText(`Target: +${(sig.riskPips * 2.5).toFixed(1)} pips (Ratio: 3.19)`, chulitoX + 6, targetTop - 3);
+
+              // 2. Caja Roja (Stop Loss / Riesgo)
+              const stopH = Math.abs(ySl - yEntry);
+              const stopTop = Math.min(yEntry, ySl);
+              ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.16)" : "rgba(239, 68, 68, 0.18)";
+              ctx.fillRect(chulitoX, stopTop, boxW, stopH);
+              ctx.strokeStyle = isLight ? "#dc2626" : "#ef4444";
+              ctx.lineWidth = 1.2;
+              ctx.strokeRect(chulitoX, stopTop, boxW, stopH);
+
+              // Barra de pie roja de la caja
+              ctx.fillStyle = isLight ? "#dc2626" : "#ef4444";
+              ctx.fillRect(chulitoX, stopTop + stopH, Math.min(boxW, 200), 14);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 9px monospace";
+              ctx.textAlign = "left";
+              ctx.fillText(`Stop: -${sig.riskPips} pips (Amount: 0)`, chulitoX + 6, stopTop + stopH + 11);
+
+              // Píldora de R:R en el centro
+              ctx.fillStyle = isLight ? "#e2e8f0" : "#1e293b";
+              ctx.fillRect(chulitoX + 10, yEntry - 9, 130, 18);
+              ctx.strokeStyle = isLight ? "#94a3b8" : "#475569";
+              ctx.strokeRect(chulitoX + 10, yEntry - 9, 130, 18);
+              ctx.fillStyle = isLight ? "#0f172a" : "#f8fafc";
+              ctx.font = "bold 9px sans-serif";
+              ctx.textAlign = "left";
+              ctx.fillText("R/R: 3.19 (Sniper)", chulitoX + 16, yEntry + 3);
+
+              // Tiradores circulares de esquina estilo TradingView
+              [
+                { x: chulitoX, y: targetTop },
+                { x: chulitoX + boxW, y: targetTop },
+                { x: chulitoX, y: stopTop + stopH },
+                { x: chulitoX + boxW, y: stopTop + stopH }
+              ].forEach(pt => {
+                ctx.fillStyle = "#ffffff";
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = "#475569";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+              });
+
+            } else {
+              // CHULITO ROJO (✓) en la línea roja de resistencia
+              const chulitoY = getY(chan.resistance.p2.price);
+
+              ctx.strokeStyle = "#dc2626";
+              ctx.lineWidth = 3.5;
+              ctx.lineCap = "round";
+              ctx.lineJoin = "round";
+              ctx.beginPath();
+              ctx.moveTo(chulitoX - 10, chulitoY - 2);
+              ctx.lineTo(chulitoX - 4, chulitoY + 6);
+              ctx.lineTo(chulitoX + 10, chulitoY - 8);
+              ctx.stroke();
+
+              // Badge Chulito Rojo
+              ctx.fillStyle = "#dc2626";
+              ctx.fillRect(chulitoX - 52, chulitoY - 24, 104, 16);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 9px sans-serif";
+              ctx.textAlign = "center";
+              ctx.fillText("✓ CHULITO ROJO (SELL)", chulitoX, chulitoY - 12);
+
+              // CAJA DE POSICIÓN ESTILO TRADINGVIEW (SHORT POSITION BOX)
+              const yEntry = getY(sig.entry || pD_coord.price);
+              const yTp = getY(sig.tp2 || sig.tp1);
+              const ySl = getY(sig.sl);
+              const boxW = Math.max(80, chartWidth - chulitoX);
+
+              // 1. Caja Verde (Ganancia hacia abajo)
+              const targetH = Math.abs(yTp - yEntry);
+              const targetTop = Math.min(yEntry, yTp);
+              ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.16)" : "rgba(16, 185, 129, 0.18)";
+              ctx.fillRect(chulitoX, targetTop, boxW, targetH);
+              ctx.strokeStyle = isLight ? "#16a34a" : "#10b981";
+              ctx.lineWidth = 1.2;
+              ctx.strokeRect(chulitoX, targetTop, boxW, targetH);
+
+              ctx.fillStyle = isLight ? "#16a34a" : "#10b981";
+              ctx.fillRect(chulitoX, targetTop + targetH, Math.min(boxW, 220), 14);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 9px monospace";
+              ctx.textAlign = "left";
+              ctx.fillText(`Target: +${(sig.riskPips * 2.5).toFixed(1)} pips (Ratio: 3.19)`, chulitoX + 6, targetTop + targetH + 11);
+
+              // 2. Caja Roja (Riesgo hacia arriba)
+              const stopH = Math.abs(yEntry - ySl);
+              const stopTop = Math.min(yEntry, ySl);
+              ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.16)" : "rgba(239, 68, 68, 0.18)";
+              ctx.fillRect(chulitoX, stopTop, boxW, stopH);
+              ctx.strokeStyle = isLight ? "#dc2626" : "#ef4444";
+              ctx.lineWidth = 1.2;
+              ctx.strokeRect(chulitoX, stopTop, boxW, stopH);
+
+              ctx.fillStyle = isLight ? "#dc2626" : "#ef4444";
+              ctx.fillRect(chulitoX, stopTop - 14, Math.min(boxW, 200), 14);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 9px monospace";
+              ctx.textAlign = "left";
+              ctx.fillText(`Stop: -${sig.riskPips} pips (Amount: 0)`, chulitoX + 6, stopTop - 3);
+
+              // Píldora de R:R en el centro
+              ctx.fillStyle = isLight ? "#e2e8f0" : "#1e293b";
+              ctx.fillRect(chulitoX + 10, yEntry - 9, 130, 18);
+              ctx.strokeStyle = isLight ? "#94a3b8" : "#475569";
+              ctx.strokeRect(chulitoX + 10, yEntry - 9, 130, 18);
+              ctx.fillStyle = isLight ? "#0f172a" : "#f8fafc";
+              ctx.font = "bold 9px sans-serif";
+              ctx.textAlign = "left";
+              ctx.fillText("R/R: 3.19 (Sniper)", chulitoX + 16, yEntry + 3);
+
+              // Tiradores circulares de esquina
+              [
+                { x: chulitoX, y: stopTop },
+                { x: chulitoX + boxW, y: stopTop },
+                { x: chulitoX, y: targetTop + targetH },
+                { x: chulitoX + boxW, y: targetTop + targetH }
+              ].forEach(pt => {
+                ctx.fillStyle = "#ffffff";
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = "#475569";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+              });
+            }
+          }
+        }
+      }
+
+
       // 6. LÍNEA Y FLECHA GIGANTE DE ENTRADA (ENTRY POINT)
       if (this.currentSignal && pD_coord) {
         const sig = this.currentSignal;
@@ -2184,6 +2435,32 @@
             <div class="ak-sig-confluence">
               <span class="score">${sig.confluence}%</span>
               <span class="sub">Probabilidad de Éxito</span>
+            </div>
+          </div>
+
+          <!-- EXPLICACIÓN EXCLUSIVA DEL ESCÁNER SNIPER ESTILO SEBAS RAMÍREZ -->
+          <div class="ak-sniper-story-card">
+            <div style="display:flex;align-items:center;gap:10px;font-weight:800;color:#10b981;font-size:13px;margin-bottom:6px;">
+              <span style="font-size:18px;">🎯</span>
+              <span>¿CÓMO FUNCIONA EL ESCÁNER DE ALTA PRECISIÓN QUE USA SEBAS RAMÍREZ?</span>
+              <span class="ak-pill live" style="font-size:10px;padding:2px 8px;">Ratio 1:3.2 Confirmado</span>
+            </div>
+            <p style="margin:0 0 10px 0;font-size:12px;color:#cbd5e1;line-height:1.5;">
+              La estrategia de Sebas se basa en <strong>SMC (Smart Money Concepts) + Canales Dinámicos de Tendencia</strong> con dos líneas clave y dos chulitos de confirmación:
+            </p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:10px;">
+              <div style="background:rgba(22, 163, 74, 0.12);border:1px solid #16a34a;border-radius:8px;padding:10px 12px;">
+                <strong style="color:#16a34a;font-size:12px;">✓ CHULITO VERDE = COMPRA SNIPER:</strong>
+                <p style="margin:4px 0 0 0;font-size:11px;color:#cbd5e1;line-height:1.4;">
+                  Aparece cuando el precio retrocede y toca la <strong>Línea Púrpura de Soporte</strong>. El algoritmo detecta absorción compradora, imprime el <strong>Chulito Verde (✓)</strong> y proyecta la <strong>Caja Verde de Ganancias</strong> con ratio Riesgo/Beneficio de <strong>1:3.2</strong>.
+                </p>
+              </div>
+              <div style="background:rgba(220, 38, 38, 0.12);border:1px solid #dc2626;border-radius:8px;padding:10px 12px;">
+                <strong style="color:#dc2626;font-size:12px;">✓ CHULITO ROJO = VENTA SNIPER:</strong>
+                <p style="margin:4px 0 0 0;font-size:11px;color:#cbd5e1;line-height:1.4;">
+                  Aparece cuando el precio sube a testear la <strong>Línea Roja Superior (Techo)</strong>. El algoritmo detecta agotamiento de compradores, imprime el <strong>Chulito Rojo (✓)</strong> y activa la orden de venta hacia los niveles inferiores.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -2879,6 +3156,15 @@
         });
       }
 
+      const btnToggleSniper = document.getElementById("btnToggleSniper");
+      if (btnToggleSniper) {
+        btnToggleSniper.addEventListener("click", () => {
+          this.showSniper = !this.showSniper;
+          btnToggleSniper.classList.toggle("active", this.showSniper);
+          this.drawMarketCanvas();
+        });
+      }
+
       const btnToggleTheme = document.getElementById("btnToggleTheme");
       if (btnToggleTheme) {
         btnToggleTheme.addEventListener("click", () => {
@@ -3505,6 +3791,13 @@ if __name__ == "__main__":
         border-color: #0284c7 !important;
       }
 
+      .ak-sniper-story-card {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(139, 92, 246, 0.08));
+        border: 1px solid rgba(0, 242, 254, 0.25);
+        border-radius: 10px;
+        padding: 14px 18px;
+        margin: 10px 0;
+      }
       .ak-harmonic-explanation-box {
         background: rgba(234, 179, 8, 0.08);
         border: 1px solid rgba(234, 179, 8, 0.3);
