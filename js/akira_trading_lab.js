@@ -1086,6 +1086,9 @@
                   <button id="btnToggleTheme" class="ak-chart-tool-btn" title="Alternar entre Fondo Blanco y Fondo Oscuro">
                     ${this.chartTheme === 'light' ? '🌙 Modo Oscuro' : '☀️ Fondo Blanco'}
                   </button>
+                  <button id="btnHeaderTelegramAlerts" class="ak-chart-tool-btn" style="background:rgba(0,136,204,0.18);color:#00f2fe;border:1px solid rgba(0,136,204,0.35);" title="Ver / Configurar Alertas y Señales de Telegram para tu móvil">
+                    ✈️ Telegram: ${this.telegramToken && this.telegramChatId ? (this.telegramAutoSend ? '🟢 En Vivo' : '⏸️ Pausado') : '🟡 Activar'}
+                  </button>
                   <button id="btnToggleFullscreen" class="ak-chart-tool-btn ak-btn-fullscreen" title="Modo Pantalla Completa (ESC para salir)">
                     <span class="fs-icon">⛶</span> <span class="fs-text">Pantalla Completa</span>
                   </button>
@@ -1854,12 +1857,21 @@
       const cur = this.marketPrices[this.selectedMarket] || candles[candles.length - 1].close;
 
       if (isBinary) {
+        if (!sig.createdAt) sig.createdAt = Date.now();
+        const elapsedSec = Math.floor((Date.now() - sig.createdAt) / 1000);
+        const remainingSec = Math.max(0, 60 - elapsedSec);
         const isItm = sig.type === "CALL" ? (cur > sig.entry) : (cur < sig.entry);
+        const isExpired = remainingSec === 0;
+
         return {
           isBinary: true,
           isItm: isItm,
           payoutPercent: 85,
-          currentPrice: cur
+          currentPrice: cur,
+          remainingSec: remainingSec,
+          isExpired: isExpired,
+          tp3Hit: isExpired && isItm,
+          slHit: isExpired && !isItm
         };
       }
       const startIdx = Math.max(0, candles.length - 15);
@@ -1971,6 +1983,25 @@
 
       const isLight = this.chartTheme === "light";
       const targetSync = this.calculateTargetSync(allCandles);
+
+      // GESTIÓN DEL CICLO DE VIDA DE LA ENTRADA (VIDA ÚTIL CUMPLIDA -> RETIRO AUTOMÁTICO)
+      if (this.currentSignal && targetSync && (targetSync.tp3Hit || targetSync.slHit)) {
+        if (!this.currentSignal.completedAt) {
+          this.currentSignal.completedAt = Date.now();
+          this.currentSignal.completedStatus = targetSync.tp3Hit ? "TP3_HIT" : "SL_HIT";
+          const pipsWon = targetSync.tp3Hit ? parseFloat(((this.currentSignal.riskPips || 12) * 3.19).toFixed(1)) : -(this.currentSignal.riskPips || 12);
+          this.currentSignal.pipsWon = pipsWon;
+        } else {
+          // Si ya transcurrieron 5.5 segundos desde que cumplió su vida útil, desaparecer la entrada y generar la nueva
+          const elapsed = Date.now() - this.currentSignal.completedAt;
+          if (elapsed >= 5500) {
+            this.currentSignal = null;
+            this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
+            setTimeout(() => this.drawMarketCanvas(), 40);
+            return;
+          }
+        }
+      }
 
       // Viewport & Scrolling
       const totalCandles = allCandles.length;
@@ -2337,6 +2368,12 @@
             const chulitoX = pD_coord.x;
             const yEntry = getY(sig.entry || pD_coord.price);
 
+            // Atenuar suavemente la caja si la entrada ya cumplió su vida útil y está en transición
+            const isCompletedFade = Boolean(this.currentSignal && this.currentSignal.completedAt);
+            if (isCompletedFade) {
+              ctx.globalAlpha = 0.38;
+            }
+
             if (isBuy) {
               // CHULITO VERDE (✓) directamente en el rebote de la entrada
               const chulitoY = yEntry + 22;
@@ -2376,12 +2413,13 @@
               ctx.strokeRect(chulitoX, targetTop, boxW, targetH);
 
               // Barra de cabecera verde de la caja
+              const targetGainMoney = (calcRisk.actualRiskMoney * 3.19).toFixed(2);
               ctx.fillStyle = isLight ? "#16a34a" : "#10b981";
-              ctx.fillRect(chulitoX, targetTop - 14, Math.min(boxW, 210), 14);
+              ctx.fillRect(chulitoX, targetTop - 14, Math.min(boxW, 230), 14);
               ctx.fillStyle = "#ffffff";
               ctx.font = "bold 9px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Target: +${(sig.riskPips * 3.19).toFixed(1)} pips (Ratio: 3.19)`, chulitoX + 6, targetTop - 3);
+              ctx.fillText(`Target: +${(sig.riskPips * 3.19).toFixed(1)} pips (+$${targetGainMoney} USD)`, chulitoX + 6, targetTop - 3);
 
               // 2. Caja Roja (Stop Loss / Riesgo)
               const stopTop = yEntry;
@@ -2393,12 +2431,13 @@
               ctx.strokeRect(chulitoX, stopTop, boxW, stopH);
 
               // Barra de pie roja de la caja
+              const calcRisk = this.calculateSafeLot(this.accountSize, sig.riskPips);
               ctx.fillStyle = isLight ? "#dc2626" : "#ef4444";
-              ctx.fillRect(chulitoX, stopTop + stopH, Math.min(boxW, 190), 14);
+              ctx.fillRect(chulitoX, stopTop + stopH, Math.min(boxW, 205), 14);
               ctx.fillStyle = "#ffffff";
               ctx.font = "bold 9px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Stop: -${sig.riskPips} pips (Amount: 0)`, chulitoX + 6, stopTop + stopH + 11);
+              ctx.fillText(`Stop: -${sig.riskPips} pips (-$${calcRisk.actualRiskMoney} USD)`, chulitoX + 6, stopTop + stopH + 11);
 
               // Píldora de R:R en el centro
               ctx.fillStyle = isLight ? "#e2e8f0" : "#1e293b";
@@ -2515,6 +2554,9 @@
                 ctx.stroke();
               });
             }
+            if (isCompletedFade) {
+              ctx.globalAlpha = 1.0;
+            }
           }
         }
       }
@@ -2557,7 +2599,8 @@
         }
 
         // FLECHA VISUAL DIRECTA DE ENTRADA (▲ COMPRAR o ▼ VENDER)
-        if (pD_coord.x >= 0 && pD_coord.x <= chartWidth) {
+        // SOLO DIBUJAR FLECHA SI EL ESCÁNER SNIPER ESTÁ APAGADO PARA NO DUPLICAR ELEMENTOS ENCIMADOS
+        if (!this.showSniper && pD_coord.x >= 0 && pD_coord.x <= chartWidth) {
           const arrowX = pD_coord.x;
 
           if (isBuy) {
@@ -2726,8 +2769,10 @@
         ctx.textAlign = "right";
         ctx.fillText(isTp1Hit ? "✅ TP1 HIT: " + this.currentSignal.tp1 : "🎯 TP1: " + this.currentSignal.tp1, chartWidth - 6, yTp1 + 1);
 
-        // Si TP1 fue tocado por una vela visible, pintar la estrella de celebración sobre esa vela
-        if (isTp1Hit && sync.hitTp1Idx !== -1) {
+        // Si TP1 fue tocado (y aún no se ha alcanzado TP2 ni TP3), pintar estrella de celebración
+        const isTp2HitNow = sync && sync.tp2Hit;
+        const isTp3HitNow = sync && sync.tp3Hit;
+        if (isTp1Hit && !isTp2HitNow && !isTp3HitNow && sync.hitTp1Idx !== -1) {
           const candleSlot = sync.hitTp1Idx - startIdx;
           if (candleSlot >= 0 && candleSlot < visibleCount) {
             const hitX = (candleSlot * stepX) + (stepX / 2);
@@ -2759,7 +2804,7 @@
           ctx.textAlign = "right";
           ctx.fillText(isTp2Hit ? "🚀 TP2 HIT: " + this.currentSignal.tp2 : "🎯 TP2: " + this.currentSignal.tp2, chartWidth - 6, yTp2 + 1);
 
-          if (isTp2Hit && sync.hitTp2Idx !== -1) {
+          if (isTp2Hit && !isTp3HitNow && sync.hitTp2Idx !== -1) {
             const candleSlot = sync.hitTp2Idx - startIdx;
             if (candleSlot >= 0 && candleSlot < visibleCount) {
               const hitX = (candleSlot * stepX) + (stepX / 2);
@@ -2806,6 +2851,27 @@
           }
         }
         ctx.setLineDash([]);
+      }
+
+      // BANNER CELEBRATORIO CUANDO LA ENTRADA CUMPLE SU VIDA ÚTIL
+      if (this.currentSignal && this.currentSignal.completedAt) {
+        const isWin = this.currentSignal.completedStatus === "TP3_HIT";
+        const elapsed = Math.floor((Date.now() - this.currentSignal.completedAt) / 1000);
+        const remainCount = Math.max(0, 5 - elapsed);
+
+        ctx.fillStyle = isWin ? "rgba(16, 185, 129, 0.95)" : "rgba(239, 68, 68, 0.95)";
+        ctx.fillRect((chartWidth / 2) - 230, 12, 460, 28);
+        ctx.strokeStyle = isWin ? "#10b981" : "#ef4444";
+        ctx.lineWidth = 1.8;
+        ctx.strokeRect((chartWidth / 2) - 230, 12, 460, 28);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 10.5px sans-serif";
+        ctx.textAlign = "center";
+        const bannerTxt = isWin
+          ? `🎉 ¡VIDA ÚTIL CUMPLIDA! TP3 ALCANZADO (+${this.currentSignal.pipsWon || 38.3} Pips) • NUEVA ENTRADA EN: ${remainCount}s`
+          : `🛑 VIDA ÚTIL CUMPLIDA (STOP LOSS PROTEGIDO) • BUSCANDO NUEVA ENTRADA EN: ${remainCount}s`;
+        ctx.fillText(bannerTxt, chartWidth / 2, 30);
       }
     }
 
@@ -3553,11 +3619,29 @@
         });
       });
 
-      // Cambio de Mercado Activo
+      // Botón Rápido de Telegram en Cabecera del Gráfico
+      const btnHeaderTg = document.getElementById("btnHeaderTelegramAlerts");
+      if (btnHeaderTg) {
+        btnHeaderTg.addEventListener("click", () => {
+          const connTabBtn = document.querySelector('[data-ttab="connections"]');
+          if (connTabBtn) connTabBtn.click();
+          setTimeout(() => {
+            const tokInput = document.getElementById("tgBotTokenInput");
+            if (tokInput) {
+              tokInput.scrollIntoView({ behavior: "smooth", block: "center" });
+              tokInput.focus();
+            }
+          }, 180);
+        });
+      }
+
+      // Cambio de Mercado Activo (Limpia señales viejas y genera entrada fresca para el nuevo mercado)
       const selMarket = document.getElementById("selMarketActive");
       if (selMarket) {
         selMarket.addEventListener("change", (e) => {
           this.selectedMarket = e.target.value;
+          this.currentSignal = null; // Retirar entrada del mercado anterior
+          this.verticalOffset = 0; // Centrar vista vertical para el nuevo mercado
           this.updateChartCanvasHeader();
           if (!this.candles[this.selectedMarket] || this.candles[this.selectedMarket].length === 0) {
             this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
@@ -3571,12 +3655,13 @@
         });
       }
 
-      // Cambio de Temporalidad
+      // Cambio de Temporalidad (Limpia señales viejas y genera entrada fresca para el nuevo tiempo)
       container.querySelectorAll(".ak-tf-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
           container.querySelectorAll(".ak-tf-btn").forEach(b => b.classList.remove("active"));
           e.currentTarget.classList.add("active");
           this.selectedTimeframe = e.currentTarget.dataset.tf;
+          this.currentSignal = null; // Retirar entrada de la temporalidad anterior
           this.updateChartCanvasHeader();
           this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
           this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
