@@ -202,6 +202,9 @@
       this.selectedMarket = "XAUUSD";
       this.selectedTimeframe = "M15";
       this.chartType = "candles";
+      this.derivSubMode = "spikes";
+      this.accumulatorGrowthRate = 0.03;
+      this.accumulatorTicks = 14;
       this.showEMA = true;
       this.showHarmonics = true;
       this.showLevels = true;
@@ -1197,8 +1200,8 @@
                 <div class="ak-control-group">
                   <label>TIPO DE GRÁFICO:</label>
                   <div style="display:flex;gap:4px;">
-                    <button class="ak-tf-btn ${this.chartType === 'candles' ? 'active' : ''}" id="btnChartCandles">🕯️ Velas</button>
-                    <button class="ak-tf-btn ${this.chartType === 'line' ? 'active' : ''}" id="btnChartLine">📈 Línea</button>
+                    <button class="ak-chart-type-btn ${this.chartType === 'candles' ? 'active' : ''}" id="btnChartCandles" title="Velas Japonesas Oficiales Deriv">🕯️ Velas</button>
+                    <button class="ak-chart-type-btn ${this.chartType === 'line' ? 'active' : ''}" id="btnChartLine" title="Línea / Tick y Barreras de Acumuladores Deriv">📈 Línea (Acumuladores)</button>
                   </div>
                 </div>
               </div>
@@ -1757,32 +1760,120 @@
 
       if (m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash") {
         const isBoom = m.platformMode === "deriv_boom";
+        const isAccumulatorView = this.derivSubMode === "accumulators";
+        const growthPercent = Math.round(this.accumulatorGrowthRate * 100);
+        const compoundProfit = ((Math.pow(1 + this.accumulatorGrowthRate, this.accumulatorTicks) - 1) * 100).toFixed(1);
+
         deck.innerHTML = `
-          <div class="ak-deriv-spike-banner">
-            <div style="display:flex;align-items:center;gap:12px;">
-              <span style="font-size:24px;">${isBoom ? '⚡' : '💥'}</span>
-              <div>
-                <strong style="color:#fff;font-size:13px;">RADAR DE CAZA DE SPIKES ${isBoom ? 'ALCISTAS (BOOM)' : 'BAJISTAS (CRASH)'}</strong>
-                <p style="margin:2px 0 0 0;font-size:11px;color:#94a3b8;">
-                  Comportamiento sintético oficial de Deriv: micro-ticks constantes seguidos de explosiones institucionales repentinas.
-                </p>
+          <div class="ak-deriv-spike-banner" style="flex-direction:column;align-items:stretch;gap:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px;flex-wrap:wrap;gap:8px;">
+              <div style="display:flex;gap:6px;">
+                <button class="ak-chart-type-btn ${!isAccumulatorView ? 'active' : ''}" id="btnDeckModeSpikes">
+                  ${isBoom ? '⚡' : '💥'} Radar de Spikes ${isBoom ? 'Boom' : 'Crash'}
+                </button>
+                <button class="ak-chart-type-btn ${isAccumulatorView ? 'active' : ''}" id="btnDeckModeAccumulators">
+                  📈 Modo Acumuladores Deriv (1% - 5%)
+                </button>
               </div>
+              <span style="font-size:10.5px;color:#00f2fe;font-family:monospace;display:flex;align-items:center;gap:4px;">
+                <span class="dot" style="background:#10b981;width:6px;height:6px;border-radius:50%;display:inline-block;"></span>
+                Deriv Trader Oficial Conectado
+              </span>
             </div>
-            <div style="display:flex;gap:16px;align-items:center;">
-              <div style="text-align:right;">
-                <span style="font-size:10px;color:#94a3b8;display:block;">TICKS DESDE ÚLTIMO SPIKE:</span>
-                <strong style="font-size:16px;color:#00f2fe;font-family:monospace;">${this.ticksSinceLastSpike} ticks</strong>
+
+            ${!isAccumulatorView ? `
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <span style="font-size:24px;">${isBoom ? '⚡' : '💥'}</span>
+                  <div>
+                    <strong style="color:#fff;font-size:13px;">RADAR DE CAZA DE SPIKES ${isBoom ? 'ALCISTAS (BOOM)' : 'BAJISTAS (CRASH)'}</strong>
+                    <p style="margin:2px 0 0 0;font-size:11px;color:#94a3b8;">
+                      Comportamiento sintético oficial de Deriv: micro-ticks constantes seguidos de explosiones institucionales repentinas.
+                    </p>
+                  </div>
+                </div>
+                <div style="display:flex;gap:16px;align-items:center;">
+                  <div style="text-align:right;">
+                    <span style="font-size:10px;color:#94a3b8;display:block;">TICKS DESDE ÚLTIMO SPIKE:</span>
+                    <strong style="font-size:16px;color:#00f2fe;font-family:monospace;">${this.ticksSinceLastSpike} ticks</strong>
+                  </div>
+                  <div style="text-align:right;">
+                    <span style="font-size:10px;color:#94a3b8;display:block;">PROBABILIDAD DE SPIKE:</span>
+                    <strong style="font-size:16px;color:${this.spikeProbability > 75 ? '#10b981' : '#f59e0b'};font-family:monospace;">${this.spikeProbability}%</strong>
+                  </div>
+                  <button id="btnHuntSpike" class="ak-btn primary" style="padding:6px 14px;">
+                    🎯 Cazar Próximo Spike
+                  </button>
+                </div>
               </div>
-              <div style="text-align:right;">
-                <span style="font-size:10px;color:#94a3b8;display:block;">PROBABILIDAD DE SPIKE:</span>
-                <strong style="font-size:16px;color:${this.spikeProbability > 75 ? '#10b981' : '#f59e0b'};font-family:monospace;">${this.spikeProbability}%</strong>
+            ` : `
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <span style="font-size:24px;">📈</span>
+                  <div>
+                    <strong style="color:#fff;font-size:13px;">CONTRATO DE ACUMULADORES (DERIV TRADER OFICIAL)</strong>
+                    <p style="margin:2px 0 0 0;font-size:11px;color:#94a3b8;">
+                      Tu beneficio crece ${growthPercent}% por cada tick continuo dentro de la banda de acumulación. Cierra cuando desees.
+                    </p>
+                  </div>
+                </div>
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                  <div style="display:flex;gap:4px;align-items:center;">
+                    <span style="font-size:10px;color:#94a3b8;margin-right:2px;">TASA:</span>
+                    ${[0.01, 0.02, 0.03, 0.04, 0.05].map(rate => `
+                      <button class="ak-chart-type-btn btn-accum-rate ${this.accumulatorGrowthRate === rate ? 'active' : ''}" data-rate="${rate}" style="padding:4px 8px;font-size:10px;">
+                        ${Math.round(rate * 100)}%
+                      </button>
+                    `).join('')}
+                  </div>
+                  <div style="text-align:right;background:rgba(0,0,0,0.3);padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);">
+                    <span style="font-size:9.5px;color:#94a3b8;display:block;">TICKS EN ZONA:</span>
+                    <strong style="font-size:14px;color:#10b981;font-family:monospace;">${this.accumulatorTicks} ticks (+${compoundProfit}%)</strong>
+                  </div>
+                  <button id="btnSwitchToAccumLine" class="ak-btn secondary" style="padding:6px 12px;font-size:11px;">
+                    📊 Ver en Línea con Barreras
+                  </button>
+                </div>
               </div>
-              <button id="btnHuntSpike" class="ak-btn primary" style="padding:6px 14px;">
-                🎯 Cazar Próximo Spike
-              </button>
-            </div>
+            `}
           </div>
         `;
+
+        // Bindings para el switch de modo y tasas de acumulador
+        const bSpikes = document.getElementById("btnDeckModeSpikes");
+        const bAcc = document.getElementById("btnDeckModeAccumulators");
+        if (bSpikes) {
+          bSpikes.addEventListener("click", () => {
+            this.derivSubMode = "spikes";
+            this.renderPlatformSpecialDeck();
+          });
+        }
+        if (bAcc) {
+          bAcc.addEventListener("click", () => {
+            this.derivSubMode = "accumulators";
+            this.renderPlatformSpecialDeck();
+          });
+        }
+        deck.querySelectorAll(".btn-accum-rate").forEach(btn => {
+          btn.addEventListener("click", (e) => {
+            const r = parseFloat(e.currentTarget.dataset.rate);
+            if (!isNaN(r)) {
+              this.accumulatorGrowthRate = r;
+              this.renderPlatformSpecialDeck();
+            }
+          });
+        });
+        const bSwitchLine = document.getElementById("btnSwitchToAccumLine");
+        if (bSwitchLine) {
+          bSwitchLine.addEventListener("click", () => {
+            this.chartType = "line";
+            const bLine = document.getElementById("btnChartLine");
+            const bCandles = document.getElementById("btnChartCandles");
+            if (bLine) bLine.classList.add("active");
+            if (bCandles) bCandles.classList.remove("active");
+            this.drawMarketCanvas();
+          });
+        }
       } else if (m.platformMode === "iq_option") {
         deck.innerHTML = `
           <div class="ak-iq-option-banner">
@@ -2180,18 +2271,19 @@
         if (c.high > maxPrice) maxPrice = c.high;
       });
 
-      // Asegurar que Entrada, SL y TP entren en el rango visual
-      if (this.showLevels && this.currentSignal) {
-        const s = this.currentSignal;
-        if (s.entry && s.entry < minPrice) minPrice = s.entry;
-        if (s.entry && s.entry > maxPrice) maxPrice = s.entry;
-        if (s.sl && s.sl < minPrice) minPrice = s.sl;
-        if (s.sl && s.sl > maxPrice) maxPrice = s.sl;
-        if (s.tp1 && s.tp1 > maxPrice) maxPrice = s.tp1;
-        if (s.tp1 && s.tp1 < minPrice) minPrice = s.tp1;
-        if (s.tp3 && s.tp3 > maxPrice) maxPrice = s.tp3;
-        if (s.tp3 && s.tp3 < minPrice) minPrice = s.tp3;
+      // Rango seguro en caso de vela plana o inicial
+      if (!isFinite(minPrice) || !isFinite(maxPrice) || minPrice >= maxPrice) {
+        const curP = this.marketPrices[this.selectedMarket] || 100;
+        minPrice = curP - 1;
+        maxPrice = curP + 1;
       }
+
+      // Margen de respiración natural del 10% estilo Deriv Trader y TradingView
+      // (Mantiene las proporciones exactas de las velas sin aplastarlas jamás)
+      const rawSpan = (maxPrice - minPrice) || 1;
+      const vPad = rawSpan * 0.10;
+      minPrice -= vPad;
+      maxPrice += vPad;
 
       // DESPLAZAMIENTO VERTICAL (SCROLL ARRIBA / ABAJO)
       if (typeof this.verticalOffset !== "number") this.verticalOffset = 0;
@@ -2294,61 +2386,194 @@
         ctx.stroke();
       }
 
-      // 4. VELAS JAPONESAS (Verdes alcistas / Rojas bajistas nítidas)
-      visibleCandles.forEach((c, idx) => {
-        const x = (idx * stepX) + (stepX / 2);
-        const yOpen = getY(c.open);
-        const yClose = getY(c.close);
-        const yHigh = getY(c.high);
-        const yLow = getY(c.low);
-        const isBull = c.isBull;
+      // 4. MODO GRÁFICO: LÍNEA / ÁREA ACUMULADORES vs VELAS JAPONESAS
+      if (this.chartType === "line") {
+        // RENDERIZADO DE LÍNEA / ÁREA CONTINUA (ESTILO DERIV TRADER ACUMULADORES)
+        const points = visibleCandles.map((c, idx) => ({
+          x: (idx * stepX) + (stepX / 2),
+          y: getY(c.close),
+          close: c.close,
+          isSpike: c.isSpike,
+          time: c.time
+        }));
 
-        // Color idéntico a Deriv nativo: Verde institucional alcista / Rojo institucional bajista
-        const bodyColor = isBull ? (isLight ? "#16a34a" : "#10b981") : (isLight ? "#dc2626" : "#ef4444");
+        if (points.length > 0) {
+          // A. Área con degradado bajo la curva
+          const areaGrad = ctx.createLinearGradient(0, paddingY, 0, height - paddingY);
+          areaGrad.addColorStop(0, isLight ? "rgba(2, 132, 199, 0.28)" : "rgba(0, 242, 254, 0.25)");
+          areaGrad.addColorStop(1, isLight ? "rgba(2, 132, 199, 0.01)" : "rgba(0, 242, 254, 0.01)");
+          ctx.fillStyle = areaGrad;
+          ctx.beginPath();
+          ctx.moveTo(points[0].x, height - paddingY);
+          points.forEach(pt => ctx.lineTo(pt.x, pt.y));
+          ctx.lineTo(points[points.length - 1].x, height - paddingY);
+          ctx.closePath();
+          ctx.fill();
 
-        // Mecha
-        ctx.strokeStyle = bodyColor;
-        ctx.lineWidth = 1.3;
-        ctx.beginPath();
-        ctx.moveTo(x, yHigh);
-        ctx.lineTo(x, yLow);
-        ctx.stroke();
+          // B. Línea continua institucional
+          ctx.strokeStyle = isLight ? "#0284c7" : "#00f2fe";
+          ctx.lineWidth = 2.4;
+          ctx.lineJoin = "round";
+          ctx.beginPath();
+          points.forEach((pt, i) => {
+            if (i === 0) ctx.moveTo(pt.x, pt.y);
+            else ctx.lineTo(pt.x, pt.y);
+          });
+          ctx.stroke();
 
-        // Cuerpo de la vela
-        ctx.fillStyle = bodyColor;
-        const topY = Math.min(yOpen, yClose);
-        const bodyH = Math.max(2, Math.abs(yClose - yOpen));
-        ctx.fillRect(x - (candleWidth / 2), topY, candleWidth, bodyH);
+          // C. Puntos de spikes o picos
+          points.forEach((pt, i) => {
+            if (pt.isSpike) {
+              ctx.fillStyle = "#eab308";
+              ctx.beginPath();
+              ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.strokeStyle = "#ffffff";
+              ctx.lineWidth = 1.5;
+              ctx.stroke();
+              ctx.font = "bold 10px sans-serif";
+              ctx.textAlign = "center";
+              ctx.fillText("⚡", pt.x, pt.y - 8);
+            }
 
-        // Borde fino para mayor nitidez en fondo blanco
-        if (isLight) {
-          ctx.strokeStyle = isBull ? "#15803d" : "#b91c1c";
-          ctx.lineWidth = 0.8;
-          ctx.strokeRect(x - (candleWidth / 2), topY, candleWidth, bodyH);
+            // Horas en el eje horizontal
+            if (i % 6 === 0) {
+              ctx.fillStyle = isLight ? "#64748b" : "#64748b";
+              ctx.font = "9px monospace";
+              ctx.textAlign = "center";
+              ctx.fillText(pt.time, pt.x, height - 10);
+            }
+          });
+
+          // D. Cabeza en vivo (Punto palpitante con halo)
+          const lastPt = points[points.length - 1];
+          if (lastPt) {
+            ctx.fillStyle = isLight ? "rgba(2, 132, 199, 0.35)" : "rgba(0, 242, 254, 0.38)";
+            ctx.beginPath();
+            ctx.arc(lastPt.x, lastPt.y, 9, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = isLight ? "#0284c7" : "#00f2fe";
+            ctx.beginPath();
+            ctx.arc(lastPt.x, lastPt.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+          }
+
+          // E. Si el mercado es Boom o Crash: Bandas Oficiales de Acumuladores Deriv
+          const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
+          if (m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash") {
+            const curP = this.marketPrices[this.selectedMarket] || (lastPt ? lastPt.close : 0);
+            const barrierDist = Math.max(m.pipSize * 15, priceRange * 0.12);
+            const yHighBarrier = getY(curP + barrierDist);
+            const yLowBarrier = getY(curP - barrierDist);
+
+            // Banda Alta
+            if (yHighBarrier >= paddingY && yHighBarrier <= height - paddingY) {
+              ctx.strokeStyle = "rgba(245, 158, 11, 0.85)";
+              ctx.lineWidth = 1.6;
+              ctx.setLineDash([5, 4]);
+              ctx.beginPath();
+              ctx.moveTo(0, yHighBarrier);
+              ctx.lineTo(chartWidth, yHighBarrier);
+              ctx.stroke();
+              ctx.setLineDash([]);
+
+              ctx.fillStyle = "#f59e0b";
+              ctx.fillRect(chartWidth - 142, yHighBarrier - 11, 138, 16);
+              ctx.fillStyle = "#000000";
+              ctx.font = "bold 8.5px monospace";
+              ctx.textAlign = "right";
+              ctx.fillText("▲ BARRERA ALTA DERIV", chartWidth - 6, yHighBarrier + 1);
+            }
+
+            // Banda Baja
+            if (yLowBarrier >= paddingY && yLowBarrier <= height - paddingY) {
+              ctx.strokeStyle = "rgba(245, 158, 11, 0.85)";
+              ctx.lineWidth = 1.6;
+              ctx.setLineDash([5, 4]);
+              ctx.beginPath();
+              ctx.moveTo(0, yLowBarrier);
+              ctx.lineTo(chartWidth, yLowBarrier);
+              ctx.stroke();
+              ctx.setLineDash([]);
+
+              ctx.fillStyle = "#f59e0b";
+              ctx.fillRect(chartWidth - 142, yLowBarrier - 11, 138, 16);
+              ctx.fillStyle = "#000000";
+              ctx.font = "bold 8.5px monospace";
+              ctx.textAlign = "right";
+              ctx.fillText("▼ BARRERA BAJA DERIV", chartWidth - 6, yLowBarrier + 1);
+            }
+
+            // Zona de Acumulación Relleno
+            const safeTop = Math.max(paddingY, yHighBarrier);
+            const safeBottom = Math.min(height - paddingY, yLowBarrier);
+            if (safeBottom > safeTop) {
+              ctx.fillStyle = "rgba(245, 158, 11, 0.06)";
+              ctx.fillRect(0, safeTop, chartWidth, safeBottom - safeTop);
+            }
+          }
         }
+      } else {
+        // VELAS JAPONESAS (Verdes alcistas / Rojas bajistas nítidas)
+        visibleCandles.forEach((c, idx) => {
+          const x = (idx * stepX) + (stepX / 2);
+          const yOpen = getY(c.open);
+          const yClose = getY(c.close);
+          const yHigh = getY(c.high);
+          const yLow = getY(c.low);
+          const isBull = c.isBull;
 
-        // Detección y Resaltado Oficial de Spikes en Boom/Crash
-        if (c.isSpike) {
-          ctx.strokeStyle = isBull ? "rgba(16, 185, 129, 0.85)" : "rgba(239, 68, 68, 0.85)";
-          ctx.lineWidth = 2.8;
-          ctx.strokeRect(x - (candleWidth / 2) - 2, topY - 2, candleWidth + 4, bodyH + 4);
+          // Color idéntico a Deriv nativo: Verde institucional alcista / Rojo institucional bajista
+          const bodyColor = isBull ? (isLight ? "#16a34a" : "#10b981") : (isLight ? "#dc2626" : "#ef4444");
 
-          // Ícono institucional de Spike
-          ctx.fillStyle = "#eab308";
-          ctx.font = "bold 11px sans-serif";
-          ctx.textAlign = "center";
-          const spikeIconY = isBull ? yHigh - 7 : yLow + 15;
-          ctx.fillText("⚡", x, spikeIconY);
-        }
+          // Mecha
+          ctx.strokeStyle = bodyColor;
+          ctx.lineWidth = 1.3;
+          ctx.beginPath();
+          ctx.moveTo(x, yHigh);
+          ctx.lineTo(x, yLow);
+          ctx.stroke();
 
-        // Horas en el eje horizontal
-        if (idx % 6 === 0) {
-          ctx.fillStyle = isLight ? "#64748b" : "#64748b";
-          ctx.font = "9px monospace";
-          ctx.textAlign = "center";
-          ctx.fillText(c.time, x, height - 10);
-        }
-      });
+          // Cuerpo de la vela
+          ctx.fillStyle = bodyColor;
+          const topY = Math.min(yOpen, yClose);
+          const bodyH = Math.max(2, Math.abs(yClose - yOpen));
+          ctx.fillRect(x - (candleWidth / 2), topY, candleWidth, bodyH);
+
+          // Borde fino para mayor nitidez en fondo blanco
+          if (isLight) {
+            ctx.strokeStyle = isBull ? "#15803d" : "#b91c1c";
+            ctx.lineWidth = 0.8;
+            ctx.strokeRect(x - (candleWidth / 2), topY, candleWidth, bodyH);
+          }
+
+          // Detección y Resaltado Oficial de Spikes en Boom/Crash
+          if (c.isSpike) {
+            ctx.strokeStyle = isBull ? "rgba(16, 185, 129, 0.85)" : "rgba(239, 68, 68, 0.85)";
+            ctx.lineWidth = 2.8;
+            ctx.strokeRect(x - (candleWidth / 2) - 2, topY - 2, candleWidth + 4, bodyH + 4);
+
+            // Ícono institucional de Spike
+            ctx.fillStyle = "#eab308";
+            ctx.font = "bold 11px sans-serif";
+            ctx.textAlign = "center";
+            const spikeIconY = isBull ? yHigh - 7 : yLow + 15;
+            ctx.fillText("⚡", x, spikeIconY);
+          }
+
+          // Horas en el eje horizontal
+          if (idx % 6 === 0) {
+            ctx.fillStyle = isLight ? "#64748b" : "#64748b";
+            ctx.font = "9px monospace";
+            ctx.textAlign = "center";
+            ctx.fillText(c.time, x, height - 10);
+          }
+        });
+      }
 
       // 5. ESCÁNER ARMÓNICO: TRIÁNGULOS AMARILLOS MUY PRONUNCIADOS (X, A, B, C, D)
       let pD_coord = null;
@@ -2535,7 +2760,7 @@
 
             if (isBuy) {
               // CHULITO VERDE (✓) directamente en el rebote de la entrada
-              const chulitoY = yEntry + 22;
+              const chulitoY = Math.min(height - paddingY - 20, Math.max(paddingY + 20, yEntry + 22));
 
               ctx.strokeStyle = "#16a34a";
               ctx.lineWidth = 3.5;
@@ -2562,9 +2787,16 @@
               // Dejar 105px a la derecha para que NO colisione con los badges del eje derecho
               const boxW = Math.max(60, chartWidth - chulitoX - 105);
 
+              // Clamping para evitar que la caja se desborde fuera de la vista
+              const topBound = paddingY;
+              const bottomBound = height - paddingY;
+              const safeEntryY = Math.max(topBound + 16, Math.min(bottomBound - 16, yEntry));
+              const safeTpY = Math.max(topBound, Math.min(safeEntryY - 4, yTp));
+              const safeSlY = Math.min(bottomBound, Math.max(safeEntryY + 4, ySl));
+
               // 1. Caja Verde (Take Profit / Ganancia)
-              const targetTop = yTp;
-              const targetH = Math.max(4, yEntry - yTp);
+              const targetTop = safeTpY;
+              const targetH = Math.max(4, safeEntryY - safeTpY);
               ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.16)" : "rgba(16, 185, 129, 0.18)";
               ctx.fillRect(chulitoX, targetTop, boxW, targetH);
               ctx.strokeStyle = isLight ? "#16a34a" : "#10b981";
@@ -2580,8 +2812,8 @@
               ctx.fillText(`Target: +${(sig.riskPips * 3.19).toFixed(1)} pips (+$${targetGainMoney} USD)`, chulitoX + 6, targetTop - 3);
 
               // 2. Caja Roja (Stop Loss / Riesgo)
-              const stopTop = yEntry;
-              const stopH = Math.max(4, ySl - yEntry);
+              const stopTop = safeEntryY;
+              const stopH = Math.max(4, safeSlY - safeEntryY);
               ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.16)" : "rgba(239, 68, 68, 0.18)";
               ctx.fillRect(chulitoX, stopTop, boxW, stopH);
               ctx.strokeStyle = isLight ? "#dc2626" : "#ef4444";
@@ -2598,13 +2830,13 @@
 
               // Píldora de R:R en el centro
               ctx.fillStyle = isLight ? "#e2e8f0" : "#1e293b";
-              ctx.fillRect(chulitoX + 10, yEntry - 9, 130, 18);
+              ctx.fillRect(chulitoX + 10, safeEntryY - 9, 130, 18);
               ctx.strokeStyle = isLight ? "#94a3b8" : "#475569";
-              ctx.strokeRect(chulitoX + 10, yEntry - 9, 130, 18);
+              ctx.strokeRect(chulitoX + 10, safeEntryY - 9, 130, 18);
               ctx.fillStyle = isLight ? "#0f172a" : "#f8fafc";
               ctx.font = "bold 9px sans-serif";
               ctx.textAlign = "left";
-              ctx.fillText("R/R: 3.19 (Sniper)", chulitoX + 16, yEntry + 3);
+              ctx.fillText("R/R: 3.19 (Sniper)", chulitoX + 16, safeEntryY + 3);
 
               // Tiradores circulares de esquina estilo TradingView
               [
@@ -2624,7 +2856,7 @@
 
             } else {
               // CHULITO ROJO (✓) directamente en el rechazo de la entrada
-              const chulitoY = yEntry - 22;
+              const chulitoY = Math.max(paddingY + 20, Math.min(height - paddingY - 20, yEntry - 22));
 
               ctx.strokeStyle = "#dc2626";
               ctx.lineWidth = 3.5;
@@ -2651,9 +2883,15 @@
               // Dejar 105px a la derecha para que NO colisione con los badges del eje derecho
               const boxW = Math.max(60, chartWidth - chulitoX - 105);
 
+              const topBound = paddingY;
+              const bottomBound = height - paddingY;
+              const safeEntryY = Math.max(topBound + 16, Math.min(bottomBound - 16, yEntry));
+              const safeSlY = Math.max(topBound, Math.min(safeEntryY - 4, ySl));
+              const safeTpY = Math.min(bottomBound, Math.max(safeEntryY + 4, yTp));
+
               // 1. Caja Roja (Stop Loss / Riesgo hacia arriba)
-              const stopTop = ySl;
-              const stopH = Math.max(4, yEntry - ySl);
+              const stopTop = safeSlY;
+              const stopH = Math.max(4, safeEntryY - safeSlY);
               ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.16)" : "rgba(239, 68, 68, 0.18)";
               ctx.fillRect(chulitoX, stopTop, boxW, stopH);
               ctx.strokeStyle = isLight ? "#dc2626" : "#ef4444";
@@ -2669,8 +2907,8 @@
               ctx.fillText(`Stop: -${sig.riskPips} pips (-$${actualRiskMoney} USD)`, chulitoX + 6, stopTop - 3);
 
               // 2. Caja Verde (Ganancia hacia abajo)
-              const targetTop = yEntry;
-              const targetH = Math.max(4, yTp - yEntry);
+              const targetTop = safeEntryY;
+              const targetH = Math.max(4, safeTpY - safeEntryY);
               ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.16)" : "rgba(16, 185, 129, 0.18)";
               ctx.fillRect(chulitoX, targetTop, boxW, targetH);
               ctx.strokeStyle = isLight ? "#16a34a" : "#10b981";
@@ -2687,13 +2925,13 @@
 
               // Píldora de R:R en el centro
               ctx.fillStyle = isLight ? "#e2e8f0" : "#1e293b";
-              ctx.fillRect(chulitoX + 10, yEntry - 9, 130, 18);
+              ctx.fillRect(chulitoX + 10, safeEntryY - 9, 130, 18);
               ctx.strokeStyle = isLight ? "#94a3b8" : "#475569";
-              ctx.strokeRect(chulitoX + 10, yEntry - 9, 130, 18);
+              ctx.strokeRect(chulitoX + 10, safeEntryY - 9, 130, 18);
               ctx.fillStyle = isLight ? "#0f172a" : "#f8fafc";
               ctx.font = "bold 9px sans-serif";
               ctx.textAlign = "left";
-              ctx.fillText("R/R: 3.19 (Sniper)", chulitoX + 16, yEntry + 3);
+              ctx.fillText("R/R: 3.19 (Sniper)", chulitoX + 16, safeEntryY + 3);
 
               // Tiradores circulares de esquina
               [
@@ -2892,119 +3130,152 @@
 
         // A. STOP LOSS
         const isSlHit = sync && sync.slHit;
-        ctx.strokeStyle = isSlHit ? "#dc2626" : (isLight ? "#dc2626" : "rgba(239, 68, 68, 0.85)");
-        ctx.lineWidth = isSlHit ? 2.5 : 1.4;
-        if (!isSlHit) ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.moveTo(lineStartX, ySl);
-        ctx.lineTo(chartWidth, ySl);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        const slPrice = this.currentSignal.sl;
+        if (ySl >= paddingY && ySl <= height - paddingY) {
+          ctx.strokeStyle = isSlHit ? "#dc2626" : (isLight ? "#dc2626" : "rgba(239, 68, 68, 0.85)");
+          ctx.lineWidth = isSlHit ? 2.5 : 1.4;
+          if (!isSlHit) ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(lineStartX, ySl);
+          ctx.lineTo(chartWidth, ySl);
+          ctx.stroke();
+          ctx.setLineDash([]);
 
-        ctx.fillStyle = isSlHit ? "#dc2626" : (isLight ? "#dc2626" : "rgba(239, 68, 68, 0.35)");
-        ctx.fillRect(chartWidth - 95, ySl - 12, 92, 16);
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 9px monospace";
-        ctx.textAlign = "right";
-        ctx.fillText(isSlHit ? "🛑 SL TOCADO: " + this.currentSignal.sl : "🛡️ SL: " + this.currentSignal.sl, chartWidth - 6, ySl + 1);
+          ctx.fillStyle = isSlHit ? "#dc2626" : (isLight ? "#dc2626" : "rgba(239, 68, 68, 0.35)");
+          ctx.fillRect(chartWidth - 95, ySl - 12, 92, 16);
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 9px monospace";
+          ctx.textAlign = "right";
+          ctx.fillText(isSlHit ? "🛑 SL TOCADO: " + slPrice : "🛡️ SL: " + slPrice, chartWidth - 6, ySl + 1);
+        } else {
+          // Indicador fijado de Stop Loss en el borde sin deformar el gráfico
+          const isBelow = ySl > height - paddingY;
+          const pinY = isBelow ? height - paddingY - 14 : paddingY + 6;
+          ctx.fillStyle = isLight ? "#dc2626" : "rgba(239, 68, 68, 0.92)";
+          ctx.fillRect(chartWidth - 105, pinY - 10, 102, 16);
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 8.5px monospace";
+          ctx.textAlign = "right";
+          ctx.fillText((isBelow ? "▼ SL: " : "▲ SL: ") + slPrice, chartWidth - 6, pinY + 2);
+        }
 
         // B. TAKE PROFIT 1
         const isTp1Hit = sync && sync.tp1Hit;
-        ctx.strokeStyle = isTp1Hit ? "#16a34a" : (isLight ? "#16a34a" : "rgba(16, 185, 129, 0.85)");
-        ctx.lineWidth = isTp1Hit ? 2.6 : 1.4;
-        if (!isTp1Hit) ctx.setLineDash([5, 3]);
-        ctx.beginPath();
-        ctx.moveTo(lineStartX, yTp1);
-        ctx.lineTo(chartWidth, yTp1);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        const tp1Price = this.currentSignal.tp1;
+        if (yTp1 >= paddingY && yTp1 <= height - paddingY) {
+          ctx.strokeStyle = isTp1Hit ? "#16a34a" : (isLight ? "#16a34a" : "rgba(16, 185, 129, 0.85)");
+          ctx.lineWidth = isTp1Hit ? 2.6 : 1.4;
+          if (!isTp1Hit) ctx.setLineDash([5, 3]);
+          ctx.beginPath();
+          ctx.moveTo(lineStartX, yTp1);
+          ctx.lineTo(chartWidth, yTp1);
+          ctx.stroke();
+          ctx.setLineDash([]);
 
-        ctx.fillStyle = isTp1Hit ? "#16a34a" : (isLight ? "#16a34a" : "rgba(16, 185, 129, 0.35)");
-        ctx.fillRect(chartWidth - 95, yTp1 - 12, 92, 16);
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 9px monospace";
-        ctx.textAlign = "right";
-        ctx.fillText(isTp1Hit ? "✅ TP1 HIT: " + this.currentSignal.tp1 : "🎯 TP1: " + this.currentSignal.tp1, chartWidth - 6, yTp1 + 1);
+          ctx.fillStyle = isTp1Hit ? "#16a34a" : (isLight ? "#16a34a" : "rgba(16, 185, 129, 0.35)");
+          ctx.fillRect(chartWidth - 95, yTp1 - 12, 92, 16);
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 9px monospace";
+          ctx.textAlign = "right";
+          ctx.fillText(isTp1Hit ? "✅ TP1 HIT: " + tp1Price : "🎯 TP1: " + tp1Price, chartWidth - 6, yTp1 + 1);
 
-        // Si TP1 fue tocado (y aún no se ha alcanzado TP2 ni TP3), pintar estrella de celebración
-        const isTp2HitNow = sync && sync.tp2Hit;
-        const isTp3HitNow = sync && sync.tp3Hit;
-        if (isTp1Hit && !isTp2HitNow && !isTp3HitNow && sync.hitTp1Idx !== -1) {
-          const candleSlot = sync.hitTp1Idx - startIdx;
-          if (candleSlot >= 0 && candleSlot < visibleCount) {
-            const hitX = (candleSlot * stepX) + (stepX / 2);
-            ctx.fillStyle = "#16a34a";
-            ctx.fillRect(hitX - 35, yTp1 - 22, 70, 15);
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 8.5px sans-serif";
-            ctx.textAlign = "center";
-            ctx.fillText("⭐ TP1 ALCANZADO", hitX, yTp1 - 11);
+          // Si TP1 fue tocado (y aún no se ha alcanzado TP2 ni TP3), pintar estrella de celebración
+          const isTp2HitNow = sync && sync.tp2Hit;
+          const isTp3HitNow = sync && sync.tp3Hit;
+          if (isTp1Hit && !isTp2HitNow && !isTp3HitNow && sync.hitTp1Idx !== -1) {
+            const candleSlot = sync.hitTp1Idx - startIdx;
+            if (candleSlot >= 0 && candleSlot < visibleCount) {
+              const hitX = (candleSlot * stepX) + (stepX / 2);
+              ctx.fillStyle = "#16a34a";
+              ctx.fillRect(hitX - 35, yTp1 - 22, 70, 15);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 8.5px sans-serif";
+              ctx.textAlign = "center";
+              ctx.fillText("⭐ TP1 ALCANZADO", hitX, yTp1 - 11);
+            }
           }
         }
 
         // C. TAKE PROFIT 2
-        if (yTp2) {
+        if (yTp2 !== null) {
           const isTp2Hit = sync && sync.tp2Hit;
-          ctx.strokeStyle = isTp2Hit ? "#059669" : (isLight ? "#15803d" : "rgba(16, 185, 129, 0.65)");
-          ctx.lineWidth = isTp2Hit ? 2.6 : 1.3;
-          if (!isTp2Hit) ctx.setLineDash([5, 3]);
-          ctx.beginPath();
-          ctx.moveTo(lineStartX, yTp2);
-          ctx.lineTo(chartWidth, yTp2);
-          ctx.stroke();
-          ctx.setLineDash([]);
+          const tp2Price = this.currentSignal.tp2;
+          if (yTp2 >= paddingY && yTp2 <= height - paddingY) {
+            ctx.strokeStyle = isTp2Hit ? "#059669" : (isLight ? "#15803d" : "rgba(16, 185, 129, 0.65)");
+            ctx.lineWidth = isTp2Hit ? 2.6 : 1.3;
+            if (!isTp2Hit) ctx.setLineDash([5, 3]);
+            ctx.beginPath();
+            ctx.moveTo(lineStartX, yTp2);
+            ctx.lineTo(chartWidth, yTp2);
+            ctx.stroke();
+            ctx.setLineDash([]);
 
-          ctx.fillStyle = isTp2Hit ? "#059669" : (isLight ? "#15803d" : "rgba(16, 185, 129, 0.28)");
-          ctx.fillRect(chartWidth - 95, yTp2 - 12, 92, 16);
-          ctx.fillStyle = "#ffffff";
-          ctx.font = "bold 9px monospace";
-          ctx.textAlign = "right";
-          ctx.fillText(isTp2Hit ? "🚀 TP2 HIT: " + this.currentSignal.tp2 : "🎯 TP2: " + this.currentSignal.tp2, chartWidth - 6, yTp2 + 1);
+            ctx.fillStyle = isTp2Hit ? "#059669" : (isLight ? "#15803d" : "rgba(16, 185, 129, 0.28)");
+            ctx.fillRect(chartWidth - 95, yTp2 - 12, 92, 16);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 9px monospace";
+            ctx.textAlign = "right";
+            ctx.fillText(isTp2Hit ? "🚀 TP2 HIT: " + tp2Price : "🎯 TP2: " + tp2Price, chartWidth - 6, yTp2 + 1);
 
-          if (isTp2Hit && !isTp3HitNow && sync.hitTp2Idx !== -1) {
-            const candleSlot = sync.hitTp2Idx - startIdx;
-            if (candleSlot >= 0 && candleSlot < visibleCount) {
-              const hitX = (candleSlot * stepX) + (stepX / 2);
-              ctx.fillStyle = "#059669";
-              ctx.fillRect(hitX - 35, yTp2 - 22, 70, 15);
-              ctx.fillStyle = "#ffffff";
-              ctx.font = "bold 8.5px sans-serif";
-              ctx.textAlign = "center";
-              ctx.fillText("🚀 TP2 ALCANZADO", hitX, yTp2 - 11);
+            const isTp3HitNow = sync && sync.tp3Hit;
+            if (isTp2Hit && !isTp3HitNow && sync.hitTp2Idx !== -1) {
+              const candleSlot = sync.hitTp2Idx - startIdx;
+              if (candleSlot >= 0 && candleSlot < visibleCount) {
+                const hitX = (candleSlot * stepX) + (stepX / 2);
+                ctx.fillStyle = "#059669";
+                ctx.fillRect(hitX - 35, yTp2 - 22, 70, 15);
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 8.5px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("🚀 TP2 ALCANZADO", hitX, yTp2 - 11);
+              }
             }
           }
         }
 
         // D. TAKE PROFIT 3
-        if (yTp3) {
+        if (yTp3 !== null) {
           const isTp3Hit = sync && sync.tp3Hit;
-          ctx.strokeStyle = isTp3Hit ? "#eab308" : (isLight ? "#166534" : "rgba(16, 185, 129, 0.45)");
-          ctx.lineWidth = isTp3Hit ? 2.8 : 1.2;
-          if (!isTp3Hit) ctx.setLineDash([5, 3]);
-          ctx.beginPath();
-          ctx.moveTo(lineStartX, yTp3);
-          ctx.lineTo(chartWidth, yTp3);
-          ctx.stroke();
-          ctx.setLineDash([]);
+          const tp3Price = this.currentSignal.tp3;
+          if (yTp3 >= paddingY && yTp3 <= height - paddingY) {
+            ctx.strokeStyle = isTp3Hit ? "#eab308" : (isLight ? "#166534" : "rgba(16, 185, 129, 0.45)");
+            ctx.lineWidth = isTp3Hit ? 2.8 : 1.2;
+            if (!isTp3Hit) ctx.setLineDash([5, 3]);
+            ctx.beginPath();
+            ctx.moveTo(lineStartX, yTp3);
+            ctx.lineTo(chartWidth, yTp3);
+            ctx.stroke();
+            ctx.setLineDash([]);
 
-          ctx.fillStyle = isTp3Hit ? "#ca8a04" : (isLight ? "#166534" : "rgba(16, 185, 129, 0.20)");
-          ctx.fillRect(chartWidth - 95, yTp3 - 12, 92, 16);
-          ctx.fillStyle = "#ffffff";
-          ctx.font = "bold 9px monospace";
-          ctx.textAlign = "right";
-          ctx.fillText(isTp3Hit ? "💎 TP3 HIT: " + this.currentSignal.tp3 : "🎯 TP3: " + this.currentSignal.tp3, chartWidth - 6, yTp3 + 1);
+            ctx.fillStyle = isTp3Hit ? "#ca8a04" : (isLight ? "#166534" : "rgba(16, 185, 129, 0.20)");
+            ctx.fillRect(chartWidth - 95, yTp3 - 12, 92, 16);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 9px monospace";
+            ctx.textAlign = "right";
+            ctx.fillText(isTp3Hit ? "💎 TP3 HIT: " + tp3Price : "🎯 TP3: " + tp3Price, chartWidth - 6, yTp3 + 1);
 
-          if (isTp3Hit && sync.hitTp3Idx !== -1) {
-            const candleSlot = sync.hitTp3Idx - startIdx;
-            if (candleSlot >= 0 && candleSlot < visibleCount) {
-              const hitX = (candleSlot * stepX) + (stepX / 2);
-              ctx.fillStyle = "#ca8a04";
-              ctx.fillRect(hitX - 42, yTp3 - 22, 84, 15);
-              ctx.fillStyle = "#ffffff";
-              ctx.font = "bold 8.5px sans-serif";
-              ctx.textAlign = "center";
-              ctx.fillText("💎 TP3 COMPLETO", hitX, yTp3 - 11);
+            if (isTp3Hit && sync.hitTp3Idx !== -1) {
+              const candleSlot = sync.hitTp3Idx - startIdx;
+              if (candleSlot >= 0 && candleSlot < visibleCount) {
+                const hitX = (candleSlot * stepX) + (stepX / 2);
+                ctx.fillStyle = "#ca8a04";
+                ctx.fillRect(hitX - 42, yTp3 - 22, 84, 15);
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 8.5px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("💎 TP3 COMPLETO", hitX, yTp3 - 11);
+              }
             }
+          } else {
+            // Indicador fijado de TP3 en el borde sin deformar el gráfico
+            const isAbove = yTp3 < paddingY;
+            const pinY = isAbove ? paddingY + 6 : height - paddingY - 14;
+            ctx.fillStyle = isTp3Hit ? "#ca8a04" : (isLight ? "#166534" : "rgba(16, 185, 129, 0.92)");
+            ctx.fillRect(chartWidth - 105, pinY - 10, 102, 16);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 8.5px monospace";
+            ctx.textAlign = "right";
+            ctx.fillText((isAbove ? "▲ TP3: " : "▼ TP3: ") + tp3Price, chartWidth - 6, pinY + 2);
           }
         }
         ctx.setLineDash([]);
@@ -3813,11 +4084,13 @@
       }
 
       // Cambio de Temporalidad (Sincronización exacta con Deriv en M1, M5, M15, H1, H4, D1)
-      container.querySelectorAll(".ak-tf-btn").forEach(btn => {
+      container.querySelectorAll(".ak-tf-buttons .ak-tf-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
-          container.querySelectorAll(".ak-tf-btn").forEach(b => b.classList.remove("active"));
+          const tf = e.currentTarget.dataset.tf;
+          if (!tf) return;
+          container.querySelectorAll(".ak-tf-buttons .ak-tf-btn").forEach(b => b.classList.remove("active"));
           e.currentTarget.classList.add("active");
-          this.selectedTimeframe = e.currentTarget.dataset.tf;
+          this.selectedTimeframe = tf;
           this.currentSignal = null; // Retirar entrada de la temporalidad anterior
           this.updateChartCanvasHeader();
           if (!this.isDerivWsConnected) {
@@ -3831,6 +4104,26 @@
           }
         });
       });
+
+      // Cambio de Tipo de Gráfico: Velas Japonesas vs Línea / Acumuladores Deriv
+      const btnCandles = document.getElementById("btnChartCandles");
+      const btnLine = document.getElementById("btnChartLine");
+      if (btnCandles) {
+        btnCandles.addEventListener("click", () => {
+          this.chartType = "candles";
+          btnCandles.classList.add("active");
+          if (btnLine) btnLine.classList.remove("active");
+          this.drawMarketCanvas();
+        });
+      }
+      if (btnLine) {
+        btnLine.addEventListener("click", () => {
+          this.chartType = "line";
+          btnLine.classList.add("active");
+          if (btnCandles) btnCandles.classList.remove("active");
+          this.drawMarketCanvas();
+        });
+      }
 
       const btnEMA = document.getElementById("btnToggleEMA");
       if (btnEMA) {
@@ -4682,11 +4975,12 @@ if __name__ == "__main__":
         color: #fff; padding: 7px 12px; font-size: 12px; outline: none;
       }
       .ak-tf-buttons { display: flex; gap: 4px; }
-      .ak-tf-btn {
+      .ak-tf-btn, .ak-chart-type-btn {
         background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px;
-        color: #94a3b8; padding: 6px 10px; font-size: 11px; font-weight: 600; cursor: pointer;
+        color: #94a3b8; padding: 6px 10px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
       }
-      .ak-tf-btn.active { background: rgba(0,242,254,0.2); border-color: #00f2fe; color: #00f2fe; }
+      .ak-tf-btn:hover, .ak-chart-type-btn:hover { background: rgba(255,255,255,0.09); color: #fff; }
+      .ak-tf-btn.active, .ak-chart-type-btn.active { background: rgba(0,242,254,0.2); border-color: #00f2fe; color: #00f2fe; }
 
       .ak-bid-ask-box, .ak-spread-box {
         background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px;
@@ -5261,7 +5555,7 @@ if __name__ == "__main__":
           width: 100% !important;
           justify-content: space-between !important;
         }
-        .ak-tf-btn {
+        .ak-tf-btn, .ak-chart-type-btn {
           flex: 1 !important;
           text-align: center !important;
           padding: 7px 2px !important;
