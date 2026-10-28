@@ -119,7 +119,7 @@
     },
     "BOOM1000": {
       id: "BOOM1000",
-      decimals: 3,
+      decimals: 4,
       name: "Boom 1000 (Índice Sintético Deriv)",
       category: "Sintéticos Deriv (Spikes Alcistas)",
       platformMode: "deriv_boom",
@@ -127,14 +127,14 @@
       tvSymbol: "DERIV:BOOM_1000_INDEX",
       icon: "⚡",
       basePrice: 15420.0,
-      pipSize: 0.1,
-      pipName: "Ticks",
-      unitSpread: 0.3,
+      pipSize: 0.01,
+      pipName: "Puntos",
+      unitSpread: 0.025,
       isBinary: false
     },
     "CRASH1000": {
       id: "CRASH1000",
-      decimals: 3,
+      decimals: 4,
       name: "Crash 1000 (Índice Sintético Deriv)",
       category: "Sintéticos Deriv (Spikes Bajistas)",
       platformMode: "deriv_crash",
@@ -142,14 +142,14 @@
       tvSymbol: "DERIV:CRASH_1000_INDEX",
       icon: "💥",
       basePrice: 6050.0,
-      pipSize: 0.1,
-      pipName: "Ticks",
-      unitSpread: 0.3,
+      pipSize: 0.01,
+      pipName: "Puntos",
+      unitSpread: 0.025,
       isBinary: false
     },
     "BOOM500": {
       id: "BOOM500",
-      decimals: 3,
+      decimals: 4,
       name: "Boom 500 (Índice Sintético Deriv)",
       category: "Sintéticos Deriv (Spikes Alcistas)",
       platformMode: "deriv_boom",
@@ -157,14 +157,14 @@
       tvSymbol: "DERIV:BOOM_500_INDEX",
       icon: "⚡",
       basePrice: 6210.0,
-      pipSize: 0.1,
-      pipName: "Ticks",
-      unitSpread: 0.3,
+      pipSize: 0.01,
+      pipName: "Puntos",
+      unitSpread: 0.025,
       isBinary: false
     },
     "CRASH500": {
       id: "CRASH500",
-      decimals: 3,
+      decimals: 4,
       name: "Crash 500 (Índice Sintético Deriv)",
       category: "Sintéticos Deriv (Spikes Bajistas)",
       platformMode: "deriv_crash",
@@ -172,9 +172,9 @@
       tvSymbol: "DERIV:CRASH_500_INDEX",
       icon: "💥",
       basePrice: 3020.0,
-      pipSize: 0.1,
-      pipName: "Ticks",
-      unitSpread: 0.3,
+      pipSize: 0.01,
+      pipName: "Puntos",
+      unitSpread: 0.025,
       isBinary: false
     },
     "BIN_EURUSD": {
@@ -267,10 +267,10 @@
 
     getMarketDecimals(marketId = this.selectedMarket) {
       const m = MARKETS[marketId];
-      if (!m) return 2;
+      if (!m) return 4;
       if (typeof m.decimals === "number") return m.decimals;
       if (m.pipSize < 0.001) return 5;
-      if (m.platformMode?.startsWith("deriv")) return 3;
+      if (m.platformMode?.startsWith("deriv")) return 4;
       return 2;
     }
 
@@ -568,7 +568,9 @@
       if (tick.symbol && m.derivSymbol && tick.symbol !== m.derivSymbol) return;
 
       const decimals = this.getMarketDecimals(this.selectedMarket);
-      const curPrice = parseFloat(parseFloat(tick.quote).toFixed(decimals));
+      const rawPrice = (typeof tick.bid === "number") ? tick.bid : (typeof tick.quote === "number" ? tick.quote : parseFloat(tick.quote || tick.bid));
+      if (isNaN(rawPrice)) return;
+      const curPrice = parseFloat(rawPrice.toFixed(decimals));
       this.marketPrices[this.selectedMarket] = curPrice;
 
       // Actualizar en tiempo real milimétrico la vela actual en curso
@@ -2256,12 +2258,32 @@
       const totalStageW = isFs ? Math.max(280, window.innerWidth - (isMobileScreen ? 12 : 32)) : Math.max(280, clientW);
       const containerW = Math.max(240, totalStageW - vBarW);
 
-      const defaultH = isMobileScreen ? Math.min(420, Math.max(320, Math.round(window.innerHeight * 0.50))) : 540;
-      const containerH = isFs ? Math.max(280, window.innerHeight - (isMobileScreen ? 130 : 195)) : defaultH;
+      // Altura responsiva inteligente: llena el espacio vertical disponible hasta abajo de la pantalla
+      let containerH;
+      if (isFs) {
+        containerH = Math.max(280, window.innerHeight - (isMobileScreen ? 130 : 195));
+      } else if (isMobileScreen) {
+        containerH = Math.min(460, Math.max(340, Math.round(window.innerHeight * 0.55)));
+      } else {
+        // En escritorio sin pantalla completa: ajusta hasta el fondo del viewport
+        const calcH = window.innerHeight - 270;
+        containerH = Math.max(540, Math.min(940, calcH));
+      }
 
       if (canvas.width !== containerW || canvas.height !== containerH) {
         canvas.width = containerW;
         canvas.height = containerH;
+        canvas.style.height = containerH + "px";
+      }
+      if (stageEl && stageEl.style.height !== containerH + "px") {
+        stageEl.style.height = containerH + "px";
+      }
+      const canvasChartBox = document.getElementById("canvasChartContainer");
+      if (canvasChartBox && canvasChartBox.style.height !== containerH + "px") {
+        canvasChartBox.style.height = containerH + "px";
+      }
+      if (vBarEl && vBarEl.style.height !== containerH + "px") {
+        vBarEl.style.height = containerH + "px";
       }
 
       const ctx = canvas.getContext("2d");
@@ -4381,7 +4403,7 @@
       const btnZoomOut = document.getElementById("btnZoomOut");
       if (btnZoomOut) {
         btnZoomOut.addEventListener("click", () => {
-          this.visibleBars = Math.min(80, this.visibleBars + 10);
+          this.visibleBars = Math.min(130, this.visibleBars + 10);
           this.drawMarketCanvas();
         });
       }
@@ -4389,7 +4411,7 @@
       const btnZoomIn = document.getElementById("btnZoomIn");
       if (btnZoomIn) {
         btnZoomIn.addEventListener("click", () => {
-          this.visibleBars = Math.max(20, this.visibleBars - 10);
+          this.visibleBars = Math.max(14, this.visibleBars - 10);
           this.drawMarketCanvas();
         });
       }
@@ -4525,7 +4547,45 @@
           }
         });
 
-        // SOPORTE TOUCH GESTUAL PARA MÓVILES Y PANTALLAS TÁCTILES (SMARTPHONES & TABLETS)
+        // INTERACCIÓN CON LA RUEDITA DEL MOUSE (ZOOM IN / ZOOM OUT INTELIGENTE ESTILO TRADINGVIEW & MT5)
+        chartCanvasEl.addEventListener("wheel", (e) => {
+          e.preventDefault();
+
+          if (e.shiftKey) {
+            // Shift + Rueda = Desplazamiento horizontal en el tiempo
+            const scrollDelta = e.deltaY > 0 ? 3 : -3;
+            const maxScroll = Math.max(0, (this.candles[this.selectedMarket]?.length || 45) - this.visibleBars);
+            this.scrollOffset = Math.max(0, Math.min(maxScroll, this.scrollOffset + scrollDelta));
+            const sl = document.getElementById("chartScrollSlider");
+            if (sl) sl.value = this.scrollOffset.toString();
+          } else if (e.altKey) {
+            // Alt + Rueda = Desplazamiento vertical en la escala de precios
+            const vDelta = e.deltaY > 0 ? -6 : 6;
+            this.verticalOffset = Math.max(-100, Math.min(100, (this.verticalOffset || 0) + vDelta));
+            const vsl = document.getElementById("chartVScrollSlider");
+            if (vsl) vsl.value = this.verticalOffset.toString();
+          } else {
+            // Rueda estándar: Acercar (Zoom In) o Alejar (Zoom Out)
+            // e.deltaY < 0 (hacia arriba): ACERCAR (menos velas visibles, velas más grandes)
+            // e.deltaY > 0 (hacia abajo): ALEJAR (más velas visibles, perspectiva macro)
+            const zoomDelta = e.deltaY < 0 ? -3 : 3;
+            const newBars = Math.max(14, Math.min(130, this.visibleBars + zoomDelta));
+            if (newBars !== this.visibleBars) {
+              this.visibleBars = newBars;
+              const maxScroll = Math.max(0, (this.candles[this.selectedMarket]?.length || 45) - this.visibleBars);
+              this.scrollOffset = Math.max(0, Math.min(maxScroll, this.scrollOffset));
+              const sl = document.getElementById("chartScrollSlider");
+              if (sl) sl.value = this.scrollOffset.toString();
+            }
+          }
+
+          this.drawMarketCanvas();
+        }, { passive: false });
+
+        // SOPORTE TOUCH GESTUAL PARA MÓVILES (PAN CON 1 DEDO Y PINCH-TO-ZOOM CON 2 DEDOS)
+        let pinchStartDistance = 0;
+        let initialBarsOnPinch = 45;
+
         chartCanvasEl.addEventListener("touchstart", (e) => {
           if (e.touches.length === 1) {
             isCanvasDragging = true;
@@ -4533,10 +4593,32 @@
             dragStartY = e.touches[0].clientY;
             initialOffsetX = this.scrollOffset;
             initialOffsetY = this.verticalOffset || 0;
+          } else if (e.touches.length === 2) {
+            isCanvasDragging = false;
+            pinchStartDistance = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY
+            );
+            initialBarsOnPinch = this.visibleBars;
           }
         }, { passive: true });
 
         window.addEventListener("touchmove", (e) => {
+          if (e.touches.length === 2 && pinchStartDistance > 10) {
+            const currentDist = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY
+            );
+            const ratio = currentDist / pinchStartDistance;
+            const targetBars = Math.round(initialBarsOnPinch / Math.max(0.2, ratio));
+            const newBars = Math.max(14, Math.min(130, targetBars));
+            if (newBars !== this.visibleBars) {
+              this.visibleBars = newBars;
+              this.drawMarketCanvas();
+            }
+            return;
+          }
+
           if (!isCanvasDragging || e.touches.length !== 1) return;
           // Desplazamiento horizontal con el dedo
           const dx = e.touches[0].clientX - dragStartX;
@@ -4562,6 +4644,7 @@
           if (isCanvasDragging) {
             isCanvasDragging = false;
           }
+          pinchStartDistance = 0;
         }, { passive: true });
       }
 
@@ -5264,7 +5347,7 @@ if __name__ == "__main__":
         background: rgba(0,0,0,0.4); border-bottom: 1px solid rgba(255,255,255,0.04);
         padding: 6px 16px; font-size: 11px; color: #94a3b8; font-family: monospace;
       }
-      .ak-market-canvas { width: 100%; height: 540px; display: block; cursor: crosshair; }
+      .ak-market-canvas { width: 100%; display: block; cursor: crosshair; }
 
       .ak-chart-nav-bar {
         display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
@@ -5663,8 +5746,9 @@ if __name__ == "__main__":
         accent-color: #00f2fe;
         margin: 6px 0;
       }
-      .ak-chart-canvas-wrapper.theme-light .ak-chart-stage-container {
-        background: #ffffff;
+      .ak-chart-canvas-wrapper.theme-light .ak-chart-stage-container,
+      .ak-chart-canvas-wrapper.theme-light #canvasChartContainer {
+        background: #ffffff !important;
       }
       .ak-chart-canvas-wrapper.theme-light .ak-chart-v-scroll-bar {
         background: #f8fafc;
