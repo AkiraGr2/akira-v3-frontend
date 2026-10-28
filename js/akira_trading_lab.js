@@ -1965,10 +1965,16 @@
       const isFs = this.isFullscreen || Boolean(document.getElementById("akiraChartCanvasWrapper")?.classList.contains("ak-fullscreen"));
       const stageEl = document.getElementById("chartStageContainer") || canvas.parentElement;
       const vBarEl = document.getElementById("chartVScrollBar");
-      const vBarW = (vBarEl && vBarEl.offsetWidth > 0) ? vBarEl.offsetWidth : 36;
-      const totalStageW = isFs ? Math.max(800, window.innerWidth - 32) : Math.max(800, (stageEl?.clientWidth || 1100));
-      const containerW = Math.max(600, totalStageW - vBarW);
-      const containerH = isFs ? Math.max(450, window.innerHeight - 195) : 540;
+      const isMobileScreen = window.innerWidth < 640;
+      const vBarW = (vBarEl && vBarEl.offsetWidth > 0) ? vBarEl.offsetWidth : (isMobileScreen ? 32 : 36);
+
+      // CÁLCULO RESPONSIVO PARA MÓVIL Y ESCRITORIO (SIN DESBORDAMIENTO HORIZONTAL)
+      const clientW = stageEl?.clientWidth || window.innerWidth || 360;
+      const totalStageW = isFs ? Math.max(280, window.innerWidth - (isMobileScreen ? 12 : 32)) : Math.max(280, clientW);
+      const containerW = Math.max(240, totalStageW - vBarW);
+
+      const defaultH = isMobileScreen ? Math.min(420, Math.max(320, Math.round(window.innerHeight * 0.50))) : 540;
+      const containerH = isFs ? Math.max(280, window.innerHeight - (isMobileScreen ? 130 : 195)) : defaultH;
 
       if (canvas.width !== containerW || canvas.height !== containerH) {
         canvas.width = containerW;
@@ -2071,9 +2077,10 @@
       const effectiveMaxPrice = maxPrice + priceShift;
       const priceRange = (effectiveMaxPrice - effectiveMinPrice) || 1;
 
-      const paddingY = 40;
+      const isSmallScreen = width < 520;
+      const paddingY = isSmallScreen ? 28 : 40;
       const chartHeight = height - (paddingY * 2);
-      const rightMargin = 90;
+      const rightMargin = isSmallScreen ? 62 : 90;
       const chartWidth = width - rightMargin;
 
       const getY = (val) => {
@@ -3872,6 +3879,45 @@
             chartCanvasEl.style.cursor = "crosshair";
           }
         });
+
+        // SOPORTE TOUCH GESTUAL PARA MÓVILES Y PANTALLAS TÁCTILES (SMARTPHONES & TABLETS)
+        chartCanvasEl.addEventListener("touchstart", (e) => {
+          if (e.touches.length === 1) {
+            isCanvasDragging = true;
+            dragStartX = e.touches[0].clientX;
+            dragStartY = e.touches[0].clientY;
+            initialOffsetX = this.scrollOffset;
+            initialOffsetY = this.verticalOffset || 0;
+          }
+        }, { passive: true });
+
+        window.addEventListener("touchmove", (e) => {
+          if (!isCanvasDragging || e.touches.length !== 1) return;
+          // Desplazamiento horizontal con el dedo
+          const dx = e.touches[0].clientX - dragStartX;
+          const stepX = (chartCanvasEl.width - (chartCanvasEl.width < 520 ? 62 : 90)) / (this.visibleBars + this.rightMarginBars);
+          const candleDelta = Math.round(dx / Math.max(1, stepX));
+          const maxScroll = Math.max(0, (this.candles[this.selectedMarket]?.length || 45) - this.visibleBars);
+          this.scrollOffset = Math.max(0, Math.min(maxScroll, initialOffsetX + candleDelta));
+          const sl = document.getElementById("chartScrollSlider");
+          if (sl) sl.value = this.scrollOffset.toString();
+
+          // Desplazamiento vertical con el dedo
+          const dy = e.touches[0].clientY - dragStartY;
+          const vSensitivity = 0.35;
+          const vDelta = dy * vSensitivity;
+          this.verticalOffset = Math.max(-100, Math.min(100, initialOffsetY + vDelta));
+          const vsl = document.getElementById("chartVScrollSlider");
+          if (vsl) vsl.value = this.verticalOffset.toString();
+
+          this.drawMarketCanvas();
+        }, { passive: true });
+
+        window.addEventListener("touchend", () => {
+          if (isCanvasDragging) {
+            isCanvasDragging = false;
+          }
+        }, { passive: true });
       }
 
       window.addEventListener("keydown", (e) => {
@@ -3880,11 +3926,18 @@
         }
       });
 
-      window.addEventListener("resize", () => {
-        if (this.activeTab === "market") {
-          this.drawMarketCanvas();
-        }
-      });
+      let resizeTimeout = null;
+      const handleResponsiveResize = () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          if (this.activeTab === "market") {
+            this.drawMarketCanvas();
+          }
+        }, 60);
+      };
+
+      window.addEventListener("resize", handleResponsiveResize);
+      window.addEventListener("orientationchange", handleResponsiveResize);
 
       document.addEventListener("fullscreenchange", () => {
         if (!document.fullscreenElement && this.isFullscreen) {
@@ -4346,9 +4399,18 @@ if __name__ == "__main__":
     const s = document.createElement("style");
     s.id = "akira-trading-lab-styles";
     s.textContent = `
+      #tradingSection {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
       .ak-trading-wrap {
-        display: flex; flex-direction: column; gap: 16px;
-        color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        color: #e2e8f0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        min-height: 100%;
+        padding-bottom: 90px !important; /* Margen para barra de navegación móvil inferior de Akira */
       }
       .ak-trading-hero {
         background: linear-gradient(135deg, rgba(8, 12, 20, 0.95), rgba(15, 23, 42, 0.9));
@@ -4917,6 +4979,195 @@ if __name__ == "__main__":
       .ak-conn-icon { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
       .ak-conn-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
       .ak-api-token-box { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px 14px; }
+
+      /* ==========================================================================
+         ADAPTACIÓN MÓVIL PROFESIONAL (SMARTPHONES, TABLETS & VIEWPORTS PEQUEÑOS)
+         ========================================================================== */
+      @media (max-width: 768px) {
+        .ak-trading-wrap {
+          gap: 10px;
+          padding: 0 4px;
+        }
+
+        /* 1. Cabecera Hero */
+        .ak-trading-hero {
+          padding: 12px 14px !important;
+          border-radius: 10px !important;
+        }
+        .ak-trading-hero-top {
+          flex-direction: column !important;
+          align-items: flex-start !important;
+          gap: 10px !important;
+          margin-bottom: 12px !important;
+        }
+        .ak-trading-title-group h2 {
+          font-size: 16px !important;
+        }
+        .ak-trading-title-group p {
+          font-size: 11px !important;
+        }
+        .ak-trading-badge-group {
+          width: 100% !important;
+          overflow-x: auto !important;
+          white-space: nowrap !important;
+          padding-bottom: 4px !important;
+        }
+
+        /* 2. Pestañas Principales Móviles (Scroll Táctil Horizontal) */
+        .ak-ttabs-nav {
+          display: flex !important;
+          overflow-x: auto !important;
+          white-space: nowrap !important;
+          -webkit-overflow-scrolling: touch !important;
+          scrollbar-width: none !important;
+          gap: 6px !important;
+          padding: 4px 0 !important;
+        }
+        .ak-ttabs-nav::-webkit-scrollbar { display: none !important; }
+        .ak-ttab-btn {
+          flex-shrink: 0 !important;
+          font-size: 11px !important;
+          padding: 8px 12px !important;
+          border-radius: 8px !important;
+        }
+
+        /* 3. Barra de Control de Mercado y Temporalidades */
+        .ak-chart-top-bar {
+          flex-direction: column !important;
+          align-items: stretch !important;
+          gap: 10px !important;
+          padding: 10px 12px !important;
+        }
+        .ak-control-group {
+          width: 100% !important;
+        }
+        .ak-tf-buttons {
+          display: flex !important;
+          width: 100% !important;
+          justify-content: space-between !important;
+        }
+        .ak-tf-btn {
+          flex: 1 !important;
+          text-align: center !important;
+          padding: 7px 2px !important;
+          font-size: 11px !important;
+          min-height: 34px !important;
+        }
+
+        /* 4. Barra Superior del Canvas y Herramientas */
+        .ak-chart-canvas-header {
+          flex-direction: column !important;
+          align-items: stretch !important;
+          gap: 8px !important;
+          padding: 8px 10px !important;
+        }
+        .ak-chart-canvas-header > div:last-child {
+          display: flex !important;
+          overflow-x: auto !important;
+          white-space: nowrap !important;
+          -webkit-overflow-scrolling: touch !important;
+          gap: 6px !important;
+          scrollbar-width: none !important;
+          padding-bottom: 4px !important;
+        }
+        .ak-chart-canvas-header > div:last-child::-webkit-scrollbar { display: none !important; }
+        .ak-chart-tool-btn {
+          flex-shrink: 0 !important;
+          font-size: 10.5px !important;
+          padding: 6px 10px !important;
+          min-height: 32px !important;
+        }
+
+        /* 5. Escenario Canvas y Barra Vertical */
+        .ak-chart-stage-container {
+          border-radius: 8px !important;
+        }
+        .ak-chart-v-scroll-bar {
+          width: 32px !important;
+          padding: 6px 2px !important;
+        }
+        .ak-vbar-btn {
+          width: 26px !important;
+          height: 26px !important;
+          font-size: 10px !important;
+        }
+        .ak-vbar-lbl {
+          font-size: 7.5px !important;
+        }
+
+        /* 6. Barra de Navegación Horizontal Inferior */
+        .ak-chart-nav-bar {
+          flex-direction: column !important;
+          gap: 8px !important;
+          padding: 8px 10px !important;
+        }
+        .ak-nav-left-group, .ak-nav-right-group {
+          width: 100% !important;
+          justify-content: space-between !important;
+          flex-wrap: wrap !important;
+          gap: 6px !important;
+        }
+        .ak-slider-wrap {
+          flex: 1 !important;
+          min-width: 110px !important;
+        }
+        .ak-nav-btn {
+          font-size: 10px !important;
+          padding: 6px 8px !important;
+          min-height: 32px !important;
+        }
+
+        /* 7. Centro Telegram Móvil */
+        .ak-tg-credentials-grid {
+          grid-template-columns: 1fr !important;
+          gap: 8px !important;
+        }
+        .ak-tg-market-filters-section > div:first-child > div:last-child {
+          display: flex !important;
+          overflow-x: auto !important;
+          white-space: nowrap !important;
+          -webkit-overflow-scrolling: touch !important;
+          padding-bottom: 4px !important;
+        }
+        .ak-tg-markets-grid {
+          grid-template-columns: repeat(2, 1fr) !important;
+          gap: 6px !important;
+        }
+        .ak-tg-market-chip {
+          padding: 6px 8px !important;
+          font-size: 10.5px !important;
+        }
+        .ak-conn-card {
+          padding: 12px 14px !important;
+        }
+
+        /* 8. Cuadrículas y Tablas del Simulador */
+        .ak-market-data-grid {
+          flex-direction: column !important;
+        }
+        .ak-order-actions-grid {
+          grid-template-columns: 1fr 1fr !important;
+        }
+        .ak-calc-grid {
+          grid-template-columns: repeat(2, 1fr) !important;
+        }
+        .ak-compound-summary-grid {
+          grid-template-columns: repeat(2, 1fr) !important;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .ak-tg-markets-grid {
+          grid-template-columns: 1fr !important;
+        }
+        .ak-trading-title-group h2 {
+          font-size: 14.5px !important;
+        }
+        .ak-chart-tool-btn {
+          font-size: 10px !important;
+          padding: 5px 8px !important;
+        }
+      }
     `;
     document.head.appendChild(s);
   })();
