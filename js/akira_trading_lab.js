@@ -199,6 +199,7 @@
       this.telegramMarkets = savedTgMarkets ? JSON.parse(savedTgMarkets) : Object.keys(MARKETS);
       this.lastSentTelegramSignals = {};
       this.recentSentSignalsList = [];
+      this.verticalOffset = 0; // Control de desplazamiento vertical de pantalla (-100 a +100%)
 
       // WebSocket Deriv Oficial en Vivo
       this.derivWs = null;
@@ -1097,7 +1098,22 @@
                 <span>Pasa el mouse sobre el gráfico para auditar cualquier vela histórica en números exactos.</span>
               </div>
 
-              <canvas id="akiraMarketCanvas" class="ak-market-canvas" width="1100" height="540"></canvas>
+              <!-- ESCENARIO PRINCIPAL DEL GRÁFICO CON BARRA VERTICAL INTEGRADA -->
+              <div class="ak-chart-stage-container" id="chartStageContainer">
+                <canvas id="akiraMarketCanvas" class="ak-market-canvas" width="1100" height="540"></canvas>
+
+                <!-- BARRA VERTICAL DEDICADA: MOVER PANTALLA ARRIBA Y ABAJO -->
+                <div class="ak-chart-v-scroll-bar" id="chartVScrollBar" title="Barra Vertical: Mueve el gráfico hacia arriba o hacia abajo">
+                  <button id="btnScrollUp" class="ak-vbar-btn" title="Subir gráfico (Ver precios más altos / resistencias)">▲</button>
+                  <div class="ak-vbar-track-wrap">
+                    <span class="ak-vbar-lbl top">▲ MÁX</span>
+                    <input type="range" id="chartVScrollSlider" min="-100" max="100" value="0" step="1" class="ak-vbar-slider" title="Desliza para mover la pantalla arriba o abajo">
+                    <span class="ak-vbar-lbl btm">▼ MÍN</span>
+                  </div>
+                  <button id="btnScrollDown" class="ak-vbar-btn" title="Bajar gráfico (Ver precios más bajos / soportes)">▼</button>
+                  <button id="btnResetVScroll" class="ak-vbar-btn reset" title="Centrar escala vertical en 0%">⊙</button>
+                </div>
+              </div>
 
               <div class="ak-chart-nav-bar" id="chartNavBar">
                 <div class="ak-nav-left-group">
@@ -1115,6 +1131,7 @@
                 </div>
 
                 <div class="ak-nav-right-group">
+                  <span id="vScrollBadge" class="ak-pill subtle" style="display:none;font-size:10px;padding:3px 8px;">↕ 0%</span>
                   <button id="btnZoomOut" class="ak-nav-btn" title="Ver más velas en pantalla (Alejar)">
                     🔍 - Alejar
                   </button>
@@ -1934,7 +1951,11 @@
       if (!canvas) return;
 
       const isFs = this.isFullscreen || Boolean(document.getElementById("akiraChartCanvasWrapper")?.classList.contains("ak-fullscreen"));
-      const containerW = isFs ? Math.max(800, window.innerWidth - 32) : Math.max(800, (canvas.parentElement?.clientWidth || 1100));
+      const stageEl = document.getElementById("chartStageContainer") || canvas.parentElement;
+      const vBarEl = document.getElementById("chartVScrollBar");
+      const vBarW = (vBarEl && vBarEl.offsetWidth > 0) ? vBarEl.offsetWidth : 36;
+      const totalStageW = isFs ? Math.max(800, window.innerWidth - 32) : Math.max(800, (stageEl?.clientWidth || 1100));
+      const containerW = Math.max(600, totalStageW - vBarW);
       const containerH = isFs ? Math.max(450, window.innerHeight - 195) : 540;
 
       if (canvas.width !== containerW || canvas.height !== containerH) {
@@ -1994,14 +2015,38 @@
         if (s.tp3 && s.tp3 < minPrice) minPrice = s.tp3;
       }
 
-      const priceRange = (maxPrice - minPrice) || 1;
+      // DESPLAZAMIENTO VERTICAL (SCROLL ARRIBA / ABAJO)
+      if (typeof this.verticalOffset !== "number") this.verticalOffset = 0;
+      this.verticalOffset = Math.max(-100, Math.min(100, this.verticalOffset));
+
+      const vSlider = document.getElementById("chartVScrollSlider");
+      if (vSlider) {
+        vSlider.value = this.verticalOffset.toString();
+      }
+      const vBadge = document.getElementById("vScrollBadge");
+      if (vBadge) {
+        if (Math.abs(this.verticalOffset) > 0.5) {
+          vBadge.style.display = "inline-block";
+          vBadge.innerText = (this.verticalOffset > 0 ? `▲ +${Math.round(this.verticalOffset)}%` : `▼ ${Math.round(this.verticalOffset)}%`);
+        } else {
+          vBadge.style.display = "none";
+        }
+      }
+
+      const rawRange = (maxPrice - minPrice) || 1;
+      // Desplaza el rango visual arriba (+) o abajo (-) según la barra vertical
+      const priceShift = (this.verticalOffset / 100) * (rawRange * 0.9);
+      const effectiveMinPrice = minPrice + priceShift;
+      const effectiveMaxPrice = maxPrice + priceShift;
+      const priceRange = (effectiveMaxPrice - effectiveMinPrice) || 1;
+
       const paddingY = 40;
       const chartHeight = height - (paddingY * 2);
       const rightMargin = 90;
       const chartWidth = width - rightMargin;
 
       const getY = (val) => {
-        return height - paddingY - (((val - minPrice) / priceRange) * chartHeight);
+        return height - paddingY - (((val - effectiveMinPrice) / priceRange) * chartHeight);
       };
 
       // 2. CUADRÍCULA Y ESCALA DE PRECIOS
@@ -2013,7 +2058,7 @@
 
       const gridLines = 6;
       for (let i = 0; i <= gridLines; i++) {
-        const pVal = minPrice + ((priceRange / gridLines) * i);
+        const pVal = effectiveMinPrice + ((priceRange / gridLines) * i);
         const y = getY(pVal);
         ctx.beginPath();
         ctx.moveTo(0, y);
@@ -3648,41 +3693,91 @@
         });
       }
 
-      const btnResetView = document.getElementById("btnResetView");
-      if (btnResetView) {
-        btnResetView.addEventListener("click", () => {
-          this.scrollOffset = 0;
-          this.visibleBars = 45;
-          this.rightMarginBars = 8;
-          const sl = document.getElementById("chartScrollSlider");
-          if (sl) sl.value = "0";
+      // EVENTOS DE LA BARRA VERTICAL (ARRIBA / ABAJO)
+      const btnScrollUp = document.getElementById("btnScrollUp");
+      if (btnScrollUp) {
+        btnScrollUp.addEventListener("click", () => {
+          this.verticalOffset = Math.min(100, (this.verticalOffset || 0) + 15);
           this.drawMarketCanvas();
         });
       }
 
-      // ARRASTRE DE PANTALLA CON EL MOUSE (PAN / DRAG HORIZONTAL DIRECTO EN EL CANVAS)
+      const btnScrollDown = document.getElementById("btnScrollDown");
+      if (btnScrollDown) {
+        btnScrollDown.addEventListener("click", () => {
+          this.verticalOffset = Math.max(-100, (this.verticalOffset || 0) - 15);
+          this.drawMarketCanvas();
+        });
+      }
+
+      const btnResetVScroll = document.getElementById("btnResetVScroll");
+      if (btnResetVScroll) {
+        btnResetVScroll.addEventListener("click", () => {
+          this.verticalOffset = 0;
+          this.drawMarketCanvas();
+        });
+      }
+
+      const vScrollSlider = document.getElementById("chartVScrollSlider");
+      if (vScrollSlider) {
+        vScrollSlider.addEventListener("input", (e) => {
+          this.verticalOffset = parseInt(e.target.value, 10);
+          this.drawMarketCanvas();
+        });
+      }
+
+      const btnResetView = document.getElementById("btnResetView");
+      if (btnResetView) {
+        btnResetView.addEventListener("click", () => {
+          this.scrollOffset = 0;
+          this.verticalOffset = 0;
+          this.visibleBars = 45;
+          this.rightMarginBars = 8;
+          const sl = document.getElementById("chartScrollSlider");
+          if (sl) sl.value = "0";
+          const vsl = document.getElementById("chartVScrollSlider");
+          if (vsl) vsl.value = "0";
+          this.drawMarketCanvas();
+        });
+      }
+
+      // ARRASTRE DE PANTALLA 2D CON EL MOUSE (PAN HORIZONTAL Y VERTICAL LIBRE)
       let isCanvasDragging = false;
       let dragStartX = 0;
-      let initialOffset = 0;
+      let dragStartY = 0;
+      let initialOffsetX = 0;
+      let initialOffsetY = 0;
 
       const chartCanvasEl = document.getElementById("akiraMarketCanvas");
       if (chartCanvasEl) {
         chartCanvasEl.addEventListener("mousedown", (e) => {
           isCanvasDragging = true;
           dragStartX = e.clientX;
-          initialOffset = this.scrollOffset;
+          dragStartY = e.clientY;
+          initialOffsetX = this.scrollOffset;
+          initialOffsetY = this.verticalOffset || 0;
           chartCanvasEl.style.cursor = "grabbing";
         });
 
         window.addEventListener("mousemove", (e) => {
           if (!isCanvasDragging) return;
+          // 1. Mover horizontalmente (izquierda / derecha en el tiempo)
           const dx = e.clientX - dragStartX;
-          const stepX = (chartCanvasEl.width - 85) / (this.visibleBars + this.rightMarginBars);
+          const stepX = (chartCanvasEl.width - 90) / (this.visibleBars + this.rightMarginBars);
           const candleDelta = Math.round(dx / Math.max(1, stepX));
           const maxScroll = Math.max(0, (this.candles[this.selectedMarket]?.length || 45) - this.visibleBars);
-          this.scrollOffset = Math.max(0, Math.min(maxScroll, initialOffset + candleDelta));
+          this.scrollOffset = Math.max(0, Math.min(maxScroll, initialOffsetX + candleDelta));
           const sl = document.getElementById("chartScrollSlider");
           if (sl) sl.value = this.scrollOffset.toString();
+
+          // 2. Mover verticalmente (arriba / abajo en la escala de precios)
+          const dy = e.clientY - dragStartY;
+          const vSensitivity = 0.35;
+          const vDelta = dy * vSensitivity;
+          this.verticalOffset = Math.max(-100, Math.min(100, initialOffsetY + vDelta));
+          const vsl = document.getElementById("chartVScrollSlider");
+          if (vsl) vsl.value = this.verticalOffset.toString();
+
           this.drawMarketCanvas();
         });
 
@@ -4629,6 +4724,104 @@ if __name__ == "__main__":
       }
       .ak-tg-market-chip input {
         cursor: pointer;
+      }
+      .ak-chart-stage-container {
+        display: flex;
+        position: relative;
+        width: 100%;
+        background: #080c14;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .ak-chart-v-scroll-bar {
+        width: 36px;
+        background: rgba(10, 15, 26, 0.92);
+        border-left: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 4px;
+        box-sizing: border-box;
+        user-select: none;
+      }
+      .ak-vbar-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: #94a3b8;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .ak-vbar-btn:hover {
+        background: rgba(0, 242, 254, 0.2);
+        border-color: #00f2fe;
+        color: #00f2fe;
+      }
+      .ak-vbar-btn.reset {
+        font-size: 14px;
+        color: #10b981;
+      }
+      .ak-vbar-btn.reset:hover {
+        background: rgba(16, 185, 129, 0.2);
+        border-color: #10b981;
+      }
+      .ak-vbar-track-wrap {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 0;
+        position: relative;
+        width: 100%;
+      }
+      .ak-vbar-lbl {
+        font-size: 8px;
+        font-weight: 700;
+        color: #64748b;
+        letter-spacing: 0.5px;
+      }
+      .ak-vbar-lbl.top { color: #00f2fe; }
+      .ak-vbar-lbl.btm { color: #f59e0b; }
+      .ak-vbar-slider {
+        -webkit-appearance: slider-vertical;
+        writing-mode: vertical-lr;
+        direction: rtl;
+        width: 8px;
+        height: calc(100% - 30px);
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        cursor: pointer;
+        accent-color: #00f2fe;
+        margin: 6px 0;
+      }
+      .ak-chart-canvas-wrapper.theme-light .ak-chart-stage-container {
+        background: #ffffff;
+      }
+      .ak-chart-canvas-wrapper.theme-light .ak-chart-v-scroll-bar {
+        background: #f8fafc;
+        border-left: 1px solid rgba(0, 0, 0, 0.08);
+      }
+      .ak-chart-canvas-wrapper.theme-light .ak-vbar-btn {
+        background: rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        color: #334155;
+      }
+      .ak-chart-canvas-wrapper.theme-light .ak-vbar-btn:hover {
+        background: rgba(2, 132, 199, 0.15);
+        border-color: #0284c7;
+        color: #0284c7;
+      }
+      .ak-chart-canvas-wrapper.theme-light .ak-vbar-slider {
+        background: rgba(0, 0, 0, 0.1);
+        accent-color: #0284c7;
       }
       .ak-connections-deck { display: flex; flex-direction: column; gap: 16px; }
       .ak-conn-card {
