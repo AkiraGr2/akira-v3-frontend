@@ -200,7 +200,16 @@
       this.activeTab = "market";
       this.selectedMarket = "BOOM1000";
       this.selectedTimeframe = "M1";
-      this.chartEngine = localStorage.getItem("akira_chart_engine") || "tradingview";
+      // Restablecer a "canvas" (Cuántico Akira) si venía de versión previa con pantalla negra
+      const savedEngine = localStorage.getItem("akira_chart_engine");
+      const hasFixedV16 = localStorage.getItem("akira_chart_engine_v16_ok");
+      if (!hasFixedV16 || savedEngine === "tradingview") {
+        this.chartEngine = "canvas";
+        localStorage.setItem("akira_chart_engine", "canvas");
+        localStorage.setItem("akira_chart_engine_v16_ok", "1");
+      } else {
+        this.chartEngine = savedEngine || "canvas";
+      }
       this.chartType = "candles";
       this.derivSubMode = "spikes";
       this.accumulatorGrowthRate = 0.03;
@@ -1275,7 +1284,7 @@
               <!-- ESCENARIO PRINCIPAL DEL GRÁFICO (TRADINGVIEW O CANVAS) -->
               <div class="ak-chart-stage-container" id="chartStageContainer">
                 <!-- CONTENEDOR TRADINGVIEW OFICIAL (EN TIEMPO REAL CON DERIV) -->
-                <div id="tvChartContainer" style="width:100%;height:560px;display:${this.chartEngine === 'tradingview' ? 'block' : 'none'};border-radius:8px;overflow:hidden;background:#080b12;"></div>
+                <div id="tvChartContainer" style="width:100%;height:560px;display:${this.chartEngine === 'tradingview' ? 'flex' : 'none'};flex-direction:column;border-radius:8px;overflow:hidden;background:#080c14;border:1px solid rgba(0,242,254,0.25);"></div>
 
                 <!-- CONTENEDOR CANVAS LOCAL AKIRA -->
                 <div id="canvasChartContainer" style="width:100%;display:${this.chartEngine === 'canvas' ? 'flex' : 'none'};position:relative;flex:1;">
@@ -2023,7 +2032,11 @@
       }
 
       setTimeout(() => {
-        this.drawMarketCanvas();
+        if (this.chartEngine === "tradingview") {
+          this.renderTradingViewChart();
+        } else {
+          this.drawMarketCanvas();
+        }
       }, 60);
     }
 
@@ -4037,44 +4050,96 @@
 
       const m = MARKETS[this.selectedMarket] || MARKETS["BOOM1000"];
       const isLight = this.chartTheme === "light";
-      const widgetDiv = document.createElement("div");
-      widgetDiv.className = "tradingview-widget-container";
-      widgetDiv.style.height = "100%";
-      widgetDiv.style.width = "100%";
+      const interval = this.getTradingViewInterval();
+      const theme = isLight ? "light" : "dark";
+      const sym = m.tvSymbol || "BINANCE:BTCUSDT";
 
-      const subDiv = document.createElement("div");
-      subDiv.className = "tradingview-widget-container__widget";
-      subDiv.style.height = "100%";
-      subDiv.style.width = "100%";
-      widgetDiv.appendChild(subDiv);
+      // 1. Barra de Control Superior de TradingView Pro
+      const headerBar = document.createElement("div");
+      headerBar.className = "ak-tv-header-bar";
+      headerBar.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:rgba(15,23,42,0.92);border-bottom:1px solid rgba(255,255,255,0.08);font-size:12px;color:#94a3b8;flex-wrap:wrap;gap:8px;";
+      headerBar.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#00f2fe;box-shadow:0 0 8px #00f2fe;"></span>
+          <strong style="color:#f8fafc;font-size:13px;">${m.icon} ${m.name}</strong>
+          <span style="font-size:11px;color:#00f2fe;font-family:monospace;background:rgba(0,242,254,0.1);padding:2px 6px;border-radius:4px;">${sym}</span>
+          <span class="ak-pill live" style="font-size:10px;">${this.selectedTimeframe}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${m.platformMode.startsWith("deriv") ? '<span style="color:#f59e0b;font-size:11px;display:none;" class="ak-tv-deriv-hint">⚡ Ticks Deriv en Vivo</span>' : ''}
+          <button id="btnTvHeaderSwitchCanvas" style="background:linear-gradient(135deg,rgba(0,242,254,0.18),rgba(99,102,241,0.22));border:1px solid rgba(0,242,254,0.45);color:#00f2fe;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px;">
+            🔬 Alternar a Cuántico Akira
+          </button>
+        </div>
+      `;
+      container.appendChild(headerBar);
 
-      const script = document.createElement("script");
-      script.type = "text/javascript";
-      script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-      script.async = true;
-      script.innerHTML = JSON.stringify({
-        "autosize": true,
-        "symbol": m.tvSymbol,
-        "interval": this.getTradingViewInterval(),
-        "timezone": "America/Bogota",
-        "theme": isLight ? "light" : "dark",
-        "style": "1",
-        "locale": "es",
-        "enable_publishing": false,
-        "backgroundColor": isLight ? "#ffffff" : "#080c14",
-        "gridColor": isLight ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.04)",
-        "withdateranges": true,
-        "hide_side_toolbar": false,
-        "allow_symbol_change": true,
-        "save_image": true,
-        "details": true,
-        "hotlist": false,
-        "calendar": false,
-        "support_host": "https://www.tradingview.com"
-      });
+      const btnSwitch = headerBar.querySelector("#btnTvHeaderSwitchCanvas");
+      if (btnSwitch) {
+        btnSwitch.addEventListener("click", () => {
+          const btnEngineCanvas = document.getElementById("btnEngineCanvas");
+          if (btnEngineCanvas) btnEngineCanvas.click();
+        });
+      }
 
-      widgetDiv.appendChild(script);
-      container.appendChild(widgetDiv);
+      // 2. Escenario Iframe Responsivo con Overlay de Carga Inteligente
+      const iframeWrap = document.createElement("div");
+      iframeWrap.style.cssText = "position:relative;width:100%;flex:1;min-height:510px;background:#080c14;";
+
+      const loaderOverlay = document.createElement("div");
+      loaderOverlay.id = "tvLoaderOverlay";
+      loaderOverlay.style.cssText = "position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#080c14;color:#94a3b8;z-index:5;gap:12px;padding:20px;text-align:center;";
+      loaderOverlay.innerHTML = `
+        <div style="width:34px;height:34px;border:3px solid rgba(0,242,254,0.15);border-top:3px solid #00f2fe;border-radius:50%;animation:akira-spin 0.8s linear infinite;"></div>
+        <span style="color:#cbd5e1;font-size:12px;">Cargando TradingView Pro (${sym})...</span>
+      `;
+      iframeWrap.appendChild(loaderOverlay);
+
+      // 3. Iframe Nativo TradingView (Directo, sin fallos de dynamic script ni CSP)
+      const iframe = document.createElement("iframe");
+      iframe.id = "tradingview_pro_iframe";
+      iframe.name = "tradingview_pro_iframe";
+      iframe.style.cssText = "width:100%;height:100%;border:none;min-height:510px;display:block;";
+      iframe.setAttribute("allowtransparency", "true");
+      iframe.setAttribute("scrolling", "no");
+      iframe.setAttribute("allowfullscreen", "true");
+
+      const encodedSym = encodeURIComponent(sym);
+      iframe.src = `https://s.tradingview.com/widgetembed/?symbol=${encodedSym}&interval=${interval}&theme=${theme}&style=1&timezone=America%2FBogota&locale=es&enable_publishing=false&hide_side_toolbar=0&allow_symbol_change=1&saveimage=1`;
+
+      let hasLoaded = false;
+      iframe.onload = () => {
+        hasLoaded = true;
+        if (loaderOverlay && loaderOverlay.parentElement) {
+          loaderOverlay.style.display = "none";
+        }
+      };
+
+      // Temporizador de Seguridad (si TradingView bloquea el símbolo o el adblocker bloquea el frame)
+      setTimeout(() => {
+        if (!hasLoaded && loaderOverlay && loaderOverlay.parentElement) {
+          loaderOverlay.innerHTML = `
+            <div style="font-size:26px;">⚡</div>
+            <div style="color:#f8fafc;font-weight:700;font-size:13.5px;">Sincronización con TradingView</div>
+            <p style="font-size:12px;color:#94a3b8;max-width:420px;line-height:1.5;margin:4px 0 12px 0;">
+              Si el gráfico tarda o el símbolo <strong>${sym}</strong> está restringido en este navegador, usa el motor nativo <strong>Cuántico Akira</strong> con datos oficiales de Deriv en vivo.
+            </p>
+            <button id="btnTvFallbackLoad" style="background:#00f2fe;color:#050811;border:none;padding:8px 18px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;">
+              🔬 Abrir Cuántico Akira (Deriv API Oficial)
+            </button>
+          `;
+          const btnFb = loaderOverlay.querySelector("#btnTvFallbackLoad");
+          if (btnFb) {
+            btnFb.addEventListener("click", () => {
+              const btnEngineCanvas = document.getElementById("btnEngineCanvas");
+              if (btnEngineCanvas) btnEngineCanvas.click();
+            });
+          }
+        }
+      }, 5000);
+
+      iframeWrap.appendChild(iframe);
+      container.appendChild(iframeWrap);
     }
 
     loadTradingViewWidget() {
@@ -4083,43 +4148,19 @@
       container.innerHTML = "";
 
       const m = MARKETS[this.selectedMarket] || MARKETS["BOOM1000"];
-      const widgetDiv = document.createElement("div");
-      widgetDiv.className = "tradingview-widget-container";
-      widgetDiv.style.height = "550px";
-      widgetDiv.style.width = "100%";
+      const isLight = this.chartTheme === "light";
+      const interval = this.getTradingViewInterval();
+      const theme = isLight ? "light" : "dark";
+      const sym = m.tvSymbol || "BINANCE:BTCUSDT";
 
-      const subDiv = document.createElement("div");
-      subDiv.className = "tradingview-widget-container__widget";
-      subDiv.style.height = "calc(100% - 32px)";
-      subDiv.style.width = "100%";
-      widgetDiv.appendChild(subDiv);
+      const iframe = document.createElement("iframe");
+      iframe.style.cssText = "width:100%;height:550px;border:none;border-radius:8px;background:#080c14;";
+      iframe.setAttribute("allowtransparency", "true");
+      iframe.setAttribute("scrolling", "no");
+      iframe.setAttribute("allowfullscreen", "true");
+      iframe.src = `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(sym)}&interval=${interval}&theme=${theme}&style=1&timezone=America%2FBogota&locale=es&enable_publishing=false&hide_side_toolbar=0&allow_symbol_change=1&saveimage=1`;
 
-      const script = document.createElement("script");
-      script.type = "text/javascript";
-      script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-      script.async = true;
-      script.innerHTML = JSON.stringify({
-        "autosize": true,
-        "symbol": m.tvSymbol,
-        "interval": this.getTradingViewInterval(),
-        "timezone": "America/Bogota",
-        "theme": this.chartTheme === "light" ? "light" : "dark",
-        "style": "1",
-        "locale": "es",
-        "enable_publishing": false,
-        "backgroundColor": this.chartTheme === "light" ? "#ffffff" : "#080c14",
-        "gridColor": this.chartTheme === "light" ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.04)",
-        "withdateranges": true,
-        "hide_side_toolbar": false,
-        "allow_symbol_change": true,
-        "details": true,
-        "hotlist": false,
-        "calendar": false,
-        "support_host": "https://www.tradingview.com"
-      });
-
-      widgetDiv.appendChild(script);
-      container.appendChild(widgetDiv);
+      container.appendChild(iframe);
     }
 
     bindEvents() {
@@ -4228,7 +4269,7 @@
           const navBar = document.getElementById("chartNavBar");
           const insp = document.getElementById("canvasOhlcInspector");
           const subType = document.getElementById("canvasChartSubtypeGroup");
-          if (tvBox) tvBox.style.display = "block";
+          if (tvBox) tvBox.style.display = "flex";
           if (cvBox) cvBox.style.display = "none";
           if (navBar) navBar.style.display = "none";
           if (insp) insp.style.display = "none";
@@ -5191,6 +5232,13 @@ if __name__ == "__main__":
       }
       .ak-chart-canvas-wrapper.ak-fullscreen .ak-market-canvas {
         height: calc(100vh - 145px) !important;
+      }
+      .ak-chart-canvas-wrapper.ak-fullscreen #tvChartContainer {
+        height: calc(100vh - 145px) !important;
+      }
+      @keyframes akira-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
       }
       .ak-fs-extra-toolbar {
         background: rgba(15,23,42,0.92); border-bottom: 1px solid rgba(0,242,254,0.2);
