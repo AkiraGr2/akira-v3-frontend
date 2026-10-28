@@ -4239,8 +4239,12 @@ if __name__ == "__main__":
       const btnSaveTg = document.getElementById("btnSaveTelegramConfig");
       if (btnSaveTg) {
         btnSaveTg.addEventListener("click", () => {
-          const tok = (document.getElementById("tgBotTokenInput")?.value || "").trim();
-          const chat = (document.getElementById("tgChatIdInput")?.value || "").trim();
+          let tok = (document.getElementById("tgBotTokenInput")?.value || "").trim();
+          let chat = (document.getElementById("tgChatIdInput")?.value || "").trim();
+          if (tok.toLowerCase().startsWith("bot")) tok = tok.slice(3).trim();
+          tok = tok.replace(/[\r\n\t\s]/g, "");
+          chat = chat.replace(/[\r\n\t\s]/g, "");
+
           this.telegramToken = tok;
           this.telegramChatId = chat;
           localStorage.setItem(STORAGE_KEY_TG_TOKEN, tok);
@@ -4262,6 +4266,20 @@ if __name__ == "__main__":
       const btnTestTgLive = document.getElementById("btnTestTelegramLive");
       if (btnTestTgLive) {
         btnTestTgLive.addEventListener("click", () => {
+          // Si el usuario escribió credenciales pero no hizo clic en Guardar, tomarlas directamente
+          let tok = (document.getElementById("tgBotTokenInput")?.value || this.telegramToken || "").trim();
+          let chat = (document.getElementById("tgChatIdInput")?.value || this.telegramChatId || "").trim();
+          if (tok.toLowerCase().startsWith("bot")) tok = tok.slice(3).trim();
+          tok = tok.replace(/[\r\n\t\s]/g, "");
+          chat = chat.replace(/[\r\n\t\s]/g, "");
+
+          if (tok && chat) {
+            this.telegramToken = tok;
+            this.telegramChatId = chat;
+            localStorage.setItem(STORAGE_KEY_TG_TOKEN, tok);
+            localStorage.setItem(STORAGE_KEY_TG_CHAT_ID, chat);
+          }
+
           const sigToSend = this.currentSignal || {
             marketId: this.selectedMarket,
             marketName: MARKETS[this.selectedMarket]?.name || "Boom 1000",
@@ -4353,35 +4371,78 @@ if __name__ == "__main__":
           `_Akira Quantum Trading Terminal • Para el Director Jhon Grimm._`;
       }
 
-      const token = this.telegramToken || localStorage.getItem(STORAGE_KEY_TG_TOKEN) || "";
-      const chatId = this.telegramChatId || localStorage.getItem(STORAGE_KEY_TG_CHAT_ID) || "";
+      let token = (this.telegramToken || localStorage.getItem(STORAGE_KEY_TG_TOKEN) || "").trim();
+      let chatId = (this.telegramChatId || localStorage.getItem(STORAGE_KEY_TG_CHAT_ID) || "").trim();
+
+      // Sanitización profunda: limpiar 'bot' inicial, saltos de línea y espacios accidentales
+      if (token.toLowerCase().startsWith("bot")) {
+        token = token.slice(3).trim();
+      }
+      token = token.replace(/[\r\n\t\s]/g, "");
+      chatId = chatId.replace(/[\r\n\t\s]/g, "");
 
       if (token && chatId) {
+        let sentOk = false;
+        let errorDesc = "";
+
+        // INTENTO 1: Directo a Telegram API oficial
         try {
-          const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          const directUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+          const res = await fetch(directUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: "Markdown" })
           });
           const data = await res.json();
           if (data.ok) {
-            const lastStatusEl = document.getElementById("tgLastSentStatus");
-            if (lastStatusEl) {
-              lastStatusEl.innerHTML = `<span style="color:#10b981;">✅ Señal de ${signal.marketName} enviada con éxito (${new Date().toLocaleTimeString()})</span>`;
-            }
-            if (!isAuto) {
-              alert(`✅ ¡Señal enviada a Telegram directamente al chat ${chatId}!`);
-            }
+            sentOk = true;
           } else {
-            console.warn("Telegram API Error:", data);
-            if (!isAuto) {
-              alert("⚠️ Error de Telegram: " + (data.description || "Revisa el Bot Token o Chat ID."));
-            }
+            errorDesc = data.description || "Error de Telegram API";
           }
-        } catch(err) {
-          console.error("Error conectando a Telegram:", err);
+        } catch(directErr) {
+          console.warn("Envío directo a Telegram bloqueado (posible AdBlocker / CORS / red), probando túnel Akira:", directErr);
+        }
+
+        // INTENTO 2: Túnel Seguro Servidor Akira (Inmune a AdBlockers, uBlock, Brave Shields y restricciones locales)
+        if (!sentOk && (!errorDesc || errorDesc.includes("Error") || errorDesc === "")) {
+          try {
+            const relayRes = await fetch("https://akira-empresa.onrender.com/api/v8/telegram/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token: token, chat_id: chatId, text: msg })
+            });
+            const relayData = await relayRes.json();
+            if (relayData.ok) {
+              sentOk = true;
+              errorDesc = "";
+            } else {
+              errorDesc = relayData.description || relayData.error || errorDesc || "Error de entrega en Telegram";
+            }
+          } catch(relayErr) {
+            console.error("Relay error:", relayErr);
+          }
+        }
+
+        if (sentOk) {
+          const lastStatusEl = document.getElementById("tgLastSentStatus");
+          if (lastStatusEl) {
+            lastStatusEl.innerHTML = `<span style="color:#10b981;">✅ Señal de ${signal.marketName} enviada con éxito (${new Date().toLocaleTimeString()})</span>`;
+          }
           if (!isAuto) {
-            alert("⚠️ Error de red al conectar con Telegram API.");
+            alert(`✅ ¡SEÑAL ENVIADA CON ÉXITO! 📲\n\nEl mensaje ha llegado directamente a tu Telegram (Chat ID: ${chatId}). Revisa tu aplicación.`);
+          }
+        } else {
+          let helpfulTip = "";
+          if (errorDesc.includes("Forbidden") || errorDesc.includes("bot can't initiate") || errorDesc.includes("blocked")) {
+            helpfulTip = "\n\n👉 SOLUCIÓN: Abre Telegram en tu celular o PC, entra a tu bot y presiona el botón 'INICIAR' (/start) para que el bot tenga permiso de enviarte mensajes.";
+          } else if (errorDesc.includes("chat not found")) {
+            helpfulTip = "\n\n👉 SOLUCIÓN: El Chat ID (" + chatId + ") no fue encontrado. Escribe cualquier mensaje primero en tu bot y confirma tu Chat ID con @userinfobot.";
+          } else if (errorDesc.includes("Unauthorized") || errorDesc.includes("Not Found")) {
+            helpfulTip = "\n\n👉 SOLUCIÓN: El Bot Token no es válido. Ve a @BotFather en Telegram, copia el token HTTP API completo y pégalo de nuevo.";
+          }
+
+          if (!isAuto) {
+            alert("⚠️ Aviso de Telegram: " + (errorDesc || "No se pudo conectar") + helpfulTip);
           }
         }
       } else {
