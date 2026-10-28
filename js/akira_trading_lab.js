@@ -218,6 +218,7 @@
       this.showHarmonics = true;
       this.showLevels = true;
       this.showSniper = true;
+      this.isRedrawScheduled = false;
       this.isFullscreen = false;
       this.visibleBars = 45;
       this.rightMarginBars = 8;
@@ -558,7 +559,7 @@
       this.updateRemainingCandleCountdown(openTime, parseInt(ohlc.granularity, 10));
       this.addLiveTick(this.selectedMarket, cl, cl >= o ? "BUY" : "SELL");
       this.updateOpenPositionsPnL();
-      this.drawMarketCanvas();
+      this.requestCanvasRedraw();
       this.updateLiveHeaderTelemetry();
     }
 
@@ -586,7 +587,7 @@
       this.addLiveTick(this.selectedMarket, curPrice, "BUY");
       this.updateOpenPositionsPnL();
       if (this.chartEngine === "canvas") {
-        this.drawMarketCanvas();
+        this.requestCanvasRedraw();
       }
       this.updateLiveHeaderTelemetry();
     }
@@ -1032,13 +1033,13 @@
       };
     }
 
-        getMarketSniperRiskPips(marketId, m) {
+    getMarketSniperRiskPips(marketId, m) {
       if (m.isBinary) return 0;
-      if (marketId === "BTCUSDT") return 180; // $180 USD swing proporcional en Bitcoin
-      if (marketId === "ETHUSDT") return 140; // $14.0 USD swing proporcional en Ethereum
+      if (marketId === "BTCUSDT") return 250; // $250 USD swing proporcional en Bitcoin
+      if (marketId === "ETHUSDT") return 180; // $18.0 USD swing proporcional en Ethereum
       if (marketId === "XAUUSD") return 25;   // 25 pips ($2.50 USD) swing milimétrico en Oro
-      if (m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash") return 12; // 12 ticks en Boom/Crash
-      return 12; // 12 pips en Forex Mayor (EUR/USD, GBP/USD, USD/JPY)
+      if (m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash") return 450; // 4.50 puntos de riesgo institucional en Boom/Crash (espaciado claro y visible)
+      return 15; // 15 pips en Forex Mayor (EUR/USD, GBP/USD, USD/JPY)
     }
 
     generateHarmonicSignal(marketId, timeframe) {
@@ -2243,6 +2244,17 @@
       };
     }
 
+    requestCanvasRedraw() {
+      if (this.isRedrawScheduled) return;
+      this.isRedrawScheduled = true;
+      requestAnimationFrame(() => {
+        this.isRedrawScheduled = false;
+        if (this.chartEngine === "canvas" && this.activeTab === "market") {
+          this.drawMarketCanvas();
+        }
+      });
+    }
+
     drawMarketCanvas() {
       const canvas = document.getElementById("akiraMarketCanvas");
       if (!canvas) return;
@@ -2263,7 +2275,7 @@
       if (isFs) {
         containerH = Math.max(280, window.innerHeight - (isMobileScreen ? 130 : 195));
       } else if (isMobileScreen) {
-        containerH = Math.min(460, Math.max(340, Math.round(window.innerHeight * 0.55)));
+        containerH = Math.min(520, Math.max(360, Math.round(window.innerHeight * 0.58)));
       } else {
         // En escritorio sin pantalla completa: ajusta hasta el fondo del viewport
         const calcH = window.innerHeight - 270;
@@ -2867,45 +2879,51 @@
               const safeTpY = Math.max(topBound, Math.min(safeEntryY - 4, yTp));
               const safeSlY = Math.min(bottomBound, Math.max(safeEntryY + 4, ySl));
 
-              // 1. Caja Verde (Take Profit / Ganancia)
+              // 1. Caja Verde (Take Profit / Ganancia) - Relleno sutil para NO tapar velas
               const targetTop = safeTpY;
               const targetH = Math.max(4, safeEntryY - safeTpY);
-              ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.16)" : "rgba(16, 185, 129, 0.18)";
+              ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.06)" : "rgba(16, 185, 129, 0.07)";
               ctx.fillRect(chulitoX, targetTop, boxW, targetH);
-              ctx.strokeStyle = isLight ? "#16a34a" : "#10b981";
-              ctx.lineWidth = 1.2;
+              ctx.strokeStyle = isLight ? "rgba(22, 163, 74, 0.6)" : "rgba(16, 185, 129, 0.7)";
+              ctx.lineWidth = 1;
+              ctx.setLineDash([4, 4]);
               ctx.strokeRect(chulitoX, targetTop, boxW, targetH);
+              ctx.setLineDash([]);
 
-              // Barra de cabecera verde de la caja
-              ctx.fillStyle = isLight ? "#16a34a" : "#10b981";
-              ctx.fillRect(chulitoX, targetTop - 14, Math.min(boxW, 230), 14);
+              // Barra de cabecera verde de la caja (compacta, sin obstruir)
+              const tagW = Math.min(boxW - 12, 175);
+              ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.85)" : "rgba(16, 185, 129, 0.85)";
+              ctx.fillRect(chulitoX + 4, targetTop - 13, tagW, 13);
               ctx.fillStyle = "#ffffff";
-              ctx.font = "bold 9px monospace";
+              ctx.font = "bold 8.5px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Target: +${(sig.riskPips * 3.19).toFixed(1)} pips (+$${targetGainMoney} USD)`, chulitoX + 6, targetTop - 3);
+              ctx.fillText(`Target: +${(sig.riskPips * 3.19).toFixed(1)} pips (+$${targetGainMoney})`, chulitoX + 8, targetTop - 3);
 
-              // 2. Caja Roja (Stop Loss / Riesgo)
+              // 2. Caja Roja (Stop Loss / Riesgo) - Relleno sutil para NO tapar velas
               const stopTop = safeEntryY;
               const stopH = Math.max(4, safeSlY - safeEntryY);
-              ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.16)" : "rgba(239, 68, 68, 0.18)";
+              ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.06)" : "rgba(239, 68, 68, 0.07)";
               ctx.fillRect(chulitoX, stopTop, boxW, stopH);
-              ctx.strokeStyle = isLight ? "#dc2626" : "#ef4444";
-              ctx.lineWidth = 1.2;
+              ctx.strokeStyle = isLight ? "rgba(220, 38, 38, 0.6)" : "rgba(239, 68, 68, 0.7)";
+              ctx.lineWidth = 1;
+              ctx.setLineDash([4, 4]);
               ctx.strokeRect(chulitoX, stopTop, boxW, stopH);
+              ctx.setLineDash([]);
 
-              // Barra de pie roja de la caja
-              ctx.fillStyle = isLight ? "#dc2626" : "#ef4444";
-              ctx.fillRect(chulitoX, stopTop + stopH, Math.min(boxW, 205), 14);
+              // Barra de pie roja de la caja (compacta)
+              const stopTagW = Math.min(boxW - 12, 160);
+              ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.85)" : "rgba(239, 68, 68, 0.85)";
+              ctx.fillRect(chulitoX + 4, stopTop + stopH, stopTagW, 13);
               ctx.fillStyle = "#ffffff";
-              ctx.font = "bold 9px monospace";
+              ctx.font = "bold 8.5px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Stop: -${sig.riskPips} pips (-$${actualRiskMoney} USD)`, chulitoX + 6, stopTop + stopH + 11);
+              ctx.fillText(`Stop: -${sig.riskPips} pips (-$${actualRiskMoney})`, chulitoX + 8, stopTop + stopH + 10);
 
               // Píldora de R:R en el centro
-              ctx.fillStyle = isLight ? "#e2e8f0" : "#1e293b";
-              ctx.fillRect(chulitoX + 10, safeEntryY - 9, 130, 18);
+              ctx.fillStyle = isLight ? "rgba(226, 232, 240, 0.9)" : "rgba(30, 41, 59, 0.9)";
+              ctx.fillRect(chulitoX + 10, safeEntryY - 9, 110, 18);
               ctx.strokeStyle = isLight ? "#94a3b8" : "#475569";
-              ctx.strokeRect(chulitoX + 10, safeEntryY - 9, 130, 18);
+              ctx.strokeRect(chulitoX + 10, safeEntryY - 9, 110, 18);
               ctx.fillStyle = isLight ? "#0f172a" : "#f8fafc";
               ctx.font = "bold 9px sans-serif";
               ctx.textAlign = "left";
@@ -2920,7 +2938,7 @@
               ].forEach(pt => {
                 ctx.fillStyle = "#ffffff";
                 ctx.beginPath();
-                ctx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
+                ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.strokeStyle = "#475569";
                 ctx.lineWidth = 1;
@@ -2962,45 +2980,51 @@
               const safeSlY = Math.max(topBound, Math.min(safeEntryY - 4, ySl));
               const safeTpY = Math.min(bottomBound, Math.max(safeEntryY + 4, yTp));
 
-              // 1. Caja Roja (Stop Loss / Riesgo hacia arriba)
+              // 1. Caja Roja (Stop Loss / Riesgo hacia arriba) - Relleno sutil
               const stopTop = safeSlY;
               const stopH = Math.max(4, safeEntryY - safeSlY);
-              ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.16)" : "rgba(239, 68, 68, 0.18)";
+              ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.06)" : "rgba(239, 68, 68, 0.07)";
               ctx.fillRect(chulitoX, stopTop, boxW, stopH);
-              ctx.strokeStyle = isLight ? "#dc2626" : "#ef4444";
-              ctx.lineWidth = 1.2;
+              ctx.strokeStyle = isLight ? "rgba(220, 38, 38, 0.6)" : "rgba(239, 68, 68, 0.7)";
+              ctx.lineWidth = 1;
+              ctx.setLineDash([4, 4]);
               ctx.strokeRect(chulitoX, stopTop, boxW, stopH);
+              ctx.setLineDash([]);
 
-              // Barra de cabecera roja de la caja
-              ctx.fillStyle = isLight ? "#dc2626" : "#ef4444";
-              ctx.fillRect(chulitoX, stopTop - 14, Math.min(boxW, 205), 14);
+              // Barra de cabecera roja de la caja (compacta)
+              const stopTagW = Math.min(boxW - 12, 160);
+              ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.85)" : "rgba(239, 68, 68, 0.85)";
+              ctx.fillRect(chulitoX + 4, stopTop - 13, stopTagW, 13);
               ctx.fillStyle = "#ffffff";
-              ctx.font = "bold 9px monospace";
+              ctx.font = "bold 8.5px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Stop: -${sig.riskPips} pips (-$${actualRiskMoney} USD)`, chulitoX + 6, stopTop - 3);
+              ctx.fillText(`Stop: -${sig.riskPips} pips (-$${actualRiskMoney})`, chulitoX + 8, stopTop - 3);
 
-              // 2. Caja Verde (Ganancia hacia abajo)
+              // 2. Caja Verde (Ganancia hacia abajo) - Relleno sutil
               const targetTop = safeEntryY;
               const targetH = Math.max(4, safeTpY - safeEntryY);
-              ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.16)" : "rgba(16, 185, 129, 0.18)";
+              ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.06)" : "rgba(16, 185, 129, 0.07)";
               ctx.fillRect(chulitoX, targetTop, boxW, targetH);
-              ctx.strokeStyle = isLight ? "#16a34a" : "#10b981";
-              ctx.lineWidth = 1.2;
+              ctx.strokeStyle = isLight ? "rgba(22, 163, 74, 0.6)" : "rgba(16, 185, 129, 0.7)";
+              ctx.lineWidth = 1;
+              ctx.setLineDash([4, 4]);
               ctx.strokeRect(chulitoX, targetTop, boxW, targetH);
+              ctx.setLineDash([]);
 
-              // Barra de pie verde de la caja
-              ctx.fillStyle = isLight ? "#16a34a" : "#10b981";
-              ctx.fillRect(chulitoX, targetTop + targetH, Math.min(boxW, 230), 14);
+              // Barra de pie verde de la caja (compacta)
+              const targetTagW = Math.min(boxW - 12, 175);
+              ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.85)" : "rgba(16, 185, 129, 0.85)";
+              ctx.fillRect(chulitoX + 4, targetTop + targetH, targetTagW, 13);
               ctx.fillStyle = "#ffffff";
-              ctx.font = "bold 9px monospace";
+              ctx.font = "bold 8.5px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Target: +${(sig.riskPips * 3.19).toFixed(1)} pips (+$${targetGainMoney} USD)`, chulitoX + 6, targetTop + targetH + 11);
+              ctx.fillText(`Target: +${(sig.riskPips * 3.19).toFixed(1)} pips (+$${targetGainMoney})`, chulitoX + 8, targetTop + targetH + 10);
 
               // Píldora de R:R en el centro
-              ctx.fillStyle = isLight ? "#e2e8f0" : "#1e293b";
-              ctx.fillRect(chulitoX + 10, safeEntryY - 9, 130, 18);
+              ctx.fillStyle = isLight ? "rgba(226, 232, 240, 0.9)" : "rgba(30, 41, 59, 0.9)";
+              ctx.fillRect(chulitoX + 10, safeEntryY - 9, 110, 18);
               ctx.strokeStyle = isLight ? "#94a3b8" : "#475569";
-              ctx.strokeRect(chulitoX + 10, safeEntryY - 9, 130, 18);
+              ctx.strokeRect(chulitoX + 10, safeEntryY - 9, 110, 18);
               ctx.fillStyle = isLight ? "#0f172a" : "#f8fafc";
               ctx.font = "bold 9px sans-serif";
               ctx.textAlign = "left";
@@ -3015,7 +3039,7 @@
               ].forEach(pt => {
                 ctx.fillStyle = "#ffffff";
                 ctx.beginPath();
-                ctx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
+                ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.strokeStyle = "#475569";
                 ctx.lineWidth = 1;
@@ -3046,24 +3070,28 @@
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Badge de Entrada en el eje derecho
-        ctx.fillStyle = isLight ? "#0284c7" : "#00f2fe";
-        ctx.fillRect(chartWidth - 96, yEntry - 11, 93, 16);
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 9px monospace";
-        ctx.textAlign = "right";
-        ctx.fillText("🎯 ENTRADA: " + sig.entry, chartWidth - 6, yEntry + 1);
+        // Si los niveles SL/TP están apagados o es binarias, pintar badge de entrada aquí; si están activos, el gestor anti-colisión en Sección 8 lo dibujará armónicamente
+        const isCurrentBinary = Boolean(MARKETS[this.selectedMarket]?.isBinary);
+        if (isCurrentBinary || !this.showLevels || !sig.sl || !sig.tp1) {
+          ctx.fillStyle = isLight ? "#0284c7" : "#00f2fe";
+          ctx.fillRect(chartWidth - 96, yEntry - 11, 93, 16);
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 9px monospace";
+          ctx.textAlign = "right";
+          ctx.fillText("🎯 ENTRADA: " + sig.entry, chartWidth - 6, yEntry + 1);
+        }
 
-        // Píldora de Pips Flotantes en Vivo sobre la línea de entrada
+        // Píldora de Pips Flotantes en Vivo sobre la línea de entrada (cerca del origen de entrada, NO en el borde derecho)
         if (targetSync) {
           const isProf = targetSync.isProfit;
+          const pipsBadgeX = Math.min(chartWidth - 230, Math.max(14, lineStartX + 14));
           ctx.fillStyle = isProf ? (isLight ? "#16a34a" : "#10b981") : (isLight ? "#dc2626" : "#ef4444");
-          ctx.fillRect(chartWidth - 215, yEntry - 10, 114, 15);
+          ctx.fillRect(pipsBadgeX, yEntry - 10, 114, 15);
           ctx.fillStyle = "#ffffff";
           ctx.font = "bold 8.5px monospace";
           ctx.textAlign = "center";
           const pipsTxt = (targetSync.pipsFloating >= 0 ? "+" : "") + targetSync.pipsFloating + " Pips Flotantes";
-          ctx.fillText(pipsTxt, chartWidth - 158, yEntry + 2);
+          ctx.fillText(pipsTxt, pipsBadgeX + 57, yEntry + 2);
         }
 
         // FLECHA VISUAL DIRECTA DE ENTRADA (▲ COMPRAR o ▼ VENDER)
@@ -3200,10 +3228,16 @@
         const yTp3 = this.currentSignal.tp3 ? getY(this.currentSignal.tp3) : null;
 
         const lineStartX = (safeScroll === 0 && pD_coord) ? Math.max(0, pD_coord.x) : 0;
-
-        // A. STOP LOSS
-        const isSlHit = sync && sync.slHit;
         const slPrice = this.currentSignal.sl;
+        const tp1Price = this.currentSignal.tp1;
+        const tp2Price = this.currentSignal.tp2;
+        const tp3Price = this.currentSignal.tp3;
+        const isSlHit = Boolean(sync && sync.slHit);
+        const isTp1Hit = Boolean(sync && sync.tp1Hit);
+        const isTp2Hit = Boolean(sync && sync.tp2Hit);
+        const isTp3Hit = Boolean(sync && sync.tp3Hit);
+
+        // A. LÍNEA HORIZONTAL DE STOP LOSS
         if (ySl >= paddingY && ySl <= height - paddingY) {
           ctx.strokeStyle = isSlHit ? "#dc2626" : (isLight ? "#dc2626" : "rgba(239, 68, 68, 0.85)");
           ctx.lineWidth = isSlHit ? 2.5 : 1.4;
@@ -3213,28 +3247,9 @@
           ctx.lineTo(chartWidth, ySl);
           ctx.stroke();
           ctx.setLineDash([]);
-
-          ctx.fillStyle = isSlHit ? "#dc2626" : (isLight ? "#dc2626" : "rgba(239, 68, 68, 0.35)");
-          ctx.fillRect(chartWidth - 95, ySl - 12, 92, 16);
-          ctx.fillStyle = "#ffffff";
-          ctx.font = "bold 9px monospace";
-          ctx.textAlign = "right";
-          ctx.fillText(isSlHit ? "🛑 SL TOCADO: " + slPrice : "🛡️ SL: " + slPrice, chartWidth - 6, ySl + 1);
-        } else {
-          // Indicador fijado de Stop Loss en el borde sin deformar el gráfico
-          const isBelow = ySl > height - paddingY;
-          const pinY = isBelow ? height - paddingY - 14 : paddingY + 6;
-          ctx.fillStyle = isLight ? "#dc2626" : "rgba(239, 68, 68, 0.92)";
-          ctx.fillRect(chartWidth - 105, pinY - 10, 102, 16);
-          ctx.fillStyle = "#ffffff";
-          ctx.font = "bold 8.5px monospace";
-          ctx.textAlign = "right";
-          ctx.fillText((isBelow ? "▼ SL: " : "▲ SL: ") + slPrice, chartWidth - 6, pinY + 2);
         }
 
-        // B. TAKE PROFIT 1
-        const isTp1Hit = sync && sync.tp1Hit;
-        const tp1Price = this.currentSignal.tp1;
+        // B. LÍNEA HORIZONTAL DE TAKE PROFIT 1
         if (yTp1 >= paddingY && yTp1 <= height - paddingY) {
           ctx.strokeStyle = isTp1Hit ? "#16a34a" : (isLight ? "#16a34a" : "rgba(16, 185, 129, 0.85)");
           ctx.lineWidth = isTp1Hit ? 2.6 : 1.4;
@@ -3245,17 +3260,8 @@
           ctx.stroke();
           ctx.setLineDash([]);
 
-          ctx.fillStyle = isTp1Hit ? "#16a34a" : (isLight ? "#16a34a" : "rgba(16, 185, 129, 0.35)");
-          ctx.fillRect(chartWidth - 95, yTp1 - 12, 92, 16);
-          ctx.fillStyle = "#ffffff";
-          ctx.font = "bold 9px monospace";
-          ctx.textAlign = "right";
-          ctx.fillText(isTp1Hit ? "✅ TP1 HIT: " + tp1Price : "🎯 TP1: " + tp1Price, chartWidth - 6, yTp1 + 1);
-
-          // Si TP1 fue tocado (y aún no se ha alcanzado TP2 ni TP3), pintar estrella de celebración
-          const isTp2HitNow = sync && sync.tp2Hit;
-          const isTp3HitNow = sync && sync.tp3Hit;
-          if (isTp1Hit && !isTp2HitNow && !isTp3HitNow && sync.hitTp1Idx !== -1) {
+          // Estrella de celebración TP1
+          if (isTp1Hit && !isTp2Hit && !isTp3Hit && sync.hitTp1Idx !== -1) {
             const candleSlot = sync.hitTp1Idx - startIdx;
             if (candleSlot >= 0 && candleSlot < visibleCount) {
               const hitX = (candleSlot * stepX) + (stepX / 2);
@@ -3269,76 +3275,129 @@
           }
         }
 
-        // C. TAKE PROFIT 2
-        if (yTp2 !== null) {
-          const isTp2Hit = sync && sync.tp2Hit;
-          const tp2Price = this.currentSignal.tp2;
-          if (yTp2 >= paddingY && yTp2 <= height - paddingY) {
-            ctx.strokeStyle = isTp2Hit ? "#059669" : (isLight ? "#15803d" : "rgba(16, 185, 129, 0.65)");
-            ctx.lineWidth = isTp2Hit ? 2.6 : 1.3;
-            if (!isTp2Hit) ctx.setLineDash([5, 3]);
-            ctx.beginPath();
-            ctx.moveTo(lineStartX, yTp2);
-            ctx.lineTo(chartWidth, yTp2);
-            ctx.stroke();
-            ctx.setLineDash([]);
+        // C. LÍNEA HORIZONTAL DE TAKE PROFIT 2
+        if (yTp2 !== null && yTp2 >= paddingY && yTp2 <= height - paddingY) {
+          ctx.strokeStyle = isTp2Hit ? "#059669" : (isLight ? "#15803d" : "rgba(16, 185, 129, 0.65)");
+          ctx.lineWidth = isTp2Hit ? 2.6 : 1.3;
+          if (!isTp2Hit) ctx.setLineDash([5, 3]);
+          ctx.beginPath();
+          ctx.moveTo(lineStartX, yTp2);
+          ctx.lineTo(chartWidth, yTp2);
+          ctx.stroke();
+          ctx.setLineDash([]);
 
-            ctx.fillStyle = isTp2Hit ? "#059669" : (isLight ? "#15803d" : "rgba(16, 185, 129, 0.28)");
-            ctx.fillRect(chartWidth - 95, yTp2 - 12, 92, 16);
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 9px monospace";
-            ctx.textAlign = "right";
-            ctx.fillText(isTp2Hit ? "🚀 TP2 HIT: " + tp2Price : "🎯 TP2: " + tp2Price, chartWidth - 6, yTp2 + 1);
-
-            const isTp3HitNow = sync && sync.tp3Hit;
-            if (isTp2Hit && !isTp3HitNow && sync.hitTp2Idx !== -1) {
-              const candleSlot = sync.hitTp2Idx - startIdx;
-              if (candleSlot >= 0 && candleSlot < visibleCount) {
-                const hitX = (candleSlot * stepX) + (stepX / 2);
-                ctx.fillStyle = "#059669";
-                ctx.fillRect(hitX - 35, yTp2 - 22, 70, 15);
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 8.5px sans-serif";
-                ctx.textAlign = "center";
-                ctx.fillText("🚀 TP2 ALCANZADO", hitX, yTp2 - 11);
-              }
+          // Estrella de celebración TP2
+          if (isTp2Hit && !isTp3Hit && sync.hitTp2Idx !== -1) {
+            const candleSlot = sync.hitTp2Idx - startIdx;
+            if (candleSlot >= 0 && candleSlot < visibleCount) {
+              const hitX = (candleSlot * stepX) + (stepX / 2);
+              ctx.fillStyle = "#059669";
+              ctx.fillRect(hitX - 35, yTp2 - 22, 70, 15);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 8.5px sans-serif";
+              ctx.textAlign = "center";
+              ctx.fillText("🚀 TP2 ALCANZADO", hitX, yTp2 - 11);
             }
           }
         }
 
-        // D. TAKE PROFIT 3
-        if (yTp3 !== null) {
-          const isTp3Hit = sync && sync.tp3Hit;
-          const tp3Price = this.currentSignal.tp3;
-          if (yTp3 >= paddingY && yTp3 <= height - paddingY) {
-            ctx.strokeStyle = isTp3Hit ? "#eab308" : (isLight ? "#166534" : "rgba(16, 185, 129, 0.45)");
-            ctx.lineWidth = isTp3Hit ? 2.8 : 1.2;
-            if (!isTp3Hit) ctx.setLineDash([5, 3]);
-            ctx.beginPath();
-            ctx.moveTo(lineStartX, yTp3);
-            ctx.lineTo(chartWidth, yTp3);
-            ctx.stroke();
-            ctx.setLineDash([]);
+        // D. LÍNEA HORIZONTAL DE TAKE PROFIT 3
+        if (yTp3 !== null && yTp3 >= paddingY && yTp3 <= height - paddingY) {
+          ctx.strokeStyle = isTp3Hit ? "#eab308" : (isLight ? "#166534" : "rgba(16, 185, 129, 0.45)");
+          ctx.lineWidth = isTp3Hit ? 2.8 : 1.2;
+          if (!isTp3Hit) ctx.setLineDash([5, 3]);
+          ctx.beginPath();
+          ctx.moveTo(lineStartX, yTp3);
+          ctx.lineTo(chartWidth, yTp3);
+          ctx.stroke();
+          ctx.setLineDash([]);
 
-            ctx.fillStyle = isTp3Hit ? "#ca8a04" : (isLight ? "#166534" : "rgba(16, 185, 129, 0.20)");
-            ctx.fillRect(chartWidth - 95, yTp3 - 12, 92, 16);
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 9px monospace";
-            ctx.textAlign = "right";
-            ctx.fillText(isTp3Hit ? "💎 TP3 HIT: " + tp3Price : "🎯 TP3: " + tp3Price, chartWidth - 6, yTp3 + 1);
-
-            if (isTp3Hit && sync.hitTp3Idx !== -1) {
-              const candleSlot = sync.hitTp3Idx - startIdx;
-              if (candleSlot >= 0 && candleSlot < visibleCount) {
-                const hitX = (candleSlot * stepX) + (stepX / 2);
-                ctx.fillStyle = "#ca8a04";
-                ctx.fillRect(hitX - 42, yTp3 - 22, 84, 15);
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 8.5px sans-serif";
-                ctx.textAlign = "center";
-                ctx.fillText("💎 TP3 COMPLETO", hitX, yTp3 - 11);
-              }
+          // Estrella de celebración TP3
+          if (isTp3Hit && sync.hitTp3Idx !== -1) {
+            const candleSlot = sync.hitTp3Idx - startIdx;
+            if (candleSlot >= 0 && candleSlot < visibleCount) {
+              const hitX = (candleSlot * stepX) + (stepX / 2);
+              ctx.fillStyle = "#ca8a04";
+              ctx.fillRect(hitX - 42, yTp3 - 22, 84, 15);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 8.5px sans-serif";
+              ctx.textAlign = "center";
+              ctx.fillText("💎 TP3 COMPLETO", hitX, yTp3 - 11);
             }
+          }
+        }
+
+        // =====================================================================
+        // GESTOR DE ETIQUETAS DE PRECIO ANTI-COLISIÓN (ENTRADA, SL, TP1, TP2, TP3)
+        // Evita que los carteles se monten o tapen entre sí cuando los precios están cerca
+        // =====================================================================
+        const badgesToRender = [];
+        const yEntry = getY(this.currentSignal.entry);
+
+        if (yEntry >= paddingY && yEntry <= height - paddingY) {
+          badgesToRender.push({
+            id: "entry",
+            y: yEntry,
+            text: "🎯 ENTRADA: " + this.currentSignal.entry,
+            bg: isLight ? "#0284c7" : "#00f2fe",
+            fg: "#ffffff",
+            border: isLight ? "#0369a1" : "#38bdf8"
+          });
+        }
+
+        if (ySl >= paddingY && ySl <= height - paddingY) {
+          badgesToRender.push({
+            id: "sl",
+            y: ySl,
+            text: isSlHit ? "🛑 SL TOCADO: " + slPrice : "🛡️ SL: " + slPrice,
+            bg: isSlHit ? "#dc2626" : (isLight ? "#dc2626" : "rgba(220, 38, 38, 0.92)"),
+            fg: "#ffffff",
+            border: "#ef4444"
+          });
+        } else {
+          // Indicador fijado de Stop Loss en el borde sin deformar el gráfico
+          const isBelow = ySl > height - paddingY;
+          const pinY = isBelow ? height - paddingY - 14 : paddingY + 6;
+          ctx.fillStyle = isLight ? "#dc2626" : "rgba(239, 68, 68, 0.92)";
+          ctx.fillRect(chartWidth - 105, pinY - 10, 102, 16);
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 8.5px monospace";
+          ctx.textAlign = "right";
+          ctx.fillText((isBelow ? "▼ SL: " : "▲ SL: ") + slPrice, chartWidth - 6, pinY + 2);
+        }
+
+        if (yTp1 >= paddingY && yTp1 <= height - paddingY) {
+          badgesToRender.push({
+            id: "tp1",
+            y: yTp1,
+            text: isTp1Hit ? "✅ TP1 HIT: " + tp1Price : "🎯 TP1: " + tp1Price,
+            bg: isTp1Hit ? "#16a34a" : (isLight ? "#16a34a" : "rgba(16, 185, 129, 0.92)"),
+            fg: "#ffffff",
+            border: "#10b981"
+          });
+        }
+
+        if (yTp2 !== null && yTp2 >= paddingY && yTp2 <= height - paddingY) {
+          badgesToRender.push({
+            id: "tp2",
+            y: yTp2,
+            text: isTp2Hit ? "🚀 TP2 HIT: " + tp2Price : "🎯 TP2: " + tp2Price,
+            bg: isTp2Hit ? "#059669" : (isLight ? "#15803d" : "rgba(16, 185, 129, 0.88)"),
+            fg: "#ffffff",
+            border: "#059669"
+          });
+        }
+
+        if (yTp3 !== null) {
+          if (yTp3 >= paddingY && yTp3 <= height - paddingY) {
+            badgesToRender.push({
+              id: "tp3",
+              y: yTp3,
+              text: isTp3Hit ? "💎 TP3 HIT: " + tp3Price : "🎯 TP3: " + tp3Price,
+              bg: isTp3Hit ? "#ca8a04" : (isLight ? "#166534" : "rgba(16, 185, 129, 0.82)"),
+              fg: "#ffffff",
+              border: "#eab308"
+            });
           } else {
             // Indicador fijado de TP3 en el borde sin deformar el gráfico
             const isAbove = yTp3 < paddingY;
@@ -3351,6 +3410,52 @@
             ctx.fillText((isAbove ? "▲ TP3: " : "▼ TP3: ") + tp3Price, chartWidth - 6, pinY + 2);
           }
         }
+
+        // Ordenar etiquetas por coordenada vertical Y (de arriba hacia abajo)
+        badgesToRender.sort((a, b) => a.y - b.y);
+
+        // Detectar cercanía (< 18px) y escalonar en 2 columnas para 0 colisiones
+        const badgeW = 95;
+        const badgeH = 16;
+        let activeCol = 0; // 0 = Columna Principal (derecha), 1 = Columna Alterna (izquierda)
+
+        for (let i = 0; i < badgesToRender.length; i++) {
+          const currentBadge = badgesToRender[i];
+          if (i > 0 && Math.abs(currentBadge.y - badgesToRender[i - 1].y) < 18) {
+            // Hay colisión vertical: alternar columna
+            activeCol = (activeCol === 0) ? 1 : 0;
+          } else {
+            activeCol = 0;
+          }
+          currentBadge.col = activeCol;
+          currentBadge.x = (activeCol === 0) ? (chartWidth - 96) : (chartWidth - 195);
+        }
+
+        // Renderizado de las etiquetas escalonadas con guías visuales
+        badgesToRender.forEach(b => {
+          ctx.fillStyle = b.bg;
+          ctx.fillRect(b.x, b.y - 11, badgeW, badgeH);
+          ctx.strokeStyle = b.border || "rgba(255, 255, 255, 0.4)";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(b.x, b.y - 11, badgeW, badgeH);
+
+          // Si está en la columna alterna a la izquierda, pintar conector sutil hacia el eje
+          if (b.col === 1) {
+            ctx.strokeStyle = b.bg;
+            ctx.setLineDash([2, 2]);
+            ctx.beginPath();
+            ctx.moveTo(b.x + badgeW, b.y - 3);
+            ctx.lineTo(chartWidth - 98, b.y - 3);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+
+          ctx.fillStyle = b.fg;
+          ctx.font = "bold 8.5px monospace";
+          ctx.textAlign = "right";
+          ctx.fillText(b.text, b.x + badgeW - 5, b.y + 1);
+        });
+
         ctx.setLineDash([]);
       }
 
@@ -4380,7 +4485,7 @@
       if (scrollSlider) {
         scrollSlider.addEventListener("input", (e) => {
           this.scrollOffset = parseInt(e.target.value, 10);
-          this.drawMarketCanvas();
+          this.requestCanvasRedraw();
         });
       }
 
@@ -4481,7 +4586,7 @@
       if (vScrollSlider) {
         vScrollSlider.addEventListener("input", (e) => {
           this.verticalOffset = parseInt(e.target.value, 10);
-          this.drawMarketCanvas();
+          this.requestCanvasRedraw();
         });
       }
 
@@ -4537,7 +4642,7 @@
           const vsl = document.getElementById("chartVScrollSlider");
           if (vsl) vsl.value = this.verticalOffset.toString();
 
-          this.drawMarketCanvas();
+          this.requestCanvasRedraw();
         });
 
         window.addEventListener("mouseup", () => {
@@ -4579,7 +4684,7 @@
             }
           }
 
-          this.drawMarketCanvas();
+          this.requestCanvasRedraw();
         }, { passive: false });
 
         // SOPORTE TOUCH GESTUAL PARA MÓVILES (PAN CON 1 DEDO Y PINCH-TO-ZOOM CON 2 DEDOS)
@@ -4614,7 +4719,7 @@
             const newBars = Math.max(14, Math.min(130, targetBars));
             if (newBars !== this.visibleBars) {
               this.visibleBars = newBars;
-              this.drawMarketCanvas();
+              this.requestCanvasRedraw();
             }
             return;
           }
@@ -4637,7 +4742,7 @@
           const vsl = document.getElementById("chartVScrollSlider");
           if (vsl) vsl.value = this.verticalOffset.toString();
 
-          this.drawMarketCanvas();
+          this.requestCanvasRedraw();
         }, { passive: true });
 
         window.addEventListener("touchend", () => {
@@ -4659,7 +4764,7 @@
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
           if (this.activeTab === "market") {
-            this.drawMarketCanvas();
+            this.requestCanvasRedraw();
           }
         }, 60);
       };
@@ -5347,7 +5452,7 @@ if __name__ == "__main__":
         background: rgba(0,0,0,0.4); border-bottom: 1px solid rgba(255,255,255,0.04);
         padding: 6px 16px; font-size: 11px; color: #94a3b8; font-family: monospace;
       }
-      .ak-market-canvas { width: 100%; display: block; cursor: crosshair; }
+      .ak-market-canvas { width: 100%; display: block; cursor: crosshair; touch-action: none; }
 
       .ak-chart-nav-bar {
         display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
