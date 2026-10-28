@@ -30,6 +30,7 @@
   const MARKETS = {
     "XAUUSD": {
       id: "XAUUSD",
+      decimals: 2,
       name: "Oro / Dólar (XAU/USD)",
       category: "Commodities / Materias Primas",
       platformMode: "forex",
@@ -44,6 +45,7 @@
     },
     "EURUSD": {
       id: "EURUSD",
+      decimals: 5,
       name: "Euro / Dólar (EUR/USD)",
       category: "Forex Mayor",
       platformMode: "forex",
@@ -58,6 +60,7 @@
     },
     "GBPUSD": {
       id: "GBPUSD",
+      decimals: 5,
       name: "Libra / Dólar (GBP/USD)",
       category: "Forex Mayor",
       platformMode: "forex",
@@ -72,6 +75,7 @@
     },
     "USDJPY": {
       id: "USDJPY",
+      decimals: 3,
       name: "Dólar / Yen (USD/JPY)",
       category: "Forex Mayor",
       platformMode: "forex",
@@ -86,6 +90,7 @@
     },
     "BTCUSDT": {
       id: "BTCUSDT",
+      decimals: 2,
       name: "Bitcoin / USDT (BTC/USDT)",
       category: "Criptomonedas",
       platformMode: "crypto",
@@ -100,6 +105,7 @@
     },
     "ETHUSDT": {
       id: "ETHUSDT",
+      decimals: 2,
       name: "Ethereum / USDT (ETH/USDT)",
       category: "Criptomonedas",
       platformMode: "crypto",
@@ -114,6 +120,7 @@
     },
     "BOOM1000": {
       id: "BOOM1000",
+      decimals: 3,
       name: "Boom 1000 (Índice Sintético Deriv)",
       category: "Sintéticos Deriv (Spikes Alcistas)",
       platformMode: "deriv_boom",
@@ -128,6 +135,7 @@
     },
     "CRASH1000": {
       id: "CRASH1000",
+      decimals: 3,
       name: "Crash 1000 (Índice Sintético Deriv)",
       category: "Sintéticos Deriv (Spikes Bajistas)",
       platformMode: "deriv_crash",
@@ -142,6 +150,7 @@
     },
     "BOOM500": {
       id: "BOOM500",
+      decimals: 3,
       name: "Boom 500 (Índice Sintético Deriv)",
       category: "Sintéticos Deriv (Spikes Alcistas)",
       platformMode: "deriv_boom",
@@ -156,6 +165,7 @@
     },
     "CRASH500": {
       id: "CRASH500",
+      decimals: 3,
       name: "Crash 500 (Índice Sintético Deriv)",
       category: "Sintéticos Deriv (Spikes Bajistas)",
       platformMode: "deriv_crash",
@@ -170,6 +180,7 @@
     },
     "BIN_EURUSD": {
       id: "BIN_EURUSD",
+      decimals: 5,
       name: "Binarias EUR/USD (IQ Option / Pocket Option)",
       category: "Opciones Binarias (60s - 5m)",
       platformMode: "iq_option",
@@ -240,6 +251,15 @@
         this.marketPrices[k] = MARKETS[k].basePrice;
         this.candles[k] = this.generateHistoricalCandles(k, 90);
       });
+    }
+
+    getMarketDecimals(marketId = this.selectedMarket) {
+      const m = MARKETS[marketId];
+      if (!m) return 2;
+      if (typeof m.decimals === "number") return m.decimals;
+      if (m.pipSize < 0.001) return 5;
+      if (m.platformMode?.startsWith("deriv")) return 3;
+      return 2;
     }
 
     loadPaperAccount() {
@@ -422,7 +442,7 @@
 
       const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
       const pip = m.pipSize;
-      const decimals = pip < 0.001 ? 5 : 2;
+      const decimals = this.getMarketDecimals(this.selectedMarket);
 
       this.candles[this.selectedMarket] = rawCandles.map((c, idx) => {
         const timeStr = new Date(c.epoch * 1000).toTimeString().slice(0, 5);
@@ -469,7 +489,7 @@
       if (ohlc.symbol && m.derivSymbol && ohlc.symbol !== m.derivSymbol) return;
 
       const pip = m.pipSize;
-      const decimals = pip < 0.001 ? 5 : 2;
+      const decimals = this.getMarketDecimals(this.selectedMarket);
       const o = parseFloat(parseFloat(ohlc.open).toFixed(decimals));
       const h = parseFloat(parseFloat(ohlc.high).toFixed(decimals));
       const l = parseFloat(parseFloat(ohlc.low).toFixed(decimals));
@@ -526,7 +546,7 @@
       const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
       if (tick.symbol && m.derivSymbol && tick.symbol !== m.derivSymbol) return;
 
-      const decimals = m.pipSize < 0.001 ? 5 : 2;
+      const decimals = this.getMarketDecimals(this.selectedMarket);
       const curPrice = parseFloat(parseFloat(tick.quote).toFixed(decimals));
       this.marketPrices[this.selectedMarket] = curPrice;
 
@@ -609,7 +629,7 @@
 
         const m = MARKETS[this.selectedMarket];
         const pip = m.pipSize;
-        const decimals = pip < 0.001 ? 5 : 2;
+        const decimals = this.getMarketDecimals(this.selectedMarket);
 
         let delta = (Math.random() - 0.495) * pip * 1.8;
         let isSpikeNow = false;
@@ -669,7 +689,7 @@
       const m = MARKETS[marketId] || MARKETS["XAUUSD"];
       const base = m.basePrice;
       const pip = m.pipSize;
-      const decimals = pip < 0.001 ? 5 : 2;
+      const decimals = this.getMarketDecimals(this.selectedMarket);
       const list = [];
       let cur = base - (pip * 15);
       const isBoom = marketId === "BOOM1000";
@@ -768,7 +788,7 @@
         const isBull = isBoom ? true : (isCrash ? false : (isBin ? Math.random() > 0.5 : Math.random() > 0.5));
 
         const geom = this.detectHarmonicPivots(candles, isBull ? (isBin ? "CALL" : "BUY") : (isBin ? "PUT" : "SELL"));
-        const decimals = m.pipSize < 0.001 ? 5 : 2;
+        const decimals = this.getMarketDecimals(this.selectedMarket);
         const sniperPips = this.getMarketSniperRiskPips(mId, m);
         const riskDist = parseFloat((m.pipSize * sniperPips).toFixed(decimals));
         const curPrice = this.marketPrices[mId] || m.basePrice;
@@ -1006,7 +1026,7 @@
       const marketCandles = this.candles[marketId] || this.generateHistoricalCandles(marketId, 90);
       const geom = this.detectHarmonicPivots(marketCandles, isBullPreferred ? (isBinary ? "CALL" : "BUY") : (isBinary ? "PUT" : "SELL"));
 
-      const decimals = m.pipSize < 0.001 ? 5 : 2;
+      const decimals = this.getMarketDecimals(this.selectedMarket);
       const pipDist = m.pipSize * 25;
 
       let entry = curPrice;
@@ -1706,7 +1726,7 @@
       const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
       const cur = this.marketPrices[this.selectedMarket];
       const spread = m.unitSpread;
-      const decimals = m.pipSize < 0.001 ? 5 : 2;
+      const decimals = this.getMarketDecimals(this.selectedMarket);
       const bid = (cur - (spread / 2)).toFixed(decimals);
       const ask = (cur + (spread / 2)).toFixed(decimals);
       const spreadPips = (spread / m.pipSize).toFixed(1);
@@ -2224,7 +2244,7 @@
         ctx.lineTo(chartWidth, y);
         ctx.stroke();
 
-        const decimals = MARKETS[this.selectedMarket]?.pipSize < 0.001 ? 5 : 2;
+        const decimals = this.getMarketDecimals(this.selectedMarket);
         ctx.fillText(pVal.toFixed(decimals), chartWidth + 6, y + 3);
       }
 
@@ -2283,7 +2303,8 @@
         const yLow = getY(c.low);
         const isBull = c.isBull;
 
-        const bodyColor = c.isSpike ? (isLight ? "#0284c7" : "#00f2fe") : (isBull ? (isLight ? "#16a34a" : "#10b981") : (isLight ? "#dc2626" : "#ef4444"));
+        // Color idéntico a Deriv nativo: Verde institucional alcista / Rojo institucional bajista
+        const bodyColor = isBull ? (isLight ? "#16a34a" : "#10b981") : (isLight ? "#dc2626" : "#ef4444");
 
         // Mecha
         ctx.strokeStyle = bodyColor;
@@ -2306,11 +2327,18 @@
           ctx.strokeRect(x - (candleWidth / 2), topY, candleWidth, bodyH);
         }
 
-        // Spike Halo para Boom/Crash
+        // Detección y Resaltado Oficial de Spikes en Boom/Crash
         if (c.isSpike) {
-          ctx.strokeStyle = isLight ? "rgba(2, 132, 199, 0.4)" : "rgba(0, 242, 254, 0.5)";
-          ctx.lineWidth = 3;
+          ctx.strokeStyle = isBull ? "rgba(16, 185, 129, 0.85)" : "rgba(239, 68, 68, 0.85)";
+          ctx.lineWidth = 2.8;
           ctx.strokeRect(x - (candleWidth / 2) - 2, topY - 2, candleWidth + 4, bodyH + 4);
+
+          // Ícono institucional de Spike
+          ctx.fillStyle = "#eab308";
+          ctx.font = "bold 11px sans-serif";
+          ctx.textAlign = "center";
+          const spikeIconY = isBull ? yHigh - 7 : yLow + 15;
+          ctx.fillText("⚡", x, spikeIconY);
         }
 
         // Horas en el eje horizontal
@@ -2418,7 +2446,7 @@
           }
 
           // 5. Nodos anclados en las puntas amarillas
-          const decimals = MARKETS[this.selectedMarket]?.pipSize < 0.001 ? 5 : 2;
+          const decimals = this.getMarketDecimals(this.selectedMarket);
           [pX, pA, pB, pC, pD].forEach((p) => {
             if (p.x < -40 || p.x > chartWidth + 40) return;
 
@@ -2804,7 +2832,7 @@
       ctx.fillStyle = "#ffffff";
       ctx.font = "bold 10px monospace";
       ctx.textAlign = "center";
-      const decimals = MARKETS[this.selectedMarket]?.pipSize < 0.001 ? 5 : 2;
+      const decimals = this.getMarketDecimals(this.selectedMarket);
       ctx.fillText(curPrice.toFixed(decimals), chartWidth + (rightMargin / 2), yCur + 3);
 
       // 8. NIVELES DE MERCADO: EN BINARIAS = STRIKE & ZONA ITM (+85%) | EN OTROS = SL/TP 1:3.19
@@ -3012,7 +3040,7 @@
       if (candles.length === 0) return;
 
       const recent = candles.slice(-30).reverse();
-      const decimals = MARKETS[this.selectedMarket]?.pipSize < 0.001 ? 5 : 2;
+      const decimals = this.getMarketDecimals(this.selectedMarket);
 
       tbody.innerHTML = recent.map(c => {
         const isBull = c.isBull;
@@ -3048,7 +3076,7 @@
         return;
       }
 
-      const decimals = MARKETS[this.selectedMarket]?.pipSize < 0.001 ? 5 : 2;
+      const decimals = this.getMarketDecimals(this.selectedMarket);
       tbody.innerHTML = this.liveTicks.map(t => {
         const isBuy = t.type === "BUY";
         return `
@@ -4094,7 +4122,7 @@
 
           if (c) {
             const isBull = c.isBull;
-            const decimals = MARKETS[this.selectedMarket]?.pipSize < 0.001 ? 5 : 2;
+            const decimals = this.getMarketDecimals(this.selectedMarket);
             inspector.innerHTML = `
               <strong style="color:#00f2fe;">Hora: ${c.time}</strong> &bull;
               <span>Open: <strong>${c.open.toFixed(decimals)}</strong></span> &bull;
