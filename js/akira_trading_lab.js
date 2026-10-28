@@ -23,7 +23,6 @@
   const STORAGE_KEY_TG_AUTO = "akira_telegram_auto_send";
   const STORAGE_KEY_TG_MARKETS = "akira_telegram_filter_markets";
   const DERIV_WS_PRIMARY = "wss://api.derivws.com/trading/v1/options/ws/public";
-  const DERIV_WS_FALLBACK = "wss://ws.derivws.com/websockets/v3?app_id=1089";
   let DERIV_WS_URL = DERIV_WS_PRIMARY;
 
   // Catálogo de Mercados con mapeo a Deriv Oficial
@@ -125,7 +124,7 @@
       category: "Sintéticos Deriv (Spikes Alcistas)",
       platformMode: "deriv_boom",
       derivSymbol: "BOOM1000",
-      tvSymbol: "DERIV:BOOM1000",
+      tvSymbol: "DERIV:BOOM_1000_INDEX",
       icon: "⚡",
       basePrice: 15420.0,
       pipSize: 0.1,
@@ -140,7 +139,7 @@
       category: "Sintéticos Deriv (Spikes Bajistas)",
       platformMode: "deriv_crash",
       derivSymbol: "CRASH1000",
-      tvSymbol: "DERIV:CRASH1000",
+      tvSymbol: "DERIV:CRASH_1000_INDEX",
       icon: "💥",
       basePrice: 6050.0,
       pipSize: 0.1,
@@ -155,7 +154,7 @@
       category: "Sintéticos Deriv (Spikes Alcistas)",
       platformMode: "deriv_boom",
       derivSymbol: "BOOM500",
-      tvSymbol: "DERIV:BOOM500",
+      tvSymbol: "DERIV:BOOM_500_INDEX",
       icon: "⚡",
       basePrice: 6210.0,
       pipSize: 0.1,
@@ -170,7 +169,7 @@
       category: "Sintéticos Deriv (Spikes Bajistas)",
       platformMode: "deriv_crash",
       derivSymbol: "CRASH500",
-      tvSymbol: "DERIV:CRASH500",
+      tvSymbol: "DERIV:CRASH_500_INDEX",
       icon: "💥",
       basePrice: 3020.0,
       pipSize: 0.1,
@@ -199,8 +198,9 @@
   class AkiraTradingLab {
     constructor() {
       this.activeTab = "market";
-      this.selectedMarket = "XAUUSD";
-      this.selectedTimeframe = "M15";
+      this.selectedMarket = "BOOM1000";
+      this.selectedTimeframe = "M1";
+      this.chartEngine = localStorage.getItem("akira_chart_engine") || "tradingview";
       this.chartType = "candles";
       this.derivSubMode = "spikes";
       this.accumulatorGrowthRate = 0.03;
@@ -320,7 +320,11 @@
       this.render();
       this.bindEvents();
       this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
-      this.drawMarketCanvas();
+      if (this.chartEngine === "tradingview") {
+        this.renderTradingViewChart();
+      } else {
+        this.drawMarketCanvas();
+      }
       this.initDerivWebSocket();
       this.startLocalFallbackTicker();
     }
@@ -387,13 +391,12 @@
             clearInterval(this.wsPingInterval);
             this.wsPingInterval = null;
           }
-          // Alternar endpoint si hubo desconexión imprevista y reintentar en 4s
-          DERIV_WS_URL = (DERIV_WS_URL === DERIV_WS_PRIMARY) ? DERIV_WS_FALLBACK : DERIV_WS_PRIMARY;
+          // Reintentar reconexión automática en 3.5 segundos con el endpoint oficial
           setTimeout(() => {
             if (document.getElementById("tradingSection")) {
               this.initDerivWebSocket();
             }
-          }, 4000);
+          }, 3500);
         };
       } catch(e) {
         this.isDerivWsConnected = false;
@@ -416,8 +419,8 @@
     subscribeToCurrentMarketDeriv() {
       if (!this.derivWs || this.derivWs.readyState !== WebSocket.OPEN) return;
 
-      const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
-      const symbol = m.derivSymbol || "frxEURUSD";
+      const m = MARKETS[this.selectedMarket] || MARKETS["BOOM1000"];
+      const symbol = m.derivSymbol || "BOOM1000";
       const granularity = this.getGranularitySeconds();
 
       try {
@@ -425,8 +428,8 @@
         this.derivWs.send(JSON.stringify({ "forget_all": ["candles", "ticks"] }));
       } catch(_) {}
 
-      // Solicitar velas auténticas de Deriv con suscripción de vela viva
-      const req = {
+      // 1. Solicitar velas auténticas de Deriv con suscripción de vela viva
+      const reqCandles = {
         "ticks_history": symbol,
         "end": "latest",
         "count": 75,
@@ -435,8 +438,14 @@
         "subscribe": 1
       };
 
+      // 2. Suscribirse simultáneamente al stream de ticks continuos (en vivo tick a tick)
+      const reqTicks = {
+        "ticks": symbol
+      };
+
       try {
-        this.derivWs.send(JSON.stringify(req));
+        this.derivWs.send(JSON.stringify(reqCandles));
+        this.derivWs.send(JSON.stringify(reqTicks));
       } catch(_) {}
     }
 
@@ -546,16 +555,28 @@
 
     handleDerivLiveTick(tick) {
       if (!tick) return;
-      const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
+      const m = MARKETS[this.selectedMarket] || MARKETS["BOOM1000"];
       if (tick.symbol && m.derivSymbol && tick.symbol !== m.derivSymbol) return;
 
       const decimals = this.getMarketDecimals(this.selectedMarket);
       const curPrice = parseFloat(parseFloat(tick.quote).toFixed(decimals));
       this.marketPrices[this.selectedMarket] = curPrice;
 
+      // Actualizar en tiempo real milimétrico la vela actual en curso
+      const marketCandles = this.candles[this.selectedMarket];
+      if (marketCandles && marketCandles.length > 0) {
+        const last = marketCandles[marketCandles.length - 1];
+        last.close = curPrice;
+        if (curPrice > last.high) last.high = curPrice;
+        if (curPrice < last.low) last.low = curPrice;
+        last.isBull = last.close >= last.open;
+      }
+
       this.addLiveTick(this.selectedMarket, curPrice, "BUY");
       this.updateOpenPositionsPnL();
-      this.drawMarketCanvas();
+      if (this.chartEngine === "canvas") {
+        this.drawMarketCanvas();
+      }
       this.updateLiveHeaderTelemetry();
     }
 
@@ -1198,7 +1219,15 @@
                 </div>
 
                 <div class="ak-control-group">
-                  <label>TIPO DE GRÁFICO:</label>
+                  <label>MOTOR DE GRÁFICO:</label>
+                  <div style="display:flex;gap:4px;">
+                    <button class="ak-chart-type-btn ${this.chartEngine === 'tradingview' ? 'active' : ''}" id="btnEngineTV" title="Gráfico Oficial TradingView con Datos Deriv en Tiempo Real">📊 TradingView Pro</button>
+                    <button class="ak-chart-type-btn ${this.chartEngine === 'canvas' ? 'active' : ''}" id="btnEngineCanvas" title="Gráfico Cuántico Akira con Escáner Armónico XABCD">🔬 Cuántico Akira</button>
+                  </div>
+                </div>
+
+                <div class="ak-control-group" id="canvasChartSubtypeGroup" style="display:${this.chartEngine === 'canvas' ? 'flex' : 'none'};flex-direction:column;">
+                  <label>ESTILO CUÁNTICO:</label>
                   <div style="display:flex;gap:4px;">
                     <button class="ak-chart-type-btn ${this.chartType === 'candles' ? 'active' : ''}" id="btnChartCandles" title="Velas Japonesas Oficiales Deriv">🕯️ Velas</button>
                     <button class="ak-chart-type-btn ${this.chartType === 'line' ? 'active' : ''}" id="btnChartLine" title="Línea / Tick y Barreras de Acumuladores Deriv">📈 Línea (Acumuladores)</button>
@@ -1217,7 +1246,7 @@
                   <span style="font-size:18px;" id="chartMarketIcon">${m.icon}</span>
                   <strong style="color:#fff;font-size:15px;" id="chartMarketTitle">${m.name}</strong>
                   <span id="chartMarketCategory" style="font-size:11px;color:#94a3b8;">(${m.category})</span>
-                  <span class="ak-pill live" style="font-size:10px;" id="chartMarketTfPill">${this.selectedTimeframe} &bull; Stream Deriv Oficial</span>
+                  <span class="ak-pill live" style="font-size:10px;" id="chartMarketTfPill">${this.selectedTimeframe} &bull; ${this.chartEngine === 'tradingview' ? 'TradingView Deriv Oficial' : 'Stream Deriv Directo'}</span>
                   <span style="font-size:11px;color:#94a3b8;" id="candleCountdownLabel">Próxima vela en: ${this.formingCandleSeconds}s</span>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -1239,28 +1268,34 @@
 
               <div id="fsExtraToolbar" class="ak-fs-extra-toolbar" style="display:none;"></div>
 
-              <div id="canvasOhlcInspector" class="ak-canvas-inspector">
+              <div id="canvasOhlcInspector" class="ak-canvas-inspector" style="display:${this.chartEngine === 'canvas' ? 'flex' : 'none'};">
                 <span>Pasa el mouse sobre el gráfico para auditar cualquier vela histórica en números exactos.</span>
               </div>
 
-              <!-- ESCENARIO PRINCIPAL DEL GRÁFICO CON BARRA VERTICAL INTEGRADA -->
+              <!-- ESCENARIO PRINCIPAL DEL GRÁFICO (TRADINGVIEW O CANVAS) -->
               <div class="ak-chart-stage-container" id="chartStageContainer">
-                <canvas id="akiraMarketCanvas" class="ak-market-canvas" width="1100" height="540"></canvas>
+                <!-- CONTENEDOR TRADINGVIEW OFICIAL (EN TIEMPO REAL CON DERIV) -->
+                <div id="tvChartContainer" style="width:100%;height:560px;display:${this.chartEngine === 'tradingview' ? 'block' : 'none'};border-radius:8px;overflow:hidden;background:#080b12;"></div>
 
-                <!-- BARRA VERTICAL DEDICADA: MOVER PANTALLA ARRIBA Y ABAJO -->
-                <div class="ak-chart-v-scroll-bar" id="chartVScrollBar" title="Barra Vertical: Mueve el gráfico hacia arriba o hacia abajo">
-                  <button id="btnScrollUp" class="ak-vbar-btn" title="Subir gráfico (Ver precios más altos / resistencias)">▲</button>
-                  <div class="ak-vbar-track-wrap">
-                    <span class="ak-vbar-lbl top">▲ MÁX</span>
-                    <input type="range" id="chartVScrollSlider" min="-100" max="100" value="0" step="1" class="ak-vbar-slider" title="Desliza para mover la pantalla arriba o abajo">
-                    <span class="ak-vbar-lbl btm">▼ MÍN</span>
+                <!-- CONTENEDOR CANVAS LOCAL AKIRA -->
+                <div id="canvasChartContainer" style="width:100%;display:${this.chartEngine === 'canvas' ? 'flex' : 'none'};position:relative;flex:1;">
+                  <canvas id="akiraMarketCanvas" class="ak-market-canvas" width="1100" height="540"></canvas>
+
+                  <!-- BARRA VERTICAL DEDICADA: MOVER PANTALLA ARRIBA Y ABAJO -->
+                  <div class="ak-chart-v-scroll-bar" id="chartVScrollBar" title="Barra Vertical: Mueve el gráfico hacia arriba o hacia abajo">
+                    <button id="btnScrollUp" class="ak-vbar-btn" title="Subir gráfico (Ver precios más altos / resistencias)">▲</button>
+                    <div class="ak-vbar-track-wrap">
+                      <span class="ak-vbar-lbl top">▲ MÁX</span>
+                      <input type="range" id="chartVScrollSlider" min="-100" max="100" value="0" step="1" class="ak-vbar-slider" title="Desliza para mover la pantalla arriba o abajo">
+                      <span class="ak-vbar-lbl btm">▼ MÍN</span>
+                    </div>
+                    <button id="btnScrollDown" class="ak-vbar-btn" title="Bajar gráfico (Ver precios más bajos / soportes)">▼</button>
+                    <button id="btnResetVScroll" class="ak-vbar-btn reset" title="Centrar escala vertical en 0%">⊙</button>
                   </div>
-                  <button id="btnScrollDown" class="ak-vbar-btn" title="Bajar gráfico (Ver precios más bajos / soportes)">▼</button>
-                  <button id="btnResetVScroll" class="ak-vbar-btn reset" title="Centrar escala vertical en 0%">⊙</button>
                 </div>
               </div>
 
-              <div class="ak-chart-nav-bar" id="chartNavBar">
+              <div class="ak-chart-nav-bar" id="chartNavBar" style="display:${this.chartEngine === 'canvas' ? 'flex' : 'none'};">
                 <div class="ak-nav-left-group">
                   <button id="btnScrollLeft" class="ak-nav-btn" title="Desplazar hacia la izquierda (ver velas del pasado)">
                     ◀ Ver Historial
@@ -1937,7 +1972,10 @@
       if (iconEl) iconEl.innerText = m.icon;
       if (titleEl) titleEl.innerText = m.name;
       if (catEl) catEl.innerText = `(${m.category})`;
-      if (tfEl) tfEl.innerHTML = `${this.selectedTimeframe} &bull; Stream Deriv Oficial`;
+      if (tfEl) {
+        const engineLabel = this.chartEngine === "tradingview" ? "TradingView Deriv Oficial" : "Stream Deriv Directo";
+        tfEl.innerHTML = `${this.selectedTimeframe} &bull; ${engineLabel}`;
+      }
       this.updateWsConnectionBadge(this.isDerivWsConnected);
       this.updateRemainingCandleCountdown();
     }
@@ -3980,12 +4018,71 @@
       }
     }
 
+    getTradingViewInterval() {
+      switch(this.selectedTimeframe) {
+        case "M1": return "1";
+        case "M5": return "5";
+        case "M15": return "15";
+        case "H1": return "60";
+        case "H4": return "240";
+        case "D1": return "D";
+        default: return "1";
+      }
+    }
+
+    renderTradingViewChart() {
+      const container = document.getElementById("tvChartContainer");
+      if (!container) return;
+      container.innerHTML = "";
+
+      const m = MARKETS[this.selectedMarket] || MARKETS["BOOM1000"];
+      const isLight = this.chartTheme === "light";
+      const widgetDiv = document.createElement("div");
+      widgetDiv.className = "tradingview-widget-container";
+      widgetDiv.style.height = "100%";
+      widgetDiv.style.width = "100%";
+
+      const subDiv = document.createElement("div");
+      subDiv.className = "tradingview-widget-container__widget";
+      subDiv.style.height = "100%";
+      subDiv.style.width = "100%";
+      widgetDiv.appendChild(subDiv);
+
+      const script = document.createElement("script");
+      script.type = "text/javascript";
+      script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+      script.async = true;
+      script.innerHTML = JSON.stringify({
+        "autosize": true,
+        "symbol": m.tvSymbol,
+        "interval": this.getTradingViewInterval(),
+        "timezone": "America/Bogota",
+        "theme": isLight ? "light" : "dark",
+        "style": "1",
+        "locale": "es",
+        "enable_publishing": false,
+        "backgroundColor": isLight ? "#ffffff" : "#080c14",
+        "gridColor": isLight ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.04)",
+        "withdateranges": true,
+        "hide_side_toolbar": false,
+        "allow_symbol_change": true,
+        "save_image": true,
+        "details": true,
+        "hotlist": false,
+        "calendar": false,
+        "support_host": "https://www.tradingview.com"
+      });
+
+      widgetDiv.appendChild(script);
+      container.appendChild(widgetDiv);
+    }
+
     loadTradingViewWidget() {
       const container = document.getElementById("tradingview_widget_container");
       if (!container) return;
       container.innerHTML = "";
 
-      const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
+      const m = MARKETS[this.selectedMarket] || MARKETS["BOOM1000"];
       const widgetDiv = document.createElement("div");
       widgetDiv.className = "tradingview-widget-container";
       widgetDiv.style.height = "550px";
@@ -4004,19 +4101,19 @@
       script.innerHTML = JSON.stringify({
         "autosize": true,
         "symbol": m.tvSymbol,
-        "interval": this.selectedTimeframe === "M1" ? "1" : this.selectedTimeframe === "M5" ? "5" : this.selectedTimeframe === "M15" ? "15" : this.selectedTimeframe === "H1" ? "60" : this.selectedTimeframe === "H4" ? "240" : "D",
+        "interval": this.getTradingViewInterval(),
         "timezone": "America/Bogota",
-        "theme": "dark",
+        "theme": this.chartTheme === "light" ? "light" : "dark",
         "style": "1",
         "locale": "es",
         "enable_publishing": false,
-        "backgroundColor": "rgba(8, 11, 18, 1)",
-        "gridColor": "rgba(255, 255, 255, 0.04)",
+        "backgroundColor": this.chartTheme === "light" ? "#ffffff" : "#080c14",
+        "gridColor": this.chartTheme === "light" ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.04)",
         "withdateranges": true,
         "hide_side_toolbar": false,
         "allow_symbol_change": true,
         "details": true,
-        "hotlist": true,
+        "hotlist": false,
         "calendar": false,
         "support_host": "https://www.tradingview.com"
       });
@@ -4040,7 +4137,11 @@
           if (target) target.classList.add("active");
 
           if (tab === "market") {
-            setTimeout(() => this.drawMarketCanvas(), 60);
+            if (this.chartEngine === "tradingview") {
+              setTimeout(() => this.renderTradingViewChart(), 60);
+            } else {
+              setTimeout(() => this.drawMarketCanvas(), 60);
+            }
           } else if (tab === "tvchart") {
             setTimeout(() => this.loadTradingViewWidget(), 100);
           }
@@ -4078,7 +4179,11 @@
           this.updateLiveHeaderTelemetry();
           this.renderPlatformSpecialDeck();
           this.renderCandleHistoryTable();
-          this.drawMarketCanvas();
+          if (this.chartEngine === "tradingview") {
+            this.renderTradingViewChart();
+          } else {
+            this.drawMarketCanvas();
+          }
           this.subscribeToCurrentMarketDeriv(); // Pide velas reales inmediatamente a Deriv oficial
         });
       }
@@ -4093,17 +4198,65 @@
           this.selectedTimeframe = tf;
           this.currentSignal = null; // Retirar entrada de la temporalidad anterior
           this.updateChartCanvasHeader();
-          if (!this.isDerivWsConnected) {
-            this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
-            this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
-            this.renderCandleHistoryTable();
-            this.drawMarketCanvas();
+          if (this.chartEngine === "tradingview") {
+            this.renderTradingViewChart();
           } else {
-            // Con WS conectado: NO pisar con velas simuladas. Deriv responderá con las velas auténticas.
-            this.subscribeToCurrentMarketDeriv();
+            if (!this.isDerivWsConnected) {
+              this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
+              this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
+              this.renderCandleHistoryTable();
+              this.drawMarketCanvas();
+            } else {
+              // Con WS conectado: NO pisar con velas simuladas. Deriv responderá con las velas auténticas.
+              this.subscribeToCurrentMarketDeriv();
+            }
           }
         });
       });
+
+      // Selector de Motor de Gráfico: TradingView Pro vs Cuántico Akira
+      const btnEngineTV = document.getElementById("btnEngineTV");
+      const btnEngineCanvas = document.getElementById("btnEngineCanvas");
+      if (btnEngineTV) {
+        btnEngineTV.addEventListener("click", () => {
+          this.chartEngine = "tradingview";
+          localStorage.setItem("akira_chart_engine", "tradingview");
+          btnEngineTV.classList.add("active");
+          if (btnEngineCanvas) btnEngineCanvas.classList.remove("active");
+          const tvBox = document.getElementById("tvChartContainer");
+          const cvBox = document.getElementById("canvasChartContainer");
+          const navBar = document.getElementById("chartNavBar");
+          const insp = document.getElementById("canvasOhlcInspector");
+          const subType = document.getElementById("canvasChartSubtypeGroup");
+          if (tvBox) tvBox.style.display = "block";
+          if (cvBox) cvBox.style.display = "none";
+          if (navBar) navBar.style.display = "none";
+          if (insp) insp.style.display = "none";
+          if (subType) subType.style.display = "none";
+          this.updateChartCanvasHeader();
+          this.renderTradingViewChart();
+        });
+      }
+      if (btnEngineCanvas) {
+        btnEngineCanvas.addEventListener("click", () => {
+          this.chartEngine = "canvas";
+          localStorage.setItem("akira_chart_engine", "canvas");
+          btnEngineCanvas.classList.add("active");
+          if (btnEngineTV) btnEngineTV.classList.remove("active");
+          const tvBox = document.getElementById("tvChartContainer");
+          const cvBox = document.getElementById("canvasChartContainer");
+          const navBar = document.getElementById("chartNavBar");
+          const insp = document.getElementById("canvasOhlcInspector");
+          const subType = document.getElementById("canvasChartSubtypeGroup");
+          if (tvBox) tvBox.style.display = "none";
+          if (cvBox) cvBox.style.display = "flex";
+          if (navBar) navBar.style.display = "flex";
+          if (insp) insp.style.display = "flex";
+          if (subType) subType.style.display = "flex";
+          this.updateChartCanvasHeader();
+          this.drawMarketCanvas();
+        });
+      }
 
       // Cambio de Tipo de Gráfico: Velas Japonesas vs Línea / Acumuladores Deriv
       const btnCandles = document.getElementById("btnChartCandles");
@@ -4219,7 +4372,11 @@
           if (wrapper) {
             wrapper.classList.toggle("theme-light", this.chartTheme === "light");
           }
-          this.drawMarketCanvas();
+          if (this.chartEngine === "tradingview") {
+            this.renderTradingViewChart();
+          } else {
+            this.drawMarketCanvas();
+          }
         });
       }
 
