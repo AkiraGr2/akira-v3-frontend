@@ -22,7 +22,9 @@
   const STORAGE_KEY_TG_CHAT_ID = "akira_telegram_chat_id";
   const STORAGE_KEY_TG_AUTO = "akira_telegram_auto_send";
   const STORAGE_KEY_TG_MARKETS = "akira_telegram_filter_markets";
-  const DERIV_WS_URL = "wss://ws.derivws.com/websockets/v3?app_id=1089";
+  const DERIV_WS_PRIMARY = "wss://api.derivws.com/trading/v1/options/ws/public";
+  const DERIV_WS_FALLBACK = "wss://ws.derivws.com/websockets/v3?app_id=1089";
+  let DERIV_WS_URL = DERIV_WS_PRIMARY;
 
   // Catálogo de Mercados con mapeo a Deriv Oficial
   const MARKETS = {
@@ -118,7 +120,7 @@
       derivSymbol: "BOOM1000",
       tvSymbol: "DERIV:BOOM1000",
       icon: "⚡",
-      basePrice: 10420.0,
+      basePrice: 15420.0,
       pipSize: 0.1,
       pipName: "Ticks",
       unitSpread: 0.3,
@@ -132,7 +134,35 @@
       derivSymbol: "CRASH1000",
       tvSymbol: "DERIV:CRASH1000",
       icon: "💥",
-      basePrice: 6245.0,
+      basePrice: 6050.0,
+      pipSize: 0.1,
+      pipName: "Ticks",
+      unitSpread: 0.3,
+      isBinary: false
+    },
+    "BOOM500": {
+      id: "BOOM500",
+      name: "Boom 500 (Índice Sintético Deriv)",
+      category: "Sintéticos Deriv (Spikes Alcistas)",
+      platformMode: "deriv_boom",
+      derivSymbol: "BOOM500",
+      tvSymbol: "DERIV:BOOM500",
+      icon: "⚡",
+      basePrice: 6210.0,
+      pipSize: 0.1,
+      pipName: "Ticks",
+      unitSpread: 0.3,
+      isBinary: false
+    },
+    "CRASH500": {
+      id: "CRASH500",
+      name: "Crash 500 (Índice Sintético Deriv)",
+      category: "Sintéticos Deriv (Spikes Bajistas)",
+      platformMode: "deriv_crash",
+      derivSymbol: "CRASH500",
+      tvSymbol: "DERIV:CRASH500",
+      icon: "💥",
+      basePrice: 3020.0,
       pipSize: 0.1,
       pipName: "Ticks",
       unitSpread: 0.3,
@@ -146,7 +176,7 @@
       derivSymbol: "frxEURUSD",
       tvSymbol: "FX:EURUSD",
       icon: "⏱️",
-      basePrice: 1.08250,
+      basePrice: 1.1120,
       pipSize: 0.0001,
       pipName: "Pips",
       unitSpread: 0.0,
@@ -272,12 +302,18 @@
       this.startLocalFallbackTicker();
     }
 
-    // CONEXIÓN DIRECTA A WEBSOCKET OFICIAL DERIV
+    // CONEXIÓN DIRECTA A WEBSOCKET OFICIAL DERIV (ALTA FIDELIDAD EN TIEMPO REAL)
     initDerivWebSocket() {
       if (typeof WebSocket === "undefined") return;
 
+      if (this.wsPingInterval) {
+        clearInterval(this.wsPingInterval);
+        this.wsPingInterval = null;
+      }
+
       if (this.derivWs) {
         try { this.derivWs.close(); } catch(_) {}
+        this.derivWs = null;
       }
 
       try {
@@ -287,22 +323,30 @@
           this.isDerivWsConnected = true;
           this.updateWsConnectionBadge(true);
           this.subscribeToCurrentMarketDeriv();
+
+          // Heartbeat ping continuo cada 25 segundos para evitar desconexiones de Deriv
+          this.wsPingInterval = setInterval(() => {
+            if (this.derivWs && this.derivWs.readyState === WebSocket.OPEN) {
+              try { this.derivWs.send(JSON.stringify({ ping: 1 })); } catch(_) {}
+            }
+          }, 25000);
         };
 
         this.derivWs.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            
-            // Velas históricas devueltas por Deriv
-            if (data.candles && Array.isArray(data.candles) && data.candles.length > 0) {
+            if (data.msg_type === "ping" || data.ping === "pong") return;
+
+            // Velas históricas devueltas por Deriv oficial
+            if (data.msg_type === "candles" || (data.candles && Array.isArray(data.candles) && data.candles.length > 0)) {
               this.handleDerivHistoricalCandles(data.candles);
             }
-            // Vela en formación devuelta por Deriv
-            else if (data.ohlc) {
+            // Vela en formación devuelta por Deriv oficial (tick a tick)
+            else if (data.msg_type === "ohlc" || data.ohlc) {
               this.handleDerivLiveOhlc(data.ohlc);
             }
             // Ticks en tiempo real devueltos por Deriv
-            else if (data.tick) {
+            else if (data.msg_type === "tick" || data.tick) {
               this.handleDerivLiveTick(data.tick);
             }
           } catch(e) {}
@@ -316,12 +360,17 @@
         this.derivWs.onclose = () => {
           this.isDerivWsConnected = false;
           this.updateWsConnectionBadge(false);
-          // Reintentar conexión en 6 segundos
+          if (this.wsPingInterval) {
+            clearInterval(this.wsPingInterval);
+            this.wsPingInterval = null;
+          }
+          // Alternar endpoint si hubo desconexión imprevista y reintentar en 4s
+          DERIV_WS_URL = (DERIV_WS_URL === DERIV_WS_PRIMARY) ? DERIV_WS_FALLBACK : DERIV_WS_PRIMARY;
           setTimeout(() => {
             if (document.getElementById("tradingSection")) {
               this.initDerivWebSocket();
             }
-          }, 6000);
+          }, 4000);
         };
       } catch(e) {
         this.isDerivWsConnected = false;
@@ -344,15 +393,20 @@
     subscribeToCurrentMarketDeriv() {
       if (!this.derivWs || this.derivWs.readyState !== WebSocket.OPEN) return;
 
-      const m = MARKETS[this.selectedMarket];
+      const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
       const symbol = m.derivSymbol || "frxEURUSD";
       const granularity = this.getGranularitySeconds();
 
-      // Solicitar velas con suscripción en vivo
+      try {
+        // Limpiar suscripciones previas para evitar colisión de streams de temporalidades
+        this.derivWs.send(JSON.stringify({ "forget_all": ["candles", "ticks"] }));
+      } catch(_) {}
+
+      // Solicitar velas auténticas de Deriv con suscripción de vela viva
       const req = {
         "ticks_history": symbol,
         "end": "latest",
-        "count": 42,
+        "count": 75,
         "style": "candles",
         "granularity": granularity,
         "subscribe": 1
@@ -364,22 +418,25 @@
     }
 
     handleDerivHistoricalCandles(rawCandles) {
-      const m = MARKETS[this.selectedMarket];
+      if (!Array.isArray(rawCandles) || rawCandles.length === 0) return;
+
+      const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
       const pip = m.pipSize;
       const decimals = pip < 0.001 ? 5 : 2;
 
       this.candles[this.selectedMarket] = rawCandles.map((c, idx) => {
         const timeStr = new Date(c.epoch * 1000).toTimeString().slice(0, 5);
-        const o = parseFloat(c.open.toFixed(decimals));
-        const h = parseFloat(c.high.toFixed(decimals));
-        const l = parseFloat(c.low.toFixed(decimals));
-        const cl = parseFloat(c.close.toFixed(decimals));
+        const o = parseFloat(parseFloat(c.open).toFixed(decimals));
+        const h = parseFloat(parseFloat(c.high).toFixed(decimals));
+        const l = parseFloat(parseFloat(c.low).toFixed(decimals));
+        const cl = parseFloat(parseFloat(c.close).toFixed(decimals));
         const isBull = cl >= o;
-        const isSpike = (m.platformMode === "deriv_boom" && cl > o + (pip * 25)) ||
-                        (m.platformMode === "deriv_crash" && cl < o - (pip * 25));
+        const isSpike = (m.platformMode === "deriv_boom" && cl > o + (pip * 20)) ||
+                        (m.platformMode === "deriv_crash" && cl < o - (pip * 20));
 
         return {
           index: idx,
+          epoch: c.epoch,
           time: timeStr,
           open: o,
           high: h,
@@ -392,43 +449,85 @@
         };
       });
 
-      if (rawCandles.length > 0) {
-        const last = rawCandles[rawCandles.length - 1];
-        this.marketPrices[this.selectedMarket] = parseFloat(last.close.toFixed(decimals));
-      }
+      const last = this.candles[this.selectedMarket][this.candles[this.selectedMarket].length - 1];
+      this.marketPrices[this.selectedMarket] = last.close;
 
+      // Sincronizar temporizador de vela y regenerar señal institucional sobre datos reales
+      this.updateRemainingCandleCountdown();
+      this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
       this.renderCandleHistoryTable();
       this.drawMarketCanvas();
       this.updateLiveHeaderTelemetry();
+      this.updateWsConnectionBadge(true);
     }
 
     handleDerivLiveOhlc(ohlc) {
-      const m = MARKETS[this.selectedMarket];
+      if (!ohlc) return;
+      const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
+
+      // Descartar si el paquete recibido pertenece a otro símbolo tras un cambio de mercado
+      if (ohlc.symbol && m.derivSymbol && ohlc.symbol !== m.derivSymbol) return;
+
       const pip = m.pipSize;
       const decimals = pip < 0.001 ? 5 : 2;
-      const curPrice = parseFloat(ohlc.close.toFixed(decimals));
-      this.marketPrices[this.selectedMarket] = curPrice;
+      const o = parseFloat(parseFloat(ohlc.open).toFixed(decimals));
+      const h = parseFloat(parseFloat(ohlc.high).toFixed(decimals));
+      const l = parseFloat(parseFloat(ohlc.low).toFixed(decimals));
+      const cl = parseFloat(parseFloat(ohlc.close).toFixed(decimals));
+      const openTime = parseInt(ohlc.open_time, 10);
+      const isBull = cl >= o;
+      const isSpike = (m.platformMode === "deriv_boom" && cl > o + (pip * 20)) ||
+                      (m.platformMode === "deriv_crash" && cl < o - (pip * 20));
+
+      this.marketPrices[this.selectedMarket] = cl;
 
       const marketCandles = this.candles[this.selectedMarket];
       if (marketCandles && marketCandles.length > 0) {
         const last = marketCandles[marketCandles.length - 1];
-        last.close = curPrice;
-        if (curPrice > last.high) last.high = curPrice;
-        if (curPrice < last.low) last.low = curPrice;
-        last.isBull = last.close >= last.open;
-        last.pips = parseFloat(((last.close - last.open) / pip).toFixed(1));
+
+        // ¿Nació una vela nueva en el servidor de Deriv?
+        if (openTime > (last.epoch || 0)) {
+          const timeStr = new Date(openTime * 1000).toTimeString().slice(0, 5);
+          marketCandles.push({
+            index: marketCandles.length,
+            epoch: openTime,
+            time: timeStr,
+            open: o,
+            high: h,
+            low: l,
+            close: cl,
+            isBull: isBull,
+            isSpike: isSpike,
+            volume: Math.floor(1000 + Math.random() * 1500),
+            pips: parseFloat(((cl - o) / pip).toFixed(1))
+          });
+          if (marketCandles.length > 120) marketCandles.shift();
+          this.renderCandleHistoryTable();
+        } else {
+          // Actualización de la vela actual en vivo tick a tick
+          last.close = cl;
+          if (h > last.high) last.high = h;
+          if (l < last.low) last.low = l;
+          last.isBull = isBull;
+          last.pips = parseFloat(((cl - last.open) / pip).toFixed(1));
+          if (isSpike) last.isSpike = true;
+        }
       }
 
-      this.addLiveTick(this.selectedMarket, curPrice, curPrice >= ohlc.open ? "BUY" : "SELL");
+      this.updateRemainingCandleCountdown(openTime, parseInt(ohlc.granularity, 10));
+      this.addLiveTick(this.selectedMarket, cl, cl >= o ? "BUY" : "SELL");
       this.updateOpenPositionsPnL();
       this.drawMarketCanvas();
       this.updateLiveHeaderTelemetry();
     }
 
     handleDerivLiveTick(tick) {
-      const m = MARKETS[this.selectedMarket];
+      if (!tick) return;
+      const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
+      if (tick.symbol && m.derivSymbol && tick.symbol !== m.derivSymbol) return;
+
       const decimals = m.pipSize < 0.001 ? 5 : 2;
-      const curPrice = parseFloat(tick.quote.toFixed(decimals));
+      const curPrice = parseFloat(parseFloat(tick.quote).toFixed(decimals));
       this.marketPrices[this.selectedMarket] = curPrice;
 
       this.addLiveTick(this.selectedMarket, curPrice, "BUY");
@@ -437,31 +536,76 @@
       this.updateLiveHeaderTelemetry();
     }
 
+    updateRemainingCandleCountdown(openTime, gran) {
+      const countdownEl = document.getElementById("candleCountdownLabel");
+      const granSecs = gran || this.getGranularitySeconds();
+      const nowEpoch = Math.floor(Date.now() / 1000);
+      let remaining;
+
+      if (openTime && !isNaN(openTime)) {
+        remaining = Math.max(0, (openTime + granSecs) - nowEpoch);
+      } else {
+        const marketCandles = this.candles[this.selectedMarket];
+        const last = (marketCandles && marketCandles.length > 0) ? marketCandles[marketCandles.length - 1] : null;
+        if (last && last.epoch) {
+          remaining = Math.max(0, (last.epoch + granSecs) - nowEpoch);
+        } else {
+          remaining = granSecs - (nowEpoch % granSecs);
+        }
+      }
+
+      this.formingCandleSeconds = remaining;
+
+      if (countdownEl) {
+        let timeStr;
+        if (remaining >= 3600) {
+          const h = Math.floor(remaining / 3600);
+          const m = Math.floor((remaining % 3600) / 60);
+          const s = remaining % 60;
+          timeStr = `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+        } else if (remaining >= 60) {
+          const m = Math.floor(remaining / 60);
+          const s = remaining % 60;
+          timeStr = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}s`;
+        } else {
+          timeStr = `${remaining}s`;
+        }
+        countdownEl.innerText = `Próxima vela (${this.selectedTimeframe}): ${timeStr}`;
+      }
+    }
+
     updateWsConnectionBadge(isConnected) {
       const badge = document.getElementById("wsStatusPill");
       if (badge) {
         if (isConnected) {
           badge.className = "ak-pill live";
-          badge.innerHTML = `<span class="dot"></span> DERIV WEBSOCKET OFICIAL (EN VIVO)`;
+          badge.innerHTML = `<span class="dot"></span> DERIV OFICIAL EN VIVO (${this.selectedTimeframe})`;
         } else {
-          badge.className = "ak-pill sentinel ok";
-          badge.innerHTML = `🟡 SIMULADOR LOCAL ACTIVO`;
+          badge.className = "ak-pill sentinel alert";
+          badge.innerHTML = `🟡 RECONECTANDO CON SERVIDOR DERIV...`;
         }
       }
     }
 
-    // Ticker local complementario (para cuando el WS esté cargando o se opere offline)
+    // Ticker local complementario (se ejecuta 1 vez por segundo)
     startLocalFallbackTicker() {
       if (this.liveTickerInterval) clearInterval(this.liveTickerInterval);
       this.liveTickerInterval = setInterval(() => {
-        // Solo simula si el WS no está conectado activamente
+        // Si el WS oficial Deriv está conectado, NO inventar datos simulados.
+        // Solo mantener sincronizado el temporizador exacto de Deriv.
         if (this.isDerivWsConnected) {
-          this.formingCandleSeconds--;
-          if (this.formingCandleSeconds <= 0) this.formingCandleSeconds = 60;
-          const countdownEl = document.getElementById("candleCountdownLabel");
-          if (countdownEl) countdownEl.innerText = `Próxima vela en: ${this.formingCandleSeconds}s`;
+          this.updateRemainingCandleCountdown();
+          if ((this.formingCandleSeconds % 45 === 0) && this.telegramAutoSend && this.telegramToken && this.telegramChatId) {
+            this.scanBackgroundMarketsForTelegram();
+          }
           return;
         }
+
+        // Modo de contingencia / offline únicamente
+        const granSecs = this.getGranularitySeconds();
+        this.formingCandleSeconds--;
+        if (this.formingCandleSeconds <= 0) this.formingCandleSeconds = granSecs;
+        this.updateRemainingCandleCountdown();
 
         const m = MARKETS[this.selectedMarket];
         const pip = m.pipSize;
@@ -472,27 +616,23 @@
 
         if (m.platformMode === "deriv_boom") {
           this.ticksSinceLastSpike++;
-          // Spikes en Boom: SIEMPRE ALCISTAS (+)
           if (this.ticksSinceLastSpike >= 28 && Math.random() > 0.58) {
             delta = pip * (35 + Math.floor(Math.random() * 45));
             this.ticksSinceLastSpike = 0;
             this.spikeProbability = 15;
             isSpikeNow = true;
           } else {
-            // Ticks normales en Boom: pequeñas caídas constantes (-)
             delta = -pip * (0.6 + Math.random() * 0.5);
             this.spikeProbability = Math.min(95, Math.round(15 + (this.ticksSinceLastSpike * 2.5)));
           }
         } else if (m.platformMode === "deriv_crash") {
           this.ticksSinceLastSpike++;
-          // Spikes en Crash: SIEMPRE BAJISTAS (-)
           if (this.ticksSinceLastSpike >= 28 && Math.random() > 0.58) {
             delta = -pip * (35 + Math.floor(Math.random() * 45));
             this.ticksSinceLastSpike = 0;
             this.spikeProbability = 15;
             isSpikeNow = true;
           } else {
-            // Ticks normales en Crash: pequeñas subidas constantes (+)
             delta = pip * (0.6 + Math.random() * 0.5);
             this.spikeProbability = Math.min(95, Math.round(15 + (this.ticksSinceLastSpike * 2.5)));
           }
@@ -510,27 +650,6 @@
           currentCandle.isBull = currentCandle.close >= currentCandle.open;
           currentCandle.pips = parseFloat(((currentCandle.close - currentCandle.open) / pip).toFixed(1));
           if (isSpikeNow) currentCandle.isSpike = true;
-        }
-
-        this.formingCandleSeconds--;
-        if (this.formingCandleSeconds <= 0) {
-          this.formingCandleSeconds = 60;
-          const last = marketCandles[marketCandles.length - 1];
-          const newTime = new Date().toTimeString().slice(0, 5);
-          marketCandles.push({
-            index: marketCandles.length,
-            time: newTime,
-            open: last.close,
-            high: last.close,
-            low: last.close,
-            close: last.close,
-            isBull: true,
-            isSpike: false,
-            volume: Math.floor(900 + Math.random() * 1500),
-            pips: 0
-          });
-          if (marketCandles.length > 120) marketCandles.shift();
-          this.renderCandleHistoryTable();
         }
 
         this.addLiveTick(this.selectedMarket, newPrice, delta >= 0 ? "BUY" : "SELL");
@@ -1708,6 +1827,8 @@
       if (titleEl) titleEl.innerText = m.name;
       if (catEl) catEl.innerText = `(${m.category})`;
       if (tfEl) tfEl.innerHTML = `${this.selectedTimeframe} &bull; Stream Deriv Oficial`;
+      this.updateWsConnectionBadge(this.isDerivWsConnected);
+      this.updateRemainingCandleCountdown();
     }
 
     toggleFullscreen(forceState = null) {
@@ -3642,7 +3763,7 @@
         });
       }
 
-      // Cambio de Mercado Activo (Limpia señales viejas y genera entrada fresca para el nuevo mercado)
+      // Cambio de Mercado Activo (Limpia señales viejas y conecta de inmediato a Deriv Oficial)
       const selMarket = document.getElementById("selMarketActive");
       if (selMarket) {
         selMarket.addEventListener("change", (e) => {
@@ -3650,19 +3771,19 @@
           this.currentSignal = null; // Retirar entrada del mercado anterior
           this.verticalOffset = 0; // Centrar vista vertical para el nuevo mercado
           this.updateChartCanvasHeader();
-          if (!this.candles[this.selectedMarket] || this.candles[this.selectedMarket].length === 0) {
+          if (!this.isDerivWsConnected && (!this.candles[this.selectedMarket] || this.candles[this.selectedMarket].length === 0)) {
             this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
+            this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
           }
-          this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
           this.updateLiveHeaderTelemetry();
           this.renderPlatformSpecialDeck();
           this.renderCandleHistoryTable();
           this.drawMarketCanvas();
-          this.subscribeToCurrentMarketDeriv(); // Actualiza WS en tiempo real
+          this.subscribeToCurrentMarketDeriv(); // Pide velas reales inmediatamente a Deriv oficial
         });
       }
 
-      // Cambio de Temporalidad (Limpia señales viejas y genera entrada fresca para el nuevo tiempo)
+      // Cambio de Temporalidad (Sincronización exacta con Deriv en M1, M5, M15, H1, H4, D1)
       container.querySelectorAll(".ak-tf-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
           container.querySelectorAll(".ak-tf-btn").forEach(b => b.classList.remove("active"));
@@ -3670,11 +3791,15 @@
           this.selectedTimeframe = e.currentTarget.dataset.tf;
           this.currentSignal = null; // Retirar entrada de la temporalidad anterior
           this.updateChartCanvasHeader();
-          this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
-          this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
-          this.renderCandleHistoryTable();
-          this.drawMarketCanvas();
-          this.subscribeToCurrentMarketDeriv(); // Actualiza WS en tiempo real
+          if (!this.isDerivWsConnected) {
+            this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
+            this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
+            this.renderCandleHistoryTable();
+            this.drawMarketCanvas();
+          } else {
+            // Con WS conectado: NO pisar con velas simuladas. Deriv responderá con las velas auténticas.
+            this.subscribeToCurrentMarketDeriv();
+          }
         });
       });
 
