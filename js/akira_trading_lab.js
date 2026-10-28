@@ -908,8 +908,23 @@
         const pips = diff / (MARKETS[pos.marketId]?.pipSize || 1);
 
         if (!MARKETS[pos.marketId]?.isBinary) {
-          const pipValue = pos.lot * 10;
-          pos.pnl = parseFloat((pips * pipValue).toFixed(2));
+          const m = MARKETS[pos.marketId] || {};
+          const isBoomCrash = m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash" || pos.marketId.startsWith("BOOM") || pos.marketId.startsWith("CRASH");
+          const isGold = pos.marketId === "XAUUSD";
+
+          let pnlMoney = 0;
+          if (isBoomCrash) {
+            // En Boom/Crash, 1 punto de precio * lote = USD directos (ej. 4.5 pts * 0.20 lot = $0.90 USD)
+            pnlMoney = diff * pos.lot;
+          } else if (isGold) {
+            // En Oro, $1.00 de movimiento por cada 0.01 micro-lote = $1.00 USD
+            pnlMoney = diff * pos.lot * 100;
+          } else {
+            // Forex Mayor y Criptomonedas
+            const pipValue = pos.lot * 10;
+            pnlMoney = pips * pipValue;
+          }
+          pos.pnl = parseFloat(pnlMoney.toFixed(2));
           openPnL += pos.pnl;
 
           if (pos.sl && ((pos.type === "BUY" && cur <= pos.sl) || (pos.type === "SELL" && cur >= pos.sl))) {
@@ -1149,26 +1164,84 @@
       }
     }
 
-    calculateSafeLot(accountSize, riskPips = 25) {
+    calculateSafeLot(accountSize, riskPips = null, marketId = null) {
       const cap = Math.max(1, parseFloat(accountSize) || 50);
-      const targetRiskMoney = cap * (this.riskPercent / 100);
-      const rawLot = targetRiskMoney / (riskPips * 10.0);
-      const minBrokerLot = 0.01;
-      const calculatedLot = Math.max(minBrokerLot, parseFloat(rawLot.toFixed(2)));
-      const actualRiskMoney = parseFloat((calculatedLot * riskPips * 10.0).toFixed(2));
+      const targetMarket = marketId || this.selectedMarket || "BOOM1000";
+      const m = MARKETS[targetMarket] || MARKETS["BOOM1000"] || {};
+      const isBinary = Boolean(m.isBinary);
+      const isBoomCrash = m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash" || targetMarket.startsWith("BOOM") || targetMarket.startsWith("CRASH");
+      const isCrypto = targetMarket === "BTCUSDT" || targetMarket === "ETHUSDT";
+      const isGold = targetMarket === "XAUUSD";
+
+      const pips = (riskPips !== null && riskPips !== undefined && riskPips > 0)
+        ? riskPips
+        : this.getMarketSniperRiskPips(targetMarket, m);
+
+      let recommendedLot;
+      let actualRiskMoney;
+
+      if (isBinary) {
+        // En Opciones Binarias no hay lotaje: se usa stake fijo (ej. $1.00 USD para cuenta de $50)
+        recommendedLot = 1.00;
+        actualRiskMoney = 1.00;
+      } else if (isBoomCrash) {
+        // DERIV BOOM / CRASH:
+        // Contrato institucional recomendado en Deriv = 0.20 lotes.
+        // A 0.20 lotes: 1 punto de precio = $0.20 USD.
+        // Como 1 pip = 0.01 puntos (450 pips = 4.50 puntos):
+        // 4.50 puntos * $0.20 = $0.90 USD de riesgo (1.8% de una cuenta de $50).
+        recommendedLot = 0.20;
+        const pts = pips * 0.01;
+        actualRiskMoney = parseFloat((pts * 0.20).toFixed(2));
+      } else if (isGold) {
+        // ORO (XAUUSD):
+        // Micro-lote = 0.01. Con 25 pips ($2.50 USD de SL) = $2.50 USD de riesgo (5% de $50).
+        recommendedLot = 0.01;
+        actualRiskMoney = parseFloat((pips * 0.10).toFixed(2));
+      } else if (isCrypto) {
+        // CRIPTO (BTCUSDT / ETHUSDT):
+        // Micro-lote = 0.01. Riesgo proporcional calibrado a $1.80 USD (3.6% de $50).
+        recommendedLot = 0.01;
+        actualRiskMoney = parseFloat(((pips / 250) * 1.80).toFixed(2));
+      } else {
+        // FOREX MAYOR (EURUSD, GBPUSD, USDJPY):
+        // Micro-lote estándar del broker = 0.01 lote ($0.10 USD por pip).
+        // Con 15 pips de SL a 0.01 lote = $1.50 USD de riesgo (3% de $50).
+        recommendedLot = 0.01;
+        actualRiskMoney = parseFloat((pips * 0.10).toFixed(2));
+      }
+
+      actualRiskMoney = Math.max(0.10, actualRiskMoney);
       const actualRiskPercent = parseFloat(((actualRiskMoney / cap) * 100).toFixed(1));
+
+      // Metas en Pips:
+      const slPips = pips;
+      const tp1Pips = Math.round(pips * 1.5);
+      const tp2Pips = Math.round(pips * 2.2);
+      const tp3Pips = Math.round(pips * 3.19);
+
+      // Ganancias Reales en USD para la cuenta de referencia:
+      const tp1Profit = parseFloat((actualRiskMoney * 1.5).toFixed(2));
+      const tp2Profit = parseFloat((actualRiskMoney * 2.2).toFixed(2));
+      const tp3Profit = parseFloat((actualRiskMoney * 3.19).toFixed(2));
 
       return {
         capital: cap,
-        targetRiskMoney: parseFloat(targetRiskMoney.toFixed(2)),
-        lot: calculatedLot,
+        lot: recommendedLot,
+        slPips: slPips,
+        tp1Pips: tp1Pips,
+        tp2Pips: tp2Pips,
+        tp3Pips: tp3Pips,
+        targetRiskMoney: parseFloat((cap * (this.riskPercent / 100)).toFixed(2)),
         actualRiskMoney: actualRiskMoney,
         actualRiskPercent: actualRiskPercent,
-        tp1Profit: parseFloat((actualRiskMoney * 1.5).toFixed(2)),
-        tp2Profit: parseFloat((actualRiskMoney * 2.5).toFixed(2)),
-        tp3Profit: parseFloat((actualRiskMoney * 4.0).toFixed(2)),
-        isMicroAccount: cap < 70,
-        microNote: `En cuentas de $${cap} USD, el contrato mínimo del broker es 0.01 micro-lote ($0.10/pip). Riesgo real con SL de 25 pips = $${actualRiskMoney} USD (${actualRiskPercent}%). Para mantener estricto 1.5%, reduce el SL a 10 pips o utiliza Opciones Binarias/Deriv donde fijas un stake exacto de $0.50 a $1.00 USD.`
+        tp1Profit: tp1Profit,
+        tp2Profit: tp2Profit,
+        tp3Profit: tp3Profit,
+        isMicroAccount: cap <= 100,
+        microNote: isBoomCrash
+          ? `En cuenta de referencia de $${cap} USD (Boom/Crash), el debido contrato institucional es 0.20 lotes. Con SL de ${pips} pips (4.50 pts), arriesgas -$${actualRiskMoney} USD (${actualRiskPercent}% de tu capital). Ganancias reales: TP1: +$${tp1Profit} USD, TP2: +$${tp2Profit} USD, TP3: +$${tp3Profit} USD.`
+          : `En cuenta de referencia de $${cap} USD, el debido contrato institucional es 0.01 micro-lotes. Con SL de ${pips} pips, arriesgas -$${actualRiskMoney} USD (${actualRiskPercent}% de tu capital). Ganancias reales: TP1: +$${tp1Profit} USD, TP2: +$${tp2Profit} USD, TP3: +$${tp3Profit} USD.`
       };
     }
 
@@ -1279,6 +1352,8 @@
               </div>
 
               <div id="fsExtraToolbar" class="ak-fs-extra-toolbar" style="display:none;"></div>
+
+              <div id="canvasAccountTelemetryRibbon" class="ak-canvas-account-ribbon" style="display:${this.chartEngine === 'canvas' ? 'flex' : 'none'};"></div>
 
               <div id="canvasOhlcInspector" class="ak-canvas-inspector" style="display:${this.chartEngine === 'canvas' ? 'flex' : 'none'};">
                 <span>Pasa el mouse sobre el gráfico para auditar cualquier vela histórica en números exactos.</span>
@@ -1771,32 +1846,56 @@
 
     updateLiveHeaderTelemetry() {
       const box = document.getElementById("telemetryBadgeBox");
-      if (!box) return;
+      const ribbon = document.getElementById("canvasAccountTelemetryRibbon");
 
       const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
-      const cur = this.marketPrices[this.selectedMarket];
+      const cur = this.marketPrices[this.selectedMarket] || m.basePrice;
       const spread = m.unitSpread;
       const decimals = this.getMarketDecimals(this.selectedMarket);
       const bid = (cur - (spread / 2)).toFixed(decimals);
       const ask = (cur + (spread / 2)).toFixed(decimals);
       const spreadPips = (spread / m.pipSize).toFixed(1);
+      const calc = this.calculateSafeLot(this.accountSize, this.currentSignal ? this.currentSignal.riskPips : null, this.selectedMarket);
 
-      box.innerHTML = `
-        <div style="display:flex;gap:12px;align-items:center;">
-          <div class="ak-bid-ask-box">
-            <span class="lbl">BID:</span>
-            <strong class="val bid">${bid}</strong>
+      if (box) {
+        box.innerHTML = `
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <div class="ak-bid-ask-box">
+              <span class="lbl">BID:</span>
+              <strong class="val bid">${bid}</strong>
+            </div>
+            <div class="ak-bid-ask-box">
+              <span class="lbl">ASK:</span>
+              <strong class="val ask">${ask}</strong>
+            </div>
+            <div class="ak-spread-box">
+              <span class="lbl">SPREAD:</span>
+              <strong class="val">${spreadPips} ${m.pipName}</strong>
+            </div>
+            <div class="ak-bid-ask-box" style="border-color:rgba(0,242,254,0.35);background:rgba(0,242,254,0.08);">
+              <span class="lbl" style="color:#00f2fe;">CUENTA REF:</span>
+              <strong class="val" style="color:#00f2fe;">$${calc.capital} USD</strong>
+            </div>
           </div>
-          <div class="ak-bid-ask-box">
-            <span class="lbl">ASK:</span>
-            <strong class="val ask">${ask}</strong>
+        `;
+      }
+
+      if (ribbon) {
+        ribbon.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;width:100%;flex-wrap:wrap;gap:8px;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span class="ak-badge safe" style="font-size:10.5px;padding:3px 8px;">💼 CUENTA REF: $${calc.capital} USD</span>
+              <span style="color:#cbd5e1;font-size:11px;">⚖️ Debido Lotaje: <strong style="color:#00f2fe;">${calc.lot}</strong></span>
+              <span style="color:#fca5a5;font-size:11px;">🛑 SL: <strong style="color:#ef4444;">-${calc.slPips} pips (-$${calc.actualRiskMoney} USD | ${calc.actualRiskPercent}%)</strong></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11px;">
+              <span style="color:#86efac;">🎯 TP1: <strong style="color:#10b981;">+${calc.tp1Pips} pips (+$${calc.tp1Profit} USD)</strong></span>
+              <span style="color:#6ee7b7;">🚀 TP2: <strong style="color:#059669;">+${calc.tp2Pips} pips (+$${calc.tp2Profit} USD)</strong></span>
+              <span style="color:#fef08a;">💎 TP3: <strong style="color:#ca8a04;">+${calc.tp3Pips} pips (+$${calc.tp3Profit} USD | 1:3.19)</strong></span>
+            </div>
           </div>
-          <div class="ak-spread-box">
-            <span class="lbl">SPREAD:</span>
-            <strong class="val">${spreadPips} ${m.pipName}</strong>
-          </div>
-        </div>
-      `;
+        `;
+      }
     }
 
     renderPlatformSpecialDeck() {
@@ -2833,8 +2932,8 @@
             const isBuy = sig.type === "BUY" || sig.type === "CALL";
             const chulitoX = pD_coord.x;
             const yEntry = getY(sig.entry || pD_coord.price);
-            const calcRisk = this.calculateSafeLot(this.accountSize, sig.riskPips);
-            const targetGainMoney = (calcRisk.actualRiskMoney * 3.19).toFixed(2);
+            const calcRisk = this.calculateSafeLot(this.accountSize, sig.riskPips, this.selectedMarket);
+            const targetGainMoney = calcRisk.tp3Profit;
             const actualRiskMoney = calcRisk.actualRiskMoney;
 
             // Atenuar suavemente la caja si la entrada ya cumplió su vida útil y está en transición
@@ -2869,8 +2968,8 @@
               // Compra: Entrada en sig.entry, Target ARRIBA (yTp < yEntry), Stop ABAJO (ySl > yEntry)
               const yTp = getY(sig.tp3 || sig.tp2 || sig.tp1);
               const ySl = getY(sig.sl);
-              // Dejar 105px a la derecha para que NO colisione con los badges del eje derecho
-              const boxW = Math.max(60, chartWidth - chulitoX - 105);
+              // Dejar 130px a la derecha para que NO colisione con los badges del eje derecho
+              const boxW = Math.max(60, chartWidth - chulitoX - 130);
 
               // Clamping para evitar que la caja se desborde fuera de la vista
               const topBound = paddingY;
@@ -2891,13 +2990,13 @@
               ctx.setLineDash([]);
 
               // Barra de cabecera verde de la caja (compacta, sin obstruir)
-              const tagW = Math.min(boxW - 12, 175);
+              const tagW = Math.min(boxW - 12, 230);
               ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.85)" : "rgba(16, 185, 129, 0.85)";
               ctx.fillRect(chulitoX + 4, targetTop - 13, tagW, 13);
               ctx.fillStyle = "#ffffff";
               ctx.font = "bold 8.5px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Target: +${(sig.riskPips * 3.19).toFixed(1)} pips (+$${targetGainMoney})`, chulitoX + 8, targetTop - 3);
+              ctx.fillText(`Target TP3: +${calcRisk.tp3Pips} pips (+$${calcRisk.tp3Profit} USD)`, chulitoX + 8, targetTop - 3);
 
               // 2. Caja Roja (Stop Loss / Riesgo) - Relleno sutil para NO tapar velas
               const stopTop = safeEntryY;
@@ -2911,23 +3010,23 @@
               ctx.setLineDash([]);
 
               // Barra de pie roja de la caja (compacta)
-              const stopTagW = Math.min(boxW - 12, 160);
+              const stopTagW = Math.min(boxW - 12, 220);
               ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.85)" : "rgba(239, 68, 68, 0.85)";
               ctx.fillRect(chulitoX + 4, stopTop + stopH, stopTagW, 13);
               ctx.fillStyle = "#ffffff";
               ctx.font = "bold 8.5px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Stop: -${sig.riskPips} pips (-$${actualRiskMoney})`, chulitoX + 8, stopTop + stopH + 10);
+              ctx.fillText(`Stop: -${calcRisk.slPips} pips (-$${calcRisk.actualRiskMoney} USD | Lote: ${calcRisk.lot})`, chulitoX + 8, stopTop + stopH + 10);
 
               // Píldora de R:R en el centro
-              ctx.fillStyle = isLight ? "rgba(226, 232, 240, 0.9)" : "rgba(30, 41, 59, 0.9)";
-              ctx.fillRect(chulitoX + 10, safeEntryY - 9, 110, 18);
+              ctx.fillStyle = isLight ? "rgba(226, 232, 240, 0.92)" : "rgba(30, 41, 59, 0.92)";
+              ctx.fillRect(chulitoX + 10, safeEntryY - 9, 140, 18);
               ctx.strokeStyle = isLight ? "#94a3b8" : "#475569";
-              ctx.strokeRect(chulitoX + 10, safeEntryY - 9, 110, 18);
+              ctx.strokeRect(chulitoX + 10, safeEntryY - 9, 140, 18);
               ctx.fillStyle = isLight ? "#0f172a" : "#f8fafc";
-              ctx.font = "bold 9px sans-serif";
+              ctx.font = "bold 8.5px sans-serif";
               ctx.textAlign = "left";
-              ctx.fillText("R/R: 3.19 (Sniper)", chulitoX + 16, safeEntryY + 3);
+              ctx.fillText(`R/R: 1:3.19 • Cta: $${calcRisk.capital} USD`, chulitoX + 14, safeEntryY + 3);
 
               // Tiradores circulares de esquina estilo TradingView
               [
@@ -2971,8 +3070,8 @@
               // Venta: Entrada en sig.entry, Target ABAJO (yTp > yEntry), Stop ARRIBA (ySl < yEntry)
               const yTp = getY(sig.tp3 || sig.tp2 || sig.tp1);
               const ySl = getY(sig.sl);
-              // Dejar 105px a la derecha para que NO colisione con los badges del eje derecho
-              const boxW = Math.max(60, chartWidth - chulitoX - 105);
+              // Dejar 130px a la derecha para que NO colisione con los badges del eje derecho
+              const boxW = Math.max(60, chartWidth - chulitoX - 130);
 
               const topBound = paddingY;
               const bottomBound = height - paddingY;
@@ -2992,13 +3091,13 @@
               ctx.setLineDash([]);
 
               // Barra de cabecera roja de la caja (compacta)
-              const stopTagW = Math.min(boxW - 12, 160);
+              const stopTagW = Math.min(boxW - 12, 220);
               ctx.fillStyle = isLight ? "rgba(220, 38, 38, 0.85)" : "rgba(239, 68, 68, 0.85)";
               ctx.fillRect(chulitoX + 4, stopTop - 13, stopTagW, 13);
               ctx.fillStyle = "#ffffff";
               ctx.font = "bold 8.5px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Stop: -${sig.riskPips} pips (-$${actualRiskMoney})`, chulitoX + 8, stopTop - 3);
+              ctx.fillText(`Stop: -${calcRisk.slPips} pips (-$${calcRisk.actualRiskMoney} USD | Lote: ${calcRisk.lot})`, chulitoX + 8, stopTop - 3);
 
               // 2. Caja Verde (Ganancia hacia abajo) - Relleno sutil
               const targetTop = safeEntryY;
@@ -3012,23 +3111,23 @@
               ctx.setLineDash([]);
 
               // Barra de pie verde de la caja (compacta)
-              const targetTagW = Math.min(boxW - 12, 175);
+              const targetTagW = Math.min(boxW - 12, 230);
               ctx.fillStyle = isLight ? "rgba(22, 163, 74, 0.85)" : "rgba(16, 185, 129, 0.85)";
               ctx.fillRect(chulitoX + 4, targetTop + targetH, targetTagW, 13);
               ctx.fillStyle = "#ffffff";
               ctx.font = "bold 8.5px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Target: +${(sig.riskPips * 3.19).toFixed(1)} pips (+$${targetGainMoney})`, chulitoX + 8, targetTop + targetH + 10);
+              ctx.fillText(`Target TP3: +${calcRisk.tp3Pips} pips (+$${calcRisk.tp3Profit} USD)`, chulitoX + 8, targetTop + targetH + 10);
 
               // Píldora de R:R en el centro
-              ctx.fillStyle = isLight ? "rgba(226, 232, 240, 0.9)" : "rgba(30, 41, 59, 0.9)";
-              ctx.fillRect(chulitoX + 10, safeEntryY - 9, 110, 18);
+              ctx.fillStyle = isLight ? "rgba(226, 232, 240, 0.92)" : "rgba(30, 41, 59, 0.92)";
+              ctx.fillRect(chulitoX + 10, safeEntryY - 9, 140, 18);
               ctx.strokeStyle = isLight ? "#94a3b8" : "#475569";
-              ctx.strokeRect(chulitoX + 10, safeEntryY - 9, 110, 18);
+              ctx.strokeRect(chulitoX + 10, safeEntryY - 9, 140, 18);
               ctx.fillStyle = isLight ? "#0f172a" : "#f8fafc";
-              ctx.font = "bold 9px sans-serif";
+              ctx.font = "bold 8.5px sans-serif";
               ctx.textAlign = "left";
-              ctx.fillText("R/R: 3.19 (Sniper)", chulitoX + 16, safeEntryY + 3);
+              ctx.fillText(`R/R: 1:3.19 • Cta: $${calcRisk.capital} USD`, chulitoX + 14, safeEntryY + 3);
 
               // Tiradores circulares de esquina
               [
@@ -3329,10 +3428,11 @@
 
         // =====================================================================
         // GESTOR DE ETIQUETAS DE PRECIO ANTI-COLISIÓN (ENTRADA, SL, TP1, TP2, TP3)
-        // Evita que los carteles se monten o tapen entre sí cuando los precios están cerca
+        // Muestra precio, pips y ganancias/pérdidas reales en USD para la cuenta de $50
         // =====================================================================
         const badgesToRender = [];
         const yEntry = getY(this.currentSignal.entry);
+        const calc = this.calculateSafeLot(this.accountSize, this.currentSignal.riskPips, this.selectedMarket);
 
         if (yEntry >= paddingY && yEntry <= height - paddingY) {
           badgesToRender.push({
@@ -3349,7 +3449,7 @@
           badgesToRender.push({
             id: "sl",
             y: ySl,
-            text: isSlHit ? "🛑 SL TOCADO: " + slPrice : "🛡️ SL: " + slPrice,
+            text: isSlHit ? `🛑 SL TOCADO: ${slPrice} (-$${calc.actualRiskMoney})` : `🛡️ SL: ${slPrice} (-$${calc.actualRiskMoney})`,
             bg: isSlHit ? "#dc2626" : (isLight ? "#dc2626" : "rgba(220, 38, 38, 0.92)"),
             fg: "#ffffff",
             border: "#ef4444"
@@ -3359,18 +3459,18 @@
           const isBelow = ySl > height - paddingY;
           const pinY = isBelow ? height - paddingY - 14 : paddingY + 6;
           ctx.fillStyle = isLight ? "#dc2626" : "rgba(239, 68, 68, 0.92)";
-          ctx.fillRect(chartWidth - 105, pinY - 10, 102, 16);
+          ctx.fillRect(chartWidth - 126, pinY - 10, 122, 16);
           ctx.fillStyle = "#ffffff";
-          ctx.font = "bold 8.5px monospace";
+          ctx.font = "bold 8px monospace";
           ctx.textAlign = "right";
-          ctx.fillText((isBelow ? "▼ SL: " : "▲ SL: ") + slPrice, chartWidth - 6, pinY + 2);
+          ctx.fillText((isBelow ? "▼ SL: " : "▲ SL: ") + `${slPrice} (-$${calc.actualRiskMoney})`, chartWidth - 6, pinY + 2);
         }
 
         if (yTp1 >= paddingY && yTp1 <= height - paddingY) {
           badgesToRender.push({
             id: "tp1",
             y: yTp1,
-            text: isTp1Hit ? "✅ TP1 HIT: " + tp1Price : "🎯 TP1: " + tp1Price,
+            text: isTp1Hit ? `✅ TP1 HIT: +$${calc.tp1Profit}` : `🎯 TP1: ${tp1Price} (+$${calc.tp1Profit})`,
             bg: isTp1Hit ? "#16a34a" : (isLight ? "#16a34a" : "rgba(16, 185, 129, 0.92)"),
             fg: "#ffffff",
             border: "#10b981"
@@ -3381,7 +3481,7 @@
           badgesToRender.push({
             id: "tp2",
             y: yTp2,
-            text: isTp2Hit ? "🚀 TP2 HIT: " + tp2Price : "🎯 TP2: " + tp2Price,
+            text: isTp2Hit ? `🚀 TP2 HIT: +$${calc.tp2Profit}` : `🎯 TP2: ${tp2Price} (+$${calc.tp2Profit})`,
             bg: isTp2Hit ? "#059669" : (isLight ? "#15803d" : "rgba(16, 185, 129, 0.88)"),
             fg: "#ffffff",
             border: "#059669"
@@ -3393,7 +3493,7 @@
             badgesToRender.push({
               id: "tp3",
               y: yTp3,
-              text: isTp3Hit ? "💎 TP3 HIT: " + tp3Price : "🎯 TP3: " + tp3Price,
+              text: isTp3Hit ? `💎 TP3 HIT: +$${calc.tp3Profit}` : `🎯 TP3: ${tp3Price} (+$${calc.tp3Profit})`,
               bg: isTp3Hit ? "#ca8a04" : (isLight ? "#166534" : "rgba(16, 185, 129, 0.82)"),
               fg: "#ffffff",
               border: "#eab308"
@@ -3403,11 +3503,11 @@
             const isAbove = yTp3 < paddingY;
             const pinY = isAbove ? paddingY + 6 : height - paddingY - 14;
             ctx.fillStyle = isTp3Hit ? "#ca8a04" : (isLight ? "#166534" : "rgba(16, 185, 129, 0.92)");
-            ctx.fillRect(chartWidth - 105, pinY - 10, 102, 16);
+            ctx.fillRect(chartWidth - 126, pinY - 10, 122, 16);
             ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 8.5px monospace";
+            ctx.font = "bold 8px monospace";
             ctx.textAlign = "right";
-            ctx.fillText((isAbove ? "▲ TP3: " : "▼ TP3: ") + tp3Price, chartWidth - 6, pinY + 2);
+            ctx.fillText((isAbove ? "▲ TP3: " : "▼ TP3: ") + `${tp3Price} (+$${calc.tp3Profit})`, chartWidth - 6, pinY + 2);
           }
         }
 
@@ -3415,7 +3515,7 @@
         badgesToRender.sort((a, b) => a.y - b.y);
 
         // Detectar cercanía (< 18px) y escalonar en 2 columnas para 0 colisiones
-        const badgeW = 95;
+        const badgeW = 122;
         const badgeH = 16;
         let activeCol = 0; // 0 = Columna Principal (derecha), 1 = Columna Alterna (izquierda)
 
@@ -3428,7 +3528,7 @@
             activeCol = 0;
           }
           currentBadge.col = activeCol;
-          currentBadge.x = (activeCol === 0) ? (chartWidth - 96) : (chartWidth - 195);
+          currentBadge.x = (activeCol === 0) ? (chartWidth - 124) : (chartWidth - 250);
         }
 
         // Renderizado de las etiquetas escalonadas con guías visuales
@@ -3445,15 +3545,15 @@
             ctx.setLineDash([2, 2]);
             ctx.beginPath();
             ctx.moveTo(b.x + badgeW, b.y - 3);
-            ctx.lineTo(chartWidth - 98, b.y - 3);
+            ctx.lineTo(chartWidth - 126, b.y - 3);
             ctx.stroke();
             ctx.setLineDash([]);
           }
 
           ctx.fillStyle = b.fg;
-          ctx.font = "bold 8.5px monospace";
+          ctx.font = "bold 8px monospace";
           ctx.textAlign = "right";
-          ctx.fillText(b.text, b.x + badgeW - 5, b.y + 1);
+          ctx.fillText(b.text, b.x + badgeW - 4, b.y + 1);
         });
 
         ctx.setLineDash([]);
@@ -3546,7 +3646,7 @@
       const sig = this.currentSignal;
       const isBuy = sig.type === "BUY" || sig.type === "CALL";
       const isBinary = sig.type === "CALL" || sig.type === "PUT";
-      const calc = this.calculateSafeLot(this.accountSize, sig.riskPips);
+      const calc = this.calculateSafeLot(this.accountSize, sig.riskPips, sig.marketId);
 
       container.innerHTML = `
         <div class="ak-signal-card ${isBuy ? 'bullish' : 'bearish'}">
@@ -3617,46 +3717,60 @@
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
               <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-size:20px;">⏱️</span>
-                <strong style="color:#00f2fe;font-size:13px;">SINCRONIZACIÓN EN VIVO CON LAS VELAS (RADAR DE METAS)</strong>
+                <strong style="color:#00f2fe;font-size:13px;">RADAR DE METAS EN VIVO (CUENTA REF $${calc.capital} USD)</strong>
               </div>
               <span class="ak-pill live" style="font-size:10px;">Auditando Velas en Tiempo Real</span>
             </div>
             
-            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:10px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;">
+              <!-- 1. ENTRADA -->
               <div style="background:rgba(0, 242, 254, 0.08);border:1px solid rgba(0, 242, 254, 0.3);border-radius:8px;padding:10px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:11px;color:#94a3b8;font-weight:700;">1. ENTRADA SNIPER:</span>
+                  <span style="font-size:11px;color:#94a3b8;font-weight:700;">1. ENTRADA:</span>
                   <span class="ak-badge ok">Activa</span>
                 </div>
                 <div style="margin-top:4px;font-size:15px;font-family:monospace;font-weight:bold;color:#00f2fe;">${sig.entry}</div>
-                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Punto exacto de gatillo confirmado.</p>
+                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Debido lotaje: <strong style="color:#00f2fe;">${calc.lot}</strong></p>
               </div>
 
-              <div style="background:rgba(16, 185, 129, 0.08);border:1px solid rgba(16, 185, 129, 0.3);border-radius:8px;padding:10px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:11px;color:#10b981;font-weight:700;">2. META 1 (TP1):</span>
-                  <span class="ak-badge ${calc.tp1Profit ? 'ok' : 'subtle'}">Meta +1.5R</span>
-                </div>
-                <div style="margin-top:4px;font-size:15px;font-family:monospace;font-weight:bold;color:#10b981;">${sig.tp1}</div>
-                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Línea verde nítida. Si la vela la toca, se ilumina ⭐ TP1 HIT.</p>
-              </div>
-
-              <div style="background:rgba(5, 150, 105, 0.08);border:1px solid rgba(5, 150, 105, 0.3);border-radius:8px;padding:10px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:11px;color:#34d399;font-weight:700;">3. META 2 (TP2):</span>
-                  <span class="ak-badge ok">Meta +2.5R</span>
-                </div>
-                <div style="margin-top:4px;font-size:15px;font-family:monospace;font-weight:bold;color:#34d399;">${sig.tp2 || '-'}</div>
-                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Extensión institucional de alta ganancia.</p>
-              </div>
-
+              <!-- 2. STOP LOSS -->
               <div style="background:rgba(220, 38, 38, 0.08);border:1px solid rgba(220, 38, 38, 0.3);border-radius:8px;padding:10px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:11px;color:#ef4444;font-weight:700;">4. STOP LOSS (SL):</span>
-                  <span class="ak-badge alert">Blindaje</span>
+                  <span style="font-size:11px;color:#ef4444;font-weight:700;">2. STOP LOSS (SL):</span>
+                  <span class="ak-badge alert">-${calc.slPips} pips</span>
                 </div>
                 <div style="margin-top:4px;font-size:15px;font-family:monospace;font-weight:bold;color:#ef4444;">${sig.sl}</div>
-                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Línea roja de protección estricta. Jamás se mueve en contra.</p>
+                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Riesgo: <strong style="color:#fca5a5;">-$${calc.actualRiskMoney} USD</strong> (${calc.actualRiskPercent}%)</p>
+              </div>
+
+              <!-- 3. META 1 (TP1) -->
+              <div style="background:rgba(16, 185, 129, 0.08);border:1px solid rgba(16, 185, 129, 0.3);border-radius:8px;padding:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:11px;color:#10b981;font-weight:700;">3. META 1 (TP1):</span>
+                  <span class="ak-badge ok">+${calc.tp1Pips} pips</span>
+                </div>
+                <div style="margin-top:4px;font-size:15px;font-family:monospace;font-weight:bold;color:#10b981;">${sig.tp1}</div>
+                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Ganancia: <strong style="color:#86efac;">+$${calc.tp1Profit} USD</strong> (1:1.5)</p>
+              </div>
+
+              <!-- 4. META 2 (TP2) -->
+              <div style="background:rgba(5, 150, 105, 0.08);border:1px solid rgba(5, 150, 105, 0.3);border-radius:8px;padding:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:11px;color:#34d399;font-weight:700;">4. META 2 (TP2):</span>
+                  <span class="ak-badge ok">+${calc.tp2Pips} pips</span>
+                </div>
+                <div style="margin-top:4px;font-size:15px;font-family:monospace;font-weight:bold;color:#34d399;">${sig.tp2 || '-'}</div>
+                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Ganancia: <strong style="color:#6ee7b7;">+$${calc.tp2Profit} USD</strong> (1:2.2)</p>
+              </div>
+
+              <!-- 5. META 3 (TP3 SNIPER) -->
+              <div style="background:rgba(202, 138, 4, 0.08);border:1px solid rgba(234, 179, 8, 0.3);border-radius:8px;padding:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:11px;color:#eab308;font-weight:700;">5. META 3 (TP3):</span>
+                  <span class="ak-badge ok">+${calc.tp3Pips} pips</span>
+                </div>
+                <div style="margin-top:4px;font-size:15px;font-family:monospace;font-weight:bold;color:#eab308;">${sig.tp3 || '-'}</div>
+                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Ganancia: <strong style="color:#fde047;">+$${calc.tp3Profit} USD</strong> (1:3.19)</p>
               </div>
             </div>
           </div>
@@ -3675,7 +3789,7 @@
               <div class="ak-guide-badge">PASO 2</div>
               <div class="title">¿CUÁNTO INVERTIR?</div>
               <div class="action-desc">
-                Con tu cuenta de <strong>$${this.accountSize.toFixed(2)} USD</strong>, inviertes <strong>${calc.lot} lote(s)</strong>. Si la orden toca Stop Loss, arriesgas solo <strong>-$${calc.actualRiskMoney} USD</strong> (${calc.actualRiskPercent}% de tu capital).
+                Con tu cuenta de referencia de <strong>$${calc.capital} USD</strong>, utilizas el debido lotaje de <strong style="color:#00f2fe;">${calc.lot} lote(s)</strong>. Si la orden retrocede a Stop Loss, arriesgas exactamente <strong style="color:#ef4444;">-$${calc.actualRiskMoney} USD</strong> (${calc.actualRiskPercent}% de tu capital).
               </div>
             </div>
 
@@ -3684,7 +3798,7 @@
               <div class="title">¿DÓNDE PROTEGERTE (STOP LOSS)?</div>
               <div class="action-desc">
                 ${!isBinary ? `
-                  Coloca tu Stop Loss en <strong style="color:#ef4444;">${sig.sl}</strong>. Si el precio retrocede hasta allí, la orden se cierra sola evitando pérdidas mayores.
+                  Coloca tu Stop Loss en <strong style="color:#ef4444;">${sig.sl}</strong> (-${calc.slPips} pips). Si el precio retrocede, la orden se cierra sola con una pérdida controlada de solo <strong>-$${calc.actualRiskMoney} USD</strong>.
                 ` : `
                   Opciones Binarias: fijas expiración en <strong>60s o 2m</strong>. Si cierra a tu favor, cobras el <strong>85% neto</strong> de inmediato.
                 `}
@@ -3696,9 +3810,9 @@
               <div class="title">¿DÓNDE COBRAR TUS GANANCIAS?</div>
               <div class="action-desc">
                 ${!isBinary ? `
-                  🎯 <strong>Meta 1:</strong> ${sig.tp1} (+${calc.tp1Profit} USD) &bull;
-                  🚀 <strong>Meta 2:</strong> ${sig.tp2} (+${calc.tp2Profit} USD) &bull;
-                  💎 <strong>Meta 3:</strong> ${sig.tp3} (+${calc.tp3Profit} USD)
+                  🎯 <strong>Meta 1 (TP1):</strong> ${sig.tp1} (+${calc.tp1Pips} pips &bull; <strong style="color:#10b981;">+$${calc.tp1Profit} USD</strong>)<br/>
+                  🚀 <strong>Meta 2 (TP2):</strong> ${sig.tp2} (+${calc.tp2Pips} pips &bull; <strong style="color:#059669;">+$${calc.tp2Profit} USD</strong>)<br/>
+                  💎 <strong>Meta 3 (TP3):</strong> ${sig.tp3} (+${calc.tp3Pips} pips &bull; <strong style="color:#ca8a04;">+$${calc.tp3Profit} USD</strong> | Ratio 1:3.19 Sniper)
                 ` : `
                   🎯 Retorno estimado por cada $10 invertidos: <strong>+$8.50 USD de ganancia neta</strong>.
                 `}
@@ -3842,11 +3956,11 @@
       const box = document.getElementById("accountCalculationBox");
       if (!box) return;
 
-      const calc = this.calculateSafeLot(this.accountSize);
+      const calc = this.calculateSafeLot(this.accountSize, this.currentSignal ? this.currentSignal.riskPips : null, this.selectedMarket);
       box.innerHTML = `
         <div class="ak-calc-grid">
           <div>
-            <span class="sub">Capital Base:</span>
+            <span class="sub">Capital Base (Ref):</span>
             <strong style="color:#00f2fe;">$${calc.capital.toLocaleString()} USD</strong>
           </div>
           <div>
@@ -3854,23 +3968,23 @@
             <strong style="color:#f59e0b;">$${calc.targetRiskMoney} USD</strong>
           </div>
           <div>
-            <span class="sub">Lotaje Seguro Sugerido:</span>
+            <span class="sub">Debido Lotaje Sugerido:</span>
             <strong style="color:#10b981;">${calc.lot} Lote(s)</strong>
           </div>
           <div>
-            <span class="sub">Riesgo Real SL (25 pips):</span>
-            <strong style="color:${calc.actualRiskPercent > 5 ? '#ef4444' : '#fff'};">$${calc.actualRiskMoney} USD (${calc.actualRiskPercent}%)</strong>
+            <span class="sub">Riesgo Real SL (-${calc.slPips} pips):</span>
+            <strong style="color:${calc.actualRiskPercent > 5 ? '#ef4444' : '#fff'};">-$${calc.actualRiskMoney} USD (${calc.actualRiskPercent}%)</strong>
           </div>
           <div>
-            <span class="sub">Ganancia TP1 (1:1.5):</span>
+            <span class="sub">Ganancia TP1 (+${calc.tp1Pips} pips):</span>
             <strong style="color:#10b981;">+$${calc.tp1Profit} USD</strong>
           </div>
           <div>
-            <span class="sub">Ganancia TP2 (1:2.5):</span>
+            <span class="sub">Ganancia TP2 (+${calc.tp2Pips} pips):</span>
             <strong style="color:#10b981;">+$${calc.tp2Profit} USD</strong>
           </div>
           <div>
-            <span class="sub">Ganancia TP3 (1:4.0):</span>
+            <span class="sub">Ganancia TP3 (+${calc.tp3Pips} pips | 1:3.19):</span>
             <strong style="color:#10b981;">+$${calc.tp3Profit} USD</strong>
           </div>
         </div>
@@ -4878,9 +4992,10 @@
 
         if (e.target.id === "btnCopySignalText" && this.currentSignal) {
           const s = this.currentSignal;
-          const txt = `📈 AKIRA QUANTUM TRADING SIGNAL\nMercado: ${s.marketName}\nPatrón: ${s.pattern}\nTipo: ${s.type}\nEntrada: ${s.entry}\nSL: ${s.sl || '-'}\nTP1: ${s.tp1 || '-'}\nTP2: ${s.tp2 || '-'}\nTP3: ${s.tp3 || '-'}\nConfluencia: ${s.confluence}%\nSMC: ${s.smc}`;
+          const calc = this.calculateSafeLot(this.accountSize, s.riskPips, s.marketId);
+          const txt = `📈 AKIRA QUANTUM TRADING SIGNAL\nMercado: ${s.marketName}\nAcción: ${s.type}\nEntrada: ${s.entry}\nDebido Lotaje (Cta $${calc.capital} USD): ${calc.lot}\nSL: ${s.sl || '-'} (-${calc.slPips} pips | -$${calc.actualRiskMoney} USD)\nTP1: ${s.tp1 || '-'} (+${calc.tp1Pips} pips | +$${calc.tp1Profit} USD)\nTP2: ${s.tp2 || '-'} (+${calc.tp2Pips} pips | +$${calc.tp2Profit} USD)\nTP3: ${s.tp3 || '-'} (+${calc.tp3Pips} pips | +$${calc.tp3Profit} USD)\nConfluencia: ${s.confluence}%\nEstrategia: ${s.smc}`;
           navigator.clipboard.writeText(txt).then(() => {
-            alert("📋 Señal copiada al portapapeles");
+            alert("📋 Señal copiada al portapapeles con métricas completas para cuenta de $50 USD");
           });
         }
 
@@ -5173,7 +5288,7 @@ if __name__ == "__main__":
       const m = MARKETS[signal.marketId] || MARKETS["XAUUSD"];
       const isBin = Boolean(m.isBinary);
       const isBuy = signal.type === "BUY" || signal.type === "CALL";
-      const calc = this.calculateSafeLot(this.accountSize, signal.riskPips || 15);
+      const calc = this.calculateSafeLot(this.accountSize, signal.riskPips || 15, signal.marketId);
 
       let msg = "";
       if (isBin) {
@@ -5193,13 +5308,13 @@ if __name__ == "__main__":
           `📊 *Mercado:* ${m.icon} ${signal.marketName}\n` +
           `⚡ *Acción:* *${isBuy ? '🟢 COMPRA SNIPER (BUY)' : '🔴 VENTA SNIPER (SELL)'}*\n` +
           `📍 *Punto de Entrada:* \`${signal.entry}\`\n` +
-          `🛡️ *Stop Loss Sniper:* \`${signal.sl}\` (${signal.riskPips} pips de margen)\n` +
-          `🎯 *Take Profit 1 (1:1.5):* \`${signal.tp1}\`\n` +
-          `🚀 *Take Profit 2 (1:2.2):* \`${signal.tp2}\`\n` +
-          `💎 *Take Profit 3 (Ratio 1:3.19):* \`${signal.tp3}\`\n\n` +
+          `🛡️ *Stop Loss:* \`${signal.sl}\` (-${calc.slPips} pips | -$${calc.actualRiskMoney} USD)\n` +
+          `🎯 *Take Profit 1 (1:1.5):* \`${signal.tp1}\` (+${calc.tp1Pips} pips | +$${calc.tp1Profit} USD)\n` +
+          `🚀 *Take Profit 2 (1:2.2):* \`${signal.tp2}\` (+${calc.tp2Pips} pips | +$${calc.tp2Profit} USD)\n` +
+          `💎 *Take Profit 3 (Sniper 1:3.19):* \`${signal.tp3}\` (+${calc.tp3Pips} pips | +$${calc.tp3Profit} USD)\n\n` +
           `📈 *Probabilidad / Confluencia:* ${signal.confluence}%\n` +
           `🔬 *Estrategia:* ${signal.smc}\n` +
-          `💰 *Gestión de Riesgo:* Invertir *${calc.lot} lote(s)* en cuenta de $${this.accountSize} USD (Riesgo: -$${calc.actualRiskMoney} USD / ${calc.actualRiskPercent}%)\n` +
+          `💰 *Gestión de Riesgo (Cuenta Ref $${calc.capital} USD):* Debido lotaje de *${calc.lot} lotes*. Riesgo máximo controlado: -$${calc.actualRiskMoney} USD (${calc.actualRiskPercent}%)\n` +
           `⏱️ *Hora:* ${signal.timestamp}\n\n` +
           `_Akira Quantum Trading Terminal • Para el Director Jhon Grimm._`;
       }
@@ -5447,6 +5562,17 @@ if __name__ == "__main__":
       }
       .ak-chart-tool-btn.ak-btn-fullscreen.active {
         background: rgba(239,68,68,0.2); border-color: #ef4444; color: #ef4444;
+      }
+      .ak-canvas-account-ribbon {
+        background: rgba(10, 15, 26, 0.95);
+        border-bottom: 1px solid rgba(0, 242, 254, 0.2);
+        padding: 6px 14px;
+        font-family: monospace;
+      }
+      .ak-chart-canvas-wrapper.theme-light .ak-canvas-account-ribbon {
+        background: #f1f5f9 !important;
+        border-bottom-color: #cbd5e1 !important;
+        color: #1e293b !important;
       }
       .ak-canvas-inspector {
         background: rgba(0,0,0,0.4); border-bottom: 1px solid rgba(255,255,255,0.04);
