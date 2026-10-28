@@ -2495,6 +2495,9 @@
             const isBuy = sig.type === "BUY" || sig.type === "CALL";
             const chulitoX = pD_coord.x;
             const yEntry = getY(sig.entry || pD_coord.price);
+            const calcRisk = this.calculateSafeLot(this.accountSize, sig.riskPips);
+            const targetGainMoney = (calcRisk.actualRiskMoney * 3.19).toFixed(2);
+            const actualRiskMoney = calcRisk.actualRiskMoney;
 
             // Atenuar suavemente la caja si la entrada ya cumplió su vida útil y está en transición
             const isCompletedFade = Boolean(this.currentSignal && this.currentSignal.completedAt);
@@ -2541,7 +2544,6 @@
               ctx.strokeRect(chulitoX, targetTop, boxW, targetH);
 
               // Barra de cabecera verde de la caja
-              const targetGainMoney = (calcRisk.actualRiskMoney * 3.19).toFixed(2);
               ctx.fillStyle = isLight ? "#16a34a" : "#10b981";
               ctx.fillRect(chulitoX, targetTop - 14, Math.min(boxW, 230), 14);
               ctx.fillStyle = "#ffffff";
@@ -2559,13 +2561,12 @@
               ctx.strokeRect(chulitoX, stopTop, boxW, stopH);
 
               // Barra de pie roja de la caja
-              const calcRisk = this.calculateSafeLot(this.accountSize, sig.riskPips);
               ctx.fillStyle = isLight ? "#dc2626" : "#ef4444";
               ctx.fillRect(chulitoX, stopTop + stopH, Math.min(boxW, 205), 14);
               ctx.fillStyle = "#ffffff";
               ctx.font = "bold 9px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Stop: -${sig.riskPips} pips (-$${calcRisk.actualRiskMoney} USD)`, chulitoX + 6, stopTop + stopH + 11);
+              ctx.fillText(`Stop: -${sig.riskPips} pips (-$${actualRiskMoney} USD)`, chulitoX + 6, stopTop + stopH + 11);
 
               // Píldora de R:R en el centro
               ctx.fillStyle = isLight ? "#e2e8f0" : "#1e293b";
@@ -2633,11 +2634,11 @@
 
               // Barra de cabecera roja de la caja
               ctx.fillStyle = isLight ? "#dc2626" : "#ef4444";
-              ctx.fillRect(chulitoX, stopTop - 14, Math.min(boxW, 190), 14);
+              ctx.fillRect(chulitoX, stopTop - 14, Math.min(boxW, 205), 14);
               ctx.fillStyle = "#ffffff";
               ctx.font = "bold 9px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Stop: -${sig.riskPips} pips (Amount: 0)`, chulitoX + 6, stopTop - 3);
+              ctx.fillText(`Stop: -${sig.riskPips} pips (-$${actualRiskMoney} USD)`, chulitoX + 6, stopTop - 3);
 
               // 2. Caja Verde (Ganancia hacia abajo)
               const targetTop = yEntry;
@@ -2650,11 +2651,11 @@
 
               // Barra de pie verde de la caja
               ctx.fillStyle = isLight ? "#16a34a" : "#10b981";
-              ctx.fillRect(chulitoX, targetTop + targetH, Math.min(boxW, 210), 14);
+              ctx.fillRect(chulitoX, targetTop + targetH, Math.min(boxW, 230), 14);
               ctx.fillStyle = "#ffffff";
               ctx.font = "bold 9px monospace";
               ctx.textAlign = "left";
-              ctx.fillText(`Target: +${(sig.riskPips * 3.19).toFixed(1)} pips (Ratio: 3.19)`, chulitoX + 6, targetTop + targetH + 11);
+              ctx.fillText(`Target: +${(sig.riskPips * 3.19).toFixed(1)} pips (+$${targetGainMoney} USD)`, chulitoX + 6, targetTop + targetH + 11);
 
               // Píldora de R:R en el centro
               ctx.fillStyle = isLight ? "#e2e8f0" : "#1e293b";
@@ -4453,7 +4454,7 @@ if __name__ == "__main__":
 
       document.getElementById("btnTgSelectAll")?.addEventListener("click", () => updateAllTgChips(Object.keys(MARKETS)));
       document.getElementById("btnTgClearAll")?.addEventListener("click", () => updateAllTgChips([]));
-      document.getElementById("btnTgOnlySynthetics")?.addEventListener("click", () => updateAllTgChips(["BOOM1000", "CRASH1000"]));
+      document.getElementById("btnTgOnlySynthetics")?.addEventListener("click", () => updateAllTgChips(["BOOM1000", "CRASH1000", "BOOM500", "CRASH500"]));
       document.getElementById("btnTgOnlyForex")?.addEventListener("click", () => updateAllTgChips(["EURUSD", "GBPUSD", "USDJPY"]));
       document.getElementById("btnTgOnlyGold")?.addEventListener("click", () => updateAllTgChips(["XAUUSD"]));
       document.getElementById("btnTgOnlyBinary")?.addEventListener("click", () => updateAllTgChips(["BIN_EURUSD"]));
