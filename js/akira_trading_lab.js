@@ -6664,7 +6664,7 @@ if __name__ == "__main__":
                       <strong style="color:#f8fafc;font-size:13.5px;">Pega el Código de QuantickAkira</strong>
                     </div>
                     <p style="font-size:12px;color:#94a3b8;line-height:1.5;margin:0;">
-                      Haz clic en el botón <strong>"Copiar Código Completo"</strong> de la pestaña anterior y pégalo (`Ctrl + V`) directamente en el editor de Pine.
+                      Haz clic en el botón <strong>"Copiar Código Completo"</strong> de la pestaña anterior y pégalo (Ctrl + V) directamente en el editor de Pine.
                     </p>
                   </div>
 

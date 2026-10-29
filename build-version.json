@@ -1,9 +1,9 @@
 {
-  "version": "akira-cache-v20261029-tradingview-pro-pine-v24",
-  "generated_at": "2026-10-29T14:30:00.000Z",
+  "version": "akira-cache-v20261029-tradingview-pine-v25-syntax-fixed",
+  "generated_at": "2026-10-29T15:30:00.000Z",
   "assets": {
     "js/quantick_akira_tv_pine.js": "akira-pine-v5",
-    "js/akira_trading_lab.js": "akira-trading-lab-v25-tradingview-pro-pine-modal",
+    "js/akira_trading_lab.js": "akira-trading-lab-v26-pine-modal-syntax-fixed",
     "js/akira_brain.js": "akira-brain-v8-performance",
     "js/akira_sandbox.js": "akira-sandbox-v2-zip-github-export",
     "js/akira_knowledge_pipeline.js": "akira-ingest-v2-radar-feeds",
