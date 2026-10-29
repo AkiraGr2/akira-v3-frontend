@@ -237,6 +237,7 @@
       this.paper = this.loadPaperAccount();
       this.sentinel = this.loadSentinel();
       this.currentSignal = null;
+      this.scannerSimulatedLot = null;
       this.marketPrices = {};
       this.candles = {};
       this.liveTicks = [];
@@ -1334,7 +1335,7 @@
       }
     }
 
-    calculateSafeLot(accountSize, riskPips = null, marketId = null) {
+    calculateSafeLot(accountSize, riskPips = null, marketId = null, overrideLot = null) {
       const cap = Math.max(1, parseFloat(accountSize) || 50);
       const targetMarket = marketId || this.selectedMarket || "BOOM1000";
       const m = MARKETS[targetMarket] || MARKETS["BOOM1000"] || {};
@@ -1348,41 +1349,60 @@
         : this.getMarketSniperRiskPips(targetMarket, m);
 
       let recommendedLot;
-      let actualRiskMoney;
-
       if (isBinary) {
-        // En Opciones Binarias no hay lotaje: se usa stake fijo (ej. $1.00 USD para cuenta de $50)
         recommendedLot = 1.00;
-        actualRiskMoney = 1.00;
       } else if (isBoomCrash) {
-        // DERIV BOOM / CRASH:
-        // Contrato institucional recomendado en Deriv = 0.20 lotes.
-        // A 0.20 lotes: 1 punto de precio = $0.20 USD.
-        // Como 1 pip = 0.01 puntos (450 pips = 4.50 puntos):
-        // 4.50 puntos * $0.20 = $0.90 USD de riesgo (1.8% de una cuenta de $50).
         recommendedLot = 0.20;
-        const pts = pips * 0.01;
-        actualRiskMoney = parseFloat((pts * 0.20).toFixed(2));
-      } else if (isGold) {
-        // ORO (XAUUSD):
-        // Micro-lote = 0.01. Con 25 pips ($2.50 USD de SL) = $2.50 USD de riesgo (5% de $50).
-        recommendedLot = 0.01;
-        actualRiskMoney = parseFloat((pips * 0.10).toFixed(2));
-      } else if (isCrypto) {
-        // CRIPTO (BTCUSDT / ETHUSDT):
-        // Micro-lote = 0.01. Riesgo proporcional calibrado a $1.80 USD (3.6% de $50).
-        recommendedLot = 0.01;
-        actualRiskMoney = parseFloat(((pips / 250) * 1.80).toFixed(2));
       } else {
-        // FOREX MAYOR (EURUSD, GBPUSD, USDJPY):
-        // Micro-lote estándar del broker = 0.01 lote ($0.10 USD por pip).
-        // Con 15 pips de SL a 0.01 lote = $1.50 USD de riesgo (3% de $50).
         recommendedLot = 0.01;
-        actualRiskMoney = parseFloat((pips * 0.10).toFixed(2));
+      }
+
+      // Si se pasa un lotaje simulado, usarlo; de lo contrario, usar el lote recomendado
+      const activeLot = (overrideLot !== null && overrideLot !== undefined && parseFloat(overrideLot) > 0)
+        ? parseFloat(overrideLot)
+        : recommendedLot;
+
+      let actualRiskMoney;
+      if (isBinary) {
+        actualRiskMoney = activeLot;
+      } else if (isBoomCrash) {
+        // En Deriv Boom/Crash: 1 punto de precio = $1.00 USD por cada 1.00 lote.
+        // Como 1 pip = 0.01 puntos (450 pips = 4.50 puntos):
+        const pts = pips * 0.01;
+        actualRiskMoney = parseFloat((pts * activeLot).toFixed(2));
+      } else if (isGold) {
+        // En Oro (XAUUSD): 1 pip = $0.10 USD a 0.01 lote ($10.00 USD por lote estándar).
+        actualRiskMoney = parseFloat((pips * 0.10 * (activeLot / 0.01)).toFixed(2));
+      } else if (isCrypto) {
+        actualRiskMoney = parseFloat(((pips / 250) * 1.80 * (activeLot / 0.01)).toFixed(2));
+      } else {
+        // Forex Mayor: 1 pip = $0.10 USD a 0.01 lote ($10.00 USD por lote estándar).
+        actualRiskMoney = parseFloat((pips * 0.10 * (activeLot / 0.01)).toFixed(2));
       }
 
       actualRiskMoney = Math.max(0.10, actualRiskMoney);
-      const actualRiskPercent = parseFloat(((actualRiskMoney / cap) * 100).toFixed(1));
+
+      // CÁLCULO DEL CAPITAL BASE RECOMENDADO EN CUENTA SEGÚN LOTAJE:
+      // Norma de Oro Institucional: Máximo 1.8% a 2.0% de riesgo por operación para nunca sobreapalancarse.
+      let recommendedBaseCapital;
+      if (isBinary) {
+        recommendedBaseCapital = Math.max(50, Math.round(activeLot * 50));
+      } else if (isBoomCrash) {
+        // A 0.20 lote -> SL $0.90 USD (1.8% de $50). A 1.00 lote -> SL $4.50 USD (1.8% de $250).
+        recommendedBaseCapital = Math.max(50, Math.round(actualRiskMoney / 0.018));
+      } else if (isGold) {
+        // En Oro: SL 25 pips -> a 0.01 lote = $2.50 USD (3% de $83 o 5% de $50).
+        recommendedBaseCapital = Math.max(50, Math.round(actualRiskMoney / 0.03));
+      } else {
+        // En Forex: SL 15 pips -> a 0.01 lote = $1.50 USD (2% de $75 o 3% de $50).
+        recommendedBaseCapital = Math.max(50, Math.round(actualRiskMoney / 0.02));
+      }
+
+      const effectiveCapital = (overrideLot !== null && overrideLot !== undefined)
+        ? recommendedBaseCapital
+        : cap;
+
+      const actualRiskPercent = parseFloat(((actualRiskMoney / effectiveCapital) * 100).toFixed(1));
 
       // Metas en Pips:
       const slPips = pips;
@@ -1390,29 +1410,53 @@
       const tp2Pips = Math.round(pips * 2.2);
       const tp3Pips = Math.round(pips * 3.19);
 
-      // Ganancias Reales en USD para la cuenta de referencia:
+      // Ganancias Reales en USD exactas para el lotaje:
       const tp1Profit = parseFloat((actualRiskMoney * 1.5).toFixed(2));
       const tp2Profit = parseFloat((actualRiskMoney * 2.2).toFixed(2));
       const tp3Profit = parseFloat((actualRiskMoney * 3.19).toFixed(2));
 
       return {
-        capital: cap,
-        lot: recommendedLot,
+        capital: effectiveCapital,
+        recommendedBaseCapital: recommendedBaseCapital,
+        lot: activeLot,
+        defaultLot: recommendedLot,
         slPips: slPips,
         tp1Pips: tp1Pips,
         tp2Pips: tp2Pips,
         tp3Pips: tp3Pips,
-        targetRiskMoney: parseFloat((cap * (this.riskPercent / 100)).toFixed(2)),
+        targetRiskMoney: parseFloat((effectiveCapital * (this.riskPercent / 100)).toFixed(2)),
         actualRiskMoney: actualRiskMoney,
         actualRiskPercent: actualRiskPercent,
         tp1Profit: tp1Profit,
         tp2Profit: tp2Profit,
         tp3Profit: tp3Profit,
-        isMicroAccount: cap <= 100,
+        isMicroAccount: effectiveCapital <= 100,
+        isCustomLot: activeLot !== recommendedLot,
         microNote: isBoomCrash
-          ? `En cuenta de referencia de $${cap} USD (Boom/Crash), el debido contrato institucional es 0.20 lotes. Con SL de ${pips} pips (4.50 pts), arriesgas -$${actualRiskMoney} USD (${actualRiskPercent}% de tu capital). Ganancias reales: TP1: +$${tp1Profit} USD, TP2: +$${tp2Profit} USD, TP3: +$${tp3Profit} USD.`
-          : `En cuenta de referencia de $${cap} USD, el debido contrato institucional es 0.01 micro-lotes. Con SL de ${pips} pips, arriesgas -$${actualRiskMoney} USD (${actualRiskPercent}% de tu capital). Ganancias reales: TP1: +$${tp1Profit} USD, TP2: +$${tp2Profit} USD, TP3: +$${tp3Profit} USD.`
+          ? `En cuenta recomendada de $${effectiveCapital} USD (Boom/Crash), a ${activeLot} lotes con SL de ${pips} pips (4.50 pts), arriesgas -$${actualRiskMoney} USD (${actualRiskPercent}% del capital). Ganancias reales: TP1: +$${tp1Profit} USD, TP2: +$${tp2Profit} USD, TP3: +$${tp3Profit} USD.`
+          : `En cuenta recomendada de $${effectiveCapital} USD, a ${activeLot} lotes con SL de ${pips} pips, arriesgas -$${actualRiskMoney} USD (${actualRiskPercent}% del capital). Ganancias reales: TP1: +$${tp1Profit} USD, TP2: +$${tp2Profit} USD, TP3: +$${tp3Profit} USD.`
       };
+    }
+
+    getLotTiersForMarket(marketId, riskPips = null) {
+      const targetMarket = marketId || this.selectedMarket || "BOOM1000";
+      const m = MARKETS[targetMarket] || MARKETS["BOOM1000"] || {};
+      const isBoomCrash = m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash" || targetMarket.startsWith("BOOM") || targetMarket.startsWith("CRASH");
+      const isGold = targetMarket === "XAUUSD";
+      const isBinary = Boolean(m.isBinary);
+
+      let lots;
+      if (isBinary) {
+        lots = [1, 2, 5, 10, 20, 50];
+      } else if (isBoomCrash) {
+        lots = [0.20, 0.50, 1.00, 2.00, 3.00, 5.00, 10.00];
+      } else if (isGold) {
+        lots = [0.01, 0.02, 0.05, 0.10, 0.20, 0.50, 1.00];
+      } else {
+        lots = [0.01, 0.02, 0.05, 0.10, 0.20, 0.50, 1.00];
+      }
+
+      return lots.map(lot => this.calculateSafeLot(this.accountSize, riskPips, targetMarket, lot));
     }
 
     render() {
@@ -2609,6 +2653,7 @@
           const elapsed = Date.now() - this.currentSignal.completedAt;
           if (elapsed >= 5500) {
             this.currentSignal = null;
+      this.scannerSimulatedLot = null;
             this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe, true);
             setTimeout(() => this.drawMarketCanvas(), 40);
             return;
@@ -3846,7 +3891,9 @@
       const sig = this.currentSignal;
       const isBuy = sig.type === "BUY" || sig.type === "CALL";
       const isBinary = sig.type === "CALL" || sig.type === "PUT";
-      const calc = this.calculateSafeLot(this.accountSize, sig.riskPips, sig.marketId);
+      const activeLot = this.scannerSimulatedLot || null;
+      const calc = this.calculateSafeLot(this.accountSize, sig.riskPips, sig.marketId, activeLot);
+      const tiers = this.getLotTiersForMarket(sig.marketId, sig.riskPips);
 
       container.innerHTML = `
         <div class="ak-signal-card ${isBuy ? 'bullish' : 'bearish'}">
@@ -3912,12 +3959,123 @@
             </div>
           </div>
 
+          <!-- CALCULADORA INTERACTIVA DE LOTAJES, METAS (PIPS / USD) Y CAPITAL RECOMENDADO -->
+          <div class="ak-lot-calculator-card" style="background:#0b111e;border:1px solid rgba(0,242,254,0.3);border-radius:10px;padding:14px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:22px;">🧮</span>
+                <div>
+                  <h4 style="margin:0;font-size:14px;color:#00f2fe;font-weight:800;">
+                    CALCULADORA DE LOTAJES, METAS (PIPS / USD) Y CAPITAL RECOMENDADO
+                  </h4>
+                  <span style="font-size:11px;color:#94a3b8;">
+                    Compara cuánto ganas en cada Take Profit según tu lotaje y cuál es la cuenta base recomendada para proteger tu dinero.
+                  </span>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:11px;color:#cbd5e1;font-weight:700;">Simular Lotaje:</span>
+                <input type="number" id="inputCustomLotSim" class="ak-input-text" style="width:85px;padding:5px 8px;font-size:13px;font-weight:bold;color:#00f2fe;text-align:center;background:#050811;border:1px solid #00f2fe;border-radius:6px;" value="${calc.lot}" step="0.01" min="0.01">
+              </div>
+            </div>
+
+            <!-- BOTONES RÁPIDOS DE LOTAJES POR MERCADO -->
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+              <span style="font-size:11px;color:#94a3b8;font-weight:600;">Opciones Rápidas:</span>
+              ${tiers.map(t => `
+                <button class="ak-btn ${t.lot === calc.lot ? 'primary' : 'subtle'}" data-simlot="${t.lot}" style="padding:4px 10px;font-size:11px;font-weight:700;border-radius:6px;">
+                  ${t.lot} Lote (Cta: $${t.recommendedBaseCapital})
+                </button>
+              `).join('')}
+            </div>
+
+            <!-- TARJETA RESUMEN DINÁMICA DEL LOTAJE ACTIVO -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:10px;margin-bottom:14px;background:rgba(0,0,0,0.35);padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);">
+              <div style="border-left:3px solid #00f2fe;padding-left:8px;">
+                <span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Lotaje Simulado</span>
+                <div style="font-size:16px;font-family:monospace;font-weight:bold;color:#00f2fe;">${calc.lot} lote(s)</div>
+                <span style="font-size:10px;color:#64748b;">${calc.isCustomLot ? 'Personalizado' : 'Recomendado Oficial'}</span>
+              </div>
+              <div style="border-left:3px solid #eab308;padding-left:8px;">
+                <span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Capital Base en Cuenta</span>
+                <div style="font-size:16px;font-family:monospace;font-weight:bold;color:#eab308;">$${calc.recommendedBaseCapital} USD</div>
+                <span style="font-size:10px;color:#ca8a04;">Riesgo máx: ${calc.actualRiskPercent}%</span>
+              </div>
+              <div style="border-left:3px solid #ef4444;padding-left:8px;">
+                <span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Riesgo Stop Loss</span>
+                <div style="font-size:16px;font-family:monospace;font-weight:bold;color:#ef4444;">-$${calc.actualRiskMoney} USD</div>
+                <span style="font-size:10px;color:#fca5a5;">-${calc.slPips} pips de riesgo</span>
+              </div>
+              <div style="border-left:3px solid #10b981;padding-left:8px;">
+                <span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Ganancia TP1 (1:1.5)</span>
+                <div style="font-size:16px;font-family:monospace;font-weight:bold;color:#10b981;">+$${calc.tp1Profit} USD</div>
+                <span style="font-size:10px;color:#86efac;">+${calc.tp1Pips} pips</span>
+              </div>
+              <div style="border-left:3px solid #059669;padding-left:8px;">
+                <span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Ganancia TP2 (1:2.2)</span>
+                <div style="font-size:16px;font-family:monospace;font-weight:bold;color:#34d399;">+$${calc.tp2Profit} USD</div>
+                <span style="font-size:10px;color:#6ee7b7;">+${calc.tp2Pips} pips</span>
+              </div>
+              <div style="border-left:3px solid #f59e0b;padding-left:8px;">
+                <span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Ganancia TP3 (1:3.19)</span>
+                <div style="font-size:16px;font-family:monospace;font-weight:bold;color:#f59e0b;">+$${calc.tp3Profit} USD</div>
+                <span style="font-size:10px;color:#fde047;">+${calc.tp3Pips} pips Sniper</span>
+              </div>
+            </div>
+
+            <!-- TABLA COMPARATIVA COMPLETA DE TODOS LOS LOTAJES -->
+            <div style="overflow-x:auto;">
+              <table style="width:100%;border-collapse:collapse;font-size:11px;text-align:left;">
+                <thead>
+                  <tr style="background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.1);color:#94a3b8;">
+                    <th style="padding:7px 10px;">Lotaje</th>
+                    <th style="padding:7px 10px;">Cuenta Base Recomendada</th>
+                    <th style="padding:7px 10px;">Riesgo Stop Loss</th>
+                    <th style="padding:7px 10px;">Ganancia Meta 1 (TP1)</th>
+                    <th style="padding:7px 10px;">Ganancia Meta 2 (TP2)</th>
+                    <th style="padding:7px 10px;">Ganancia Meta 3 (TP3)</th>
+                    <th style="padding:7px 10px;text-align:center;">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tiers.map(t => `
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.04);background:${t.lot === calc.lot ? 'rgba(0,242,254,0.09)' : 'transparent'};">
+                      <td style="padding:7px 10px;font-family:monospace;font-weight:bold;color:${t.lot === calc.lot ? '#00f2fe' : '#fff'};">
+                        ${t.lot} ${t.lot === calc.defaultLot ? '<span class="ak-badge safe" style="font-size:9px;padding:1px 5px;margin-left:4px;">Mínimo</span>' : ''}
+                      </td>
+                      <td style="padding:7px 10px;font-family:monospace;font-weight:bold;color:#eab308;">
+                        $${t.recommendedBaseCapital} USD
+                      </td>
+                      <td style="padding:7px 10px;font-family:monospace;color:#ef4444;">
+                        -$${t.actualRiskMoney} USD <span style="color:#64748b;font-size:10px;">(-${t.slPips} pips | ${t.actualRiskPercent}%)</span>
+                      </td>
+                      <td style="padding:7px 10px;font-family:monospace;color:#10b981;">
+                        +$${t.tp1Profit} USD <span style="color:#64748b;font-size:10px;">(+${t.tp1Pips} pips)</span>
+                      </td>
+                      <td style="padding:7px 10px;font-family:monospace;color:#34d399;">
+                        +$${t.tp2Profit} USD <span style="color:#64748b;font-size:10px;">(+${t.tp2Pips} pips)</span>
+                      </td>
+                      <td style="padding:7px 10px;font-family:monospace;font-weight:bold;color:#f59e0b;">
+                        +$${t.tp3Profit} USD <span style="color:#64748b;font-size:10px;">(+${t.tp3Pips} pips)</span>
+                      </td>
+                      <td style="padding:7px 10px;text-align:center;">
+                        <button class="ak-btn subtle" data-simlot="${t.lot}" style="padding:2px 8px;font-size:10px;border-radius:4px;">
+                          ${t.lot === calc.lot ? '✓ Activo' : 'Elegir'}
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <!-- RADAR DE SEGUIMIENTO EN VIVO: ¿YA LLEGÓ LA VELA AL TAKE PROFIT? -->
           <div class="ak-candle-sync-radar-card">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
               <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-size:20px;">⏱️</span>
-                <strong style="color:#00f2fe;font-size:13px;">RADAR DE METAS EN VIVO (CUENTA REF $${calc.capital} USD)</strong>
+                <strong style="color:#00f2fe;font-size:13px;">RADAR DE METAS EN VIVO (CUENTA BASE: $${calc.recommendedBaseCapital} USD | LOTE: ${calc.lot})</strong>
               </div>
               <span class="ak-pill live" style="font-size:10px;">Auditando Velas en Tiempo Real</span>
             </div>
@@ -3989,7 +4147,7 @@
               <div class="ak-guide-badge">PASO 2</div>
               <div class="title">¿CUÁNTO INVERTIR?</div>
               <div class="action-desc">
-                Con tu cuenta de referencia de <strong>$${calc.capital} USD</strong>, utilizas el debido lotaje de <strong style="color:#00f2fe;">${calc.lot} lote(s)</strong>. Si la orden retrocede a Stop Loss, arriesgas exactamente <strong style="color:#ef4444;">-$${calc.actualRiskMoney} USD</strong> (${calc.actualRiskPercent}% de tu capital).
+                Para el lotaje de <strong style="color:#00f2fe;">${calc.lot} lote(s)</strong>, la cuenta base recomendada es de <strong>$${calc.recommendedBaseCapital} USD</strong>. Si la orden retrocede a Stop Loss, arriesgas exactamente <strong style="color:#ef4444;">-$${calc.actualRiskMoney} USD</strong> (-${calc.slPips} pips | ${calc.actualRiskPercent}% de tu capital).
               </div>
             </div>
 
@@ -4661,7 +4819,8 @@
       if (selMarket) {
         selMarket.addEventListener("change", (e) => {
           this.selectedMarket = e.target.value;
-          this.currentSignal = null; // Retirar entrada del mercado anterior
+          this.currentSignal = null;
+      this.scannerSimulatedLot = null; // Retirar entrada del mercado anterior
           this.verticalOffset = 0; // Centrar vista vertical para el nuevo mercado
           this.updateChartCanvasHeader();
           if (!this.isDerivWsConnected && (!this.candles[this.selectedMarket] || this.candles[this.selectedMarket].length === 0)) {
@@ -4688,7 +4847,8 @@
           container.querySelectorAll(".ak-tf-buttons .ak-tf-btn").forEach(b => b.classList.remove("active"));
           e.currentTarget.classList.add("active");
           this.selectedTimeframe = tf;
-          this.currentSignal = null; // Retirar entrada de la temporalidad anterior
+          this.currentSignal = null;
+      this.scannerSimulatedLot = null; // Retirar entrada de la temporalidad anterior
           this.updateChartCanvasHeader();
           if (this.chartEngine === "tradingview") {
             this.renderTradingViewChart();
@@ -5146,7 +5306,7 @@
       container.addEventListener("click", (e) => {
         if (e.target.id === "btnExecuteDemoSignal" && this.currentSignal) {
           const sig = this.currentSignal;
-          const calc = this.calculateSafeLot(this.accountSize);
+          const calc = this.calculateSafeLot(this.accountSize, sig.riskPips, sig.marketId, this.scannerSimulatedLot);
           const isBin = sig.type === "CALL" || sig.type === "PUT";
           this.executeDemoOrder(
             sig.marketId,
@@ -5161,8 +5321,20 @@
           if (simTabBtn) simTabBtn.click();
         }
 
+        const lotBtn = e.target.closest("[data-simlot]");
+        if (lotBtn) {
+          const lotVal = parseFloat(lotBtn.dataset.simlot);
+          if (!isNaN(lotVal) && lotVal > 0) {
+            this.scannerSimulatedLot = lotVal;
+            this.renderScannerSignal();
+            this.drawMarketCanvas();
+            this.updateLiveHeaderTelemetry();
+          }
+        }
+
         if (e.target.id === "btnRescanSignal" || e.target.closest("#btnRescanSignal")) {
           this.currentSignal = null;
+      this.scannerSimulatedLot = null;
           this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe, true);
           this.drawMarketCanvas();
         }
@@ -5218,6 +5390,18 @@
         if (e.target.classList.contains("btnClosePos")) {
           const id = e.target.dataset.id;
           this.closePosition(id, "MANUAL_CLOSE");
+        }
+      });
+
+      container.addEventListener("change", (e) => {
+        if (e.target.id === "inputCustomLotSim") {
+          const val = parseFloat(e.target.value);
+          if (!isNaN(val) && val > 0) {
+            this.scannerSimulatedLot = val;
+            this.renderScannerSignal();
+            this.drawMarketCanvas();
+            this.updateLiveHeaderTelemetry();
+          }
         }
       });
 
