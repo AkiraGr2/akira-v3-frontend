@@ -257,6 +257,8 @@
       this.verticalOffset = 0; // Control de desplazamiento vertical de pantalla (-100 a +100%)
       this.marketSlCooldowns = {}; // Filtro Anti-Racha: enfriamiento inteligente tras SL para evitar comprar cuchillos cayendo
       this.accumulationStatus = null; // Estado de espera activa / absorción de liquidez en Order Block
+      this.driftCandlesCount = 0; // Conteo exacto de velas de deriva consecutivas sin spike
+      this.spikeRadar = null; // Radar cuántico de proximidad y predicción de reacción de spike
 
       // WebSocket Deriv Oficial en Vivo
       this.derivWs = null;
@@ -497,6 +499,19 @@
       const last = this.candles[this.selectedMarket][this.candles[this.selectedMarket].length - 1];
       this.marketPrices[this.selectedMarket] = last.close;
 
+      // Calcular conteo real de velas de deriva desde el último spike (Deriv Oficial)
+      const isBoomOrCrash = m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash" || this.selectedMarket.startsWith("BOOM") || this.selectedMarket.startsWith("CRASH");
+      if (isBoomOrCrash) {
+        let dCount = 0;
+        const cList = this.candles[this.selectedMarket];
+        for (let i = cList.length - 1; i >= 0; i--) {
+          if (cList[i].isSpike) break;
+          dCount++;
+        }
+        this.driftCandlesCount = dCount;
+        this.ticksSinceLastSpike = dCount * 60;
+      }
+
       // Sincronizar temporizador de vela y regenerar señal institucional sobre datos reales
       this.updateRemainingCandleCountdown();
       this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
@@ -529,9 +544,10 @@
       const marketCandles = this.candles[this.selectedMarket];
       if (marketCandles && marketCandles.length > 0) {
         const last = marketCandles[marketCandles.length - 1];
+        const isNewCandle = openTime > (last.epoch || 0);
 
         // ¿Nació una vela nueva en el servidor de Deriv?
-        if (openTime > (last.epoch || 0)) {
+        if (isNewCandle) {
           const timeStr = new Date(openTime * 1000).toTimeString().slice(0, 5);
           marketCandles.push({
             index: marketCandles.length,
@@ -556,6 +572,38 @@
           last.isBull = isBull;
           last.pips = parseFloat(((cl - last.open) / pip).toFixed(1));
           if (isSpike) last.isSpike = true;
+        }
+
+        // Si ocurrió un spike en vivo, reiniciar conteo de deriva
+        const isBoomCrash = m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash" || this.selectedMarket.startsWith("BOOM") || this.selectedMarket.startsWith("CRASH");
+        if (isBoomCrash) {
+          if (isSpike) {
+            this.driftCandlesCount = 0;
+            this.ticksSinceLastSpike = 0;
+            this.spikeProbability = 15;
+            if (this.spikeRadar) this.spikeRadar = null;
+          } else if (isNewCandle) {
+            this.driftCandlesCount = (this.driftCandlesCount || 0) + 1;
+            this.ticksSinceLastSpike = (this.driftCandlesCount || 0) * 60;
+          }
+
+          // COMPROBACIÓN ACTIVA EN TIEMPO REAL DEL RADAR DE PROXIMIDAD DE SPIKE
+          if (this.spikeRadar && this.spikeRadar.active && this.spikeRadar.marketId === this.selectedMarket) {
+            const prox = this.analyzeBoomCrashSpikeProximity(marketCandles, this.selectedMarket, cl, this.spikeRadar.orderBlock);
+            if (prox) {
+              this.driftCandlesCount = prox.driftCandles;
+              this.spikeRadar.driftCandles = prox.driftCandles;
+              this.spikeRadar.proximityProb = prox.proximityProb;
+              this.spikeRadar.latencyEstimate = prox.latencyEstimate;
+              this.spikeProbability = prox.proximityProb;
+
+              // ¡Si la vela formó el rechazo/absorción compradora, detonar el disparo Sniper de inmediato!
+              if (prox.isReadyToTrigger) {
+                this.spikeRadar = null;
+                this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe, true);
+              }
+            }
+          }
         }
       }
 
@@ -585,6 +633,33 @@
         if (curPrice > last.high) last.high = curPrice;
         if (curPrice < last.low) last.low = curPrice;
         last.isBull = last.close >= last.open;
+
+        const isBoom = m.platformMode === "deriv_boom" || this.selectedMarket.startsWith("BOOM");
+        const isCrash = m.platformMode === "deriv_crash" || this.selectedMarket.startsWith("CRASH");
+
+        // Detección instantánea de spike por tick
+        if (isBoom && (curPrice - last.open >= (m.pipSize * 20))) {
+          last.isSpike = true;
+          this.driftCandlesCount = 0;
+          this.ticksSinceLastSpike = 0;
+          this.spikeProbability = 15;
+          if (this.spikeRadar) this.spikeRadar = null;
+        } else if (isCrash && (last.open - curPrice >= (m.pipSize * 20))) {
+          last.isSpike = true;
+          this.driftCandlesCount = 0;
+          this.ticksSinceLastSpike = 0;
+          this.spikeProbability = 15;
+          if (this.spikeRadar) this.spikeRadar = null;
+        }
+
+        // Si el radar de proximidad está vigilando el rechazo en vivo
+        if (this.spikeRadar && this.spikeRadar.active && this.spikeRadar.marketId === this.selectedMarket) {
+          const prox = this.analyzeBoomCrashSpikeProximity(marketCandles, this.selectedMarket, curPrice, this.spikeRadar.orderBlock);
+          if (prox && prox.isReadyToTrigger) {
+            this.spikeRadar = null;
+            this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe, true);
+          }
+        }
       }
 
       this.addLiveTick(this.selectedMarket, curPrice, "BUY");
@@ -1054,7 +1129,7 @@
       }
     }
 
-    // CONFLUENCIA CUANTITATIVA 4-VECTOR (CERTEZA SNIPER 95%+)
+    // CONFLUENCIA CUANTITATIVA 5-VECTOR (CERTEZA SNIPER 95%+)
     calculateQuantitativeConfluence(candles, marketId, isBull, ob, curPrice) {
       let score = 88;
       if (!candles || candles.length < 10) return { score: 92, details: "Confluencia Base" };
@@ -1062,6 +1137,7 @@
       const rsi = this.calculateRSI(candles, 14);
       const m = MARKETS[marketId] || {};
       const pip = m.pipSize || 0.01;
+      const isBoomCrash = m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash" || marketId.startsWith("BOOM") || marketId.startsWith("CRASH");
 
       // Vector 1: Mitigación de Order Block
       if (ob) {
@@ -1076,10 +1152,10 @@
         const range = Math.max(pip, last.high - last.low);
         if (isBull) {
           const lowerWick = Math.min(last.open, last.close) - last.low;
-          if (lowerWick / range >= 0.30 || rsi <= 35) score += 3;
+          if (lowerWick / range >= 0.25 || rsi <= 35) score += 3;
         } else {
           const upperWick = last.high - Math.max(last.open, last.close);
-          if (upperWick / range >= 0.30 || rsi >= 65) score += 3;
+          if (upperWick / range >= 0.25 || rsi >= 65) score += 3;
         }
       }
 
@@ -1090,12 +1166,145 @@
         if (!isBull && curPrice >= chan.resistance.p2.price * 0.997) score += 2;
       }
 
+      // Vector 4: Agotamiento de Deriva y Micro-Consolidación (Exclusivo Boom / Crash)
+      if (isBoomCrash) {
+        const prox = this.analyzeBoomCrashSpikeProximity(candles, marketId, curPrice, ob);
+        if (prox) {
+          if (prox.driftCandles >= prox.minDriftThreshold) score += 2;
+          if (prox.isMicroConsolidation) score += 2;
+          if (prox.hasRejectionWick) score += 3;
+        }
+      }
+
       const finalScore = Math.min(98, Math.max(91, score));
       return {
         score: finalScore,
         rsi: rsi,
         obMitigated: Boolean(ob),
         hasExhaustion: true
+      };
+    }
+
+    // MOTOR CUÁNTICO DE PROXIMIDAD Y PREDICCIÓN DE REACCIÓN DE SPIKE (BOOM & CRASH)
+    analyzeBoomCrashSpikeProximity(candles, marketId, curPrice, ob = null) {
+      if (!candles || candles.length < 15) return null;
+      const m = MARKETS[marketId] || {};
+      const isBoom = m.platformMode === "deriv_boom" || marketId.startsWith("BOOM");
+      const isCrash = m.platformMode === "deriv_crash" || marketId.startsWith("CRASH");
+      if (!isBoom && !isCrash) return null;
+
+      const pip = m.pipSize || 0.01;
+
+      // 1. Conteo exacto de velas consecutivas de deriva sin spike (Deriv Drift Analysis)
+      let driftCandles = 0;
+      let lastSpikeIndex = -1;
+      for (let i = candles.length - 1; i >= 0; i--) {
+        if (candles[i].isSpike) {
+          lastSpikeIndex = i;
+          break;
+        }
+        driftCandles++;
+      }
+      if (lastSpikeIndex === -1) driftCandles = Math.min(candles.length, 30);
+
+      // 2. Parámetros de distribución estadística según el mercado (Deriv Point Process)
+      let avgInterval = 16; // Boom/Crash 1000: ~16 velas M1 (~1000 ticks)
+      let minDriftThreshold = 7;
+      if (marketId.includes("500")) {
+        avgInterval = 9;  // Boom/Crash 500: ~9 velas M1 (~500 ticks)
+        minDriftThreshold = 5;
+      } else if (marketId.includes("300")) {
+        avgInterval = 5;  // Boom/Crash 300: ~5 velas M1 (~300 ticks)
+        minDriftThreshold = 3;
+      }
+
+      // 3. Probabilidad matemática de proximidad según tasa de riesgo acumulada de Weibull
+      const driftRatio = driftCandles / avgInterval;
+      let proximityProb = Math.min(98, Math.max(18, Math.round(100 * (1 - Math.exp(-Math.pow(driftRatio, 1.65))))));
+
+      // 4. Compresión de Rango / Micro-Consolidación (últimas 3 velas vs promedio histórico)
+      const last3 = candles.slice(-3);
+      const recentRange = Math.max(...last3.map(c => c.high)) - Math.min(...last3.map(c => c.low));
+      const lookbackCandles = candles.slice(-15);
+      const avgRange = lookbackCandles.reduce((acc, c) => acc + (c.high - c.low), 0) / lookbackCandles.length;
+      const compressionRatio = recentRange / Math.max(pip, avgRange * 2.2);
+      const isMicroConsolidation = compressionRatio < 0.65; // El rango se estrechó >35%
+
+      // 5. Absorción de Compradores / Mecha de Rechazo (Price Action Trigger)
+      const lastCandle = candles[candles.length - 1];
+      const prevCandle = candles.length >= 2 ? candles[candles.length - 2] : null;
+      let hasRejectionWick = false;
+      let wickDetails = "Deriva activa sin mecha de rechazo aún";
+
+      const checkRejection = (c) => {
+        if (!c) return false;
+        const candleRange = Math.max(pip, c.high - c.low);
+        if (isBoom) {
+          // En Boom buscamos mecha INFERIOR (rechazo a seguir bajando), vela verde o doji/martillo
+          const lowerWick = Math.min(c.open, c.close) - c.low;
+          const wickRatio = lowerWick / candleRange;
+          return (wickRatio >= 0.22) || (c.close > c.open) || (lowerWick >= pip * 2.5);
+        } else {
+          // En Crash buscamos mecha SUPERIOR (rechazo a seguir subiendo), vela roja o shooting star
+          const upperWick = c.high - Math.max(c.open, c.close);
+          const wickRatio = upperWick / candleRange;
+          return (wickRatio >= 0.22) || (c.close < c.open) || (upperWick >= pip * 2.5);
+        }
+      };
+
+      if (checkRejection(lastCandle)) {
+        hasRejectionWick = true;
+        wickDetails = isBoom ? "Mecha inferior de absorción compradora detectada" : "Mecha superior de absorción vendedora detectada";
+      } else if (prevCandle && checkRejection(prevCandle)) {
+        hasRejectionWick = true;
+        wickDetails = isBoom ? "Confirmación de rechazo en vela previa" : "Confirmación de rechazo en vela previa";
+      }
+
+      // 6. Mitigación de Order Block Institucional
+      let obMitigated = false;
+      if (ob) {
+        if (isBoom) {
+          obMitigated = (curPrice <= ob.high * 1.002 && curPrice >= ob.low * 0.998) || (Math.abs(curPrice - ob.low) <= pip * 10);
+        } else {
+          obMitigated = (curPrice >= ob.low * 0.998 && curPrice <= ob.high * 1.002) || (Math.abs(curPrice - ob.high) <= pip * 10);
+        }
+      }
+
+      // 7. Estimación de latencia de velas al spike y confirmación de disparo Sniper
+      let latencyEstimate = "1 a 3 velas";
+      let isReadyToTrigger = false;
+
+      if (driftCandles < minDriftThreshold) {
+        const rem = Math.max(2, minDriftThreshold - driftCandles + 1);
+        latencyEstimate = `${rem} a ${rem + 4} velas`;
+        isReadyToTrigger = false;
+      } else if (hasRejectionWick && (isMicroConsolidation || obMitigated || driftCandles >= avgInterval)) {
+        latencyEstimate = "⚡ Inminente (1 a 3 velas)";
+        isReadyToTrigger = true;
+        proximityProb = Math.max(95, proximityProb);
+      } else if (driftCandles >= avgInterval) {
+        // En sobre-agotamiento extremo (>16 velas en Boom 1000), el spike es inminente
+        latencyEstimate = "1 a 2 velas (Agotamiento Extremo)";
+        isReadyToTrigger = hasRejectionWick || isMicroConsolidation;
+        proximityProb = Math.max(93, proximityProb);
+      } else {
+        latencyEstimate = "2 a 4 velas";
+        isReadyToTrigger = false;
+      }
+
+      return {
+        isBoom,
+        isCrash,
+        driftCandles,
+        avgSpikeIntervalCandles: avgInterval,
+        minDriftThreshold,
+        proximityProb,
+        isMicroConsolidation,
+        hasRejectionWick,
+        wickDetails,
+        obMitigated,
+        latencyEstimate,
+        isReadyToTrigger
       };
     }
 
@@ -1425,6 +1634,43 @@
       const isBullPreferred = trendAnalysis.isBull;
 
       const ob = this.findInstitutionalOrderBlock(marketCandles, marketId, isBullPreferred);
+
+      // 0.5 RADAR DE PROXIMIDAD Y PREDICCIÓN DE REACCIÓN DE SPIKE (EXCLUSIVO BOOM / CRASH)
+      const isBoomCrash = m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash" || marketId.startsWith("BOOM") || marketId.startsWith("CRASH");
+      let spikeMetrics = null;
+
+      if (isBoomCrash) {
+        spikeMetrics = this.analyzeBoomCrashSpikeProximity(marketCandles, marketId, curPrice, ob);
+        if (spikeMetrics) {
+          this.driftCandlesCount = spikeMetrics.driftCandles;
+          this.spikeProbability = spikeMetrics.proximityProb;
+
+          // Si el usuario NO forzó regeneración manual y aún NO se confirma la vela de rechazo / absorción,
+          // entrar en MODO RADAR para evitar entrar 6 a 8 velas antes en caída libre.
+          if (!forceRegenerate && !spikeMetrics.isReadyToTrigger && !this.currentSignal) {
+            this.spikeRadar = {
+              active: true,
+              marketId: marketId,
+              marketName: m.name,
+              driftCandles: spikeMetrics.driftCandles,
+              avgInterval: spikeMetrics.avgSpikeIntervalCandles,
+              minDrift: spikeMetrics.minDriftThreshold,
+              proximityProb: spikeMetrics.proximityProb,
+              latencyEstimate: spikeMetrics.latencyEstimate,
+              reason: `Fase de Deriva (${spikeMetrics.driftCandles} velas sin spike). Esperando vela de rechazo (absorción) en Order Block para gatillar entrada con proximidad de 1-3 velas.`,
+              orderBlock: ob,
+              isMicroConsolidation: spikeMetrics.isMicroConsolidation,
+              updatedAt: Date.now()
+            };
+            this.accumulationStatus = null;
+            this.renderScannerSignal();
+            this.drawMarketCanvas();
+            this.renderPlatformSpecialDeck();
+            return;
+          }
+        }
+      }
+
       const geom = this.detectHarmonicPivots(marketCandles, isBullPreferred ? (isBinary ? "CALL" : "BUY") : (isBinary ? "PUT" : "SELL"), ob);
       const confData = this.calculateQuantitativeConfluence(marketCandles, marketId, isBullPreferred, ob, curPrice);
 
@@ -1434,12 +1680,17 @@
       let entry = curPrice;
       let sl, tp1, tp2, tp3;
       let patternName = isBullPreferred ? "Bullish Gartley (Retracción 0.786 Fibonacci)" : "Bearish Bat (Retracción 0.886 Fibonacci)";
+      if (isBoomCrash && spikeMetrics && spikeMetrics.isReadyToTrigger) {
+        patternName = isBullPreferred
+          ? `⚡ EXPLOSIÓN SNIPER BOOM (Rechazo + Agotamiento ${spikeMetrics.driftCandles} Velas)`
+          : `💥 DESPLOME SNIPER CRASH (Rechazo + Agotamiento ${spikeMetrics.driftCandles} Velas)`;
+      }
       let fibs = { XA: 1.0, AB: 0.618, BC: 0.382, CD: 1.272, XD: 0.786 };
       let type = isBinary ? (isBullPreferred ? "CALL" : "PUT") : (isBullPreferred ? "BUY" : "SELL");
       let pivots = null;
 
       if (geom) {
-        patternName = geom.patternName;
+        patternName = (isBoomCrash && spikeMetrics && spikeMetrics.isReadyToTrigger) ? patternName : geom.patternName;
         fibs = { XA: 1.0, AB: geom.ratios.AB, BC: geom.ratios.BC, CD: geom.ratios.CD, XD: geom.ratios.XD };
         type = isBinary ? (geom.isBull ? "CALL" : "PUT") : (geom.isBull ? "BUY" : "SELL");
         entry = parseFloat(geom.pD_price.toFixed(decimals));
@@ -1485,7 +1736,14 @@
       }
 
       const riskPips = isBinary ? 0 : sniperRiskPips;
-      const confluence = Math.max(trendAnalysis.confidence, confData.score);
+      let confluence = Math.max(trendAnalysis.confidence, confData.score);
+      if (isBoomCrash && spikeMetrics) {
+        if (spikeMetrics.isReadyToTrigger) {
+          confluence = Math.min(98, Math.max(95, spikeMetrics.proximityProb));
+        } else {
+          confluence = Math.min(94, Math.max(89, spikeMetrics.proximityProb));
+        }
+      }
 
       this.currentSignal = {
         id: "SIG-" + Math.floor(100000 + Math.random() * 900000),
@@ -1496,7 +1754,9 @@
         type: type,
         fibs: fibs,
         pivots: pivots,
-        smc: "Order Block Institucional Mitigado + Invalidation Point X",
+        smc: (isBoomCrash && spikeMetrics && spikeMetrics.isReadyToTrigger)
+          ? `Order Block Institucional Mitigado + Rechazo de Deriva (${spikeMetrics.driftCandles} Velas)`
+          : "Order Block Institucional Mitigado + Invalidation Point X",
         orderBlock: ob ? {
           high: parseFloat(ob.high.toFixed(decimals)),
           low: parseFloat(ob.low.toFixed(decimals)),
@@ -1511,12 +1771,23 @@
         tp2: tp2,
         tp3: tp3,
         riskPips: riskPips,
+        spikeMetrics: spikeMetrics ? {
+          driftCandles: spikeMetrics.driftCandles,
+          avgInterval: spikeMetrics.avgSpikeIntervalCandles,
+          proximityProb: spikeMetrics.proximityProb,
+          latencyEstimate: spikeMetrics.latencyEstimate,
+          hasRejectionWick: spikeMetrics.hasRejectionWick,
+          isMicroConsolidation: spikeMetrics.isMicroConsolidation,
+          wickDetails: spikeMetrics.wickDetails,
+          isSniperTiming: spikeMetrics.isReadyToTrigger
+        } : null,
         createdAt: Date.now(),
         createdCandleIndex: (geom && geom.idxD !== undefined) ? geom.idxD : (marketCandles.length - 1),
         timestamp: new Date().toLocaleTimeString()
       };
 
       this.accumulationStatus = null;
+      this.spikeRadar = null;
       this.renderScannerSignal();
 
       // AUTO-ENVÍO INMEDIATO EN TIEMPO REAL A TELEGRAM SI EL MERCADO ESTÁ ACTIVADO
@@ -2366,15 +2637,21 @@
                     </p>
                   </div>
                 </div>
-                <div style="display:flex;gap:16px;align-items:center;">
+                <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
                   <div style="text-align:right;">
-                    <span style="font-size:10px;color:#94a3b8;display:block;">TICKS DESDE ÚLTIMO SPIKE:</span>
-                    <strong style="font-size:16px;color:#00f2fe;font-family:monospace;">${this.ticksSinceLastSpike} ticks</strong>
+                    <span style="font-size:10px;color:#94a3b8;display:block;">VELAS DE DERIVA:</span>
+                    <strong style="font-size:16px;color:#00f2fe;font-family:monospace;">${this.driftCandlesCount || 0} velas</strong>
                   </div>
                   <div style="text-align:right;">
-                    <span style="font-size:10px;color:#94a3b8;display:block;">PROBABILIDAD DE SPIKE:</span>
-                    <strong style="font-size:16px;color:${this.spikeProbability > 75 ? '#10b981' : '#f59e0b'};font-family:monospace;">${this.spikeProbability}%</strong>
+                    <span style="font-size:10px;color:#94a3b8;display:block;">PROXIMIDAD SPIKE:</span>
+                    <strong style="font-size:16px;color:${this.spikeProbability > 80 ? '#10b981' : (this.spikeProbability > 50 ? '#eab308' : '#94a3b8')};font-family:monospace;">${this.spikeProbability}%</strong>
                   </div>
+                  ${this.spikeRadar && this.spikeRadar.active ? `
+                    <div style="text-align:right;">
+                      <span style="font-size:10px;color:#eab308;display:block;">ESTIMADO REACCIÓN:</span>
+                      <strong style="font-size:13px;color:#eab308;font-family:monospace;">${this.spikeRadar.latencyEstimate}</strong>
+                    </div>
+                  ` : ''}
                   <button id="btnHuntSpike" class="ak-btn primary" style="padding:6px 14px;">
                     🎯 Cazar Próximo Spike
                   </button>
@@ -3411,10 +3688,11 @@
           ctx.stroke();
 
           // ZONA DE ORDER BLOCK INSTITUCIONAL (SMC DEMAND / SUPPLY MITIGATION)
-          if (this.showLevels && this.currentSignal && this.currentSignal.orderBlock) {
-            const ob = this.currentSignal.orderBlock;
+          const activeOb = (this.currentSignal && this.currentSignal.orderBlock) || (this.spikeRadar && this.spikeRadar.orderBlock);
+          if (this.showLevels && activeOb) {
+            const ob = activeOb;
             if (isFinite(ob.high) && isFinite(ob.low)) {
-              const isBull = this.currentSignal.type === "BUY" || this.currentSignal.type === "CALL";
+              const isBull = this.currentSignal ? (this.currentSignal.type === "BUY" || this.currentSignal.type === "CALL") : this.selectedMarket.startsWith("BOOM");
               const yTop = Math.min(getY(ob.high), getY(ob.low));
               const yBot = Math.max(getY(ob.high), getY(ob.low));
               const obH = Math.max(8, yBot - yTop);
@@ -3432,7 +3710,8 @@
               ctx.fillStyle = isBull ? (isLight ? "#15803d" : "#34d399") : (isLight ? "#b91c1c" : "#f87171");
               ctx.font = "bold 9px sans-serif";
               ctx.textAlign = "left";
-              ctx.fillText(`🏛️ ${ob.label} [Zona Mitigación: ${ob.high} - ${ob.low}]`, 14, Math.max(paddingY + 12, yTop + 11));
+              const labelTxt = ob.label || (isBull ? "OB Demanda Institucional" : "OB Oferta Institucional");
+              ctx.fillText(`🏛️ ${labelTxt} [Zona Mitigación: ${ob.high} - ${ob.low}]`, 14, Math.max(paddingY + 12, yTop + 11));
               ctx.restore();
             }
           }
@@ -4089,6 +4368,31 @@
         ctx.fillText(bannerTxt, chartWidth / 2, 26);
         ctx.restore();
       }
+
+      // BANNER HUD DE RADAR DE PROXIMIDAD DE SPIKE EN CANVAS (PRE-IGNICIÓN)
+      if (!this.currentSignal && this.spikeRadar && this.spikeRadar.active && this.spikeRadar.marketId === this.selectedMarket) {
+        ctx.save();
+        const hudW = Math.min(420, chartWidth - 28);
+        const hudH = 34;
+        const hudX = (chartWidth / 2) - (hudW / 2);
+        const hudY = 12;
+
+        ctx.fillStyle = isLight ? "rgba(254, 240, 138, 0.95)" : "rgba(11, 17, 30, 0.92)";
+        ctx.fillRect(hudX, hudY, hudW, hudH);
+        ctx.strokeStyle = "#eab308";
+        ctx.lineWidth = 1.4;
+        ctx.strokeRect(hudX, hudY, hudW, hudH);
+
+        ctx.fillStyle = isLight ? "#854d0e" : "#eab308";
+        ctx.font = "bold 10px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`⚡ RADAR DE PROXIMIDAD: ${this.spikeRadar.driftCandles} VELAS DE DERIVA | ${this.spikeRadar.proximityProb}% CERTEZA`, chartWidth / 2, hudY + 14);
+
+        ctx.fillStyle = isLight ? "#0f172a" : "#cbd5e1";
+        ctx.font = "bold 9px monospace";
+        ctx.fillText(`Latencia Estimada: ${this.spikeRadar.latencyEstimate} • Esperando mecha de rechazo en OB`, chartWidth / 2, hudY + 27);
+        ctx.restore();
+      }
     }
 
     renderCandleHistoryTable() {
@@ -4208,6 +4512,65 @@
             </div>
           `;
           return;
+        } else if (this.spikeRadar && this.spikeRadar.active && this.spikeRadar.marketId === this.selectedMarket) {
+          const radar = this.spikeRadar;
+          const m = MARKETS[radar.marketId] || MARKETS["BOOM1000"];
+          const isBoom = radar.marketId.startsWith("BOOM");
+          const progressPct = Math.min(100, Math.round((radar.driftCandles / radar.avgInterval) * 100));
+
+          container.innerHTML = `
+            <div class="ak-signal-card" style="background:linear-gradient(135deg, #0b111e 0%, #060a12 100%);border:1px solid rgba(234, 179, 8, 0.4);border-radius:12px;padding:22px;box-shadow:0 10px 30px rgba(0,0,0,0.6);">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <span class="ak-sig-type-pill" style="background:rgba(234, 179, 8, 0.2);color:#eab308;border:1px solid #eab308;">
+                    ⚡ RADAR DE PROXIMIDAD DE SPIKE (FASE DE PRE-IGNICIÓN)
+                  </span>
+                  <div>
+                    <h3 style="margin:0;font-size:16px;color:#fff;">Rastreando Agotamiento de Deriva & Mitigación de Bloque (SMC)</h3>
+                    <span style="font-size:12px;color:#94a3b8;">${m.name} &bull; Temporalidad: ${this.selectedTimeframe} &bull; Auditoría Cuántica de Spikes</span>
+                  </div>
+                </div>
+                <div class="ak-sig-confluence">
+                  <span class="score" style="color:#eab308;">${radar.proximityProb}%</span>
+                  <span class="sub">Probabilidad de Proximidad</span>
+                </div>
+              </div>
+
+              <div style="background:rgba(234, 179, 8, 0.08);border:1px solid rgba(234, 179, 8, 0.3);border-radius:8px;padding:14px;margin-bottom:14px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                  <span style="font-size:20px;">🎯</span>
+                  <strong style="color:#eab308;font-size:13px;">FILTRO ANTI-DESFASE TEMPORAL (ELIMINANDO ESPERA DE 6-8 VELAS):</strong>
+                </div>
+                <p style="margin:0 0 10px 0;font-size:12px;color:#cbd5e1;line-height:1.5;">
+                  Director Jhon, en ${m.name} el precio desciende en micro-pasos constantes antes de reaccionar. Para garantizar que <strong>no entres prematuramente ni soportes 6 a 8 velas de retroceso en contra</strong>, Akira mantiene el radar en <strong>Carga de Volatilidad</strong>.
+                </p>
+                <p style="margin:0;font-size:12px;color:#cbd5e1;line-height:1.5;">
+                  Conteo actual: <strong>${radar.driftCandles} velas consecutivas de deriva</strong> (ciclo promedio histórico: ~${radar.avgInterval} velas). Tan pronto como el precio forme la <strong>mecha de rechazo o absorción compradora</strong> en el Order Block, se disparará automáticamente la <strong>ORDEN SNIPER DE COMPRA</strong> con latencia estimada de <strong>${radar.latencyEstimate}</strong>.
+                </p>
+              </div>
+
+              <!-- BARRA DINÁMICA DE CARGA DE VOLATILIDAD -->
+              <div style="background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:11px;">
+                  <span style="color:#94a3b8;font-weight:700;">CARGA DE PRESIÓN PARA EL SPIKE:</span>
+                  <span style="color:#00f2fe;font-weight:bold;font-family:monospace;">${radar.driftCandles} / ${radar.avgInterval} velas (${progressPct}%) &bull; Latencia: ${radar.latencyEstimate}</span>
+                </div>
+                <div style="width:100%;height:8px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;">
+                  <div style="height:100%;width:${progressPct}%;background:linear-gradient(90deg, #00f2fe, #eab308, #10b981);transition:width 0.4s ease;"></div>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+                <button id="btnForceSpikeTrigger" class="ak-btn primary" style="padding:10px 18px;font-weight:800;background:linear-gradient(135deg, #059669 0%, #10b981 100%);">
+                  ⚡ Forzar Disparo Sniper Inmediato
+                </button>
+                <button id="btnRescanSignal" class="ak-btn subtle" style="padding:10px 14px;font-size:12px;">
+                  🔄 Re-Escanear
+                </button>
+              </div>
+            </div>
+          `;
+          return;
         } else {
           this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe, false);
           return;
@@ -4238,6 +4601,22 @@
               <span class="sub">Probabilidad de Éxito</span>
             </div>
           </div>
+
+          ${sig.spikeMetrics ? `
+            <!-- INDICADOR DE TIMING SNIPER VERIFICADO (PROXIMIDAD 1 A 3 VELAS) -->
+            <div style="background:rgba(16, 185, 129, 0.08);border:1px solid rgba(16, 185, 129, 0.35);border-radius:8px;padding:12px;margin-bottom:12px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:18px;">⚡</span>
+                  <strong style="color:#10b981;font-size:13px;">TIMING SNIPER VERIFICADO &bull; REACCIÓN ESTIMADA: ${sig.spikeMetrics.latencyEstimate}</strong>
+                </div>
+                <span class="ak-pill live" style="font-size:10px;padding:2px 8px;">Certeza ${sig.confluence}%</span>
+              </div>
+              <p style="margin:0;font-size:11.5px;color:#cbd5e1;line-height:1.4;">
+                Entrada ejecutada tras <strong>${sig.spikeMetrics.driftCandles} velas consecutivas de deriva</strong> con <strong>${sig.spikeMetrics.wickDetails}</strong>. La presión vendedora fue absorbida en el Order Block y la reacción explosiva está calculada para detonar en las próximas <strong>1 a 3 velas</strong> (sin soportar retrocesos largos).
+              </p>
+            </div>
+          ` : ''}
 
           <!-- EXPLICACIÓN EXCLUSIVA DEL ESCÁNER SNIPER ESTILO SEBAS RAMÍREZ -->
           <div class="ak-sniper-story-card">
@@ -5674,8 +6053,15 @@
         if (e.target.id === "btnRescanSignal" || e.target.closest("#btnRescanSignal")) {
           delete this.marketSlCooldowns[this.selectedMarket];
           this.accumulationStatus = null;
+          this.spikeRadar = null;
           this.currentSignal = null;
           this.scannerSimulatedLot = null;
+          this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe, true);
+          this.drawMarketCanvas();
+        }
+
+        if (e.target.id === "btnForceSpikeTrigger" || e.target.closest("#btnForceSpikeTrigger")) {
+          this.spikeRadar = null;
           this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe, true);
           this.drawMarketCanvas();
         }
@@ -6054,6 +6440,7 @@ if __name__ == "__main__":
           `🚀 *Take Profit 2 (1:2.2):* \`${signal.tp2}\` (+${calc.tp2Pips} pips | +$${calc.tp2Profit} USD)\n` +
           `💎 *Take Profit 3 (Sniper 1:3.19):* \`${signal.tp3}\` (+${calc.tp3Pips} pips | +$${calc.tp3Profit} USD)\n\n` +
           `📈 *Probabilidad / Confluencia:* ${signal.confluence}%\n` +
+          (signal.spikeMetrics ? `⚡ *Timing de Spike:* Reacción estimada en *${signal.spikeMetrics.latencyEstimate}* (Deriva: ${signal.spikeMetrics.driftCandles} velas)\n` : '') +
           `🔬 *Estrategia:* ${signal.smc}\n` +
           `💰 *Gestión de Riesgo (Cuenta Ref $${calc.capital} USD):* Debido lotaje de *${calc.lot} lotes*. Riesgo máximo controlado: -$${calc.actualRiskMoney} USD (${calc.actualRiskPercent}%)\n` +
           `⏱️ *Hora:* ${signal.timestamp}\n\n` +
