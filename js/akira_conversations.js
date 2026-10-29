@@ -373,14 +373,31 @@
     convsCache: [],
 
     getConversationIdForRequest: function(){
-      return api.currentId || _getCurrentId();
+      const id = api.currentId || _getCurrentId();
+      if (!id || String(id).startsWith('local_')) return null;
+      return id;
     },
 
     onConversationIdReceived: function(newId, messageCount){
       if (!newId) return;
-      const changed = (newId !== api.currentId);
+      const oldId = api.currentId || _getCurrentId();
+      const changed = (newId !== oldId);
       api.currentId = newId;
       _setCurrentId(newId);
+
+      // Migrar conversacion local si comenzo con prefijo local_
+      const convs = _getLocalConvs();
+      if (oldId && String(oldId).startsWith('local_')) {
+        const localIdx = convs.findIndex(function(c){ return c.id === oldId; });
+        if (localIdx >= 0) {
+          convs[localIdx].id = newId;
+          if (messageCount) convs[localIdx].message_count = Number(messageCount);
+          convs[localIdx].last_message_at = new Date().toISOString();
+          _saveLocalConvs(convs);
+          api.convsCache = convs;
+          api.renderList(convs);
+        }
+      }
 
       const idx = api.convsCache.findIndex(function(c){ return c.id === newId; });
       if (idx >= 0) {
@@ -417,10 +434,16 @@
       const r = await _fetchJson("/api/v8/conversations?limit=30");
       if (r.ok && r.data && r.data.ok) {
         const remoteConvs = r.data.conversations || [];
-        // Merge evitando duplicados
-        const merged = [].concat(remoteConvs);
+        // Preservar messages de localConvs si ya existian para ese id
+        const merged = remoteConvs.map(function(rc){
+          const existingLocal = localConvs.find(function(lc){ return lc.id === rc.id; });
+          if (existingLocal && existingLocal.messages && existingLocal.messages.length) {
+            return Object.assign({}, rc, { messages: existingLocal.messages });
+          }
+          return rc;
+        });
         localConvs.forEach(function(lc){
-          if(!merged.some(function(rc){ return rc.id === lc.id; })){
+          if(!merged.some(function(mc){ return mc.id === lc.id; })){
             merged.push(lc);
           }
         });
@@ -530,14 +553,34 @@
       _setCurrentId(convId);
       _highlightCurrentInList();
 
-      const r = await _fetchJson("/api/v8/conversations/" + encodeURIComponent(convId) + "?include_messages=true");
-      if (!r.ok || !r.data || !r.data.ok) {
-        const reason = (r.data && r.data.reason) ? r.data.reason : ("HTTP " + r.status);
-        _showLoading("No se pudo cargar: " + reason);
+      let conv = null;
+      let msgs = [];
+
+      // Buscar si existe copia local en caché
+      const localConvs = _getLocalConvs();
+      const localMatch = localConvs.find(function(c){ return c.id === convId; });
+
+      // Si no es un id puramente local, consultar backend
+      if (!String(convId).startsWith('local_')) {
+        const r = await _fetchJson("/api/v8/conversations/" + encodeURIComponent(convId) + "?include_messages=true");
+        if (r.ok && r.data && r.data.ok) {
+          conv = r.data.conversation || {};
+          msgs = r.data.messages || [];
+        }
+      }
+
+      // Respaldo resiliente: si el backend falló (401, 404, offline) o no trajo mensajes, usar localMatch
+      if (!msgs.length && localMatch && localMatch.messages && localMatch.messages.length) {
+        conv = conv || localMatch;
+        msgs = localMatch.messages;
+      }
+
+      // Si aun asi no hay nada y no existia localmente
+      if (!conv && !msgs.length && !localMatch) {
+        _showLoading("No se pudo cargar la conversación.");
         return;
       }
-      const conv = r.data.conversation || {};
-      const msgs = r.data.messages || [];
+
       _clearChatScreen();
       const inner = document.getElementById('msgsInner');
       if (!inner) return;
@@ -548,21 +591,20 @@
           const m = msgs[i];
           const who = m.role === 'user' ? 'user' : 'akira';
           const content = m.content || '';
-          if (typeof window.addMsg === 'function') {
-            try { window.addMsg(content, who); } catch(_){ }
-          } else {
-            const row = document.createElement('div');
-            row.className = 'msg-row ' + who;
-            const html = _esc(content).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
-            row.innerHTML = who === 'akira'
-              ? '<div class="avatar"></div><div class="bubble">' + html + '</div>'
-              : '<div class="bubble">' + html + '</div>';
-            inner.appendChild(row);
-          }
+          const row = document.createElement('div');
+          row.className = 'msg-row ' + who;
+          const html = (window.akiraFormatMarkdown ? window.akiraFormatMarkdown(content) : _esc(content).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>'));
+          row.innerHTML = who === 'akira'
+            ? '<div class="avatar akira-entity-slot" data-akira-entity data-state="success" data-size="42" aria-label="Akira"></div><div class="bubble">' + html + '</div>'
+            : '<div class="bubble">' + _esc(content) + '</div>';
+          inner.appendChild(row);
+        }
+        if (window.AkiraEntity && window.AkiraEntity.mountAll) {
+          window.AkiraEntity.mountAll(inner);
         }
         inner.scrollTop = inner.scrollHeight;
       }
-      api.currentId = conv.id || convId;
+      api.currentId = (conv && conv.id) || convId;
       _setCurrentId(api.currentId);
       _highlightCurrentInList();
     },
@@ -578,14 +620,33 @@
     async restoreLast(){
       const lastId = _getCurrentId();
       if (!lastId) return;
-      const r = await _fetchJson("/api/v8/conversations/" + encodeURIComponent(lastId) + "?include_messages=true");
-      if (!r.ok || !r.data || !r.data.ok) {
-        _setCurrentId(null);
-        api.currentId = null;
+
+      let conv = null;
+      let msgs = [];
+      const localConvs = _getLocalConvs();
+      const localMatch = localConvs.find(function(c){ return c.id === lastId; });
+
+      if (!String(lastId).startsWith('local_')) {
+        const r = await _fetchJson("/api/v8/conversations/" + encodeURIComponent(lastId) + "?include_messages=true");
+        if (r.ok && r.data && r.data.ok) {
+          conv = r.data.conversation || {};
+          msgs = r.data.messages || [];
+        }
+      }
+
+      if (!msgs.length && localMatch && localMatch.messages && localMatch.messages.length) {
+        conv = conv || localMatch;
+        msgs = localMatch.messages;
+      }
+
+      if (!msgs.length) {
+        if (!localMatch) {
+          _setCurrentId(null);
+          api.currentId = null;
+        }
         return;
       }
-      const conv = r.data.conversation || {};
-      const msgs = r.data.messages || [];
+
       _clearChatScreen();
       const inner = document.getElementById('msgsInner');
       if (msgs.length && inner) {
@@ -593,15 +654,22 @@
           const m = msgs[i];
           const who = m.role === 'user' ? 'user' : 'akira';
           const content = m.content || '';
-          if (typeof window.addMsg === 'function') {
-            try { window.addMsg(content, who); } catch(_){ }
-          }
+          const row = document.createElement('div');
+          row.className = 'msg-row ' + who;
+          const html = (window.akiraFormatMarkdown ? window.akiraFormatMarkdown(content) : _esc(content).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>'));
+          row.innerHTML = who === 'akira'
+            ? '<div class="avatar akira-entity-slot" data-akira-entity data-state="success" data-size="42" aria-label="Akira"></div><div class="bubble">' + html + '</div>'
+            : '<div class="bubble">' + _esc(content) + '</div>';
+          inner.appendChild(row);
+        }
+        if (window.AkiraEntity && window.AkiraEntity.mountAll) {
+          window.AkiraEntity.mountAll(inner);
         }
         inner.scrollTop = inner.scrollHeight;
       } else {
         _showEmptyChat();
       }
-      api.currentId = conv.id || lastId;
+      api.currentId = (conv && conv.id) || lastId;
       _highlightCurrentInList();
     }
   };
