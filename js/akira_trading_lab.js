@@ -1213,7 +1213,7 @@
       if (marketId === "BTCUSDT") return 250; // $250 USD swing proporcional en Bitcoin
       if (marketId === "ETHUSDT") return 180; // $18.0 USD swing proporcional en Ethereum
       if (marketId === "XAUUSD") return 25;   // 25 pips ($2.50 USD) swing milimétrico en Oro
-      if (m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash") return 450; // 4.50 puntos de riesgo institucional en Boom/Crash (espaciado claro y visible)
+      if (m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash") return 1500; // 15.0 puntos de riesgo institucional en Boom/Crash (espacio real para que explote el spike)
       return 15; // 15 pips en Forex Mayor (EUR/USD, GBP/USD, USD/JPY)
     }
 
@@ -1452,19 +1452,17 @@
         };
       }
 
-      // Si el Order Block de Demanda o de Oferta está a una distancia prudente, anclar la entrada al bloque
+      // La entrada para orden inmediata en vivo SIEMPRE se ancla en el precio actual en tiempo real
+      // Jamás se ubica flotando arriba ni en velas pasadas para evitar desfasaje visual
       const sniperRiskPips = this.getMarketSniperRiskPips(marketId, m);
       const riskDistance = parseFloat((m.pipSize * sniperRiskPips).toFixed(decimals));
-
-      if (ob && isFinite(ob.mitigationPrice)) {
-        const obDist = Math.abs(curPrice - ob.mitigationPrice);
-        if (obDist <= (riskDistance * 2.2)) {
-          entry = parseFloat(ob.mitigationPrice.toFixed(decimals));
-        }
+      entry = curPrice;
+      if (pivots) {
+        pivots.D = curPrice;
       }
 
       // AUDITORÍA Y PROTECCIÓN MATEMÁTICA MULTI-MERCADO:
-      // FOREX: 12 pips | ORO: 25 pips ($2.50) | CRIPTO: 180 pips BTC / 140 pips ETH | ÍNDICES: 12 ticks
+      // FOREX: 15 pips | ORO: 25 pips ($2.50) | CRIPTO: 250 pips BTC | ÍNDICES BOOM/CRASH: 15.0 puntos
       // BINARIAS: Sin SL/TP en precio (Opera por tiempo y Strike Price +85% Payout)
       const isBullTrade = type === "BUY" || type === "CALL";
 
@@ -1475,27 +1473,15 @@
         tp2 = null;
         tp3 = null;
       } else if (isBullTrade) {
-        // En compras: SL institucional protegido por debajo del Order Block de Demanda
-        if (ob && ob.low < entry && (entry - ob.low) <= (riskDistance * 1.5)) {
-          sl = parseFloat((ob.low - (m.pipSize * 2)).toFixed(decimals));
-        } else {
-          sl = parseFloat((entry - riskDistance).toFixed(decimals));
-        }
-        const actualRiskDist = Math.max(m.pipSize * 4, Math.abs(entry - sl));
-        tp1 = parseFloat((entry + (actualRiskDist * 1.5)).toFixed(decimals));
-        tp2 = parseFloat((entry + (actualRiskDist * 2.2)).toFixed(decimals));
-        tp3 = parseFloat((entry + (actualRiskDist * 3.19)).toFixed(decimals));
+        sl = parseFloat((entry - riskDistance).toFixed(decimals));
+        tp1 = parseFloat((entry + (riskDistance * 1.5)).toFixed(decimals));
+        tp2 = parseFloat((entry + (riskDistance * 2.2)).toFixed(decimals));
+        tp3 = parseFloat((entry + (riskDistance * 3.19)).toFixed(decimals));
       } else {
-        // En ventas: SL institucional protegido por encima del Order Block de Oferta
-        if (ob && ob.high > entry && (ob.high - entry) <= (riskDistance * 1.5)) {
-          sl = parseFloat((ob.high + (m.pipSize * 2)).toFixed(decimals));
-        } else {
-          sl = parseFloat((entry + riskDistance).toFixed(decimals));
-        }
-        const actualRiskDist = Math.max(m.pipSize * 4, Math.abs(sl - entry));
-        tp1 = parseFloat((entry - (actualRiskDist * 1.5)).toFixed(decimals));
-        tp2 = parseFloat((entry - (actualRiskDist * 2.2)).toFixed(decimals));
-        tp3 = parseFloat((entry - (actualRiskDist * 3.19)).toFixed(decimals));
+        sl = parseFloat((entry + riskDistance).toFixed(decimals));
+        tp1 = parseFloat((entry - (riskDistance * 1.5)).toFixed(decimals));
+        tp2 = parseFloat((entry - (riskDistance * 2.2)).toFixed(decimals));
+        tp3 = parseFloat((entry - (riskDistance * 3.19)).toFixed(decimals));
       }
 
       const riskPips = isBinary ? 0 : sniperRiskPips;
@@ -1754,7 +1740,15 @@
               <div class="ak-chart-canvas-header" id="akiraChartCanvasHeader">
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;" id="chartMarketHeaderInfo">
                   <span style="font-size:18px;" id="chartMarketIcon">${m.icon}</span>
-                  <strong style="color:#fff;font-size:15px;" id="chartMarketTitle">${m.name}</strong>
+                  
+                  <!-- SELECTOR RÁPIDO DE MERCADO DIRECTO EN EL ENCABEZADO DEL GRÁFICO (SOLICITUD DIRECTOR JHON) -->
+                  <select id="selMarketHeader" class="ak-input-select ak-chart-header-market" style="font-weight:bold;font-size:13px;padding:4px 8px;background:#0b111e;color:#00f2fe;border:1px solid rgba(0,242,254,0.4);border-radius:6px;cursor:pointer;max-width:240px;" title="Cambiar Mercado Directamente en el Gráfico">
+                    ${Object.keys(MARKETS).map(k => `
+                      <option value="${k}" ${this.selectedMarket === k ? 'selected' : ''}>
+                        ${MARKETS[k].icon} ${MARKETS[k].name}
+                      </option>
+                    `).join('')}
+                  </select>
                   <span id="chartMarketCategory" style="font-size:11px;color:#94a3b8;">(${m.category})</span>
                   
                   <!-- SELECTOR DE TEMPORALIDADES DIRECTO SOBRE EL GRÁFICO (SOLICITUD DIRECTOR JHON) -->
@@ -2512,11 +2506,13 @@
       const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
       const iconEl = document.getElementById("chartMarketIcon");
       const titleEl = document.getElementById("chartMarketTitle");
+      const selHeader = document.getElementById("selMarketHeader");
       const catEl = document.getElementById("chartMarketCategory");
       const tfEl = document.getElementById("chartMarketTfPill");
       const accBadge = document.getElementById("chartAccuracyBadge");
       if (iconEl) iconEl.innerText = m.icon;
       if (titleEl) titleEl.innerText = m.name;
+      if (selHeader) selHeader.value = this.selectedMarket;
       if (catEl) catEl.innerText = `(${m.category})`;
       if (tfEl) {
         const engineLabel = this.chartEngine === "tradingview" ? "TradingView Deriv Oficial" : "Stream Deriv Directo";
@@ -2865,32 +2861,15 @@
       const isLight = this.chartTheme === "light";
       const targetSync = this.calculateTargetSync(allCandles);
 
-      // GESTIÓN DEL CICLO DE VIDA DE LA ENTRADA (VIDA ÚTIL CUMPLIDA -> RETIRO AUTOMÁTICO)
+      // GESTIÓN DEL CICLO DE VIDA DE LA ENTRADA (MANTENER SIEMPRE VISIBLE EN EL GRÁFICO)
       if (this.currentSignal && targetSync && (targetSync.tp3Hit || targetSync.slHit)) {
         if (!this.currentSignal.completedAt) {
           this.currentSignal.completedAt = Date.now();
           this.currentSignal.completedStatus = targetSync.tp3Hit ? "TP3_HIT" : "SL_HIT";
           const pipsWon = targetSync.tp3Hit ? parseFloat(((this.currentSignal.riskPips || 12) * 3.19).toFixed(1)) : -(this.currentSignal.riskPips || 12);
           this.currentSignal.pipsWon = pipsWon;
-          if (targetSync.slHit) {
-            // FILTRO ANTI-RACHA INSTITUCIONAL: Detener compras indiscriminadas en caída libre tras invalidación
-            this.marketSlCooldowns[this.selectedMarket] = {
-              hitAt: Date.now(),
-              cooldownMs: 65000,
-              stoppedPrice: this.marketPrices[this.selectedMarket] || 0
-            };
-          }
-        } else {
-          // Si ya transcurrieron 5.5 segundos desde que cumplió su vida útil, desaparecer la entrada y entrar en confirmación
-          const elapsed = Date.now() - this.currentSignal.completedAt;
-          if (elapsed >= 5500) {
-            this.currentSignal = null;
-            this.scannerSimulatedLot = null;
-            this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe, false);
-            setTimeout(() => this.drawMarketCanvas(), 40);
-            return;
-          }
         }
+        // JAMÁS DESAPARECER LA SEÑAL AUTOMÁTICAMENTE: Se mantiene 100% visible para que el trader acompañe el spike y la reacción completa
       }
 
       // RASTREO EN VIVO DEL ESTADO DE ACUMULACIÓN / ENFRIAMIENTO CUÁNTICO TRAS SL
@@ -4091,25 +4070,24 @@
         ctx.setLineDash([]);
       }
 
-      // BANNER CELEBRATORIO CUANDO LA ENTRADA CUMPLE SU VIDA ÚTIL
+      // PÍLDORA DE ESTADO INSTITUCIONAL (SIN ELIMINAR LA ENTRADA)
       if (this.currentSignal && this.currentSignal.completedAt) {
         const isWin = this.currentSignal.completedStatus === "TP3_HIT";
-        const elapsed = Math.floor((Date.now() - this.currentSignal.completedAt) / 1000);
-        const remainCount = Math.max(0, 5 - elapsed);
-
-        ctx.fillStyle = isWin ? "rgba(16, 185, 129, 0.95)" : "rgba(239, 68, 68, 0.95)";
-        ctx.fillRect((chartWidth / 2) - 230, 12, 460, 28);
-        ctx.strokeStyle = isWin ? "#10b981" : "#ef4444";
-        ctx.lineWidth = 1.8;
-        ctx.strokeRect((chartWidth / 2) - 230, 12, 460, 28);
+        ctx.save();
+        ctx.fillStyle = isWin ? "rgba(16, 185, 129, 0.92)" : "rgba(234, 179, 8, 0.92)";
+        ctx.fillRect((chartWidth / 2) - 180, 10, 360, 24);
+        ctx.strokeStyle = isWin ? "#10b981" : "#eab308";
+        ctx.lineWidth = 1.4;
+        ctx.strokeRect((chartWidth / 2) - 180, 10, 360, 24);
 
         ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 10.5px sans-serif";
+        ctx.font = "bold 10px sans-serif";
         ctx.textAlign = "center";
         const bannerTxt = isWin
-          ? `🎉 ¡VIDA ÚTIL CUMPLIDA! TP3 ALCANZADO (+${this.currentSignal.pipsWon || 38.3} Pips) • NUEVA ENTRADA EN: ${remainCount}s`
-          : `🛑 VIDA ÚTIL CUMPLIDA (STOP LOSS PROTEGIDO) • BUSCANDO NUEVA ENTRADA EN: ${remainCount}s`;
-        ctx.fillText(bannerTxt, chartWidth / 2, 30);
+          ? `🎉 ¡TP3 ALCANZADO (+${this.currentSignal.pipsWon || 38.3} Pips)! • Señal Exitosa`
+          : `🛡️ ZONA EVALUADA • Presiona [🔄 Forzar Nuevo Escaneo] para la siguiente entrada`;
+        ctx.fillText(bannerTxt, chartWidth / 2, 26);
+        ctx.restore();
       }
     }
 
@@ -5164,28 +5142,37 @@
 
       // Cambio de Mercado Activo (Limpia señales viejas y conecta de inmediato a Deriv Oficial)
       const selMarket = document.getElementById("selMarketActive");
+      const selMarketHdr = document.getElementById("selMarketHeader");
+
+      const handleMarketChange = (newMarket) => {
+        this.selectedMarket = newMarket;
+        if (selMarket) selMarket.value = newMarket;
+        if (selMarketHdr) selMarketHdr.value = newMarket;
+        this.currentSignal = null;
+        this.scannerSimulatedLot = null; // Retirar entrada del mercado anterior
+        this.accumulationStatus = null;
+        this.verticalOffset = 0; // Centrar vista vertical para el nuevo mercado
+        this.updateChartCanvasHeader();
+        if (!this.isDerivWsConnected && (!this.candles[this.selectedMarket] || this.candles[this.selectedMarket].length === 0)) {
+          this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
+          this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
+        }
+        this.updateLiveHeaderTelemetry();
+        this.renderPlatformSpecialDeck();
+        this.renderCandleHistoryTable();
+        if (this.chartEngine === "tradingview") {
+          this.renderTradingViewChart();
+        } else {
+          this.drawMarketCanvas();
+        }
+        this.subscribeToCurrentMarketDeriv(); // Pide velas reales inmediatamente a Deriv oficial
+      };
+
       if (selMarket) {
-        selMarket.addEventListener("change", (e) => {
-          this.selectedMarket = e.target.value;
-          this.currentSignal = null;
-          this.scannerSimulatedLot = null; // Retirar entrada del mercado anterior
-          this.accumulationStatus = null;
-          this.verticalOffset = 0; // Centrar vista vertical para el nuevo mercado
-          this.updateChartCanvasHeader();
-          if (!this.isDerivWsConnected && (!this.candles[this.selectedMarket] || this.candles[this.selectedMarket].length === 0)) {
-            this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
-            this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
-          }
-          this.updateLiveHeaderTelemetry();
-          this.renderPlatformSpecialDeck();
-          this.renderCandleHistoryTable();
-          if (this.chartEngine === "tradingview") {
-            this.renderTradingViewChart();
-          } else {
-            this.drawMarketCanvas();
-          }
-          this.subscribeToCurrentMarketDeriv(); // Pide velas reales inmediatamente a Deriv oficial
-        });
+        selMarket.addEventListener("change", (e) => handleMarketChange(e.target.value));
+      }
+      if (selMarketHdr) {
+        selMarketHdr.addEventListener("change", (e) => handleMarketChange(e.target.value));
       }
 
       // Cambio de Temporalidad (Sincronización exacta con Deriv en M1, M5, M15, H1, H4, D1)
