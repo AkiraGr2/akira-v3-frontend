@@ -1,6 +1,6 @@
 {
-  "version": "akira-cache-v20261025-hyper-evolution-v22",
-  "generated_at": "2026-10-26T04:50:00.000Z",
+  "version": "akira-cache-v20261029-seamless-init-v23",
+  "generated_at": "2026-10-29T13:40:00.000Z",
   "assets": {
     "js/akira_brain.js": "akira-brain-v8-performance",
     "js/akira_sandbox.js": "akira-sandbox-v2-zip-github-export",

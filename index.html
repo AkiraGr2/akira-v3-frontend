@@ -423,58 +423,119 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
 <div class="sidebar" id="sidebar">
   <div class="brand">
-    <div class="orb akira-entity-slot akira-global-entity" id="orb" data-akira-entity data-state="idle" data-size="36" aria-label="Akira · En calma" onclick="showSection('chat')" style="cursor:pointer"></div>
-    <div><h1>Akira</h1><p>Cognitive Workspace</p></div>
+    <div class="ak-brand-block" onclick="showSection('home')" style="cursor:pointer;display:flex;align-items:center;gap:12px;">
+      <div class="ak-ref-logo-mark akira-entity-slot" data-akira-entity data-state="idle" data-size="40" aria-label="Akira Quantum Crest"></div>
+      <div class="ak-brand-text">
+        <h1 style="font-family:'Outfit',sans-serif;font-size:20px;font-weight:800;letter-spacing:0.16em;margin:0;background:linear-gradient(90deg,#00f2fe,#8b5cf6);-webkit-background-clip:text;background-clip:text;color:transparent;">AKIRA</h1>
+        <p style="font-size:9px;letter-spacing:0.14em;color:#64748b;margin:2px 0 0;font-weight:600;">COLMENA COGNITIVA // V8.2</p>
+      </div>
+    </div>
   </div>
   <button class="btn-new pixel-btn" onclick="if(window.akiraConversations){akiraConversations.newChat()}else{newChat()}">+ Nuevo chat</button>
   <div class="nav">
-    <button class="nav-btn active" id="btn-chat" onclick="showSection('chat')">💬 Chat</button>
-    <button class="nav-btn" id="btn-membrane" onclick="showSection('membrane')">🧠 Cerebro Akira</button>
-    <button class="nav-btn" id="btn-office" onclick="showSection('office')">🏢 Oficina</button>
-    <button class="nav-btn" id="btn-missions" onclick="showSection('missions')">🎯 Misiones</button>
-    <button class="nav-btn" id="btn-levels" onclick="showSection('levels')">📊 Niveles</button>
-    <button class="nav-btn" id="btn-upwork" onclick="showSection('upwork')">💼 Upwork</button>
-    <button class="nav-btn" id="btn-crm" onclick="window.akiraOpenCrmModal && window.akiraOpenCrmModal()">💼 CRM Pipeline</button>
-    <button class="nav-btn" id="btn-cron" onclick="window.akiraOpenCronModal && window.akiraOpenCronModal()">⏰ Cron Jobs</button>
-    <button class="nav-btn" id="btn-sheet" onclick="window.akiraOpenSpreadsheetModal && window.akiraOpenSpreadsheetModal()">📑 Excel / CSV</button>
-    <button class="nav-btn" id="btn-agent-studio" onclick="window.akiraOpenAgentStudioModal && window.akiraOpenAgentStudioModal()">🧩 Crear Agentes</button>
-    <button class="nav-btn" id="btn-roi" onclick="window.akiraOpenRoiModal && window.akiraOpenRoiModal()">📈 Métricas ROI</button>
-    <button class="nav-btn" id="btn-keys" onclick="showSection('keys')">🔑 Cuenta</button>
-    <button class="nav-btn" id="btn-admin" onclick="showSection('admin')">👑 Admin</button>
+    <div class="ak-nav-category-title">Principal</div>
+    <button class="nav-btn active" id="btn-home" type="button" onclick="showSection('home')">
+      <span class="nav-btn-label">🏠 Inicio</span><small class="nav-btn-desc">Centro de mando</small>
+    </button>
+    <button class="nav-btn" id="btn-chat" type="button" onclick="showSection('chat')">
+      <span class="nav-btn-label">💬 Chat</span><small class="nav-btn-desc">Hablar con Akira</small>
+    </button>
+    <button class="nav-btn" id="btn-membrane" type="button" onclick="showSection('membrane')">
+      <span class="nav-btn-label">🧠 Memoria</span><small class="nav-btn-desc">Cerebro de Akira</small>
+    </button>
+
+    <div class="ak-nav-category-title">Operación &amp; Proyectos</div>
+    <button class="nav-btn" id="btn-office" type="button" onclick="showSection('office')">
+      <span class="nav-btn-label">🏢 Oficina</span><small class="nav-btn-desc">Especialistas activos</small>
+    </button>
+    <button class="nav-btn" id="btn-missions" type="button" onclick="showSection('missions')">
+      <span class="nav-btn-label">🎯 Misiones</span><small class="nav-btn-desc">Operaciones autónomas</small>
+    </button>
+    <button class="nav-btn" id="btn-upwork" type="button" onclick="showSection('upwork')">
+      <span class="nav-btn-label">💼 Proyectos &amp; Negocio</span><small class="nav-btn-desc">Oportunidades Upwork</small>
+    </button>
+    <button class="nav-btn" id="btn-shopify" type="button" onclick="showSection('shopify')">
+      <span class="nav-btn-label">🛍️ E-Commerce / Shopify</span><small class="nav-btn-desc">Tiendas y ventas IA</small>
+    </button>
+    <button class="nav-btn" id="btn-trading" type="button" onclick="showSection('trading')">
+      <span class="nav-btn-label">📈 Trading Lab Cuántico</span><small class="nav-btn-desc">Escáner armónico &amp; IA</small>
+    </button>
+
+    <div class="ak-nav-category-title">Supervisión &amp; Sistema</div>
+    <button class="nav-btn" id="btn-levels" type="button" onclick="showSection('levels')">
+      <span class="nav-btn-label">📊 Capacidades</span><small class="nav-btn-desc">60/60 Verificadas</small>
+    </button>
+    <button class="nav-btn" id="btn-admin" type="button" onclick="showSection('admin')">
+      <span class="nav-btn-label">⚙️ Panel de Control</span><small class="nav-btn-desc">Supervisión y estado</small>
+    </button>
+    <button class="nav-btn" id="btn-keys" type="button" onclick="showSection('keys')">
+      <span class="nav-btn-label">🔑 Mi Cuenta</span><small class="nav-btn-desc">Sesión y ajustes</small>
+    </button>
+  </div>
+  <div class="ak-sidebar-telemetry">
+    <div class="ak-telemetry-status">
+      <span class="ak-live-dot"></span>
+      <span>Colmena: Activa &amp; Persistente</span>
+    </div>
+    <div class="ak-telemetry-sub">60/60 Verificadas · Render 0$</div>
   </div>
   <div class="history" id="historyList"></div>
 </div>
 <div class="main">
   <div class="topbar">
-    <div style="display:flex;align-items:center;gap:10px">
+    <div style="display:flex;align-items:center;gap:12px;">
       <button class="hamburger" onclick="toggleSidebar()">☰</button>
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="orb akira-entity-slot akira-global-entity" data-akira-entity data-state="idle" data-size="30" aria-label="Akira · En calma"></div>
-        <div class="model-pill">Akira</div>
-        <div id="akiraAutopilotBadge" class="autopilot-pill" title="Modo Autopilot: Akira opera con 100% de autonomía técnica. Jhon supervisa pasivamente." onclick="window.akiraToggleAutopilot && window.akiraToggleAutopilot()">
-          <span class="autopilot-dot"></span>
-          <span id="akiraAutopilotLabel">⚡ Autopilot: 100% Autónomo</span>
-        </div>
-        <button class="akira-live-trigger-btn" onclick="toggleAkiraLiveVoice()" title="Iniciar conversación por voz con Akira">
-          <span class="live-wave-dot"></span>
-          <span>Akira Live</span>
-        </button>
-        <button class="nav-quick-btn" onclick="window.akiraOpenVoiceStudioModal && window.akiraOpenVoiceStudioModal()" title="Estudio de Voz Situacional &amp; Manos Libres" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;">🎙️ Modos de Voz</button>
+      <div class="ak-hud-breadcrumb">
+        <span class="ak-hud-prefix">AKIRA</span>
+        <span class="ak-hud-sep">//</span>
+        <span id="akHudCurrentSection" class="ak-hud-section">INICIO</span>
       </div>
     </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button class="nav-quick-btn" onclick="window.akiraOpenSearchModal && window.akiraOpenSearchModal()" title="Búsqueda Vectorial Rápida (Ctrl+K)" style="background:#111827;border:1px solid rgba(0,240,255,0.4);color:#00f0ff;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">🔍 Buscar (Ctrl+K)</button>
-      <button class="nav-quick-btn" onclick="window.akiraOpenCronModal && window.akiraOpenCronModal()" title="Tareas Autónomas Programadas" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">⏰ Cron</button>
-      <button class="nav-quick-btn" onclick="window.akiraOpenCrmModal && window.akiraOpenCrmModal()" title="Pipeline CRM Freelance" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">💼 CRM</button>
-      <button class="nav-quick-btn" onclick="window.akiraOpenSelfHealingModal && window.akiraOpenSelfHealingModal()" title="Vigilante de Auto-Curación Técnica" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">🧬 Salud</button>
-      <button class="nav-quick-btn" onclick="window.akiraOpenRoiModal && window.akiraOpenRoiModal()" title="Telemetría de Productividad y Retorno de Inversión" style="background:#111827;border:1px solid rgba(16,185,129,0.3);color:#10b981;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">📈 ROI</button>
-      <button class="nav-quick-btn" onclick="window.akiraOpenThemeModal && window.akiraOpenThemeModal()" title="Estudio de Temas y Accesibilidad" style="background:#111827;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;">🎨</button>
-      <div id="streamToggleBtn" style="display:none"></div>
-      <button id="userAvatar" onclick="showSection('keys')" style="width:32px;height:32px;background:#1e1e26;border:3px solid var(--border);display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;border-radius:50%" title="Cuenta">🔒</button>
+    <div class="ak-hud-center-chip">
+      <span class="ak-hud-live-dot"></span>
+      <span id="akHudStatusText">✦ AKIRA EN LÍNEA · AUTÓNOMA</span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <button class="akira-live-trigger-btn ak-hud-live-btn" onclick="toggleAkiraLiveVoice()" title="Conversar por voz con Akira">
+        <span class="live-wave-dot"></span>
+        <span>✨ Akira Live</span>
+      </button>
+      <button id="userAvatar" onclick="showSection('keys')" class="ak-hud-avatar-btn" title="Mi Cuenta y Sesión">👑</button>
     </div>
   </div>
 
-  <div id="homeSection" class="section active ak-reference-home" aria-live="polite"></div>
+  <div id="homeSection" class="section active ak-reference-home" aria-live="polite">
+    <div class="ak-ref-scroll">
+      <section class="ak-ref-hero" aria-label="Espacio de trabajo cognitivo de Akira">
+        <div class="ak-ref-room-grid"></div>
+        <div class="ak-ref-greeting">
+          <div class="ak-ref-kicker">Cognitive Workspace</div>
+          <h2>Hola,<br>soy <span>Akira</span></h2>
+          <p>Un espacio para conversar, consultar el Cerebro y ejecutar acciones verificables.</p>
+          <div class="ak-ref-actions">
+            <button class="ak-ref-btn primary" onclick="showSection('chat')">Conversar</button>
+            <button class="ak-ref-btn" onclick="showSection('missions')">Planificar</button>
+            <button class="ak-ref-btn" onclick="showSection('trading')">📈 Trading Lab</button>
+            <button class="ak-ref-btn" onclick="showSection('shopify')">🛍️ Shopify</button>
+            <button class="ak-ref-btn" onclick="showSection('office')">Ejecutar</button>
+            <button class="ak-ref-btn" onclick="showSection('membrane')">Explorar</button>
+          </div>
+        </div>
+        <div class="ak-ref-orb-stage">
+          <div class="akira-entity-slot akira-ref-orb" data-akira-entity data-state="idle" data-size="560" aria-label="Akira · En calma"></div>
+        </div>
+        <div id="akRefHeroBrain" class="ak-ref-floating memory"><strong><span class="ak-ref-status cyan"></span>Memoria</strong><span>Consultando datos del Cerebro…</span></div>
+        <div id="akRefHeroMissions" class="ak-ref-floating executing"><strong><span class="ak-ref-status cyan"></span>Ejecución</strong><span>Consultando misiones reales…</span></div>
+        <div id="akRefHeroSystem" class="ak-ref-floating thinking"><strong><span class="ak-ref-status purple"></span>Servidor</strong><span>✦ En línea · Costo $0</span></div>
+        <div id="akRefHeroLearning" class="ak-ref-floating learning"><strong><span class="ak-ref-status yellow"></span>Colmena</strong><span>267 Especialistas en guardia</span></div>
+        <aside class="ak-ref-date-card">
+          <div id="akRefDate" class="date">—</div>
+          <div id="akRefTime" class="time">—:—</div>
+          <p>Datos y estados mostrados desde el runtime en tiempo real.</p>
+        </aside>
+      </section>
+    </div>
+  </div>
 
   <div id="chatSection" class="section">
     <div class="chat-wrap">
