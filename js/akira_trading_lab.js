@@ -267,7 +267,7 @@
 
       Object.keys(MARKETS).forEach(k => {
         this.marketPrices[k] = MARKETS[k].basePrice;
-        this.candles[k] = this.generateHistoricalCandles(k, 90);
+        this.candles[k] = this.generateHistoricalCandles(k, 350);
       });
     }
 
@@ -443,11 +443,11 @@
         this.derivWs.send(JSON.stringify({ "forget_all": ["candles", "ticks"] }));
       } catch(_) {}
 
-      // 1. Solicitar velas auténticas de Deriv con suscripción de vela viva
+      // 1. Solicitar velas auténticas de Deriv con suscripción de vela viva (Historial Completo Ampliado)
       const reqCandles = {
         "ticks_history": symbol,
         "end": "latest",
-        "count": 75,
+        "count": 1000,
         "style": "candles",
         "granularity": granularity,
         "subscribe": 1
@@ -562,7 +562,7 @@
             volume: Math.floor(1000 + Math.random() * 1500),
             pips: parseFloat(((cl - o) / pip).toFixed(1))
           });
-          if (marketCandles.length > 120) marketCandles.shift();
+          if (marketCandles.length > 1500) marketCandles.shift();
           this.renderCandleHistoryTable();
         } else {
           // Actualización de la vela actual en vivo tick a tick
@@ -799,7 +799,7 @@
       }, 1000);
     }
 
-    generateHistoricalCandles(marketId, count = 90) {
+    generateHistoricalCandles(marketId, count = 350) {
       const m = MARKETS[marketId] || MARKETS["XAUUSD"];
       const base = m.basePrice;
       const pip = m.pipSize;
@@ -820,9 +820,13 @@
         let isSpike = false;
 
         if (isBoom) {
-          // En Boom 1000: las velas normales son SIEMPRE micro-caídas rojas (-), y los spikes son SIEMPRE compras gigantes hacia arriba (+)
-          isSpike = (i % 7 === 0) && i > 3;
+          // En Boom 1000: velas normales micro-caídas rojas (-), y spikes explosivos alcistas (+)
+          // Intervalo estocástico realista con media ~16 velas
+          if (typeof candlesSinceLastSpike === "undefined") var candlesSinceLastSpike = 0;
+          candlesSinceLastSpike++;
+          isSpike = (i > 3) && (candlesSinceLastSpike >= 14 && Math.random() < 0.28 || candlesSinceLastSpike >= 24);
           if (isSpike) {
+            candlesSinceLastSpike = 0;
             c = o + (pip * (35 + Math.floor(Math.random() * 45))); // SIEMPRE ALCISTA
             h = c + (pip * 1.5);
             l = o - (pip * 0.3);
@@ -832,9 +836,12 @@
             l = c - (pip * 0.3);
           }
         } else if (isCrash) {
-          // En Crash 1000: las velas normales son SIEMPRE micro-subidas verdes (+), y los spikes son SIEMPRE caídas gigantes hacia abajo (-)
-          isSpike = (i % 7 === 0) && i > 3;
+          // En Crash 1000: velas normales micro-subidas verdes (+), y spikes explosivos bajistas (-)
+          if (typeof candlesSinceLastCrash === "undefined") var candlesSinceLastCrash = 0;
+          candlesSinceLastCrash++;
+          isSpike = (i > 3) && (candlesSinceLastCrash >= 14 && Math.random() < 0.28 || candlesSinceLastCrash >= 24);
           if (isSpike) {
+            candlesSinceLastCrash = 0;
             c = o - (pip * (35 + Math.floor(Math.random() * 45))); // SIEMPRE BAJISTA
             h = o + (pip * 0.3);
             l = c - (pip * 1.5);
@@ -895,7 +902,7 @@
         const m = MARKETS[mId];
         if (!m) continue;
 
-        const candles = this.candles[mId] || this.generateHistoricalCandles(mId, 90);
+        const candles = this.candles[mId] || this.generateHistoricalCandles(mId, 350);
         const isBin = Boolean(m.isBinary);
         const isBoom = mId === "BOOM1000";
         const isCrash = mId === "CRASH1000";
@@ -1668,7 +1675,7 @@
       const curPrice = this.marketPrices[marketId] || m.basePrice;
       const isBinary = Boolean(m.isBinary);
 
-      const marketCandles = this.candles[marketId] || this.generateHistoricalCandles(marketId, 90);
+      const marketCandles = this.candles[marketId] || this.generateHistoricalCandles(marketId, 350);
 
       // DIRECCIÓN INSTITUCIONAL MATEMÁTICA DETERMINISTA (CERO AZAR / CERO FLIP-FLOP)
       const trendAnalysis = this.determineInstitutionalTrend(marketCandles, marketId, m);
@@ -2134,32 +2141,41 @@
 
               <div class="ak-chart-nav-bar" id="chartNavBar" style="display:${this.chartEngine === 'canvas' ? 'flex' : 'none'};">
                 <div class="ak-nav-left-group">
-                  <button id="btnScrollLeft" class="ak-nav-btn" title="Desplazar hacia la izquierda (ver velas del pasado)">
-                    ◀ Ver Historial
+                  <button id="btnJumpToStart" class="ak-nav-btn" title="Saltar al inicio del historial completo (vela más antigua registrada)">
+                    ⏮ Inicio Historial
+                  </button>
+                  <button id="btnScrollLeft" class="ak-nav-btn" title="Desplazar hacia la izquierda (explorar velas del pasado)">
+                    ◀ Historial
                   </button>
                   <div class="ak-slider-wrap">
-                    <span class="ak-slider-lbl">HISTORIAL</span>
-                    <input type="range" id="chartScrollSlider" min="0" max="60" value="0" step="1" class="ak-nav-slider" title="Desliza para mover el gráfico a la izquierda o derecha">
-                    <span class="ak-slider-lbl live">EN VIVO</span>
+                    <span class="ak-slider-lbl" id="lblScrollStart">⏮ HISTORIAL COMPLETO</span>
+                    <input type="range" id="chartScrollSlider" min="0" max="1000" value="0" step="1" class="ak-nav-slider" title="Desliza libremente para explorar el historial completo de velas">
+                    <span class="ak-slider-lbl live">EN VIVO ▶</span>
                   </div>
                   <button id="btnScrollRight" class="ak-nav-btn" title="Desplazar hacia la derecha (hacia el tiempo real)">
                     En Vivo ▶
+                  </button>
+                  <button id="btnJumpToLive" class="ak-nav-btn active" title="Centrar gráfico en la vela en vivo actual">
+                    ⏭ En Vivo
                   </button>
                 </div>
 
                 <div class="ak-nav-right-group">
                   <span id="vScrollBadge" class="ak-pill subtle" style="display:none;font-size:10px;padding:3px 8px;">↕ 0%</span>
+                  <button id="btnFitAllHistory" class="ak-nav-btn" title="Ajustar zoom para ver la perspectiva macro completa de todas las velas">
+                    👁️ Ver Todo (Macro)
+                  </button>
                   <button id="btnZoomOut" class="ak-nav-btn" title="Ver más velas en pantalla (Alejar)">
                     🔍 - Alejar
                   </button>
                   <button id="btnZoomIn" class="ak-nav-btn" title="Ver velas más grandes (Acercar)">
                     🔍 + Acercar
                   </button>
-                  <button id="btnToggleMargin" class="ak-nav-btn" title="Espacio libre a la derecha para ver las metas de TP y Stop Loss con comodidad">
-                    📐 Espacio Derecha (${this.rightMarginBars} velas)
+                  <button id="btnToggleMargin" class="ak-nav-btn" title="Espacio libre a la derecha para ver metas TP/SL">
+                    📐 Espacio (${this.rightMarginBars}v)
                   </button>
-                  <button id="btnResetView" class="ak-nav-btn active" title="Centrar gráfico en la vela en vivo actual">
-                    🎯 Centrar En Vivo
+                  <button id="btnResetView" class="ak-nav-btn" title="Restablecer vista estándar (45 velas en vivo)">
+                    🎯 Reset Vista
                   </button>
                 </div>
               </div>
@@ -2167,12 +2183,18 @@
 
             <div class="ak-market-data-grid">
               <div class="ak-data-card" style="flex:2;">
-                <div class="ak-data-card-head">
+                <div class="ak-data-card-head" style="flex-wrap:wrap;gap:8px;">
                   <div style="display:flex;align-items:center;gap:8px;">
                     <span style="font-size:14px;">📜</span>
                     <h4 style="margin:0;font-size:13px;color:#fff;">Historial Numérico del Mercado (Velas Anteriores OHLCV)</h4>
                   </div>
-                  <span style="font-size:11px;color:#00f2fe;">Últimas 30 Velas Auditadas</span>
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                    <button class="ak-pill-btn ${(!this.historyTableLimit || this.historyTableLimit === 50) ? 'active' : ''}" data-hist-limit="50">50 Velas</button>
+                    <button class="ak-pill-btn ${this.historyTableLimit === 150 ? 'active' : ''}" data-hist-limit="150">150 Velas</button>
+                    <button class="ak-pill-btn ${this.historyTableLimit === 500 ? 'active' : ''}" data-hist-limit="500">500 Velas</button>
+                    <button class="ak-pill-btn ${this.historyTableLimit === 'all' ? 'active' : ''}" data-hist-limit="all">🌟 Historial Completo</button>
+                    <span id="candleHistoryCountBadge" style="font-size:11px;color:#00f2fe;font-weight:bold;margin-left:6px;">Historial: ${this.candles[this.selectedMarket]?.length || 0} Velas</span>
+                  </div>
                 </div>
                 <div class="ak-table-scroll-wrap">
                   <table class="ak-ohlc-table">
@@ -2980,7 +3002,7 @@
           const mainTfBtn = document.querySelector(`.ak-tf-btn[data-tf="${tf}"]`);
           if (mainTfBtn) mainTfBtn.click();
           else {
-            this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
+            this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 350);
             this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
             this.updateChartCanvasHeader();
             this.drawMarketCanvas();
@@ -4460,8 +4482,14 @@
       const candles = this.candles[this.selectedMarket] || [];
       if (candles.length === 0) return;
 
-      const recent = candles.slice(-30).reverse();
+      const limit = this.historyTableLimit === "all" ? candles.length : (parseInt(this.historyTableLimit, 10) || 50);
+      const recent = candles.slice(-limit).reverse();
       const decimals = this.getMarketDecimals(this.selectedMarket);
+
+      const countBadge = document.getElementById("candleHistoryCountBadge");
+      if (countBadge) {
+        countBadge.textContent = `Historial: ${candles.length} Velas (${recent.length} en tabla)`;
+      }
 
       tbody.innerHTML = recent.map(c => {
         const isBull = c.isBull;
@@ -5600,7 +5628,7 @@
         this.verticalOffset = 0; // Centrar vista vertical para el nuevo mercado
         this.updateChartCanvasHeader();
         if (!this.isDerivWsConnected && (!this.candles[this.selectedMarket] || this.candles[this.selectedMarket].length === 0)) {
-          this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
+          this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 350);
           this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
         }
         this.updateLiveHeaderTelemetry();
@@ -5639,7 +5667,7 @@
             this.renderTradingViewChart();
           } else {
             if (!this.isDerivWsConnected) {
-              this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 90);
+              this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 350);
               this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
               this.renderCandleHistoryTable();
               this.drawMarketCanvas();
@@ -5764,10 +5792,57 @@
         });
       }
 
+      const btnJumpToStart = document.getElementById("btnJumpToStart");
+      if (btnJumpToStart) {
+        btnJumpToStart.addEventListener("click", () => {
+          const totalCandles = this.candles[this.selectedMarket]?.length || 45;
+          const maxScroll = Math.max(0, totalCandles - this.visibleBars);
+          this.scrollOffset = maxScroll;
+          const sl = document.getElementById("chartScrollSlider");
+          if (sl) {
+            sl.max = maxScroll.toString();
+            sl.value = maxScroll.toString();
+          }
+          this.drawMarketCanvas();
+        });
+      }
+
+      const btnJumpToLive = document.getElementById("btnJumpToLive");
+      if (btnJumpToLive) {
+        btnJumpToLive.addEventListener("click", () => {
+          this.scrollOffset = 0;
+          const sl = document.getElementById("chartScrollSlider");
+          if (sl) sl.value = "0";
+          this.drawMarketCanvas();
+        });
+      }
+
+      const btnFitAllHistory = document.getElementById("btnFitAllHistory");
+      if (btnFitAllHistory) {
+        btnFitAllHistory.addEventListener("click", () => {
+          const totalCandles = this.candles[this.selectedMarket]?.length || 45;
+          this.visibleBars = Math.min(totalCandles, 400);
+          this.scrollOffset = 0;
+          this.verticalOffset = 0;
+          const sl = document.getElementById("chartScrollSlider");
+          if (sl) sl.value = "0";
+          const vsl = document.getElementById("chartVScrollSlider");
+          if (vsl) vsl.value = "0";
+          this.drawMarketCanvas();
+        });
+      }
+
       const btnScrollLeft = document.getElementById("btnScrollLeft");
       if (btnScrollLeft) {
         btnScrollLeft.addEventListener("click", () => {
-          this.scrollOffset = Math.min(60, this.scrollOffset + 10);
+          const totalCandles = this.candles[this.selectedMarket]?.length || 45;
+          const maxScroll = Math.max(0, totalCandles - this.visibleBars);
+          this.scrollOffset = Math.min(maxScroll, this.scrollOffset + 15);
+          const sl = document.getElementById("chartScrollSlider");
+          if (sl) {
+            sl.max = maxScroll.toString();
+            sl.value = this.scrollOffset.toString();
+          }
           this.drawMarketCanvas();
         });
       }
@@ -5775,7 +5850,9 @@
       const btnScrollRight = document.getElementById("btnScrollRight");
       if (btnScrollRight) {
         btnScrollRight.addEventListener("click", () => {
-          this.scrollOffset = Math.max(0, this.scrollOffset - 10);
+          this.scrollOffset = Math.max(0, this.scrollOffset - 15);
+          const sl = document.getElementById("chartScrollSlider");
+          if (sl) sl.value = this.scrollOffset.toString();
           this.drawMarketCanvas();
         });
       }
@@ -5783,7 +5860,7 @@
       const btnZoomOut = document.getElementById("btnZoomOut");
       if (btnZoomOut) {
         btnZoomOut.addEventListener("click", () => {
-          this.visibleBars = Math.min(130, this.visibleBars + 10);
+          this.visibleBars = Math.min(450, this.visibleBars + 15);
           this.drawMarketCanvas();
         });
       }
@@ -5793,6 +5870,20 @@
         btnZoomIn.addEventListener("click", () => {
           this.visibleBars = Math.max(14, this.visibleBars - 10);
           this.drawMarketCanvas();
+        });
+      }
+
+      // Delegación para botones de límite de historial de tabla
+      const tableDataGrid = document.querySelector(".ak-market-data-grid");
+      if (tableDataGrid) {
+        tableDataGrid.addEventListener("click", (e) => {
+          const btn = e.target.closest("[data-hist-limit]");
+          if (!btn) return;
+          const lim = btn.getAttribute("data-hist-limit");
+          this.historyTableLimit = (lim === "all") ? "all" : parseInt(lim, 10);
+          tableDataGrid.querySelectorAll("[data-hist-limit]").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          this.renderCandleHistoryTable();
         });
       }
 
@@ -5949,7 +6040,7 @@
             // e.deltaY < 0 (hacia arriba): ACERCAR (menos velas visibles, velas más grandes)
             // e.deltaY > 0 (hacia abajo): ALEJAR (más velas visibles, perspectiva macro)
             const zoomDelta = e.deltaY < 0 ? -3 : 3;
-            const newBars = Math.max(14, Math.min(130, this.visibleBars + zoomDelta));
+            const newBars = Math.max(14, Math.min(450, this.visibleBars + zoomDelta));
             if (newBars !== this.visibleBars) {
               this.visibleBars = newBars;
               const maxScroll = Math.max(0, (this.candles[this.selectedMarket]?.length || 45) - this.visibleBars);
@@ -7157,6 +7248,12 @@ if __name__ == "__main__":
       }
       .ak-market-canvas { width: 100%; display: block; cursor: crosshair; touch-action: none; }
 
+      .ak-pill-btn {
+        background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 4px;
+        color: #94a3b8; font-size: 10.5px; font-weight: 600; padding: 3px 8px; cursor: pointer; transition: all 0.2s;
+      }
+      .ak-pill-btn:hover { background: rgba(0, 242, 254, 0.15); border-color: #00f2fe; color: #00f2fe; }
+      .ak-pill-btn.active { background: rgba(0, 242, 254, 0.25); border-color: #00f2fe; color: #ffffff; font-weight: bold; }
       .ak-chart-nav-bar {
         display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
         padding: 8px 16px; background: rgba(15, 23, 42, 0.9); border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -7200,7 +7297,13 @@ if __name__ == "__main__":
         color: #334155 !important;
         border-bottom-color: #e2e8f0 !important;
       }
-      .ak-chart-canvas-wrapper.theme-light .ak-chart-nav-bar {
+      .ak-chart-canvas-wrapper.theme-light .ak-pill-btn {
+        background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 4px;
+        color: #94a3b8; font-size: 10.5px; font-weight: 600; padding: 3px 8px; cursor: pointer; transition: all 0.2s;
+      }
+      .ak-pill-btn:hover { background: rgba(0, 242, 254, 0.15); border-color: #00f2fe; color: #00f2fe; }
+      .ak-pill-btn.active { background: rgba(0, 242, 254, 0.25); border-color: #00f2fe; color: #ffffff; font-weight: bold; }
+      .ak-chart-nav-bar {
         background: #f8fafc !important;
         border-top-color: #e2e8f0 !important;
       }
@@ -7262,7 +7365,7 @@ if __name__ == "__main__":
         padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
       }
       .ak-data-card-head { display: flex; justify-content: space-between; align-items: center; }
-      .ak-table-scroll-wrap { max-height: 260px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; }
+      .ak-table-scroll-wrap { max-height: 420px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; }
       .ak-ohlc-table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: left; }
       .ak-ohlc-table th {
         background: rgba(255,255,255,0.03); color: #94a3b8; padding: 8px 10px; position: sticky; top: 0;
@@ -7702,7 +7805,13 @@ if __name__ == "__main__":
         }
 
         /* 6. Barra de Navegación Horizontal Inferior */
-        .ak-chart-nav-bar {
+        .ak-pill-btn {
+        background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 4px;
+        color: #94a3b8; font-size: 10.5px; font-weight: 600; padding: 3px 8px; cursor: pointer; transition: all 0.2s;
+      }
+      .ak-pill-btn:hover { background: rgba(0, 242, 254, 0.15); border-color: #00f2fe; color: #00f2fe; }
+      .ak-pill-btn.active { background: rgba(0, 242, 254, 0.25); border-color: #00f2fe; color: #ffffff; font-weight: bold; }
+      .ak-chart-nav-bar {
           flex-direction: column !important;
           gap: 8px !important;
           padding: 8px 10px !important;
