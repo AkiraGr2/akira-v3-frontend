@@ -589,7 +589,7 @@
 
           // COMPROBACIÓN ACTIVA EN TIEMPO REAL DEL RADAR DE PROXIMIDAD DE SPIKE
           if (this.spikeRadar && this.spikeRadar.active && this.spikeRadar.marketId === this.selectedMarket) {
-            const prox = this.analyzeBoomCrashSpikeProximity(marketCandles, this.selectedMarket, cl, this.spikeRadar.orderBlock);
+            const prox = this.analyzeBoomCrashSpikeProximity(marketCandles, this.selectedMarket, cl, this.spikeRadar.orderBlock, this.spikeRadar.przZone);
             if (prox) {
               this.driftCandlesCount = prox.driftCandles;
               this.spikeRadar.driftCandles = prox.driftCandles;
@@ -1186,7 +1186,7 @@
     }
 
     // MOTOR CUÁNTICO DE PROXIMIDAD Y PREDICCIÓN DE REACCIÓN DE SPIKE (BOOM & CRASH)
-    analyzeBoomCrashSpikeProximity(candles, marketId, curPrice, ob = null) {
+    analyzeBoomCrashSpikeProximity(candles, marketId, curPrice, ob = null, przZone = null) {
       if (!candles || candles.length < 15) return null;
       const m = MARKETS[marketId] || {};
       const isBoom = m.platformMode === "deriv_boom" || marketId.startsWith("BOOM");
@@ -1208,14 +1208,15 @@
       if (lastSpikeIndex === -1) driftCandles = Math.min(candles.length, 30);
 
       // 2. Parámetros de distribución estadística según el mercado (Deriv Point Process)
+      // CORRECCIÓN AUDITORÍA: minDriftThreshold elevado al 70% de la media Poisson para evitar entradas prematuras
       let avgInterval = 16; // Boom/Crash 1000: ~16 velas M1 (~1000 ticks)
-      let minDriftThreshold = 7;
+      let minDriftThreshold = 12; // Boom/Crash 1000: mínimo 12 velas (720 ticks) de agotamiento estadístico
       if (marketId.includes("500")) {
         avgInterval = 9;  // Boom/Crash 500: ~9 velas M1 (~500 ticks)
-        minDriftThreshold = 5;
+        minDriftThreshold = 7;
       } else if (marketId.includes("300")) {
         avgInterval = 5;  // Boom/Crash 300: ~5 velas M1 (~300 ticks)
-        minDriftThreshold = 3;
+        minDriftThreshold = 4;
       }
 
       // 3. Probabilidad matemática de proximidad según tasa de riesgo acumulada de Weibull
@@ -1231,6 +1232,7 @@
       const isMicroConsolidation = compressionRatio < 0.65; // El rango se estrechó >35%
 
       // 5. Absorción de Compradores / Mecha de Rechazo (Price Action Trigger)
+      // CORRECCIÓN AUDITORÍA: Eliminar condición falsa (c.close > c.open) que detonaba señales en micro-velas verdes ordinarias
       const lastCandle = candles[candles.length - 1];
       const prevCandle = candles.length >= 2 ? candles[candles.length - 2] : null;
       let hasRejectionWick = false;
@@ -1240,27 +1242,35 @@
         if (!c) return false;
         const candleRange = Math.max(pip, c.high - c.low);
         if (isBoom) {
-          // En Boom buscamos mecha INFERIOR (rechazo a seguir bajando), vela verde o doji/martillo
+          // En Boom buscamos mecha INFERIOR (rechazo a seguir bajando):
+          // Requiere absorción real: mecha >= 38% del rango de la vela Y tamaño mínimo de mecha,
+          // o patrón martillo / envolvente alcista real.
           const lowerWick = Math.min(c.open, c.close) - c.low;
           const wickRatio = lowerWick / candleRange;
-          return (wickRatio >= 0.22) || (c.close > c.open) || (lowerWick >= pip * 2.5);
+          const isHammer = wickRatio >= 0.38 && lowerWick >= pip * 1.5;
+          const isStrongAbsorption = lowerWick >= pip * 3.5;
+          const isBullishEngulfing = prevCandle && (c.close > c.open) && (c.close > prevCandle.high);
+          return isHammer || isStrongAbsorption || isBullishEngulfing;
         } else {
-          // En Crash buscamos mecha SUPERIOR (rechazo a seguir subiendo), vela roja o shooting star
+          // En Crash buscamos mecha SUPERIOR (rechazo a seguir subiendo):
           const upperWick = c.high - Math.max(c.open, c.close);
           const wickRatio = upperWick / candleRange;
-          return (wickRatio >= 0.22) || (c.close < c.open) || (upperWick >= pip * 2.5);
+          const isShootingStar = wickRatio >= 0.38 && upperWick >= pip * 1.5;
+          const isStrongAbsorption = upperWick >= pip * 3.5;
+          const isBearishEngulfing = prevCandle && (c.close < c.open) && (c.close < prevCandle.low);
+          return isShootingStar || isStrongAbsorption || isBearishEngulfing;
         }
       };
 
       if (checkRejection(lastCandle)) {
         hasRejectionWick = true;
-        wickDetails = isBoom ? "Mecha inferior de absorción compradora detectada" : "Mecha superior de absorción vendedora detectada";
+        wickDetails = isBoom ? "Mecha inferior de absorción compradora confirmada" : "Mecha superior de absorción vendedora confirmada";
       } else if (prevCandle && checkRejection(prevCandle)) {
         hasRejectionWick = true;
         wickDetails = isBoom ? "Confirmación de rechazo en vela previa" : "Confirmación de rechazo en vela previa";
       }
 
-      // 6. Mitigación de Order Block Institucional
+      // 6. Mitigación de Order Block o Llegada a Zona PRZ Armónica
       let obMitigated = false;
       if (ob) {
         if (isBoom) {
@@ -1270,6 +1280,17 @@
         }
       }
 
+      let przMitigated = false;
+      if (przZone) {
+        if (isBoom) {
+          przMitigated = (curPrice <= przZone.high + (pip * 3.0));
+        } else {
+          przMitigated = (curPrice >= przZone.low - (pip * 3.0));
+        }
+      }
+
+      const inValueZone = obMitigated || przMitigated;
+
       // 7. Estimación de latencia de velas al spike y confirmación de disparo Sniper
       let latencyEstimate = "1 a 3 velas";
       let isReadyToTrigger = false;
@@ -1278,17 +1299,18 @@
         const rem = Math.max(2, minDriftThreshold - driftCandles + 1);
         latencyEstimate = `${rem} a ${rem + 4} velas`;
         isReadyToTrigger = false;
-      } else if (hasRejectionWick && (isMicroConsolidation || obMitigated || driftCandles >= avgInterval)) {
+      } else if (hasRejectionWick && (inValueZone || isMicroConsolidation || driftCandles >= avgInterval)) {
+        // CORRECCIÓN AUDITORÍA: Solo gatillar si hay rechazo REAL dentro de zona de valor o tras agotamiento pleno
         latencyEstimate = "⚡ Inminente (1 a 3 velas)";
         isReadyToTrigger = true;
         proximityProb = Math.max(95, proximityProb);
-      } else if (driftCandles >= avgInterval) {
-        // En sobre-agotamiento extremo (>16 velas en Boom 1000), el spike es inminente
+      } else if (driftCandles >= avgInterval && (inValueZone || isMicroConsolidation)) {
         latencyEstimate = "1 a 2 velas (Agotamiento Extremo)";
-        isReadyToTrigger = hasRejectionWick || isMicroConsolidation;
+        isReadyToTrigger = hasRejectionWick;
         proximityProb = Math.max(93, proximityProb);
       } else {
-        latencyEstimate = "2 a 4 velas";
+        const rem = Math.max(1, avgInterval - driftCandles);
+        latencyEstimate = inValueZone ? "Esperando mecha de rechazo en zona" : `${rem} a ${rem + 3} velas`;
         isReadyToTrigger = false;
       }
 
@@ -1303,6 +1325,8 @@
         hasRejectionWick,
         wickDetails,
         obMitigated,
+        przMitigated,
+        inValueZone,
         latencyEstimate,
         isReadyToTrigger
       };
@@ -1389,16 +1413,28 @@
       const ratioCD = legBC > 0 ? parseFloat((legCD / legBC).toFixed(3)) : 1.272;
       const ratioXD = legXA > 0 ? parseFloat((legXD / legXA).toFixed(3)) : 0.786;
 
+      // Clasificación matemática de patrones armónicos según Scott Carney
+      // CORRECCIÓN AUDITORÍA: Evaluar Crab (1.618) ANTES que Butterfly (1.272) para evitar enmascaramiento lógico
       let patternName = isBull ? "Bullish Gartley (PRZ 0.786)" : "Bearish Bat (PRZ 0.886)";
-      if (Math.abs(ratioXD - 0.786) < 0.08) {
+      let przCenter = pD_price;
+
+      if (Math.abs(ratioXD - 0.786) <= 0.08) {
         patternName = isBull ? "Bullish Gartley (Retracción 0.786 Fibonacci)" : "Bearish Gartley (Retracción 0.786 Fibonacci)";
-      } else if (Math.abs(ratioXD - 0.886) < 0.08) {
+        przCenter = isBull ? (pA_price - (legXA * 0.786)) : (pA_price + (legXA * 0.786));
+      } else if (Math.abs(ratioXD - 0.886) <= 0.08) {
         patternName = isBull ? "Bullish Bat (Reversión 0.886 PRZ)" : "Bearish Bat (Reversión 0.886 PRZ)";
-      } else if (ratioXD > 1.1) {
-        patternName = isBull ? "Bullish Butterfly (Extensión 1.272 Reversal)" : "Bearish Butterfly (Extensión 1.272 Reversal)";
-      } else if (ratioXD > 1.4) {
+        przCenter = isBull ? (pA_price - (legXA * 0.886)) : (pA_price + (legXA * 0.886));
+      } else if (ratioXD >= 1.45) {
         patternName = isBull ? "Bullish Crab (Extensión Extrema 1.618)" : "Bearish Crab (Extensión Extrema 1.618)";
+        przCenter = isBull ? (pA_price - (legXA * 1.618)) : (pA_price + (legXA * 1.618));
+      } else if (ratioXD >= 1.10) {
+        patternName = isBull ? "Bullish Butterfly (Extensión 1.272 Reversal)" : "Bearish Butterfly (Extensión 1.272 Reversal)";
+        przCenter = isBull ? (pA_price - (legXA * 1.272)) : (pA_price + (legXA * 1.272));
       }
+
+      const przTolerance = Math.max(0.5, legXA * 0.04);
+      const przLow = parseFloat((Math.min(przCenter, pD_price) - przTolerance).toFixed(4));
+      const przHigh = parseFloat((Math.max(przCenter, pD_price) + przTolerance).toFixed(4));
 
       return {
         isBull,
@@ -1408,6 +1444,11 @@
         idxB, pB_price,
         idxC, pC_price,
         idxD, pD_price,
+        przZone: {
+          low: przLow,
+          high: przHigh,
+          center: parseFloat(przCenter.toFixed(4))
+        },
         ratios: {
           AB: ratioAB,
           BC: ratioBC,
@@ -1637,17 +1678,22 @@
 
       // 0.5 RADAR DE PROXIMIDAD Y PREDICCIÓN DE REACCIÓN DE SPIKE (EXCLUSIVO BOOM / CRASH)
       const isBoomCrash = m.platformMode === "deriv_boom" || m.platformMode === "deriv_crash" || marketId.startsWith("BOOM") || marketId.startsWith("CRASH");
+      
+      const geom = this.detectHarmonicPivots(marketCandles, isBullPreferred ? (isBinary ? "CALL" : "BUY") : (isBinary ? "PUT" : "SELL"), ob);
+      const confData = this.calculateQuantitativeConfluence(marketCandles, marketId, isBullPreferred, ob, curPrice);
+
       let spikeMetrics = null;
 
       if (isBoomCrash) {
-        spikeMetrics = this.analyzeBoomCrashSpikeProximity(marketCandles, marketId, curPrice, ob);
+        spikeMetrics = this.analyzeBoomCrashSpikeProximity(marketCandles, marketId, curPrice, ob, geom ? geom.przZone : null);
         if (spikeMetrics) {
           this.driftCandlesCount = spikeMetrics.driftCandles;
           this.spikeProbability = spikeMetrics.proximityProb;
 
-          // Si el usuario NO forzó regeneración manual y aún NO se confirma la vela de rechazo / absorción,
-          // entrar en MODO RADAR para evitar entrar 6 a 8 velas antes en caída libre.
+          // Si el usuario NO forzó regeneración manual y aún NO se confirma la vela de rechazo / absorción en PRZ,
+          // entrar en MODO RADAR para evitar entrar prematuramente en caída libre.
           if (!forceRegenerate && !spikeMetrics.isReadyToTrigger && !this.currentSignal) {
+            const przDisplay = geom ? `${geom.przZone.low} - ${geom.przZone.high}` : "Zona de Reversión";
             this.spikeRadar = {
               active: true,
               marketId: marketId,
@@ -1657,8 +1703,9 @@
               minDrift: spikeMetrics.minDriftThreshold,
               proximityProb: spikeMetrics.proximityProb,
               latencyEstimate: spikeMetrics.latencyEstimate,
-              reason: `Fase de Deriva (${spikeMetrics.driftCandles} velas sin spike). Esperando vela de rechazo (absorción) en Order Block para gatillar entrada con proximidad de 1-3 velas.`,
+              reason: `Fase de Deriva (${spikeMetrics.driftCandles} velas sin spike). Esperando vela de absorción en PRZ [${przDisplay}] para gatillar entrada con proximidad de 1-3 velas.`,
               orderBlock: ob,
+              przZone: geom ? geom.przZone : null,
               isMicroConsolidation: spikeMetrics.isMicroConsolidation,
               updatedAt: Date.now()
             };
@@ -1670,9 +1717,6 @@
           }
         }
       }
-
-      const geom = this.detectHarmonicPivots(marketCandles, isBullPreferred ? (isBinary ? "CALL" : "BUY") : (isBinary ? "PUT" : "SELL"), ob);
-      const confData = this.calculateQuantitativeConfluence(marketCandles, marketId, isBullPreferred, ob, curPrice);
 
       const decimals = this.getMarketDecimals(this.selectedMarket);
       const pipDist = m.pipSize * 25;
@@ -1703,13 +1747,16 @@
         };
       }
 
-      // La entrada para orden inmediata en vivo SIEMPRE se ancla en el precio actual en tiempo real
-      // Jamás se ubica flotando arriba ni en velas pasadas para evitar desfasaje visual
+      // CORRECCIÓN AUDITORÍA: Anclaje milimétrico de la entrada confirmada
+      // La entrada se ancla en el precio de la vela de confirmación en la zona PRZ,
+      // evitando cualquier desfasaje visual o matemático con respecto al gráfico.
+      const lastCandle = marketCandles[marketCandles.length - 1];
+      const confirmedPrice = lastCandle ? lastCandle.close : curPrice;
       const sniperRiskPips = this.getMarketSniperRiskPips(marketId, m);
       const riskDistance = parseFloat((m.pipSize * sniperRiskPips).toFixed(decimals));
-      entry = curPrice;
+      entry = parseFloat(confirmedPrice.toFixed(decimals));
       if (pivots) {
-        pivots.D = curPrice;
+        pivots.D = entry;
       }
 
       // AUDITORÍA Y PROTECCIÓN MATEMÁTICA MULTI-MERCADO:
@@ -1766,6 +1813,9 @@
         confluence: confluence,
         trendReason: trendAnalysis.reason,
         entry: entry,
+        entryCandleIdx: marketCandles.length - 1,
+        entryTime: Date.now(),
+        przZone: geom ? geom.przZone : null,
         sl: sl,
         tp1: tp1,
         tp2: tp2,
@@ -3257,6 +3307,11 @@
         return height - paddingY - (((val - effectiveMinPrice) / priceRange) * chartHeight);
       };
 
+      const getScreenX = (globalIdx) => {
+        const localSlot = globalIdx - startIdx;
+        return (localSlot * stepX) + (stepX / 2);
+      };
+
       // 2. CUADRÍCULA Y ESCALA DE PRECIOS
       ctx.strokeStyle = isLight ? "rgba(0, 0, 0, 0.06)" : "rgba(255, 255, 255, 0.05)";
       ctx.lineWidth = 1;
@@ -3721,7 +3776,9 @@
           if (pD_coord && this.currentSignal && !MARKETS[this.selectedMarket]?.isBinary) {
             const sig = this.currentSignal;
             const isBuy = sig.type === "BUY" || sig.type === "CALL";
-            const chulitoX = pD_coord.x;
+            // CORRECCIÓN AUDITORÍA: Anclaje horizontal exacto en la vela de confirmación
+            const entryIdx = (sig.entryCandleIdx != null && sig.entryCandleIdx >= 0) ? sig.entryCandleIdx : pD_coord.idx;
+            const chulitoX = getScreenX(entryIdx);
             const yEntry = getY(sig.entry || pD_coord.price);
             const calcRisk = this.calculateSafeLot(this.accountSize, sig.riskPips, this.selectedMarket);
             const targetGainMoney = calcRisk.tp3Profit;
