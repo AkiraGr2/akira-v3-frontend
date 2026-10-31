@@ -194,14 +194,18 @@ jobs:
               });
             });
 
+            await page.addInitScript(() => {
+              localStorage.setItem("akira_session_token", "f15-e2e-owner-token");
+              localStorage.setItem("akira_session_exp", "4102444800");
+            });
+
             await page.goto("http://127.0.0.1:4173/", {
               waitUntil:"domcontentloaded",
               timeout:30000
             });
+            await page.waitForFunction(() => !document.body.classList.contains("akira-auth-locked"), null, {timeout:10000});
 
             const f15Session = await page.evaluate(async () => {
-              localStorage.setItem("akira_session_token", "f15-e2e-owner-token");
-              localStorage.setItem("akira_session_exp", "4102444800");
               const result = await window.akiraVerifySession();
               window.__f15SessionClearReasons = [];
               const originalClear = window.akiraClearSession;

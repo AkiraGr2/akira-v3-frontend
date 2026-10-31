@@ -405,9 +405,33 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 .mission-note{font-size:10px;color:var(--muted);line-height:1.5;margin-top:6px}.mission-mobile-back{display:none}.mission-plan{border:3px solid var(--border);background:#0d0d12;padding:10px;margin:12px 0}.mission-plan-steps{display:flex;flex-direction:column;gap:8px}.mission-plan-step{border:3px solid var(--border);background:#15151c;padding:9px}.mission-plan-step-head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:10px}.mission-plan-step-head span{color:var(--muted)}.mission-plan-task{font-size:12px;line-height:1.5;margin-top:6px}.mission-plan-dependency{font-size:10px;color:var(--sky);margin-top:6px;font-family:"Press Start 2P",monospace}
 @media(max-width:900px){.mission-grid{grid-template-columns:1fr}.mission-kv{grid-template-columns:110px 1fr}}
 @media(max-width:768px){.sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);width:280px;z-index:30}.sidebar.open{transform:translateX(0)}.hamburger{display:flex}.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:15}.overlay.open{display:block}.section-tools{max-height:50%}.mission-shell{padding:10px;overflow:hidden}.mission-input,.mission-select{width:100%;min-width:0}.mission-toolbar,.mission-create{align-items:stretch}.mission-toolbar .pixel-btn,.mission-create .pixel-btn{width:100%}.mission-grid{min-height:0;grid-template-columns:1fr;grid-template-rows:minmax(220px,38dvh) minmax(0,1fr);height:100%;overflow:hidden}.mission-grid .mission-pane{min-height:0}.mission-list{min-height:0;height:100%;overflow-y:auto}.mission-detail{min-height:0;height:100%;overflow-y:auto}.mission-grid:not(.mobile-detail-open) .mission-pane:nth-child(2){display:none}.mission-grid.mobile-detail-open{grid-template-rows:minmax(0,1fr)}.mission-grid.mobile-detail-open .mission-pane:first-child{display:none}.mission-mobile-back{display:block;width:100%;margin-bottom:10px}.mission-plan-step-head{flex-direction:column;align-items:flex-start}}
+  body.akira-auth-locked{overflow:hidden!important}
+  #akiraAuthGate{position:fixed;inset:0;z-index:2147483647;display:none;align-items:center;justify-content:center;padding:24px;background:radial-gradient(ellipse at 50% 20%,#19233b 0%,#0a0d17 58%,#05060a 100%);color:#f8fafc;font-family:'Outfit',sans-serif}
+  body.akira-auth-locked #akiraAuthGate{display:flex}
+  body.akira-auth-locked>:not(#akiraAuthGate):not(script):not(style){visibility:hidden!important;pointer-events:none!important}
+  .akira-auth-card{width:min(100%,440px);padding:34px 28px;border:1px solid rgba(148,163,184,.25);border-radius:24px;background:rgba(12,17,30,.96);box-shadow:0 28px 100px rgba(0,0,0,.55);text-align:center}
+  .akira-auth-mark{display:grid;place-items:center;width:58px;height:58px;margin:0 auto 18px;border:1px solid rgba(139,92,246,.55);border-radius:19px;background:rgba(99,102,241,.15);color:#c4b5fd;font-size:30px}
+  .akira-auth-eyebrow{margin:0 0 8px;color:#a5b4fc;font-size:11px;font-weight:800;letter-spacing:.2em}
+  .akira-auth-card h1{margin:0;font-size:clamp(24px,6vw,32px);letter-spacing:-.03em}
+  .akira-auth-copy{margin:14px auto 24px;max-width:340px;color:#a8b1c5;font-size:14px;line-height:1.6}
+  #akiraAuthGate .g_id_signin{display:flex;justify-content:center;min-height:44px}
+  #akiraAuthStatus{min-height:20px;margin:18px 0 0;color:#94a3b8;font-size:12px;line-height:1.5}
+  #akiraAuthStatus[data-state="error"]{color:#fca5a5}
+  #akiraAuthStatus[data-state="checking"]{color:#c4b5fd}
 </style>
   <link rel="stylesheet" href="./css/akira-cognitive-system-v1.css?v=akira-cognitive-v1"></head>
-<body class="ak-reference-mode">
+<body class="ak-reference-mode akira-auth-locked">
+<div id="akiraAuthGate" role="dialog" aria-modal="true" aria-labelledby="akiraAuthTitle">
+  <div class="akira-auth-card">
+    <div class="akira-auth-mark" aria-hidden="true">✦</div>
+    <p class="akira-auth-eyebrow">ACCESO PRIVADO</p>
+    <h1 id="akiraAuthTitle">Inicia sesión en Akira</h1>
+    <p class="akira-auth-copy">Usa una cuenta Google autorizada para continuar. Akira comprobará el permiso con el servidor antes de abrir la aplicación.</p>
+    <div id="g_id_onload" data-client_id="148150327312-7k5g3go06tat9gv61c8v0rbbedcusoqn.apps.googleusercontent.com" data-context="signin" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+    <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
+    <p id="akiraAuthStatus" role="status" aria-live="polite">La aplicación permanece bloqueada hasta verificar la cuenta.</p>
+  </div>
+</div>
 <header class="ak-mobile-reference-header" aria-label="Cabecera móvil">
   <button class="ak-mobile-back" type="button" aria-label="Abrir menú" onclick="toggleSidebar()">☰</button>
   <div class="ak-mobile-title">AKIRA</div>
@@ -947,9 +971,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
         </div>
 
         <div style="margin-top: 14px;">
-          <div id="g_id_onload" data-client_id="148150327312-7k5g3go06tat9gv61c8v0rbbedcusoqn.apps.googleusercontent.com" data-context="signin" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
-          <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
           <div id="userInfo" style="margin-top:14px;font-size:13px;display:none;background:rgba(14,14,18,0.9);border:1px solid rgba(0,242,254,0.25);border-radius:10px;padding:12px;font-family:'Outfit',sans-serif;color:#e2e8f0;"></div>
+          <button type="button" class="ak-vault-action" onclick="akiraLogout()" style="margin-top:12px">Cerrar sesión de Akira</button>
         </div>
       </div>
 
@@ -1530,6 +1553,18 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
   </div>
 <script>
 if(!localStorage.getItem("akira_backend_url")) localStorage.setItem("akira_backend_url", "https://akira-empresa.onrender.com");
+function akiraSetEntryAccess(allowed,message,state){
+  const gate=document.getElementById("akiraAuthGate");
+  const status=document.getElementById("akiraAuthStatus");
+  document.body.classList.toggle("akira-auth-locked",!allowed);
+  Array.from(document.body.children).forEach(el=>{
+    if(el===gate || /^(SCRIPT|STYLE|LINK|TEMPLATE)$/.test(el.tagName)) return;
+    el.inert=!allowed;
+    if(allowed) el.removeAttribute("aria-hidden"); else el.setAttribute("aria-hidden","true");
+  });
+  if(status && message){status.textContent=message;status.dataset.state=state||"";}
+}
+window.akiraSetEntryAccess=akiraSetEntryAccess;
 function akiraClearSession(reason){
   try{
     ["akira_session_token","akira_session_exp","akira_user_id","akira_user_email","akira_is_owner"].forEach(k=>localStorage.removeItem(k));
@@ -1538,16 +1573,23 @@ function akiraClearSession(reason){
   if(i){i.style.display="none";i.textContent="";}
   const av=document.getElementById("userAvatar");
   if(av) av.textContent="";
+  const sd=document.getElementById("accountSessionDot");
+  const st=document.getElementById("accountSessionText");
+  if(sd) sd.style.background="#6b7280";
+  if(st){st.textContent="Sesión no verificada";st.style.color="";}
   const adminLogin=document.getElementById("adminLogin");
   const adminPanel=document.getElementById("adminPanel");
   if(adminPanel) adminPanel.style.display="none";
   if(adminLogin) adminLogin.style.display="block";
-  window.akiraSessionState={authenticated:false,is_owner:false,reason:String(reason||"session_cleared")};
+  window.akiraSessionState={authenticated:false,is_authorized:false,is_owner:false,reason:String(reason||"session_cleared")};
+  akiraSetEntryAccess(false,"Inicia sesión con una cuenta Google autorizada para entrar.");
   try{window.dispatchEvent(new CustomEvent("akira:session-invalid",{detail:window.akiraSessionState}));}catch(e){}
 }
+function akiraLogout(){akiraClearSession("user_logout");}
+window.akiraLogout=akiraLogout;
 
 function akiraAuthErrorText(status){
-  if(Number(status)===401) return "Sesión no válida o expirada. Entra a Cuenta e inicia sesión.";
+  if(Number(status)===401) return "Tu sesión expiró. Inicia sesión de nuevo en la pantalla de acceso de Akira.";
   if(Number(status)===403) return "No autorizado (requiere propietario).";
   return "";
 }
@@ -1573,7 +1615,7 @@ let akiraSessionCheckToken="";
 let akiraSessionCheckAt=0;
 
 function _akiraApplyVerifiedSession(d,status){
-  if(!d || d.authenticated!==true) return;
+  if(!d || d.authenticated!==true || (d.is_authorized!==true && d.is_owner!==true)) return;
   localStorage.setItem("akira_user_email",String(d.email||""));
   window.akiraSessionState=d;
   const result=Object.assign({ok:true,status:status||200},d);
@@ -1610,11 +1652,18 @@ async function akiraVerifySession(){
         akiraHandleAuthFailure(401);
         return {ok:false,status:401,authenticated:false,data:d};
       }
-      if(r.ok && d && d.authenticated===true){
+      if(r.ok && d && d.authenticated===true && (d.is_authorized===true || d.is_owner===true)){
         return _akiraApplyVerifiedSession(d,r.status);
+      }
+      if(r.status===403 || (r.ok && d && d.authenticated===true)){
+        akiraClearSession("not_authorized");
+        akiraSetEntryAccess(false,"Esta cuenta no está autorizada para entrar a Akira.","error");
+      }else if(!r.ok){
+        akiraSetEntryAccess(false,"No se pudo validar tu acceso con el servidor. Akira seguirá bloqueada; vuelve a intentar iniciar sesión.","error");
       }
       return {ok:false,status:r.status,authenticated:Boolean(d&&d.authenticated),data:d};
     }catch(e){
+      akiraSetEntryAccess(false,"No se pudo conectar con Akira para validar el acceso. La aplicación seguirá bloqueada.","error");
       return {ok:false,status:0,authenticated:false,error:String((e&&e.message)||e)};
     }finally{
       setTimeout(()=>{
@@ -1629,8 +1678,36 @@ window.akiraHandleAuthFailure=akiraHandleAuthFailure;
 window.akiraAuthErrorText=akiraAuthErrorText;
 window.akiraAuthHeaders=akiraAuthHeaders;
 window.akiraVerifySession=akiraVerifySession;
+document.addEventListener("DOMContentLoaded",()=>{
+  akiraSetEntryAccess(false,"La aplicación permanece bloqueada hasta verificar la cuenta.");
+  const token=localStorage.getItem("akira_session_token");
+  if(!token) return;
+  akiraSetEntryAccess(false,"Comprobando tu sesión guardada con el servidor…","checking");
+  akiraVerifySession().then(session=>{
+    if(session && session.authenticated===true && (session.is_authorized===true || session.is_owner===true)){
+      const info=document.getElementById("userInfo");
+      if(info){info.style.display="block";info.textContent="✅ "+String(session.email||"")+(session.is_owner?" · sesión verificada (propietario)":" · sesión verificada");}
+      akiraSetEntryAccess(true,"Sesión verificada.");
+    }
+  }).catch(()=>{});
+});
+setInterval(()=>{
+  const token=localStorage.getItem("akira_session_token");
+  if(!token) return;
+  const exp=parseInt(localStorage.getItem("akira_session_exp")||"0",10);
+  if(exp<=Math.floor(Date.now()/1000)){akiraClearSession("expired_local_session");return;}
+  if(window.akiraSessionState && window.akiraSessionState.authenticated===true){
+    akiraVerifySession().then(session=>{
+      if(!session || session.authenticated!==true || (session.is_authorized!==true && session.is_owner!==true)) akiraClearSession("server_access_rejected");
+    }).catch(()=>akiraClearSession("session_check_failed"));
+  }
+},60000);
 
 function showSection(name){
+  if(!window.akiraSessionState || window.akiraSessionState.authenticated!==true || (window.akiraSessionState.is_authorized!==true && window.akiraSessionState.is_owner!==true)){
+    akiraSetEntryAccess(false,"Inicia sesión con una cuenta Google autorizada para entrar.");
+    return false;
+  }
   if(name === 'voice'){
     if(typeof toggleAkiraLiveVoice === 'function') toggleAkiraLiveVoice();
     return;
@@ -1795,14 +1872,19 @@ function toggleBrainMobileView(force){
 function newChat(){if(confirm("¿Nuevo chat?")){document.getElementById('msgsInner').innerHTML=`<div class="msg-row akira"><div class="avatar"></div><div class="bubble">Nuevo chat Akira.</div></div>`;}}
 
 async function handleCredentialResponse(r){
+  akiraClearSession("new_google_sign_in");
+  akiraSetEntryAccess(false,"Verificando la cuenta y sus permisos con el servidor…","checking");
   try{
     const c=r.credential;
     const b=localStorage.getItem("akira_backend_url");
     const re=await fetch(b+"/api/auth/google",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({credential:c})});
     const d=await re.json();
-    if(d.error){alert(d.error);return;}
-    if(!re.ok || !d || !d.session_token){
-      alert((d && (d.error || d.message || d.reason)) || ("Error HTTP "+re.status));
+    if(d.error){
+      akiraSetEntryAccess(false,d.error==="acceso_no_autorizado" ? "Esta cuenta Google no está autorizada para entrar a Akira." : (d.message||d.error),"error");
+      return;
+    }
+    if(!re.ok || !d || !d.session_token || (d.is_authorized!==true && d.is_owner!==true)){
+      akiraSetEntryAccess(false,"El servidor no confirmó que esta cuenta tenga permiso para entrar.","error");
       return;
     }
     localStorage.setItem("akira_user_id",d.user_id||"");
@@ -1810,24 +1892,15 @@ async function handleCredentialResponse(r){
     localStorage.removeItem("akira_is_owner");
     localStorage.setItem("akira_session_token",d.session_token);
     localStorage.setItem("akira_session_exp",String(d.expires_at||0));
-    // /api/auth/google ya verificó la credencial y emitió la sesión firmada.
-    // No hacemos otro round-trip antes de dejar al usuario entrar al chat.
-    const sessionFromAuth={
-      authenticated:Boolean(d.verified),
-      is_owner:Boolean(d.is_owner),
-      email:String(d.email||""),
-      user_id:String(d.user_id||""),
-      owner_scope:String(d.owner_scope||""),
-      verified:Boolean(d.verified)
-    };
-    if(!sessionFromAuth.authenticated){
-      akiraClearSession("google_verification_failed");
-      alert("Google autenticó la identidad, pero el backend no confirmó la sesión.");
+    const session=await akiraVerifySession();
+    if(!session || session.authenticated!==true || (session.is_authorized!==true && session.is_owner!==true)){
+      akiraClearSession("google_session_verification_failed");
+      akiraSetEntryAccess(false,"Google reconoció la cuenta, pero el servidor no confirmó el acceso. Inténtalo de nuevo.","error");
       return;
     }
-    _akiraApplyVerifiedSession(sessionFromAuth,200);
-    const email=sessionFromAuth.email||"";
-    const ver=sessionFromAuth.is_owner ? " · 🔒 sesión verificada (propietario)" : " · 🔒 sesión verificada";
+    akiraSetEntryAccess(true,"Acceso verificado.");
+    const email=session.email||"";
+    const ver=session.is_owner ? " · sesión verificada (propietario)" : " · sesión verificada";
     const i=document.getElementById("userInfo");
     if(i){i.style.display="block";i.textContent="✅ "+email+ver;}
     const av=document.getElementById("userAvatar");
@@ -1835,7 +1908,7 @@ async function handleCredentialResponse(r){
     addMsg(`Bienvenido ${d.email} a Akira`,"akira");
     showSection('chat');
     setTimeout(()=>{ try{ akiraVerifySession(); }catch(_){} },250);
-  }catch(e){alert(e.message);}
+  }catch(e){akiraSetEntryAccess(false,"No se pudo validar el inicio de sesión. Revisa tu conexión e inténtalo otra vez.","error");}
 }
 window.handleCredentialResponse = handleCredentialResponse;
 
