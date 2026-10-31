@@ -31,7 +31,7 @@
       action: async () => {
         if(window.akiraRunAutonomousEvolution) {
           console.log("[Akira Cron] Ejecutando reflexión cognitiva autónoma...");
-          return await window.akiraRunAutonomousEvolution("scheduled_cron");
+          return await window.akiraRunAutonomousEvolution(false);
         }
       }
     },
@@ -95,9 +95,11 @@
   let cronWatchdogInterval = null;
 
   async function checkDueTasks(){
+    if (!window.akiraSessionState || window.akiraSessionState.authenticated !== true) return;
     const now = Date.now();
     for(let task of activeTasks){
       if(!task.enabled) continue;
+      if(task.id === "cognitive_reflection" && window.akiraSessionState.is_owner !== true) continue;
       const intervalMs = (task.intervalMinutes || 60) * 60 * 1000;
       if(now - (task.lastRun || 0) >= intervalMs) {
         console.log(`[Akira Cron] Disparando tarea programada: ${task.name}`);
