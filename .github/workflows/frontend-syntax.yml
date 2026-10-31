@@ -195,6 +195,11 @@ jobs:
           if (!index.includes("function akiraClearSession(reason)")) throw new Error("central session clear helper missing");
           if (!index.includes("function akiraHandleAuthFailure(status)")) throw new Error("central 401 handler missing");
           if (!index.includes("/api/v8/me")) throw new Error("frontend session verifier must use /api/v8/me");
+          if (!index.includes('<body class="ak-reference-mode akira-auth-locked">')) throw new Error("application must start behind the global login gate");
+          if (!index.includes('id="akiraAuthGate" role="dialog" aria-modal="true"')) throw new Error("accessible global login gate missing");
+          if (!index.includes("el.inert=!allowed")) throw new Error("unauthenticated app content must be inert");
+          if (!index.includes("d.is_authorized===true || d.is_owner===true")) throw new Error("only backend-allowed sessions may unlock the app");
+          if (!index.includes("function akiraLogout()")) throw new Error("logout path missing");
           if (index.includes('localStorage.setItem("akira_is_owner"')) throw new Error("owner state must not be persisted as local authority");
           if (index.includes('localStorage.getItem("akira_is_owner"')) throw new Error("owner state must not be read from localStorage");
           if (missions.includes("localStorage.getItem(\"akira_token\")") || missions.includes("localStorage.getItem(\"token\")") || missions.includes("localStorage.getItem(\"access_token\")")) throw new Error("mission panel must not use generic token fallbacks");

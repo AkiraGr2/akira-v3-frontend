@@ -56,6 +56,7 @@ jobs:
               viewport:{width:1440,height:900},
               deviceScaleFactor:1
             });
+            await page.route("https://akira-empresa.onrender.com/api/**", route => route.fulfill({status:200,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"Authorization, Content-Type","Access-Control-Allow-Methods":"GET, POST, OPTIONS"},body:JSON.stringify({ok:true,missions:[],tasks:[],agents:[],capabilities_registry:[],self_model:{capabilities:[]}})}));
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
             const f15UnauthorizedResponses = [];
             page.on("response", response => {
@@ -194,14 +195,18 @@ jobs:
               });
             });
 
+            await page.addInitScript(() => {
+              localStorage.setItem("akira_session_token", "f15-e2e-owner-token");
+              localStorage.setItem("akira_session_exp", "4102444800");
+            });
+
             await page.goto("http://127.0.0.1:4173/", {
               waitUntil:"domcontentloaded",
               timeout:30000
             });
+            await page.waitForFunction(() => !document.body.classList.contains("akira-auth-locked"), null, {timeout:10000});
 
             const f15Session = await page.evaluate(async () => {
-              localStorage.setItem("akira_session_token", "f15-e2e-owner-token");
-              localStorage.setItem("akira_session_exp", "4102444800");
               const result = await window.akiraVerifySession();
               window.__f15SessionClearReasons = [];
               const originalClear = window.akiraClearSession;
@@ -349,13 +354,20 @@ jobs:
             await page.click("#officeHiveRefresh");
             await page.waitForFunction(() =>
               !localStorage.getItem("akira_session_token") &&
-              document.querySelector('[data-hive-action="share"][data-hive-id="know-f15-verified"]')?.disabled === true,
+              document.body.classList.contains("akira-auth-locked"),
               null, {timeout:10000}
             );
 
 
 
 
+
+            // The preceding 401 intentionally logs out. Reauthenticate through the
+            // bootstrap fixture before testing the remaining private Office controls.
+            f15ForceStatusUnauthorized = false;
+            await page.reload({waitUntil:"domcontentloaded",timeout:30000});
+            await page.waitForFunction(() => !document.body.classList.contains("akira-auth-locked"), null, {timeout:20000});
+            await page.click("#btn-office");
 
             // Now exercise the actual mobile layout after the section is open.
             await page.setViewportSize({width:390,height:844});
