@@ -51,12 +51,12 @@ jobs:
           (async () => {
             const browser = await chromium.launch({headless:true});
 
-            await page.route("https://akira-empresa.onrender.com/api/**", route => route.fulfill({status:200,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"Authorization, Content-Type","Access-Control-Allow-Methods":"GET, POST, OPTIONS"},body:JSON.stringify({ok:true,missions:[],tasks:[],agents:[],capabilities_registry:[],self_model:{capabilities:[]}})}));
             const errors = [];
             const page = await browser.newPage({
               viewport:{width:1440,height:900},
               deviceScaleFactor:1
             });
+            await page.route("https://akira-empresa.onrender.com/api/**", route => route.fulfill({status:200,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"Authorization, Content-Type","Access-Control-Allow-Methods":"GET, POST, OPTIONS"},body:JSON.stringify({ok:true,missions:[],tasks:[],agents:[],capabilities_registry:[],self_model:{capabilities:[]}})}));
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
             const f15UnauthorizedResponses = [];
             page.on("response", response => {
