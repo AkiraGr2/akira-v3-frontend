@@ -156,7 +156,7 @@ assert.ok(tradingLab.includes("this.dataFeedKeys[marketId] !== feedKey"), "scann
 assert.ok(tradingLab.includes("runScannerBacktest()"), "Trading Lab must offer historical strategy replay");
 assert.ok(tradingLab.includes("ScannerCore.simulateSignalOutcomes(source"), "historical replay must use the live signal generator");
 assert.ok(tradingLab.includes("operaciones cerradas antes del corte"), "training sample must exclude outcomes that cross into the out-of-sample period");
-assert.ok(tradingLab.includes("no incluye spread, comisiones ni deslizamiento"), "gross backtest must disclose omitted trading costs");
+assert.ok(tradingLab.includes("no incluye parciales, spread, comisiones ni deslizamiento"), "gross backtest must disclose omitted exit behavior and trading costs");
 assert.ok(!tradingLab.includes("escáner de alta precisión que usa Sebas Ramírez"), "scanner must not imply unverified endorsement or accuracy");
 
 console.log("Trading scanner checks passed (confirmed pivots, harmonic ratios, entry gates, historical cycles, no fabricated alerts, Pine safeguards).");
