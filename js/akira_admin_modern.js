@@ -504,7 +504,8 @@
         const capEl = document.getElementById("admStatusCaps");
         if (capEl) {
           const registry = self && Array.isArray(self.capabilities_registry) ? self.capabilities_registry : null;
-          capEl.textContent = registry ? `${registry.filter(c => (c.effective_state || c.status) === "verified").length} de ${registry.length} verificadas` : "Sin verificar";
+          if(registry && window.akiraPublishCapabilityRegistry)window.akiraPublishCapabilityRegistry(registry,self.capability_inventory);
+          capEl.textContent = self?.capability_inventory && window.akiraCapabilitySummary ? window.akiraCapabilitySummary() : registry ? `${registry.filter(c => (c.effective_state || c.status) === "verified").length} de ${registry.length} verificadas` : "Sin verificar";
           capEl.style.color = "var(--accent-green)";
         }
 

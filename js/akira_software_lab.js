@@ -452,17 +452,9 @@ def test_zero_cost_policy():
               <div class="ak-lab-pane-col right">
                 <div class="ak-lab-pane-head">
                   <strong>Consola de Ejecución & Cobertura</strong>
-                  <span class="status-badge green">100% PASS</span>
+                  <span class="status-badge green">Sin ejecutar</span>
                 </div>
-                <div id="akLabTestOutput" class="ak-test-results-view">
-                  <div class="test-row pass"><span>🟢 PASS</span> test_proactivity_level4_daytime (0.012s)</div>
-                  <div class="test-row pass"><span>🟢 PASS</span> test_zero_cost_policy (0.004s)</div>
-                  <div class="test-row pass"><span>🟢 PASS</span> test_autonomous_supervisor_lock (0.009s)</div>
-                  <div class="test-row pass"><span>🟢 PASS</span> test_memory_graph_sqlite_integrity (0.021s)</div>
-                  <div style="margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);font-size:11px;color:#34d399;">
-                    ✓ 4 tests pasados en 0.046s · Cobertura de código estimada: 96.4%
-                  </div>
-                </div>
+                <div id="akLabTestOutput" class="ak-test-results-view">Ejemplo editable. No se han ejecutado pruebas ni medido cobertura.</div>
               </div>
             </div>
           </div>
@@ -732,7 +724,7 @@ def test_zero_cost_policy():
 
   // E7 Helper: WCAG Audit
   window.__akLabRunWcagAudit = function(){
-    alert("✅ Auditoría WCAG AAA completada: La interfaz actual de Akira cumple con todas las directivas de contraste y accesibilidad para Android y escritorio.");
+    alert("Auditoría WCAG automática pendiente de implementación. Esta pantalla no ha comprobado contraste, teclado ni lectores de pantalla y no certifica conformidad.");
   };
 
   // E8 Helper: Convert Data
@@ -820,10 +812,10 @@ def test_zero_cost_policy():
         return `<span style="color:#f43f5e;">cat: ${escapeHtml(file)}: No existe el archivo</span>`;
       case "git":
         if(parts[1] === "status") return "On branch main<br>Your branch is up to date with 'origin/main'.<br>nothing to commit, working tree clean";
-        if(parts[1] === "log") return "commit 99fa211 (HEAD -> main)<br>Author: Jhon Grimm<br>Date:   Tue Oct 27 2026<br>&nbsp;&nbsp;&nbsp;&nbsp;feat: proactivity level 4 and 60 verified capabilities";
+        if(parts[1] === "log") return "commit 99fa211 (HEAD -> main)<br>Author: Jhon Grimm<br>Date:   Tue Oct 27 2026<br>&nbsp;&nbsp;&nbsp;&nbsp;Ejemplo de historial; no consulta el repositorio real";
         return "git: comando simulado ejecutado correctamente";
       case "npm":
-        if(parts[1] === "test") return "PASS src/app.test.js<br>✓ 12 CI Guards Passed<br>Test Suites: 1 passed, 1 total<br>Tests: 12 passed, 12 total";
+        if(parts[1] === "test") return "Simulador educativo: npm test no ejecuta pruebas reales.";
         return "npm: comando ejecutado en sandbox local";
       case "whoami":
         return "Director Jhon Grimm · Propietario Verificado";
@@ -842,19 +834,7 @@ def test_zero_cost_policy():
   window.__akLabRunUnitTests = function(){
     const out = document.getElementById("akLabTestOutput");
     if(!out) return;
-    out.innerHTML = `<div style="color:#00f2fe;">⏳ Ejecutando suite de pruebas unitarias en sandbox WASM...</div>`;
-    setTimeout(() => {
-      out.innerHTML = `
-        <div class="test-row pass"><span>🟢 PASS</span> test_proactivity_level4_daytime (0.012s)</div>
-        <div class="test-row pass"><span>🟢 PASS</span> test_zero_cost_policy (0.004s)</div>
-        <div class="test-row pass"><span>🟢 PASS</span> test_autonomous_supervisor_lock (0.009s)</div>
-        <div class="test-row pass"><span>🟢 PASS</span> test_memory_graph_sqlite_integrity (0.021s)</div>
-        <div class="test-row pass"><span>🟢 PASS</span> test_swarm_agent_handoff_chain (0.018s)</div>
-        <div style="margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);font-size:11px;color:#34d399;">
-          ✓ 5 tests pasados en 0.064s · Cobertura de código estimada: 98.2% · Cero Fallos
-        </div>
-      `;
-    }, 200);
+    out.textContent = "No se ejecutaron pruebas. El editor contiene ejemplos; el ejecutor de pruebas está pendiente de implementación. No hay medición de cobertura.";
   };
 
   function escapeHtml(str){

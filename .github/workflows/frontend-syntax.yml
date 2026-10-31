@@ -26,6 +26,10 @@ jobs:
           node --check js/akira_missions_panel.js
           node --check js/akira_entity.js
           node --check js/akira_admin.js
+          node --check js/akira_admin_modern.js
+          node --check js/akira_capability_truth.js
+          node --check js/akira_software_lab.js
+          node test_capability_inventory.js
           node --check js/akira_extras.js
           node --check js/akira-hive-office-v1.js
           node --check js/quantick_akira_tv_pine.js
