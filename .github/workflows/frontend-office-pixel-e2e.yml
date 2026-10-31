@@ -362,6 +362,13 @@ jobs:
 
 
 
+            // The preceding 401 intentionally logs out. Reauthenticate through the
+            // bootstrap fixture before testing the remaining private Office controls.
+            f15ForceStatusUnauthorized = false;
+            await page.reload({waitUntil:"domcontentloaded",timeout:30000});
+            await page.waitForFunction(() => !document.body.classList.contains("akira-auth-locked"), null, {timeout:20000});
+            await page.click("#btn-office");
+
             // Now exercise the actual mobile layout after the section is open.
             await page.setViewportSize({width:390,height:844});
             await page.waitForFunction(() => {
