@@ -48,7 +48,7 @@ jobs:
             await anonymous.waitForFunction(() => document.body.classList.contains("akira-auth-locked"), null, {timeout:10000});
             const anonymousState = await anonymous.evaluate(() => ({
               gateVisible:getComputedStyle(document.getElementById("akiraAuthGate")).display !== "none",
-              appInert:document.getElementById("homeSection").inert,
+              appInert:Boolean(document.getElementById("homeSection").closest("[inert]")),
               navigationResult:showSection("trading"),
               stillLocked:document.body.classList.contains("akira-auth-locked")
             }));
@@ -109,7 +109,7 @@ jobs:
             await rejected.waitForFunction(() => document.body.classList.contains("akira-auth-locked"), null, {timeout:10000});
             const denied = await rejected.evaluate(() => ({
               locked:document.body.classList.contains("akira-auth-locked"),
-              appInert:document.getElementById("homeSection").inert,
+              appInert:Boolean(document.getElementById("homeSection").closest("[inert]")),
               token:localStorage.getItem("akira_session_token"),
               navigationResult:showSection("admin")
             }));
