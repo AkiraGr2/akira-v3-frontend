@@ -1706,7 +1706,7 @@
                   <div style="display:flex;gap:4px;">
                     <button class="ak-chart-type-btn ${this.chartEngine === 'tradingview' ? 'active' : ''}" id="btnEngineTV" title="Gráfico Oficial TradingView con Datos Deriv en Tiempo Real">📊 TradingView Pro</button>
                     <button class="ak-chart-type-btn ${this.chartEngine === 'canvas' ? 'active' : ''}" id="btnEngineCanvas" title="Gráfico Cuántico Akira con Escáner Armónico XABCD">🔬 Cuántico Akira</button>
-                    <button class="ak-chart-type-btn" id="btnTvPineScriptModal" title="Indicador Oficial Pine Script v5 para TradingView Pro (Cazador Spikes + Armónicos)" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(249,115,22,0.18));border:1px solid rgba(245,158,11,0.45);color:#fbbf24;">⚡ Pine Script Pro v5</button>
+                    <button class="ak-chart-type-btn" id="btnTvPineScriptModal" title="Copiar el script Akira para usarlo en el editor Pine de TradingView" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(249,115,22,0.18));border:1px solid rgba(245,158,11,0.45);color:#fbbf24;">⚡ Pine Script Pro v5</button>
                   </div>
                 </div>
 
@@ -5055,6 +5055,10 @@
         </div>
       `;
       container.appendChild(headerBar);
+      const pineNotice = document.createElement("p");
+      pineNotice.style.cssText = "margin:0;padding:8px 12px;font-size:11px;color:#cbd5e1;background:#111827;line-height:1.5";
+      pineNotice.textContent = "Este gráfico externo no permite cargar Pine personalizado. Para ver Sniper y armónicos aquí, usa Cuántico Akira. Puedes copiar el script para abrirlo en TradingView.";
+      container.appendChild(pineNotice);
 
       const btnSwitch = headerBar.querySelector("#btnTvHeaderSwitchCanvas");
       if (btnSwitch) {
