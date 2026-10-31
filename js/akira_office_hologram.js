@@ -335,6 +335,7 @@
     }
 
     async pollData() {
+      if (!window.akiraSessionState || window.akiraSessionState.authenticated !== true) return;
       if (this.isPolling) return;
       this.isPolling = true;
 

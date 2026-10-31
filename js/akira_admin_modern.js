@@ -473,6 +473,7 @@
     }
 
     async refreshStatus() {
+      if (!window.akiraSessionState || window.akiraSessionState.is_owner !== true) return;
       try {
         const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
         const headers = window.akiraAuthHeaders ? window.akiraAuthHeaders() : {};

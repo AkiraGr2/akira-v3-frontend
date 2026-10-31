@@ -151,6 +151,7 @@
 
   async function hydrateHome(home){
     renderDateTime(home);
+    if (!window.akiraSessionState || window.akiraSessionState.authenticated !== true) return;
     const signed=hasSession();
     const graphPath=signed ? "/api/v8/graph/overview?limit_nodes=750&limit_edges=2000&_=" + Date.now() : "/api/v8/graph/overview";
     const results=await Promise.all([
