@@ -334,7 +334,7 @@ jobs:
             f15CapabilityStatus.capability.availability_state = "blocked";
             await page.click("#officeHiveRefresh");
             await page.waitForFunction(() =>
-              document.body.classList.contains("akira-auth-locked"),
+              document.querySelector('[data-hive-action="share"][data-hive-id="know-f15-verified"]')?.disabled === true,
               null, {timeout:10000}
             );
 
@@ -342,7 +342,7 @@ jobs:
             f15CapabilityStatus.capability.verification_state = "failed";
             await page.click("#officeHiveRefresh");
             await page.waitForFunction(() =>
-              document.body.classList.contains("akira-auth-locked"),
+              document.querySelector('[data-hive-action="share"][data-hive-id="know-f15-verified"]')?.disabled === true,
               null, {timeout:10000}
             );
 
