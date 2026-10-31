@@ -521,7 +521,7 @@
           close: cl,
           isBull: isBull,
           isSpike: isSpike,
-          volume: Math.floor(1100 + Math.random() * 2500),
+          volume: null,
           pips: parseFloat(((cl - o) / pip).toFixed(1))
         };
       });
@@ -593,7 +593,7 @@
             close: cl,
             isBull: isBull,
             isSpike: isSpike,
-            volume: Math.floor(1000 + Math.random() * 1500),
+            volume: null,
             pips: parseFloat(((cl - o) / pip).toFixed(1))
           });
           if (marketCandles.length > 1500) marketCandles.shift();
@@ -948,7 +948,7 @@
     addLiveTick(marketId, price, type) {
       const nowStr = new Date().toLocaleTimeString();
       const m = MARKETS[marketId];
-      const lot = (0.1 + Math.random() * 1.5).toFixed(2);
+      const lot = "N/D"; // Public ticks do not expose traded lot size.
       this.liveTicks.unshift({
         time: nowStr,
         market: m.name,
@@ -1760,6 +1760,7 @@
                 <!-- CONTENEDOR TRADINGVIEW OFICIAL (EN TIEMPO REAL CON DERIV) -->
                 <div id="tvChartContainer" style="width:100%;height:560px;display:${this.chartEngine === 'tradingview' ? 'flex' : 'none'};flex-direction:column;border-radius:8px;overflow:hidden;background:#080c14;border:1px solid rgba(0,242,254,0.25);"></div>
 
+                <div id="chartTradePlan" role="status" aria-live="polite" style="padding:10px 12px;margin:8px 0;border:1px solid rgba(148,163,184,.3);border-radius:8px;color:#cbd5e1;font-size:12px;line-height:1.6;overflow-wrap:anywhere;">Esperando velas reales cerradas. Operaciones de práctica en el simulador local.</div>
                 <!-- CONTENEDOR CANVAS LOCAL AKIRA -->
                 <div id="canvasChartContainer" style="width:100%;display:${this.chartEngine === 'canvas' ? 'flex' : 'none'};position:relative;flex:1;">
                   <canvas id="akiraMarketCanvas" class="ak-market-canvas" width="1100" height="540"></canvas>
@@ -4164,7 +4165,7 @@
                 <span class="ak-badge ${isBull ? 'ok' : 'alert'}">${isBull ? '🟢 ALCISTA' : '🔴 BAJISTA'}</span>
               `}
             </td>
-            <td style="font-family:monospace;color:#64748b;">${c.volume.toLocaleString()}</td>
+            <td style="font-family:monospace;color:#64748b;">${(Number.isFinite(c.volume) ? c.volume.toLocaleString() : "N/D")}</td>
           </tr>
         `;
       }).join('');
@@ -4194,6 +4195,13 @@
     }
 
     renderScannerSignal() {
+      const plan = document.getElementById("chartTradePlan");
+      if (plan) {
+        const signal = this.currentSignal;
+        plan.textContent = signal
+          ? `${signal.type} · ${signal.marketName} · ${signal.timeframe} | Entrada ${signal.entry} | Stop ${signal.sl} | Objetivos ${signal.tp1} / ${signal.tp2} / ${signal.tp3} · Práctica: simulador local; verifica los precios en tu cuenta demo.`
+          : (this.scannerStatus || "Esperando confirmación con velas reales. Sin señal de entrada.");
+      }
       const container = document.getElementById("scannerSignalContainer");
       if (!container) return;
 
@@ -5734,7 +5742,7 @@
               <span style="color:#ef4444;">Low: <strong>${c.low.toFixed(decimals)}</strong></span> &bull;
               <span>Close: <strong style="color:${isBull ? '#10b981' : '#ef4444'};">${c.close.toFixed(decimals)}</strong></span> &bull;
               <span>Rango: <strong style="color:${c.pips >= 0 ? '#10b981' : '#ef4444'};">${c.pips >= 0 ? '+' : ''}${c.pips} pips</strong></span> &bull;
-              <span>Vol: <strong>${c.volume.toLocaleString()}</strong></span>
+              <span>Vol: <strong>${(Number.isFinite(c.volume) ? c.volume.toLocaleString() : "N/D")}</strong></span>
             `;
           }
         });
