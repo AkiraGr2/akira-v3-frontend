@@ -1,6 +1,7 @@
 (function () {
   "use strict";
   let summary = "Capacidades: sin verificar";
+  window.akiraCapabilitySummary = () => summary;
   function paint() {
     document.querySelectorAll("[data-akira-capability-summary]").forEach(el => { if (el.textContent !== summary) el.textContent = summary; });
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);

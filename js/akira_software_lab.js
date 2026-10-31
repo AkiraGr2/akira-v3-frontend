@@ -828,7 +828,7 @@ def test_zero_cost_policy():
       case "whoami":
         return "Director Jhon Grimm · Propietario Verificado";
       case "version":
-        return "Akira Enterprise v4.0 · 60 Capacidades Verificadas";
+        return "Akira · " + (window.akiraCapabilitySummary ? window.akiraCapabilitySummary() : "Capacidades: sin verificar");
       case "clear":
         const box = document.getElementById("akLabShellHistory");
         if(box) box.innerHTML = "";
