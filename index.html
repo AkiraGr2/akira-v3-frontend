@@ -3148,7 +3148,7 @@ async function renderLevels(){
     const r=await fetch(b+"/api/v8/self",{headers:akiraAuthHeaders(),cache:"no-store"});
     const d=await r.json();
     if(!d.ok) throw new Error(d.reason || "self_model_unavailable");
-    const sm = d.self_model;
+    const sm = d.self_model || {};
     const capabilityRegistry = Array.isArray(d.capabilities_registry)
       ? d.capabilities_registry
       : [];
@@ -3178,6 +3178,7 @@ async function renderLevels(){
     const levels = capabilityRegistry.map(c => ({id:safeText(c.id || c.name), name:safeText(c.display_name || c.name), desc:safeText(c.description || c.evidence_summary || "Estado informado por el registro del servidor."), status:c.effective_state || c.status || "unknown"}));
     if (window.akiraPublishCapabilityRegistry) window.akiraPublishCapabilityRegistry(capabilityRegistry);
     listEl.className = "ak-levels-hud-grid";
+    if (!levels.length) { listEl.textContent = "El servidor no devolvió capacidades registradas. El total permanece sin verificar."; return; }
     listEl.innerHTML = levels.map(l => {
       const isVerified = l.status === "verified";
       const statusText = isVerified ? "Verificada" : (l.status === "partial" ? "Parcial" : "En desarrollo");
