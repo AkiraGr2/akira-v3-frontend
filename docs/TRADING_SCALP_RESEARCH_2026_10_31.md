@@ -48,3 +48,14 @@ Pruebas de prefijos sin futuro, M5 completo, costes explícitos, entrada siguien
 - Deriv: https://deriv.com/markets/derived-indices/synthetic-indices?tab=cfds — limitaciones de patrones en sintéticos.
 - Deriv market data: https://developers.deriv.com/docs/data/ticks-history/ — OHLC histórico público.
 - MetaQuotes: https://www.mql5.com/en/docs/python_metatrader5/mt5copyticksfrom_py — bid/ask de un terminal MT5, no disponible desde la conexión pública usada aquí.
+
+
+## Actualización posterior: perfiles por mercado (v2)
+
+Se conserva arriba la evidencia v1 como histórica. V2 no reutiliza indiscriminadamente sus tres familias: Forex permite retroceso/rango de 07–17 UTC, oro solo ruptura de 12–17 UTC con ADX >=25, criptomonedas continuación con filtro de volatilidad, Boom compras y Crash ventas tras rechazo de rango (sin predecir el instante del spike). Horarios UTC fijos, no sesiones con DST; no hay calendario de noticias. Productos desconocidos y binarias quedan excluidos. La descripción completa se muestra debajo del informe del gráfico.
+
+La casilla de práctica, desactivada inicialmente y sin persistencia entre recargas, permite ver configuraciones que cumplen estas reglas aunque no tengan rentabilidad demostrada. Mantiene datos vivos, contexto cerrado, costes explícitos, caducidad del informe, límites de entrada y riesgo. Solo simulador local; no habilita Telegram ni MT5. Desmarcada, conserva el filtro de evidencia positiva en ambos tramos. Los perfiles no se seleccionan a partir del resultado final.
+
+Reevaluación exploratoria de datos ya vistos, NO nueva prueba independiente: 159986 velas válidas. Se excluyeron 12 registros no alineados al minuto de oro y 1 de cada cripto, sin redondear timestamps ni fabricar OHLC. Los archivos originales se preservan. BTC: 27 operaciones de validación, -0.2924R/op; 79 finales, +0.1033R/op. Los otros siete mercados no reúnen 30 operaciones iniciales. Ningún perfil demuestra rentabilidad; ningún informe habilita recomendaciones. Se documenta esto incluso cuando la casilla permite practicar.
+
+Pruebas: perfiles incompatibles, horarios y fines de semana, dirección Boom/Crash, volatilidad cripto, exclusión binarias, causalidad sin datos futuros, integración del feed y controles del simulador. Esta actualización no añade ejecución MT5 ni cambia backend/autenticación.
