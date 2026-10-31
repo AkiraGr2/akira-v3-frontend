@@ -1378,6 +1378,7 @@
         if(!response.ok)throw Error("No se pudo cargar la comparación histórica");
         const report=await response.json();
         if(!ScalpResearch || report.version!==ScalpResearch.VERSION || !Array.isArray(report.markets))throw Error("Informe incompatible; las señales permanecen pausadas");
+        for(const row of report.markets)if(!row.error && MARKETS[row.marketId])ScalpResearch.costPrice(row.cost);
         this.scalpResearchReport=report;
       }catch(error){this.scalpResearchReport=null;this.scalpResearchError=String(error.message||error);}
       finally{this.loadingScalpResearch=false;this.renderScalpResearchReport();this.renderScannerSignal();}
@@ -4465,7 +4466,7 @@
             <div style="display:flex;align-items:center;gap:10px;font-weight:800;color:#10b981;font-size:13px;margin-bottom:6px;">
               <span style="font-size:18px;">🎯</span>
               <span>¿CÓMO CONFIRMA UNA SEÑAL EL ESCÁNER?</span>
-              <span class="ak-pill live" style="font-size:10px;padding:2px 8px;">Objetivos 1R / 2R / 3R</span>
+              <span class="ak-pill live" style="font-size:10px;padding:2px 8px;">Objetivos ${(sig.riskRewardTargets||[1,2,3]).join('R / ')}R</span>
             </div>
             <p style="margin:0 0 10px 0;font-size:12px;color:#cbd5e1;line-height:1.5;">
               ${sig.strategy==='multi_scalp_v1' ? "El marcador es una preparación de investigación por indicadores M1/M5 cerrados. La selección se hizo antes de la prueba final, pero faltan costes MT5 reales y prueba demo independiente. No equivale a beneficio futuro." : isQuickScalpSignal(sig) ? "El marcador indica una preparación de deriva corta, compresión y extremo. El armónico puede aportar contexto, pero no es obligatorio. La salida rápida es TP1 o tres minutos; ningún filtro conoce cuándo vendrá el spike." : "El marcador representa el cierre que cumplió los filtros de tendencia, rechazo y zona. Las líneas son referencias técnicas; la caja usa el stop estructural y objetivos 1R, 2R y 3R."}
@@ -4555,7 +4556,7 @@
                 <span style="font-size:10px;color:#fca5a5;">-${calc.slPips} pips de riesgo</span>
               </div>
               <div style="border-left:3px solid #10b981;padding-left:8px;">
-                <span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Ganancia TP1 (1:1)</span>
+                <span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Resultado TP1 (1:${sig.riskRewardTargets?.[0]||1})</span>
                 <div style="font-size:16px;font-family:monospace;font-weight:bold;color:#10b981;">+$${calc.tp1Profit} USD</div>
                 <span style="font-size:10px;color:#86efac;">+${calc.tp1Pips} pips</span>
               </div>
@@ -4656,7 +4657,7 @@
                   <span class="ak-badge ok">+${calc.tp1Pips} pips</span>
                 </div>
                 <div style="margin-top:4px;font-size:15px;font-family:monospace;font-weight:bold;color:#10b981;">${sig.tp1}</div>
-                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Ganancia: <strong style="color:#86efac;">+$${calc.tp1Profit} USD</strong> (1:1)</p>
+                <p style="margin:2px 0 0 0;font-size:10px;color:#cbd5e1;">Ganancia: <strong style="color:#86efac;">+$${calc.tp1Profit} USD</strong> (1:${sig.riskRewardTargets?.[0]||1})</p>
               </div>
 
               <!-- 4. META 2 (TP2) -->
