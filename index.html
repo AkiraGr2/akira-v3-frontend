@@ -873,7 +873,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
   <div id="levelsSection" class="section">
     <div class="section-header">
       <h2>📊 Capacidades de Akira · <span data-akira-capability-summary>Sin verificar</span></h2>
-      <p>El listado y sus estados provienen del registro del servidor. Una capacidad registrada puede estar verificada, parcial o pendiente.</p>
+      <p>Inventario de las 60 funciones históricas y las incorporaciones posteriores. Localizar código no demuestra funcionamiento completo; cada función conserva sus límites.</p>
     </div>
     <div class="ak-levels-matrix-deck">
       <div id="levelsList" class="ak-levels-hud-grid"></div>
@@ -2898,12 +2898,12 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_office_hologram.js?v=20261030-audited-entry-trading"></script>
 <script src="./js/akira_hive_catalog.js?v=akira-hive-v1"></script>
 <script src="./js/akira_missions_modern.js?v=akira-missions-hive-specialists-v1"></script>
-<script src="./js/akira_admin_modern.js?v=20261030-audited-entry-trading"></script>
-<script src="./js/akira_capability_truth.js?v=20261030-audited-entry-trading"></script>
+<script src="./js/akira_admin_modern.js?v=20261031-inventory-1"></script>
+<script src="./js/akira_capability_truth.js?v=20261031-inventory-1"></script>
 <script src="./js/akira_reference_workspace_v2.js?v=20261030-audited-entry-trading"></script>
 <script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>
 <script src="./js/akira_sandbox.js?v=akira-sandbox-v1"></script>
-<script src="./js/akira_software_lab.js?v=20261030-audited-entry-trading"></script>
+<script src="./js/akira_software_lab.js?v=20261031-inventory-1"></script>
 <script src="./js/akira_shopify_hub.js?v=akira-shopify-v1"></script>
 <script src="./js/quantick_akira_tv_pine.js?v=20261030-audited-entry-trading"></script>
 <script src="./js/akira_reference_scanner.js?v=20261031-reference-v1"></script>
@@ -2933,7 +2933,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
 <script src="./js/akira_conversations.js?v=akira-conv-v8-resilient"></script>
 <script src="./js/akira_learning.js?v=20261030-audited-entry-trading"></script>
-<script src="./js/akira_admin.js?v=akira-admin-v1-10-coldstart-retry"></script>
+<script src="./js/akira_admin.js?v=20261031-inventory-1"></script>
 <script>
 /* F8 AUDIT INLINE GUARD v1 — evita que una copia vieja de akira_admin.js deje el botón en modo "Failed to fetch". */
 (function(){
@@ -3179,13 +3179,15 @@ async function renderLevels(){
     const pdfDesc=runtime && runtime.pdf ? "Motor local PyMuPDF, límite de 5 MB." : "Estado runtime no verificado.";
     const videoDesc=runtime && runtime.video ? "No implementado bajo la política 100% gratuita." : "Estado runtime no verificado.";
     const safeText = value => String(value || "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
-    const levels = capabilityRegistry.map(c => ({id:safeText(c.id || c.name), name:safeText(c.display_name || c.name), desc:safeText(c.description || c.evidence_summary || "Estado informado por el registro del servidor."), status:c.effective_state || c.status || "unknown"}));
-    if (window.akiraPublishCapabilityRegistry) window.akiraPublishCapabilityRegistry(capabilityRegistry);
+    const inventory=d.capability_inventory;
+    const entries=inventory && Array.isArray(inventory.items) ? inventory.items : [];
+    const levels = entries.length ? entries.map(c=>({id:safeText(c.id),name:safeText(c.name),desc:safeText(c.description+" "+(c.limitations||[]).join(" ")),status:c.implementation_evidence==='placeholder'?'pending':c.implementation_evidence==='simulation'?'simulation':'unverified'})) : capabilityRegistry.map(c=>({id:safeText(c.name),name:safeText(c.name),desc:safeText(c.description||"Registro principal del servidor; inventario detallado todavía no disponible."),status:c.effective_state||"unknown"}));
+    if(window.akiraPublishCapabilityRegistry)window.akiraPublishCapabilityRegistry(capabilityRegistry,inventory);
     listEl.className = "ak-levels-hud-grid";
     if (!levels.length) { listEl.textContent = "El servidor no devolvió capacidades registradas. El total permanece sin verificar."; return; }
     listEl.innerHTML = levels.map(l => {
       const isVerified = l.status === "verified";
-      const statusText = isVerified ? "Verificada" : (l.status === "partial" ? "Parcial" : "En desarrollo");
+      const statusText = isVerified ? "Contrato verificado" : ({partial:"Parcial",pending:"Implementación pendiente",simulation:"Simulación",unverified:"Localizada · pendiente de prueba"}[l.status] || "Sin verificación vigente");
       const statusColor = isVerified ? "#34d399" : (l.status === "partial" ? "#fbbf24" : "#f87171");
       const statusBg = isVerified ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)";
       const statusBorder = isVerified ? "rgba(16,185,129,0.3)" : "rgba(245,158,11,0.3)";

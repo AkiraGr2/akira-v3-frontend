@@ -18,9 +18,10 @@
         node.replaceWith(document.createTextNode(parts[0]), span, document.createTextNode(parts.slice(1).join("")));
     });
   }
-  window.akiraPublishCapabilityRegistry = function (registry) {
+  window.akiraPublishCapabilityRegistry = function (registry, inventory) {
     if (!Array.isArray(registry)) return;
-    summary = `${registry.filter(c => (c.effective_state || c.status) === "verified").length} de ${registry.length} capacidades verificadas`;
+    summary = `${registry.filter(c => (c.effective_state || c.status) === "verified").length} de ${registry.length} contratos verificados`;
+    if(inventory && inventory.summary){const s=inventory.summary;summary=`${s.total} elementos (${s.historical} históricas + ${s.added} nuevas) · ${s.verified_contracts}/${s.runtime_contracts} contratos verificados`;}
     paint();
   };
   async function refresh() {
@@ -29,10 +30,11 @@
     try {
       const base = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
       const response = await fetch(base + "/api/v8/self", {headers: window.akiraAuthHeaders(), cache: "no-store"});
-      if (!response.ok) return;
+      if (!response.ok) throw new Error("registry_unavailable");
       const data = await response.json();
-      if (data.ok && Array.isArray(data.capabilities_registry)) window.akiraPublishCapabilityRegistry(data.capabilities_registry);
-    } catch (_) {}
+      if (!data.ok || !Array.isArray(data.capabilities_registry)) throw new Error("registry_unavailable");
+      window.akiraPublishCapabilityRegistry(data.capabilities_registry,data.capability_inventory);
+    } catch (_) { summary = "Capacidades: sin verificar"; paint(); }
   }
   window.addEventListener("akira:session-valid", refresh);
   window.addEventListener("akira:session-invalid", function () { summary = "Capacidades: sin verificar"; paint(); });

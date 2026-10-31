@@ -955,10 +955,10 @@
     if(self.ok && self.data && self.data.ok){
       const sm=self.data.self_model||{};
       const reg = Array.isArray(self.data.capabilities_registry) ? self.data.capabilities_registry : (Array.isArray(sm.capabilities) ? sm.capabilities : []);
-      const verCount = reg.filter(c => (c.effective_state || c.status) === "verified" || String(c.effective_state || c.status || "").indexOf("verified") !== -1).length;
-      const totCount = Math.max(reg.length, 15);
+      const verCount = reg.filter(c => (c.effective_state || c.status) === "verified").length;
+      if(window.akiraPublishCapabilityRegistry) window.akiraPublishCapabilityRegistry(reg,self.data.capability_inventory);
       lines.push("Autoconocimiento: 🟢 Disponible · versión " + String(sm.version ?? "?"));
-      lines.push("Capacidades verificadas: " + (verCount > 0 ? verCount : 15) + " de " + totCount);
+      lines.push(window.akiraCapabilitySummary ? window.akiraCapabilitySummary() : ("Contratos verificados: " + verCount + " de " + reg.length));
     }else{
       lines.push("Autoconocimiento: 🔴 No disponible");
     }
