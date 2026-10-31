@@ -206,7 +206,100 @@
     return { tp3Hit, stopHit, ambiguousSameBar };
   }
 
-  const api = { averageTrueRange, findConfirmedSwings, detectHarmonicPattern, rejectionDirection, spikeCycleStats, validateEntryConditions, resolveTerminalOutcome, validateHarmonicSequence: projectPattern };
+  function simulateSignalOutcomes(candles, signalAtIndex, options) {
+    const bars = Array.isArray(candles) ? candles : [];
+    const cfg = options || {};
+    const maxHoldBars = Math.max(1, Math.floor(Number(cfg.maxHoldBars) || 100));
+    const trades = [];
+    let active = null;
+    let ignoredOpenSignal = false;
+    for (let i = 0; i < bars.length; i += 1) {
+      if (!active) {
+        const signal = typeof signalAtIndex === "function" ? signalAtIndex(i, bars.slice(0, i + 1)) : null;
+        if (!signal || !["BUY", "SELL"].includes(signal.direction)) continue;
+        const entry = Number(signal.entry);
+        const stop = Number(signal.stop);
+        const target = Number(signal.target);
+        const risk = Math.abs(entry - stop);
+        const directionSign = signal.direction === "BUY" ? 1 : -1;
+        if (![entry, stop, target, risk].every(Number.isFinite) || risk <= 0 ||
+            (target - entry) * directionSign <= 0 || (stop - entry) * directionSign >= 0) continue;
+        active = { direction: signal.direction, entry, stop, target, risk, entryIndex: i, entryEpoch: bars[i]?.epoch ?? null };
+        continue; // Entry occurs at this bar's close; never score its earlier high/low.
+      }
+
+      const bar = bars[i];
+      if (!bar || ![bar.open, bar.high, bar.low, bar.close].every(value => Number.isFinite(Number(value)))) continue;
+      const buy = active.direction === "BUY";
+      const stopTouched = buy ? Number(bar.low) <= active.stop : Number(bar.high) >= active.stop;
+      const targetTouched = buy ? Number(bar.high) >= active.target : Number(bar.low) <= active.target;
+      const open = Number(bar.open);
+      const stopFill = buy ? Math.min(active.stop, open) : Math.max(active.stop, open);
+      let exitPrice = null;
+      let outcome = "";
+      if (stopTouched && targetTouched) {
+        exitPrice = stopFill;
+        outcome = "AMBIGUOUS_BAR_STOP_FIRST";
+      } else if (stopTouched) {
+        exitPrice = stopFill;
+        outcome = "STOP";
+      } else if (targetTouched) {
+        exitPrice = active.target;
+        outcome = "TARGET";
+      } else if (i - active.entryIndex >= maxHoldBars) {
+        exitPrice = Number(bar.close);
+        outcome = "TIME_EXIT";
+      }
+      if (exitPrice === null) continue;
+      const signedMove = (exitPrice - active.entry) * (buy ? 1 : -1);
+      trades.push({
+        direction: active.direction,
+        entry: active.entry,
+        stop: active.stop,
+        target: active.target,
+        entryIndex: active.entryIndex,
+        exitIndex: i,
+        entryEpoch: active.entryEpoch,
+        outcome,
+        rMultiple: signedMove / active.risk
+      });
+      active = null; // No same-candle re-entry.
+    }
+    if (active) ignoredOpenSignal = true;
+    return { trades, ignoredOpenSignal, barCount: bars.length, maxHoldBars };
+  }
+
+  function summarizeBacktest(trades) {
+    const rows = Array.isArray(trades) ? trades.filter(row => Number.isFinite(Number(row.rMultiple))) : [];
+    let grossWins = 0;
+    let grossLosses = 0;
+    let running = 0;
+    let peak = 0;
+    let maxDrawdown = 0;
+    let wins = 0;
+    let losses = 0;
+    rows.forEach(row => {
+      const r = Number(row.rMultiple);
+      if (r > 0) { wins += 1; grossWins += r; }
+      else if (r < 0) { losses += 1; grossLosses += Math.abs(r); }
+      running += r;
+      peak = Math.max(peak, running);
+      maxDrawdown = Math.max(maxDrawdown, peak - running);
+    });
+    const count = rows.length;
+    return {
+      trades: count,
+      wins,
+      losses,
+      winRate: count ? wins / count : null,
+      expectancyR: count ? rows.reduce((sum, row) => sum + Number(row.rMultiple), 0) / count : null,
+      profitFactor: grossLosses ? grossWins / grossLosses : (grossWins ? Infinity : null),
+      maxDrawdownR: maxDrawdown,
+      netR: running
+    };
+  }
+
+  const api = { averageTrueRange, findConfirmedSwings, detectHarmonicPattern, rejectionDirection, spikeCycleStats, validateEntryConditions, resolveTerminalOutcome, simulateSignalOutcomes, summarizeBacktest, validateHarmonicSequence: projectPattern };
   root.AkiraTradingScannerCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

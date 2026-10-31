@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const { findConfirmedSwings, detectHarmonicPattern, rejectionDirection, spikeCycleStats, validateEntryConditions, resolveTerminalOutcome, validateHarmonicSequence } = require("./js/akira_trading_scanner_core.js");
+const { findConfirmedSwings, detectHarmonicPattern, rejectionDirection, spikeCycleStats, validateEntryConditions, resolveTerminalOutcome, simulateSignalOutcomes, summarizeBacktest, validateHarmonicSequence } = require("./js/akira_trading_scanner_core.js");
 
 function candlesFromPoints(points, length, radius) {
   const candles = Array.from({ length }, (_, index) => ({
@@ -112,6 +112,34 @@ assert.deepEqual(resolveTerminalOutcome(12, 12), { tp3Hit: false, stopHit: true,
 assert.deepEqual(resolveTerminalOutcome(11, 12), { tp3Hit: true, stopHit: false, ambiguousSameBar: false });
 assert.deepEqual(resolveTerminalOutcome(12, 11), { tp3Hit: false, stopHit: true, ambiguousSameBar: false });
 
+const replayBars = [
+  { epoch: 0, open: 100, high: 102, low: 99, close: 101 },
+  { epoch: 60, open: 101, high: 104, low: 100.5, close: 103 },
+  { epoch: 120, open: 103, high: 106, low: 99, close: 105 },
+  { epoch: 180, open: 105, high: 106, low: 104, close: 105 }
+];
+const replay = simulateSignalOutcomes(replayBars, index => index === 0
+  ? { direction: "BUY", entry: 101, stop: 100, target: 105 }
+  : null, { maxHoldBars: 3 });
+assert.equal(replay.trades.length, 1);
+assert.equal(replay.trades[0].outcome, "AMBIGUOUS_BAR_STOP_FIRST");
+assert.equal(replay.trades[0].rMultiple, -1);
+assert.equal(replay.trades[0].exitIndex, 2);
+const gapReplay = simulateSignalOutcomes([
+  { epoch: 0, open: 100, high: 102, low: 99, close: 101 },
+  { epoch: 60, open: 98, high: 103, low: 97, close: 99 }
+], index => index === 0 ? { direction: "BUY", entry: 101, stop: 100, target: 104 } : null);
+assert.equal(gapReplay.trades[0].outcome, "STOP");
+assert.equal(gapReplay.trades[0].rMultiple, -3, "a gap through the stop must simulate adverse opening-price execution");
+const replayStats = summarizeBacktest([
+  { rMultiple: 3 }, { rMultiple: -1 }, { rMultiple: 1 }, { rMultiple: -0.5 }
+]);
+assert.equal(replayStats.trades, 4);
+assert.equal(replayStats.winRate, 0.5);
+assert.equal(replayStats.expectancyR, 0.625);
+assert.equal(replayStats.profitFactor, 4 / 1.5);
+assert.equal(replayStats.netR, 2.5);
+
 global.window = global;
 require("./js/quantick_akira_tv_pine.js");
 const pine = global.QUANTICK_AKIRA_PINE_SCRIPT;
@@ -125,5 +153,10 @@ const tradingLab = fs.readFileSync(require.resolve("./js/akira_trading_lab.js"),
 const backgroundScanner = tradingLab.match(/scanBackgroundMarketsForTelegram\(\)\s*\{([\s\S]*?)\n    \}/);
 assert.ok(backgroundScanner && !backgroundScanner[1].includes("Math.random"), "background alerts must not fabricate market signals");
 assert.ok(tradingLab.includes("this.dataFeedKeys[marketId] !== feedKey"), "scanner must reject demo/offline candles");
+assert.ok(tradingLab.includes("runScannerBacktest()"), "Trading Lab must offer historical strategy replay");
+assert.ok(tradingLab.includes("ScannerCore.simulateSignalOutcomes(source"), "historical replay must use the live signal generator");
+assert.ok(tradingLab.includes("operaciones cerradas antes del corte"), "training sample must exclude outcomes that cross into the out-of-sample period");
+assert.ok(tradingLab.includes("no incluye spread, comisiones ni deslizamiento"), "gross backtest must disclose omitted trading costs");
+assert.ok(!tradingLab.includes("escáner de alta precisión que usa Sebas Ramírez"), "scanner must not imply unverified endorsement or accuracy");
 
 console.log("Trading scanner checks passed (confirmed pivots, harmonic ratios, entry gates, historical cycles, no fabricated alerts, Pine safeguards).");

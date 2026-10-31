@@ -1233,7 +1233,7 @@
         return { isBull: true, confidence: null, reason: "Histórico insuficiente" };
       }
 
-      // 2. MATEMÁTICA INSTITUCIONAL MULTI-FACTOR (CERO AZAR / CERO FLIP-FLOP):
+      // 2. Filtro direccional heurístico: combina tendencia, estructura y momentum.
       // Factor 1: Alineación EMA 20 vs EMA 50 (3 puntos)
       // Factor 2: Precio actual vs EMA 50 (2 puntos) y vs EMA 20 (1 punto)
       // Factor 3: Estructura de Mercado BOS / Higher Highs + Lows vs Lower Highs + Lows (3 puntos)
@@ -1412,6 +1412,77 @@
           this.lastSentTelegramSignals[marketId] = now;
           this.sendSignalToTelegram(this.currentSignal, true);
         }
+      }
+    }
+
+    runScannerBacktest() {
+      const marketId = this.selectedMarket;
+      const timeframe = this.selectedTimeframe;
+      const granularity = ({ M1:60, M5:300, M15:900, H1:3600, H4:14400, D1:86400 })[timeframe];
+      const source = this.getClosedScannerCandles(marketId, timeframe);
+      const panel = document.getElementById("scannerBacktestResults");
+      const button = document.getElementById("btnScannerBacktest");
+      if (!panel) return null;
+      if (!granularity || source.length < 100 || !ScannerCore || !this.dataFeedKeys[marketId]) {
+        panel.textContent = "Hace falta conectar el mercado y tener al menos 100 velas reales cerradas. Las velas de demostración no se usan.";
+        return null;
+      }
+      if (button) button.disabled = true;
+      panel.textContent = `Reproduciendo ${source.length} velas reales de ${MARKETS[marketId]?.name || marketId} (${timeframe})…`;
+      try {
+        const replay = Object.create(Object.getPrototypeOf(this));
+        Object.assign(replay, this);
+        replay.selectedMarket = marketId;
+        replay.selectedTimeframe = timeframe;
+        replay.marketPrices = { ...this.marketPrices };
+        replay.candles = { [marketId]: [] };
+        replay.confirmedThroughEpoch = { [marketId]: 0 };
+        replay.dataFeedKeys = { [marketId]: `${marketId}:${timeframe}` };
+        replay.lastEvaluatedCandleEpoch = {};
+        replay.marketSlCooldowns = {};
+        replay.currentSignal = null;
+        replay.scannerSimulatedLot = null;
+        replay.accumulationStatus = null;
+        replay.spikeRadar = null;
+        replay.telegramAutoSend = false;
+        replay.renderScannerSignal = () => {};
+        replay.drawMarketCanvas = () => {};
+        replay.sendSignalToTelegram = () => {};
+
+        const splitIndex = Math.floor(source.length * 0.7);
+        const maxHoldBars = 100;
+        const replayResult = ScannerCore.simulateSignalOutcomes(source, (index, prefix) => {
+          if (index < 59) return null;
+          replay.candles[marketId] = prefix;
+          const last = prefix[prefix.length - 1];
+          const confirmedEpoch = Number(last.epoch) + granularity;
+          replay.confirmedThroughEpoch[marketId] = confirmedEpoch;
+          replay.marketPrices[marketId] = Number(last.close);
+          replay.currentSignal = null;
+          replay.accumulationStatus = null;
+          replay.spikeRadar = null;
+          replay.generateHarmonicSignal(marketId, timeframe, true, confirmedEpoch);
+          const signal = replay.currentSignal;
+          if (!signal || Number(signal.signalCandleEpoch) !== Number(last.epoch)) return null;
+          return { direction: signal.type, entry: signal.entry, stop: signal.sl, target: signal.tp3 };
+        }, { maxHoldBars });
+
+        const trainTrades = replayResult.trades.filter(trade => trade.entryIndex < splitIndex && trade.exitIndex < splitIndex);
+        const testTrades = replayResult.trades.filter(trade => trade.entryIndex >= splitIndex);
+        const train = ScannerCore.summarizeBacktest(trainTrades);
+        const test = ScannerCore.summarizeBacktest(testTrades);
+        const pct = value => value === null ? "—" : `${(value * 100).toFixed(1)}%`;
+        const number = value => value === null ? "—" : (Number.isFinite(value) ? value.toFixed(2) : "∞");
+        const row = (label, stats) => `<div style="padding:10px 0;border-top:1px solid rgba(148,163,184,.18);"><strong>${label}</strong> · ${stats.trades} operaciones cerradas · acierto ${pct(stats.winRate)} · expectativa ${number(stats.expectancyR)} R/op · factor de beneficio ${number(stats.profitFactor)} · caída máx. ${number(stats.maxDrawdownR)} R</div>`;
+        const ambiguous = replayResult.trades.filter(trade => trade.outcome === "AMBIGUOUS_BAR_STOP_FIRST").length;
+        const timeExit = replayResult.trades.filter(trade => trade.outcome === "TIME_EXIT").length;
+        panel.innerHTML = `<div>Datos: ${source.length} velas confirmadas · límite de permanencia: ${maxHoldBars} velas · si stop y objetivo tocaron la misma vela, cuenta como stop.</div>${row("Tramo inicial (70%; operaciones cerradas antes del corte)", train)}${row("Tramo posterior fuera de muestra", test)}<div style="margin-top:8px;color:#94a3b8;">Cierres por tiempo: ${timeExit} · velas ambiguas resueltas como stop: ${ambiguous} · no incluye spread, comisiones ni deslizamiento. Métrica histórica bruta; no predice resultados futuros.</div>`;
+        return replayResult;
+      } catch (error) {
+        panel.textContent = `No se pudo completar la prueba histórica: ${String(error?.message || error)}`;
+        return null;
+      } finally {
+        if (button) button.disabled = false;
       }
     }
 
@@ -1807,6 +1878,13 @@
               </div>
             </div>
 
+            <div class="ak-scanner-replay-card" style="margin-top:16px;padding:14px;border:1px solid rgba(99,102,241,.35);border-radius:12px;background:rgba(15,23,42,.62);">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                <div><strong style="color:#c4b5fd;">Prueba histórica del escáner</strong><div style="font-size:11px;color:#94a3b8;margin-top:4px;">Reproduce las señales del mercado y temporalidad seleccionados con velas cerradas.</div></div>
+                <button id="btnScannerBacktest" type="button" onclick="window.AkiraTradingLab.runScannerBacktest()" style="padding:10px 14px;border:1px solid #8b5cf6;border-radius:9px;background:#312e81;color:white;font-weight:700;cursor:pointer;">Medir en histórico</button>
+              </div>
+              <div id="scannerBacktestResults" aria-live="polite" style="margin-top:10px;font-size:12px;color:#cbd5e1;line-height:1.6;">Aún no se ha ejecutado una prueba histórica.</div>
+            </div>
             <div id="scannerSignalContainer" style="margin-top:16px;"></div>
           </div>
 
@@ -4178,7 +4256,7 @@
           <div class="ak-sniper-story-card">
             <div style="display:flex;align-items:center;gap:10px;font-weight:800;color:#10b981;font-size:13px;margin-bottom:6px;">
               <span style="font-size:18px;">🎯</span>
-              <span>¿CÓMO FUNCIONA EL ESCÁNER DE ALTA PRECISIÓN QUE USA SEBAS RAMÍREZ?</span>
+              <span>¿CÓMO CONFIRMA UNA SEÑAL EL ESCÁNER?</span>
               <span class="ak-pill live" style="font-size:10px;padding:2px 8px;">Objetivos 1R / 2R / 3R</span>
             </div>
             <p style="margin:0 0 10px 0;font-size:12px;color:#cbd5e1;line-height:1.5;">
