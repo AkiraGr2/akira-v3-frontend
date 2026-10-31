@@ -190,7 +190,7 @@
 
         if(manual) {
           window.akiraOpenEvolutionModal(data);
-        } else {
+        } else if (!document.getElementById("tradingSection")?.classList.contains("active")) {
           showIdleToast(data);
         }
       }

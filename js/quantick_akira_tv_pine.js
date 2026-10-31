@@ -1,6 +1,191 @@
-// QUANTICKAKIRA // TRADINGVIEW PRO PINE SCRIPT v5.0 SUITE
-// Código fuente oficial institucional para gráficos nativos de TradingView Pro
-(function(){
+// TradingView companion for the Trading Lab scanner. The indicator uses confirmed bars;
+// the UI calls this source through window.QUANTICK_AKIRA_PINE_SCRIPT.
+(function () {
   "use strict";
-  window.QUANTICK_AKIRA_PINE_SCRIPT = "//@version=5\nindicator(\"QuantickAkira - Spike Hunter & Harmonic Trading Lab Pro v5.0\", shorttitle=\"QuantickAkira Pro\", overlay=true, max_lines_count=500, max_boxes_count=500, max_labels_count=500)\n\n// =============================================================================\n// QUANTICKAKIRA // TRADINGVIEW PRO INSTITUTIONAL SUITE v5.0\n// Diseñado para: Índices Sintéticos Deriv (Boom 1000/500/300, Crash 1000/500/300)\n// y Mercados Financieros Generales (Forex, Cripto, Oro XAU/USD).\n// =============================================================================\n\n// -----------------------------------------------------------------------------\n// 1. CONFIGURACIÓN GENERAL & FÍSICA DE MERCADO\n// -----------------------------------------------------------------------------\ngrp_market = \"1. Configuración de Mercado & Física de Índices\"\nmarket_mode = input.string(\"Auto\", \"Modo de Mercado\", options=[\"Auto\", \"Boom (Solo Compras)\", \"Crash (Solo Ventas)\", \"Forex / Crypto / Oro (Bidireccional)\"], group=grp_market, tooltip=\"Boom opera exclusivamente compras en spikes; Crash opera exclusivamente ventas.\")\npip_size = input.float(0.01, \"Tamaño de Pip/Punto\", minval=0.00001, group=grp_market)\n\ngrp_spike = \"2. Cazador Cuántico de Spikes (5 Vectores)\"\nenable_spike_hunter = input.bool(true, \"Activar Cazador de Spikes\", group=grp_spike)\nsens_drift_1000 = input.int(7, \"Deriva Mínima Boom/Crash 1000 (Velas)\", minval=3, maxval=20, group=grp_spike)\nsens_drift_500 = input.int(4, \"Deriva Mínima Boom/Crash 500 (Velas)\", minval=2, maxval=15, group=grp_spike)\nsens_drift_300 = input.int(3, \"Deriva Mínima Boom/Crash 300 (Velas)\", minval=1, maxval=10, group=grp_spike)\nwick_threshold_pct = input.float(22.0, \"Umbral de Mecha de Absorción (%)\", minval=10.0, maxval=50.0, group=grp_spike) / 100.0\ncompression_threshold = input.float(0.65, \"Umbral de Micro-Consolidación ATR\", minval=0.4, maxval=0.9, group=grp_spike)\n\ngrp_harmonic = \"3. Escáner Armónico Automático (XABCD & PRZ)\"\nenable_harmonics = input.bool(true, \"Activar Escáner Armónico\", group=grp_harmonic)\nzigzag_depth = input.int(10, \"Profundidad ZigZag Extrema\", minval=4, maxval=30, group=grp_harmonic)\nfibo_tolerance = input.float(0.08, \"Tolerancia de Ratios Fibonacci\", minval=0.02, maxval=0.15, group=grp_harmonic)\n\ngrp_risk = \"4. Gestión Asimétrica de Capital ($50 USD Base)\"\naccount_balance = input.float(50.0, \"Capital de Referencia ($ USD)\", minval=10.0, group=grp_risk)\nlot_size = input.float(0.20, \"Lotaje Recomendado\", minval=0.01, group=grp_risk)\nsl_points = input.float(15.0, \"Stop Loss en Puntos (1.0R)\", minval=1.0, group=grp_risk)\nshow_target_boxes = input.bool(true, \"Dibujar Cajas de Posición (SL/TP1/TP2/TP3)\", group=grp_risk)\nshow_hud_table = input.bool(true, \"Mostrar Panel HUD de Telemetría\", group=grp_risk)\n\n// -----------------------------------------------------------------------------\n// 2. DETECCIÓN DETERMINISTA DEL MODO DE MERCADO\n// -----------------------------------------------------------------------------\nvar is_boom = false\nvar is_crash = false\nvar is_general = false\n\nticker_upper = syminfo.ticker\n\nif market_mode == \"Auto\"\n    if str.contains(ticker_upper, \"BOOM\") or str.contains(ticker_upper, \"B1000\") or str.contains(ticker_upper, \"B500\") or str.contains(ticker_upper, \"B300\")\n        is_boom := true\n        is_crash := false\n        is_general := false\n    else if str.contains(ticker_upper, \"CRASH\") or str.contains(ticker_upper, \"C1000\") or str.contains(ticker_upper, \"C500\") or str.contains(ticker_upper, \"C300\")\n        is_boom := false\n        is_crash := true\n        is_general := false\n    else\n        is_boom := false\n        is_crash := false\n        is_general := true\nelse if market_mode == \"Boom (Solo Compras)\"\n    is_boom := true\n    is_crash := false\n    is_general := false\nelse if market_mode == \"Crash (Solo Ventas)\"\n    is_boom := false\n    is_crash := true\n    is_general := false\nelse\n    is_boom := false\n    is_crash := false\n    is_general := true\n\n// Parámetros estocásticos de Poisson / Deriv\nmin_drift_req = str.contains(ticker_upper, \"300\") ? sens_drift_300 : (str.contains(ticker_upper, \"500\") ? sens_drift_500 : sens_drift_1000)\navg_interval = str.contains(ticker_upper, \"300\") ? 5.0 : (str.contains(ticker_upper, \"500\") ? 9.0 : 16.6)\n\n// -----------------------------------------------------------------------------\n// 3. MOTOR DE 5 VECTORES DE CAZA DE SPIKES (BOOM & CRASH)\n// -----------------------------------------------------------------------------\n// Vector 1: Identificación de Spike vs Vela de Deriva\ncandle_body = math.abs(close - open)\ncandle_range = math.max(pip_size, high - low)\n\nis_boom_spike = (close > open) and (candle_body >= pip_size * 20.0)\nis_crash_spike = (close < open) and (candle_body >= pip_size * 20.0)\nis_spike = is_boom ? is_boom_spike : (is_crash ? is_crash_spike : (candle_body >= ta.atr(14) * 2.5))\n\n// Conteo de velas de deriva consecutivas desde el último spike\nvar int drift_count = 0\nif is_spike\n    drift_count := 0\nelse\n    drift_count += 1\n\n// Vector 2: Micro-Consolidación / Compresión de Rango (últimas 3 velas)\nrecent_3_range = math.max(high, high[1], high[2]) - math.min(low, low[1], low[2])\natr15 = ta.sma(high - low, 15)\nis_micro_consolidation = (recent_3_range / math.max(pip_size, atr15 * 2.2)) < compression_threshold\n\n// Vector 3: Mecha de Absorción Institucional\nlower_wick = math.min(open, close) - low\nupper_wick = high - math.max(open, close)\nboom_rejection = ((lower_wick / candle_range) >= wick_threshold_pct) or (close > open)\ncrash_rejection = ((upper_wick / candle_range) >= wick_threshold_pct) or (close < open)\nhas_rejection = is_boom ? boom_rejection : (is_crash ? crash_rejection : (boom_rejection or crash_rejection))\n\n// Vector 4: Tasa de Riesgo Acumulada de Weibull (Proximidad Cuántica)\ndrift_ratio = drift_count / avg_interval\nweibull_prob = math.min(98.0, math.max(18.0, math.round(100.0 * (1.0 - math.exp(-math.pow(drift_ratio, 1.65))))))\n\n// Vector 5: Condición Gatillo Sniper Cuántico ✓\nsniper_trigger_boom = is_boom and (drift_count >= min_drift_req) and (has_rejection or is_micro_consolidation)\nsniper_trigger_crash = is_crash and (drift_count >= min_drift_req) and (has_rejection or is_micro_consolidation)\n\n// Tendencia en mercados generales (Forex / Cripto / Oro)\nema20 = ta.ema(close, 20)\nema50 = ta.ema(close, 50)\nrsi14 = ta.rsi(close, 14)\ngeneral_bull = is_general and (ema20 > ema50) and (close > ema20) and (rsi14 > 45) and (lower_wick / candle_range >= wick_threshold_pct)\ngeneral_bear = is_general and (ema20 < ema50) and (close < ema20) and (rsi14 < 55) and (upper_wick / candle_range >= wick_threshold_pct)\n\nsniper_buy = (sniper_trigger_boom or general_bull) and enable_spike_hunter\nsniper_sell = (sniper_trigger_crash or general_bear) and enable_spike_hunter\n\n// Evitar repetición continua en velas consecutivas\nvar int last_trigger_bar = -100\ncan_trigger = (bar_index - last_trigger_bar) >= 3\n\nconfirmed_buy = sniper_buy and can_trigger\nconfirmed_sell = sniper_sell and can_trigger\n\nif confirmed_buy or confirmed_sell\n    last_trigger_bar := bar_index\n\n// -----------------------------------------------------------------------------\n// 4. ESCÁNER ARMÓNICO CUÁNTICO (XABCD & FIBONACCI PRZ)\n// -----------------------------------------------------------------------------\nph = ta.pivothigh(high, zigzag_depth, zigzag_depth)\npl = ta.pivotlow(low, zigzag_depth, zigzag_depth)\n\nvar float pD = na\nvar float pC = na\nvar float pB = na\nvar float pA = na\nvar float pX = na\n\nvar int barD = na\nvar int barC = na\nvar int barB = na\nvar int barA = na\nvar int barX = na\n\nvar string detected_pattern = \"Ninguno\"\nvar bool harmonic_bull_active = false\nvar bool harmonic_bear_active = false\n\nif not na(pl) and enable_harmonics\n    pX := pB\n    barX := barB\n    pA := pC\n    barA := barC\n    pB := pD\n    barB := barD\n    pC := high[zigzag_depth]\n    barC := bar_index[zigzag_depth]\n    pD := low[zigzag_depth]\n    barD := bar_index[zigzag_depth]\n\n    if not na(pX) and not na(pA) and not na(pB) and not na(pC) and not na(pD)\n        legXA = math.abs(pA - pX)\n        legXD = math.abs(pD - pX)\n        ratioXD = legXA > 0 ? (legXD / legXA) : 0.786\n\n        if math.abs(ratioXD - 0.786) <= fibo_tolerance\n            detected_pattern := \"Gartley Alcista (0.786)\"\n            harmonic_bull_active := true\n        else if math.abs(ratioXD - 0.886) <= fibo_tolerance\n            detected_pattern := \"Bat Alcista (0.886)\"\n            harmonic_bull_active := true\n        else if ratioXD >= 1.15 and ratioXD <= 1.38\n            detected_pattern := \"Butterfly Alcista (1.272)\"\n            harmonic_bull_active := true\n        else if ratioXD > 1.45 and ratioXD <= 1.75\n            detected_pattern := \"Crab Alcista (1.618)\"\n            harmonic_bull_active := true\n        else\n            harmonic_bull_active := false\n\nif not na(ph) and enable_harmonics\n    pX := pB\n    barX := barB\n    pA := pC\n    barA := barC\n    pB := pD\n    barB := barD\n    pC := low[zigzag_depth]\n    barC := bar_index[zigzag_depth]\n    pD := high[zigzag_depth]\n    barD := bar_index[zigzag_depth]\n\n    if not na(pX) and not na(pA) and not na(pB) and not na(pC) and not na(pD)\n        legXA = math.abs(pA - pX)\n        legXD = math.abs(pD - pX)\n        ratioXD = legXA > 0 ? (legXD / legXA) : 0.786\n\n        if math.abs(ratioXD - 0.786) <= fibo_tolerance\n            detected_pattern := \"Gartley Bajista (0.786)\"\n            harmonic_bear_active := true\n        else if math.abs(ratioXD - 0.886) <= fibo_tolerance\n            detected_pattern := \"Bat Bajista (0.886)\"\n            harmonic_bear_active := true\n        else if ratioXD >= 1.15 and ratioXD <= 1.38\n            detected_pattern := \"Butterfly Bajista (1.272)\"\n            harmonic_bear_active := true\n        else if ratioXD > 1.45 and ratioXD <= 1.75\n            detected_pattern := \"Crab Bajista (1.618)\"\n            harmonic_bear_active := true\n        else\n            harmonic_bear_active := false\n\n// -----------------------------------------------------------------------------\n// 5. VISUALIZACIÓN SOBRE EL GRÁFICO (SEÑALES SNIPER & NIVELES TP/SL)\n// -----------------------------------------------------------------------------\n// Marcador Gatillo Sniper ✓\nplotshape(confirmed_buy, title=\"Gatillo Sniper Compra ✓\", style=shape.triangleup, location=location.belowbar, color=color.new(#00f2fe, 0), size=size.normal, text=\"SNIPER ✓\", textcolor=color.new(#00f2fe, 0))\nplotshape(confirmed_sell, title=\"Gatillo Sniper Venta ✓\", style=shape.triangledown, location=location.abovebar, color=color.new(#ef4444, 0), size=size.normal, text=\"SNIPER ✓\", textcolor=color.new(#ef4444, 0))\n\n// Cajas de Posición y Proyección R:R ($50 USD Base)\ntp1_dist = sl_points * 1.5\ntp2_dist = sl_points * 2.2\ntp3_dist = sl_points * 3.19\n\nif (confirmed_buy or confirmed_sell) and show_target_boxes\n    is_long = confirmed_buy\n    entry_p = close\n    sl_p = is_long ? (entry_p - sl_points) : (entry_p + sl_points)\n    tp1_p = is_long ? (entry_p + tp1_dist) : (entry_p - tp1_dist)\n    tp2_p = is_long ? (entry_p + tp2_dist) : (entry_p - tp2_dist)\n    tp3_p = is_long ? (entry_p + tp3_dist) : (entry_p - tp3_dist)\n\n    box_right = bar_index + 16\n\n    // Caja de Beneficio (Cyan Neón)\n    box.new(left=bar_index, top=is_long ? tp3_p : entry_p, right=box_right, bottom=is_long ? entry_p : tp3_p,\n             bgcolor=color.new(#10b981, 88), border_color=color.new(#10b981, 20), border_width=1)\n\n    // Caja de Riesgo (Rojo Neón)\n    box.new(left=bar_index, top=is_long ? entry_p : sl_p, right=box_right, bottom=is_long ? sl_p : entry_p,\n             bgcolor=color.new(#ef4444, 88), border_color=color.new(#ef4444, 20), border_width=1)\n\n    // Etiquetas de Niveles de Precio y Ganancia / Pérdida en USD\n    label.new(x=box_right, y=tp3_p, text=\"TP3 (1:3.19R): \" + str.tostring(tp3_p, \"#.##\") + \"\\n+$9.57 USD (+4785 pips)\",\n              color=color.new(#065f46, 10), textcolor=color.white, style=label.style_label_left, size=size.small)\n    label.new(x=box_right, y=tp1_p, text=\"TP1 (1:1.5R): \" + str.tostring(tp1_p, \"#.##\") + \"\\n+$4.50 USD (+2250 pips)\",\n              color=color.new(#047857, 10), textcolor=color.white, style=label.style_label_left, size=size.small)\n    label.new(x=box_right, y=sl_p, text=\"SL (1.0R): \" + str.tostring(sl_p, \"#.##\") + \"\\n-$3.00 USD (-1500 pips)\",\n              color=color.new(#991b1b, 10), textcolor=color.white, style=label.style_label_left, size=size.small)\n\n// Dibujar Triángulo Armónico X-A-B-C-D\nvar line lineXA = na\nvar line lineAB = na\nvar line lineBC = na\nvar line lineCD = na\nvar line lineXD = na\n\nif (harmonic_bull_active or harmonic_bear_active) and not na(barD)\n    if bar_index == barD + zigzag_depth\n        line.delete(lineXA)\n        line.delete(lineAB)\n        line.delete(lineBC)\n        line.delete(lineCD)\n        line.delete(lineXD)\n\n        color_harm = harmonic_bull_active ? color.new(#38bdf8, 20) : color.new(#f43f5e, 20)\n        lineXA := line.new(barX, pX, barA, pA, color=color_harm, width=2, style=line.style_dashed)\n        lineAB := line.new(barA, pA, barB, pB, color=color_harm, width=2)\n        lineBC := line.new(barB, pB, barC, pC, color=color_harm, width=2)\n        lineCD := line.new(barC, pC, barD, pD, color=color_harm, width=2)\n        lineXD := line.new(barX, pX, barD, pD, color=color_harm, width=1, style=line.style_dotted)\n\n        label.new(barD, pD, \"PRZ \" + detected_pattern, color=color.new(#1e1e24, 15), textcolor=color_harm, style=label.style_label_up, size=size.small)\n\n// -----------------------------------------------------------------------------\n// 6. PANEL HUD DE TELEMETRÍA CUÁNTICA EN VIVO (TRADINGVIEW PRO)\n// -----------------------------------------------------------------------------\nvar table hud_table = table.new(position.top_right, 2, 8, bgcolor=color.new(#0f172a, 15), border_color=color.new(#334155, 30), border_width=1)\n\nif barstate.islast and show_hud_table\n    table.cell(hud_table, 0, 0, \"AKIRA // TRADING LAB\", bgcolor=color.new(#1e1b4b, 10), text_color=color.new(#a5b4fc, 0), text_size=size.small)\n    table.cell(hud_table, 1, 0, \"PRO V5.0\", bgcolor=color.new(#1e1b4b, 10), text_color=color.new(#00f2fe, 0), text_size=size.small)\n\n    table.cell(hud_table, 0, 1, \"Mercado Activo\", text_color=color.new(#94a3b8, 0), text_size=size.small)\n    table.cell(hud_table, 1, 1, is_boom ? \"BOOM (Solo Compras)\" : (is_crash ? \"CRASH (Solo Ventas)\" : \"GENERAL\"),\n               text_color=is_boom ? #10b981 : (is_crash ? #ef4444 : #38bdf8), text_size=size.small)\n\n    table.cell(hud_table, 0, 2, \"Velas de Deriva\", text_color=color.new(#94a3b8, 0), text_size=size.small)\n    table.cell(hud_table, 1, 2, str.tostring(drift_count) + \" velas\", text_color=color.white, text_size=size.small)\n\n    table.cell(hud_table, 0, 3, \"Proximidad Spike\", text_color=color.new(#94a3b8, 0), text_size=size.small)\n    table.cell(hud_table, 1, 3, str.tostring(weibull_prob, \"#\") + \"%\",\n               text_color=weibull_prob >= 80 ? #10b981 : (weibull_prob >= 50 ? #f59e0b : #ef4444), text_size=size.small)\n\n    table.cell(hud_table, 0, 4, \"Micro-Consolidación\", text_color=color.new(#94a3b8, 0), text_size=size.small)\n    table.cell(hud_table, 1, 4, is_micro_consolidation ? \"COMPRESIÓN ✓\" : \"NORMAL\",\n               text_color=is_micro_consolidation ? #10b981 : #64748b, text_size=size.small)\n\n    table.cell(hud_table, 0, 5, \"Absorción/Mecha\", text_color=color.new(#94a3b8, 0), text_size=size.small)\n    table.cell(hud_table, 1, 5, has_rejection ? \"DETECTADA ✓\" : \"ESPERANDO\",\n               text_color=has_rejection ? #00f2fe : #64748b, text_size=size.small)\n\n    table.cell(hud_table, 0, 6, \"Patrón Armónico\", text_color=color.new(#94a3b8, 0), text_size=size.small)\n    table.cell(hud_table, 1, 6, detected_pattern, text_color=color.new(#c084fc, 0), text_size=size.small)\n\n    table.cell(hud_table, 0, 7, \"Cuenta Ref. / R:R\", text_color=color.new(#94a3b8, 0), text_size=size.small)\n    table.cell(hud_table, 1, 7, \"$50 USD (1:3.19R)\", text_color=color.new(#34d399, 0), text_size=size.small)\n\n// -----------------------------------------------------------------------------\n// 7. ALERTAS NATIVAS CONFIGURABLES PARA TRADINGVIEW PRO (WEBHOOK & PUSH)\n// -----------------------------------------------------------------------------\nalertcondition(confirmed_buy, title=\"⚡ Disparo Sniper Compra (Boom/General)\", message=\"QuantickAkira: GATILLO SNIPER COMPRA CONFIRMADO en {{ticker}} a {{close}}.\")\nalertcondition(confirmed_sell, title=\"⚡ Disparo Sniper Venta (Crash/General)\", message=\"QuantickAkira: GATILLO SNIPER VENTA CONFIRMADO en {{ticker}} a {{close}}.\")\nalertcondition(weibull_prob >= 90 and not is_spike, title=\"⚠️ Radar Spike Inminente (Proximidad >= 90%)\", message=\"QuantickAkira: Radar de Spike Inminente (>90%) en {{ticker}} tras {{close}}.\")\n\nif confirmed_buy\n    alert(\"⚡ QuantickAkira: Disparo Sniper Compra en \" + syminfo.ticker + \" a \" + str.tostring(close), alert.freq_once_per_bar)\nif confirmed_sell\n    alert(\"⚡ QuantickAkira: Disparo Sniper Venta en \" + syminfo.ticker + \" a \" + str.tostring(close), alert.freq_once_per_bar)\n";
+  window.QUANTICK_AKIRA_PINE_SCRIPT = String.raw`//@version=5
+indicator("Akira Trading Lab · Confirmed Sniper & Harmonic", shorttitle="Akira Sniper", overlay=true, max_lines_count=100, max_boxes_count=100, max_labels_count=100)
+
+groupMarket = "Mercado"
+marketMode = input.string("Auto", "Modo", options=["Auto", "Boom", "Crash", "General"], group=groupMarket)
+pipSize = input.float(0.01, "Tamaño de punto del símbolo", minval=0.000001, group=groupMarket)
+
+groupScan = "Filtros Sniper"
+enableSniper = input.bool(true, "Activar Sniper", group=groupScan)
+showLevels = input.bool(true, "Dibujar SL y objetivos", group=groupScan)
+emaZoneAtr = input.float(0.25, "Distancia máxima a EMA (ATR)", minval=0.05, maxval=1.0, group=groupScan)
+
+groupHarmonic = "Escáner armónico"
+enableHarmonics = input.bool(true, "Activar XABCD", group=groupHarmonic)
+pivotDepth = input.int(4, "Barras para confirmar pivote", minval=2, maxval=20, group=groupHarmonic)
+
+string ticker = str.upper(syminfo.ticker)
+bool isBoom = marketMode == "Boom" or (marketMode == "Auto" and (str.contains(ticker, "BOOM") or str.contains(ticker, "B1000") or str.contains(ticker, "B500") or str.contains(ticker, "B300")))
+bool isCrash = marketMode == "Crash" or (marketMode == "Auto" and (str.contains(ticker, "CRASH") or str.contains(ticker, "C1000") or str.contains(ticker, "C500") or str.contains(ticker, "C300")))
+bool isGeneral = not isBoom and not isCrash
+
+float atr = ta.atr(14)
+float ema20 = ta.ema(close, 20)
+float ema50 = ta.ema(close, 50)
+float rsi14 = ta.rsi(close, 14)
+float candleRange = math.max(high - low, syminfo.mintick)
+float lowerWick = math.min(open, close) - low
+float upperWick = high - math.max(open, close)
+bool bullishRejection = close > open and lowerWick / candleRange >= 0.35
+bool bearishRejection = close < open and upperWick / candleRange >= 0.35
+bool nearEmaZone = low <= ema20 + atr * emaZoneAtr and high >= ema20 - atr * emaZoneAtr or low <= ema50 and high >= ema50
+bool trendBull = bar_index > 50 and ema20 > ema50 and close > ema20 and rsi14 >= 50
+bool trendBear = bar_index > 50 and ema20 < ema50 and close < ema20 and rsi14 <= 50
+
+// Count observed spike intervals from this symbol's actual confirmed bars.
+var int lastSpikeBar = na
+var int[] spikeIntervals = array.new_int()
+float spikeThreshold = math.max(pipSize * 20.0, atr * 2.5)
+bool observedSpike = barstate.isconfirmed and ((isBoom and close > open and close - open >= spikeThreshold) or (isCrash and close < open and open - close >= spikeThreshold))
+if observedSpike
+    if not na(lastSpikeBar)
+        array.push(spikeIntervals, bar_index - lastSpikeBar)
+        if array.size(spikeIntervals) > 100
+            array.shift(spikeIntervals)
+    lastSpikeBar := bar_index
+int driftCount = na(lastSpikeBar) ? 0 : bar_index - lastSpikeBar
+int intervalCount = array.size(spikeIntervals)
+float medianInterval = na
+float upperQuartileInterval = na
+if intervalCount >= 3
+    int[] sortedIntervals = array.copy(spikeIntervals)
+    array.sort(sortedIntervals, order.ascending)
+    medianInterval := array.get(sortedIntervals, int(math.floor((intervalCount - 1) * 0.5)))
+    upperQuartileInterval := array.get(sortedIntervals, int(math.floor((intervalCount - 1) * 0.75)))
+float cycleThreshold = na(upperQuartileInterval) ? na : math.max(1.0, math.floor(upperQuartileInterval * 0.75))
+float recentRange = ta.highest(high, 3) - ta.lowest(low, 3)
+float medianBarRange = ta.percentile_nearest_rank(high - low, 30, 50)
+bool compressed = not na(medianBarRange) and recentRange < medianBarRange * 2.0
+
+// Confirmed high/low pivots. Consecutive pivots of one type are reduced to the more extreme point.
+var float[] pivotPrices = array.new_float()
+var int[] pivotBars = array.new_int()
+var int[] pivotKinds = array.new_int()
+float pivotHigh = ta.pivothigh(high, pivotDepth, pivotDepth)
+float pivotLow = ta.pivotlow(low, pivotDepth, pivotDepth)
+if barstate.isconfirmed and enableHarmonics
+    if not na(pivotHigh) and na(pivotLow)
+        int n = array.size(pivotKinds)
+        int idx = bar_index - pivotDepth
+        if n > 0 and array.get(pivotKinds, n - 1) == 1
+            if pivotHigh > array.get(pivotPrices, n - 1)
+                array.set(pivotPrices, n - 1, pivotHigh)
+                array.set(pivotBars, n - 1, idx)
+        else
+            array.push(pivotPrices, pivotHigh)
+            array.push(pivotBars, idx)
+            array.push(pivotKinds, 1)
+    if not na(pivotLow) and na(pivotHigh)
+        int n = array.size(pivotKinds)
+        int idx = bar_index - pivotDepth
+        if n > 0 and array.get(pivotKinds, n - 1) == -1
+            if pivotLow < array.get(pivotPrices, n - 1)
+                array.set(pivotPrices, n - 1, pivotLow)
+                array.set(pivotBars, n - 1, idx)
+        else
+            array.push(pivotPrices, pivotLow)
+            array.push(pivotBars, idx)
+            array.push(pivotKinds, -1)
+    while array.size(pivotKinds) > 5
+        array.shift(pivotPrices)
+        array.shift(pivotBars)
+        array.shift(pivotKinds)
+
+bool enoughPivots = array.size(pivotPrices) == 5
+float x = enoughPivots ? array.get(pivotPrices, 0) : na
+float a = enoughPivots ? array.get(pivotPrices, 1) : na
+float b = enoughPivots ? array.get(pivotPrices, 2) : na
+float c = enoughPivots ? array.get(pivotPrices, 3) : na
+float d = enoughPivots ? array.get(pivotPrices, 4) : na
+int xKind = enoughPivots ? array.get(pivotKinds, 0) : 0
+int aKind = enoughPivots ? array.get(pivotKinds, 1) : 0
+int bKind = enoughPivots ? array.get(pivotKinds, 2) : 0
+int cKind = enoughPivots ? array.get(pivotKinds, 3) : 0
+int dKind = enoughPivots ? array.get(pivotKinds, 4) : 0
+int dBar = enoughPivots ? array.get(pivotBars, 4) : na
+float xa = enoughPivots ? math.abs(a - x) : na
+float ab = enoughPivots ? math.abs(b - a) : na
+float bc = enoughPivots ? math.abs(c - b) : na
+float cd = enoughPivots ? math.abs(d - c) : na
+float ratioB = enoughPivots and xa > 0 ? ab / xa : na
+float ratioBC = enoughPivots and ab > 0 ? bc / ab : na
+float ratioCD = enoughPivots and bc > 0 ? cd / bc : na
+float ratioAD = enoughPivots and xa > 0 ? math.abs(a - d) / xa : na
+float ratioCDAB = enoughPivots and ab > 0 ? cd / ab : na
+bool alternating = enoughPivots and xKind != aKind and aKind != bKind and bKind != cKind and cKind != dKind
+bool bullishShape = alternating and xKind == -1 and dKind == -1 and x < b and b < a and b < c and c < a and d < c and (ratioAD < 1 ? d > x : d < x)
+bool bearishShape = alternating and xKind == 1 and dKind == 1 and x > b and b > a and b > c and c > a and d > c and (ratioAD < 1 ? d < x : d > x)
+
+bool bcRetracementValid = ratioBC >= 0.382 and ratioBC <= 0.886
+bool gartley = enoughPivots and bcRetracementValid and ratioB >= 0.58 and ratioB <= 0.66 and math.abs(ratioAD - 0.786) <= 0.045 and ratioCD >= 1.13 and ratioCD <= 1.618 and ratioCDAB >= 0.90 and ratioCDAB <= 1.30
+bool bat = enoughPivots and bcRetracementValid and ratioB >= 0.382 and ratioB <= 0.618 and math.abs(ratioAD - 0.886) <= 0.045 and ratioCD >= 1.618 and ratioCD <= 2.618 and ratioCDAB >= 1.00 and ratioCDAB <= 1.618
+bool butterfly = enoughPivots and bcRetracementValid and ratioB >= 0.74 and ratioB <= 0.82 and math.abs(ratioAD - 1.272) <= 0.055 and ratioCD >= 1.618 and ratioCD <= 2.618 and ratioCDAB >= 1.00 and ratioCDAB <= 1.618
+bool crab = enoughPivots and bcRetracementValid and ratioB >= 0.382 and ratioB <= 0.618 and math.abs(ratioAD - 1.618) <= 0.055 and ratioCD >= 2.24 and ratioCD <= 3.618 and ratioCDAB >= 1.27 and ratioCDAB <= 2.00
+bool patternValid = enableHarmonics and (gartley or bat or butterfly or crab) and (bullishShape or bearishShape) and not na(dBar) and bar_index - dBar <= pivotDepth * 2
+bool harmonicBull = patternValid and bullishShape
+bool harmonicBear = patternValid and bearishShape
+float dRatio = gartley ? 0.786 : bat ? 0.886 : butterfly ? 1.272 : crab ? 1.618 : na
+float bcProjectionRatio = gartley ? 1.374 : (bat or butterfly) ? 2.118 : crab ? 2.929 : na
+float abcdProjectionRatio = gartley ? 1.0 : crab ? 1.618 : 1.27
+float xaProjection = patternValid ? (harmonicBull ? a - xa * dRatio : a + xa * dRatio) : na
+float bcProjection = patternValid ? (harmonicBull ? c - bc * bcProjectionRatio : c + bc * bcProjectionRatio) : na
+float abcdProjection = patternValid ? (harmonicBull ? c - ab * abcdProjectionRatio : c + ab * abcdProjectionRatio) : na
+float projectionSpread = patternValid ? math.max(xaProjection, math.max(bcProjection, abcdProjection)) - math.min(xaProjection, math.min(bcProjection, abcdProjection)) : na
+bool projectionsAgree = patternValid and projectionSpread <= math.max(atr * 0.75, xa * 0.05)
+float przTolerance = math.max(atr * 0.15, nz(xa, 0.0) * 0.006)
+float przLow = projectionsAgree ? math.min(xaProjection, math.min(bcProjection, abcdProjection)) - przTolerance : na
+float przHigh = projectionsAgree ? math.max(xaProjection, math.max(bcProjection, abcdProjection)) + przTolerance : na
+bool harmonicAtPrz = projectionsAgree and close >= przLow and close <= przHigh
+string patternName = gartley ? "Gartley · 0.786" : bat ? "Bat · 0.886" : butterfly ? "Butterfly · 1.272" : crab ? "Crab · 1.618" : "Sin patrón validado"
+
+bool bullZone = nearEmaZone or (harmonicAtPrz and harmonicBull)
+bool bearZone = nearEmaZone or (harmonicAtPrz and harmonicBear)
+bool enoughCycleHistory = intervalCount >= 3 and not na(cycleThreshold)
+bool spikeSetup = enoughCycleHistory and driftCount >= cycleThreshold
+bool sniperBuy = isBoom ? (spikeSetup and bullishRejection and bullZone) : (isGeneral and trendBull and bullishRejection and bullZone)
+bool sniperSell = isCrash ? (spikeSetup and bearishRejection and bearZone) : (isGeneral and trendBear and bearishRejection and bearZone)
+bool confirmedBuy = barstate.isconfirmed and enableSniper and sniperBuy
+bool confirmedSell = barstate.isconfirmed and enableSniper and sniperSell
+
+plot(ema20, "EMA 20", color=color.new(color.aqua, 15))
+plot(ema50, "EMA 50", color=color.new(color.purple, 5), linewidth=2)
+plot(patternValid and projectionsAgree ? przLow : na, "PRZ inferior confirmada", color=color.new(color.yellow, 20), style=plot.style_linebr)
+plot(patternValid and projectionsAgree ? przHigh : na, "PRZ superior confirmada", color=color.new(color.yellow, 20), style=plot.style_linebr)
+plotshape(confirmedBuy, title="Sniper BUY confirmado", style=shape.labelup, location=location.belowbar, color=color.new(color.green, 0), text="✓ BUY", textcolor=color.white, size=size.tiny)
+plotshape(confirmedSell, title="Sniper SELL confirmado", style=shape.labeldown, location=location.abovebar, color=color.new(color.red, 0), text="✓ SELL", textcolor=color.white, size=size.tiny)
+
+float stopDistance = math.max(atr * 0.75, confirmedBuy ? close - (ta.lowest(low, 5) - atr * 0.2) : confirmedSell ? (ta.highest(high, 5) + atr * 0.2) - close : atr * 0.75)
+if (confirmedBuy or confirmedSell) and showLevels
+    bool isLong = confirmedBuy
+    float entry = close
+    float stop = isLong ? entry - stopDistance : entry + stopDistance
+    float target = isLong ? entry + stopDistance * 3 : entry - stopDistance * 3
+    box.new(left=bar_index, top=isLong ? target : entry, right=bar_index + 12, bottom=isLong ? entry : target, bgcolor=color.new(color.green, 88), border_color=color.new(color.green, 30))
+    box.new(left=bar_index, top=isLong ? entry : stop, right=bar_index + 12, bottom=isLong ? stop : entry, bgcolor=color.new(color.red, 88), border_color=color.new(color.red, 30))
+    label.new(bar_index, entry, (isLong ? "BUY" : "SELL") + " · SL " + str.tostring(stop, format.mintick) + " · TP 3R", style=isLong ? label.style_label_up : label.style_label_down, color=isLong ? color.green : color.red, textcolor=color.white)
+
+var table hud = table.new(position.top_right, 2, 7, bgcolor=color.new(color.black, 15))
+if barstate.islast
+    table.cell(hud, 0, 0, "AKIRA · ESCÁNER", text_color=color.white)
+    table.cell(hud, 1, 0, syminfo.ticker + " · " + timeframe.period, text_color=color.aqua)
+    table.cell(hud, 0, 1, "Feed", text_color=color.gray)
+    table.cell(hud, 1, 1, barstate.isconfirmed ? "Cierre confirmado" : "Vela en formación", text_color=barstate.isconfirmed ? color.green : color.orange)
+    table.cell(hud, 0, 2, "Tendencia", text_color=color.gray)
+    table.cell(hud, 1, 2, trendBull ? "Alcista" : trendBear ? "Bajista" : "Sin filtro", text_color=trendBull ? color.green : trendBear ? color.red : color.gray)
+    table.cell(hud, 0, 3, "Deriva / ciclo mediano", text_color=color.gray)
+    table.cell(hud, 1, 3, enoughCycleHistory ? str.tostring(driftCount) + " / " + str.tostring(medianInterval, "#.0") + " velas" : "Histórico de spikes insuficiente", text_color=color.white)
+    table.cell(hud, 0, 4, "Ciclos observados", text_color=color.gray)
+    table.cell(hud, 1, 4, str.tostring(intervalCount), text_color=color.white)
+    table.cell(hud, 0, 5, "Armónico", text_color=color.gray)
+    table.cell(hud, 1, 5, harmonicAtPrz ? patternName + " · en PRZ" : patternValid ? patternName + " · fuera PRZ" : patternName, text_color=color.aqua)
+    table.cell(hud, 0, 6, "Señal", text_color=color.gray)
+    table.cell(hud, 1, 6, confirmedBuy ? "BUY" : confirmedSell ? "SELL" : "Esperando filtros", text_color=confirmedBuy ? color.green : confirmedSell ? color.red : color.gray)
+
+alertcondition(confirmedBuy, title="Akira Sniper BUY", message="Akira: BUY confirmado al cierre en {{ticker}} · {{interval}} · {{close}}")
+alertcondition(confirmedSell, title="Akira Sniper SELL", message="Akira: SELL confirmado al cierre en {{ticker}} · {{interval}} · {{close}}")
+`;
 })();
