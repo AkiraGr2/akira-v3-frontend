@@ -397,7 +397,7 @@
         const bulkRes = await request("/api/v8/learning/consolidate-all", { method: "POST" });
         if(bulkRes.ok && bulkRes.data && bulkRes.data.ok){
           const d = bulkRes.data;
-          alert(¡Auto-consolidación completada! Se integraron  de  conocimientos directamente en el Cerebro.);
+          alert("¡Auto-consolidación completada! Los conocimientos consolidados se integraron directamente en el Cerebro.");
           await api.load();
           window.dispatchEvent(new CustomEvent("akira:brain-updated"));
           return;
