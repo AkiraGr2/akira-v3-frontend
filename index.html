@@ -684,7 +684,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
   <div id="membraneSection" class="section">
     <div class="section-header">
       <h2>🧠 Cerebro Akira</h2>
-      <p>Red neuronal 2D de Akira. Sin sesión se muestra la vista pública de arquitectura; con sesión se abre la red privada de conocimiento.</p>
+      <p>Red neuronal 2D de Akira. El servidor determina el conocimiento que puede consultar tu cuenta.</p>
     </div>
     <div class="brain-shell">
       <div class="brain-toolbar ak-brain-cyber-toolbar">
@@ -734,6 +734,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           </div>
           <div id="brainContextVisual" class="brain-context-visual" aria-label="Retrato visual del nodo"></div>
           <div id="brainContextMeta" class="brain-context-meta"></div>
+          <button type="button" class="ak-brain-pill-btn" title="Mostrar vecinos directos" onclick="window.akiraBrainExploreDepth && window.akiraBrainExploreDepth(1)">Ver conexiones directas</button>
           <div class="brain-context-section">
             <div class="brain-context-label">CONEXIONES</div>
             <div id="brainContextRelations" class="brain-context-relations"></div>
