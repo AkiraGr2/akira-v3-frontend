@@ -432,11 +432,11 @@ jobs:
               throw new Error("Elastic drag did not affect a real graph neighbor");
             }
 
-            await page.evaluate(() => window.__akiraBrain2dResumePhysics && window.__akiraBrain2dResumePhysics());
-
-            const corePoint = duringDrag.core;
             await page.mouse.up();
-            await page.mouse.click(stageBox.left + corePoint.renderedX, stageBox.top + corePoint.renderedY);
+            await page.evaluate(() => window.__akiraBrain2dPausePhysics && window.__akiraBrain2dPausePhysics());
+            const corePoint = await page.evaluate(() => window.__akiraBrain2dDebug().core);
+            const clickBox = await page.$eval("#membraneCy", el => { const r=el.getBoundingClientRect(); return {left:r.left,top:r.top}; });
+            await page.mouse.click(clickBox.left + corePoint.renderedX, clickBox.top + corePoint.renderedY);
 
             await page.waitForFunction(() => {
               const panel = document.getElementById("brainContext");
