@@ -1565,6 +1565,7 @@ function akiraSetEntryAccess(allowed,message,state){
   if(status && message){status.textContent=message;status.dataset.state=state||"";}
 }
 window.akiraSetEntryAccess=akiraSetEntryAccess;
+akiraSetEntryAccess(false,"La aplicación permanece bloqueada hasta verificar la cuenta.");
 function akiraClearSession(reason){
   try{
     ["akira_session_token","akira_session_exp","akira_user_id","akira_user_email","akira_is_owner"].forEach(k=>localStorage.removeItem(k));
