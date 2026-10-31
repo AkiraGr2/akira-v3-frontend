@@ -105,7 +105,7 @@
             </div>
           </div>
           <div class="ak-lab-header-actions">
-            <span class="ak-lab-caps-badge">60/60 VERIFICADAS</span>
+            <span class="ak-lab-caps-badge"><span data-akira-capability-summary>Sin verificar</span></span>
             <button class="ak-lab-close-btn" onclick="window.akiraCloseSoftwareLab()" title="Cerrar Software Lab">✕</button>
           </div>
         </div>
@@ -828,7 +828,7 @@ def test_zero_cost_policy():
       case "whoami":
         return "Director Jhon Grimm · Propietario Verificado";
       case "version":
-        return "Akira Enterprise v4.0 · 60 Capacidades Verificadas";
+        return "Akira · " + (window.akiraCapabilitySummary ? window.akiraCapabilitySummary() : "Capacidades: sin verificar");
       case "clear":
         const box = document.getElementById("akLabShellHistory");
         if(box) box.innerHTML = "";

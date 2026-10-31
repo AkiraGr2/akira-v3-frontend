@@ -68,7 +68,7 @@
 <meta http-equiv="Expires" content="0">
 <link rel="manifest" href="./manifest.json?v=akira-cache-v20261009-f15-hive-office-v1">
 <meta name="theme-color" content="#6366f1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://akira-empresa.onrender.com https://akiragr2.github.io https://accounts.google.com https://*.googleapis.com https://*.gstatic.com https://unpkg.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://accounts.google.com https://unpkg.com https://cdn.jsdelivr.net https://*.gstatic.com https://s3.tradingview.com https://*.tradingview.com https://*.tradingview-widget.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.tradingview.com; img-src 'self' data: https: blob:; connect-src 'self' https://akira-empresa.onrender.com https://accounts.google.com https://*.googleapis.com https://api.duckduckgo.com https://*.wikipedia.org https://api.groq.com https://api.tavily.com https://r.jina.ai https://image.pollinations.ai https://wttr.in https://static.poly.pizza https://cdn.jsdelivr.net https://raw.githubusercontent.com wss://api.derivws.com wss://*.derivws.com https://*.tradingview.com https://*.tradingview-widget.com; frame-src https://accounts.google.com https://*.tradingview.com https://*.tradingview-widget.com https://smartcharts.deriv.com;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://akira-empresa.onrender.com https://akiragr2.github.io https://accounts.google.com https://*.googleapis.com https://*.gstatic.com https://unpkg.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://accounts.google.com https://unpkg.com https://cdn.jsdelivr.net https://*.gstatic.com https://s3.tradingview.com https://*.tradingview.com https://*.tradingview-widget.com; style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com https://*.tradingview.com; img-src 'self' data: https: blob:; connect-src 'self' https://akira-empresa.onrender.com https://accounts.google.com https://*.googleapis.com https://api.duckduckgo.com https://*.wikipedia.org https://api.groq.com https://api.tavily.com https://r.jina.ai https://image.pollinations.ai https://wttr.in https://static.poly.pizza https://cdn.jsdelivr.net https://raw.githubusercontent.com wss://api.derivws.com wss://*.derivws.com https://*.tradingview.com https://*.tradingview-widget.com; frame-src https://accounts.google.com https://*.tradingview.com https://*.tradingview-widget.com https://smartcharts.deriv.com;">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -405,9 +405,33 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 .mission-note{font-size:10px;color:var(--muted);line-height:1.5;margin-top:6px}.mission-mobile-back{display:none}.mission-plan{border:3px solid var(--border);background:#0d0d12;padding:10px;margin:12px 0}.mission-plan-steps{display:flex;flex-direction:column;gap:8px}.mission-plan-step{border:3px solid var(--border);background:#15151c;padding:9px}.mission-plan-step-head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:10px}.mission-plan-step-head span{color:var(--muted)}.mission-plan-task{font-size:12px;line-height:1.5;margin-top:6px}.mission-plan-dependency{font-size:10px;color:var(--sky);margin-top:6px;font-family:"Press Start 2P",monospace}
 @media(max-width:900px){.mission-grid{grid-template-columns:1fr}.mission-kv{grid-template-columns:110px 1fr}}
 @media(max-width:768px){.sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);width:280px;z-index:30}.sidebar.open{transform:translateX(0)}.hamburger{display:flex}.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:15}.overlay.open{display:block}.section-tools{max-height:50%}.mission-shell{padding:10px;overflow:hidden}.mission-input,.mission-select{width:100%;min-width:0}.mission-toolbar,.mission-create{align-items:stretch}.mission-toolbar .pixel-btn,.mission-create .pixel-btn{width:100%}.mission-grid{min-height:0;grid-template-columns:1fr;grid-template-rows:minmax(220px,38dvh) minmax(0,1fr);height:100%;overflow:hidden}.mission-grid .mission-pane{min-height:0}.mission-list{min-height:0;height:100%;overflow-y:auto}.mission-detail{min-height:0;height:100%;overflow-y:auto}.mission-grid:not(.mobile-detail-open) .mission-pane:nth-child(2){display:none}.mission-grid.mobile-detail-open{grid-template-rows:minmax(0,1fr)}.mission-grid.mobile-detail-open .mission-pane:first-child{display:none}.mission-mobile-back{display:block;width:100%;margin-bottom:10px}.mission-plan-step-head{flex-direction:column;align-items:flex-start}}
+  body.akira-auth-locked{overflow:hidden!important}
+  #akiraAuthGate{position:fixed;inset:0;z-index:2147483647;display:none;align-items:center;justify-content:center;padding:24px;background:radial-gradient(ellipse at 50% 20%,#19233b 0%,#0a0d17 58%,#05060a 100%);color:#f8fafc;font-family:'Outfit',sans-serif}
+  body.akira-auth-locked #akiraAuthGate{display:flex}
+  body.akira-auth-locked>:not(#akiraAuthGate):not(script):not(style){visibility:hidden!important;pointer-events:none!important}
+  .akira-auth-card{width:min(100%,440px);padding:34px 28px;border:1px solid rgba(148,163,184,.25);border-radius:24px;background:rgba(12,17,30,.96);box-shadow:0 28px 100px rgba(0,0,0,.55);text-align:center}
+  .akira-auth-mark{display:grid;place-items:center;width:58px;height:58px;margin:0 auto 18px;border:1px solid rgba(139,92,246,.55);border-radius:19px;background:rgba(99,102,241,.15);color:#c4b5fd;font-size:30px}
+  .akira-auth-eyebrow{margin:0 0 8px;color:#a5b4fc;font-size:11px;font-weight:800;letter-spacing:.2em}
+  .akira-auth-card h1{margin:0;font-size:clamp(24px,6vw,32px);letter-spacing:-.03em}
+  .akira-auth-copy{margin:14px auto 24px;max-width:340px;color:#a8b1c5;font-size:14px;line-height:1.6}
+  #akiraAuthGate .g_id_signin{display:flex;justify-content:center;min-height:44px}
+  #akiraAuthStatus{min-height:20px;margin:18px 0 0;color:#94a3b8;font-size:12px;line-height:1.5}
+  #akiraAuthStatus[data-state="error"]{color:#fca5a5}
+  #akiraAuthStatus[data-state="checking"]{color:#c4b5fd}
 </style>
   <link rel="stylesheet" href="./css/akira-cognitive-system-v1.css?v=akira-cognitive-v1"></head>
-<body class="ak-reference-mode">
+<body class="ak-reference-mode akira-auth-locked">
+<div id="akiraAuthGate" role="dialog" aria-modal="true" aria-labelledby="akiraAuthTitle">
+  <div class="akira-auth-card">
+    <div class="akira-auth-mark" aria-hidden="true">✦</div>
+    <p class="akira-auth-eyebrow">ACCESO PRIVADO</p>
+    <h1 id="akiraAuthTitle">Inicia sesión en Akira</h1>
+    <p class="akira-auth-copy">Usa una cuenta Google autorizada para continuar. Akira comprobará el permiso con el servidor antes de abrir la aplicación.</p>
+    <div id="g_id_onload" data-client_id="148150327312-7k5g3go06tat9gv61c8v0rbbedcusoqn.apps.googleusercontent.com" data-context="signin" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+    <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
+    <p id="akiraAuthStatus" role="status" aria-live="polite">La aplicación permanece bloqueada hasta verificar la cuenta.</p>
+  </div>
+</div>
 <header class="ak-mobile-reference-header" aria-label="Cabecera móvil">
   <button class="ak-mobile-back" type="button" aria-label="Abrir menú" onclick="toggleSidebar()">☰</button>
   <div class="ak-mobile-title">AKIRA</div>
@@ -463,7 +487,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 
     <div class="ak-nav-category-title">Supervisión &amp; Sistema</div>
     <button class="nav-btn" id="btn-levels" type="button" onclick="showSection('levels')">
-      <span class="nav-btn-label">📊 Capacidades</span><small class="nav-btn-desc">60/60 Verificadas</small>
+      <span class="nav-btn-label">📊 Capacidades</span><small class="nav-btn-desc"><span data-akira-capability-summary>Sin verificar</span></small>
     </button>
     <button class="nav-btn" id="btn-admin" type="button" onclick="showSection('admin')">
       <span class="nav-btn-label">⚙️ Panel de Control</span><small class="nav-btn-desc">Supervisión y estado</small>
@@ -477,7 +501,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
       <span class="ak-live-dot"></span>
       <span>Colmena: Activa &amp; Persistente</span>
     </div>
-    <div class="ak-telemetry-sub">60/60 Verificadas · Render 0$</div>
+    <div class="ak-telemetry-sub"><span data-akira-capability-summary>Sin verificar</span> · Render 0$</div>
   </div>
   <div class="history" id="historyList"></div>
 </div>
@@ -660,7 +684,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
   <div id="membraneSection" class="section">
     <div class="section-header">
       <h2>🧠 Cerebro Akira</h2>
-      <p>Red neuronal 2D de Akira. Sin sesión se muestra la vista pública de arquitectura; con sesión se abre la red privada de conocimiento.</p>
+      <p>Red neuronal 2D de Akira. El servidor determina el conocimiento que puede consultar tu cuenta.</p>
     </div>
     <div class="brain-shell">
       <div class="brain-toolbar ak-brain-cyber-toolbar">
@@ -710,6 +734,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
           </div>
           <div id="brainContextVisual" class="brain-context-visual" aria-label="Retrato visual del nodo"></div>
           <div id="brainContextMeta" class="brain-context-meta"></div>
+          <button type="button" class="ak-brain-pill-btn" title="Mostrar vecinos directos" onclick="window.akiraBrainExploreDepth && window.akiraBrainExploreDepth(1)">Ver conexiones directas</button>
           <div class="brain-context-section">
             <div class="brain-context-label">CONEXIONES</div>
             <div id="brainContextRelations" class="brain-context-relations"></div>
@@ -847,8 +872,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
 
   <div id="levelsSection" class="section">
     <div class="section-header">
-      <h2>📊 Niveles & Capacidades del Sistema (60/60 Verificadas · Nivel 4 Proactivo & Suite de Ingeniería)</h2>
-      <p>Telemetría en tiempo real de las <strong>60 capacidades cognitivas, herramientas y subsistemas autónomos verificados</strong> de Akira (20 Núcleo Canónico + 4 Super-Estructuras + 17 Capacidades Maestras + 4 Suites Ejecutivas & Móviles + Motor Proactivo Nivel 4 J.A.R.V.I.S. + 10 Capacidades de Ingeniería y Diseño de Software — 100% Verificadas).</p>
+      <h2>📊 Capacidades de Akira · <span data-akira-capability-summary>Sin verificar</span></h2>
+      <p>El listado y sus estados provienen del registro del servidor. Una capacidad registrada puede estar verificada, parcial o pendiente.</p>
     </div>
     <div class="ak-levels-matrix-deck">
       <div id="levelsList" class="ak-levels-hud-grid"></div>
@@ -947,9 +972,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
         </div>
 
         <div style="margin-top: 14px;">
-          <div id="g_id_onload" data-client_id="148150327312-7k5g3go06tat9gv61c8v0rbbedcusoqn.apps.googleusercontent.com" data-context="signin" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
-          <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
           <div id="userInfo" style="margin-top:14px;font-size:13px;display:none;background:rgba(14,14,18,0.9);border:1px solid rgba(0,242,254,0.25);border-radius:10px;padding:12px;font-family:'Outfit',sans-serif;color:#e2e8f0;"></div>
+          <button type="button" class="ak-vault-action" onclick="akiraLogout()" style="margin-top:12px">Cerrar sesión de Akira</button>
         </div>
       </div>
 
@@ -1530,6 +1554,19 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
   </div>
 <script>
 if(!localStorage.getItem("akira_backend_url")) localStorage.setItem("akira_backend_url", "https://akira-empresa.onrender.com");
+function akiraSetEntryAccess(allowed,message,state){
+  const gate=document.getElementById("akiraAuthGate");
+  const status=document.getElementById("akiraAuthStatus");
+  document.body.classList.toggle("akira-auth-locked",!allowed);
+  Array.from(document.body.children).forEach(el=>{
+    if(el===gate || /^(SCRIPT|STYLE|LINK|TEMPLATE)$/.test(el.tagName)) return;
+    el.inert=!allowed;
+    if(allowed) el.removeAttribute("aria-hidden"); else el.setAttribute("aria-hidden","true");
+  });
+  if(status && message){status.textContent=message;status.dataset.state=state||"";}
+}
+window.akiraSetEntryAccess=akiraSetEntryAccess;
+akiraSetEntryAccess(false,"La aplicación permanece bloqueada hasta verificar la cuenta.");
 function akiraClearSession(reason){
   try{
     ["akira_session_token","akira_session_exp","akira_user_id","akira_user_email","akira_is_owner"].forEach(k=>localStorage.removeItem(k));
@@ -1538,16 +1575,23 @@ function akiraClearSession(reason){
   if(i){i.style.display="none";i.textContent="";}
   const av=document.getElementById("userAvatar");
   if(av) av.textContent="";
+  const sd=document.getElementById("accountSessionDot");
+  const st=document.getElementById("accountSessionText");
+  if(sd) sd.style.background="#6b7280";
+  if(st){st.textContent="Sesión no verificada";st.style.color="";}
   const adminLogin=document.getElementById("adminLogin");
   const adminPanel=document.getElementById("adminPanel");
   if(adminPanel) adminPanel.style.display="none";
   if(adminLogin) adminLogin.style.display="block";
-  window.akiraSessionState={authenticated:false,is_owner:false,reason:String(reason||"session_cleared")};
+  window.akiraSessionState={authenticated:false,is_authorized:false,is_owner:false,reason:String(reason||"session_cleared")};
+  akiraSetEntryAccess(false,"Inicia sesión con una cuenta Google autorizada para entrar.");
   try{window.dispatchEvent(new CustomEvent("akira:session-invalid",{detail:window.akiraSessionState}));}catch(e){}
 }
+function akiraLogout(){akiraClearSession("user_logout");}
+window.akiraLogout=akiraLogout;
 
 function akiraAuthErrorText(status){
-  if(Number(status)===401) return "Sesión no válida o expirada. Entra a Cuenta e inicia sesión.";
+  if(Number(status)===401) return "Tu sesión expiró. Inicia sesión de nuevo en la pantalla de acceso de Akira.";
   if(Number(status)===403) return "No autorizado (requiere propietario).";
   return "";
 }
@@ -1573,7 +1617,7 @@ let akiraSessionCheckToken="";
 let akiraSessionCheckAt=0;
 
 function _akiraApplyVerifiedSession(d,status){
-  if(!d || d.authenticated!==true) return;
+  if(!d || d.authenticated!==true || (d.is_authorized!==true && d.is_owner!==true)) return;
   localStorage.setItem("akira_user_email",String(d.email||""));
   window.akiraSessionState=d;
   const result=Object.assign({ok:true,status:status||200},d);
@@ -1610,11 +1654,18 @@ async function akiraVerifySession(){
         akiraHandleAuthFailure(401);
         return {ok:false,status:401,authenticated:false,data:d};
       }
-      if(r.ok && d && d.authenticated===true){
+      if(r.ok && d && d.authenticated===true && (d.is_authorized===true || d.is_owner===true)){
         return _akiraApplyVerifiedSession(d,r.status);
+      }
+      if(r.status===403 || (r.ok && d && d.authenticated===true)){
+        akiraClearSession("not_authorized");
+        akiraSetEntryAccess(false,"Esta cuenta no está autorizada para entrar a Akira.","error");
+      }else if(!r.ok){
+        akiraSetEntryAccess(false,"No se pudo validar tu acceso con el servidor. Akira seguirá bloqueada; vuelve a intentar iniciar sesión.","error");
       }
       return {ok:false,status:r.status,authenticated:Boolean(d&&d.authenticated),data:d};
     }catch(e){
+      akiraSetEntryAccess(false,"No se pudo conectar con Akira para validar el acceso. La aplicación seguirá bloqueada.","error");
       return {ok:false,status:0,authenticated:false,error:String((e&&e.message)||e)};
     }finally{
       setTimeout(()=>{
@@ -1629,8 +1680,36 @@ window.akiraHandleAuthFailure=akiraHandleAuthFailure;
 window.akiraAuthErrorText=akiraAuthErrorText;
 window.akiraAuthHeaders=akiraAuthHeaders;
 window.akiraVerifySession=akiraVerifySession;
+document.addEventListener("DOMContentLoaded",()=>{
+  akiraSetEntryAccess(false,"La aplicación permanece bloqueada hasta verificar la cuenta.");
+  const token=localStorage.getItem("akira_session_token");
+  if(!token) return;
+  akiraSetEntryAccess(false,"Comprobando tu sesión guardada con el servidor…","checking");
+  akiraVerifySession().then(session=>{
+    if(session && session.authenticated===true && (session.is_authorized===true || session.is_owner===true)){
+      const info=document.getElementById("userInfo");
+      if(info){info.style.display="block";info.textContent="✅ "+String(session.email||"")+(session.is_owner?" · sesión verificada (propietario)":" · sesión verificada");}
+      akiraSetEntryAccess(true,"Sesión verificada.");
+    }
+  }).catch(()=>{});
+});
+setInterval(()=>{
+  const token=localStorage.getItem("akira_session_token");
+  if(!token) return;
+  const exp=parseInt(localStorage.getItem("akira_session_exp")||"0",10);
+  if(exp<=Math.floor(Date.now()/1000)){akiraClearSession("expired_local_session");return;}
+  if(window.akiraSessionState && window.akiraSessionState.authenticated===true){
+    akiraVerifySession().then(session=>{
+      if(!session || session.authenticated!==true || (session.is_authorized!==true && session.is_owner!==true)) akiraClearSession("server_access_rejected");
+    }).catch(()=>akiraClearSession("session_check_failed"));
+  }
+},60000);
 
 function showSection(name){
+  if(!window.akiraSessionState || window.akiraSessionState.authenticated!==true || (window.akiraSessionState.is_authorized!==true && window.akiraSessionState.is_owner!==true)){
+    akiraSetEntryAccess(false,"Inicia sesión con una cuenta Google autorizada para entrar.");
+    return false;
+  }
   if(name === 'voice'){
     if(typeof toggleAkiraLiveVoice === 'function') toggleAkiraLiveVoice();
     return;
@@ -1795,14 +1874,19 @@ function toggleBrainMobileView(force){
 function newChat(){if(confirm("¿Nuevo chat?")){document.getElementById('msgsInner').innerHTML=`<div class="msg-row akira"><div class="avatar"></div><div class="bubble">Nuevo chat Akira.</div></div>`;}}
 
 async function handleCredentialResponse(r){
+  akiraClearSession("new_google_sign_in");
+  akiraSetEntryAccess(false,"Verificando la cuenta y sus permisos con el servidor…","checking");
   try{
     const c=r.credential;
     const b=localStorage.getItem("akira_backend_url");
     const re=await fetch(b+"/api/auth/google",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({credential:c})});
     const d=await re.json();
-    if(d.error){alert(d.error);return;}
-    if(!re.ok || !d || !d.session_token){
-      alert((d && (d.error || d.message || d.reason)) || ("Error HTTP "+re.status));
+    if(d.error){
+      akiraSetEntryAccess(false,d.error==="acceso_no_autorizado" ? "Esta cuenta Google no está autorizada para entrar a Akira." : (d.message||d.error),"error");
+      return;
+    }
+    if(!re.ok || !d || !d.session_token || (d.is_authorized!==true && d.is_owner!==true)){
+      akiraSetEntryAccess(false,"El servidor no confirmó que esta cuenta tenga permiso para entrar.","error");
       return;
     }
     localStorage.setItem("akira_user_id",d.user_id||"");
@@ -1810,24 +1894,15 @@ async function handleCredentialResponse(r){
     localStorage.removeItem("akira_is_owner");
     localStorage.setItem("akira_session_token",d.session_token);
     localStorage.setItem("akira_session_exp",String(d.expires_at||0));
-    // /api/auth/google ya verificó la credencial y emitió la sesión firmada.
-    // No hacemos otro round-trip antes de dejar al usuario entrar al chat.
-    const sessionFromAuth={
-      authenticated:Boolean(d.verified),
-      is_owner:Boolean(d.is_owner),
-      email:String(d.email||""),
-      user_id:String(d.user_id||""),
-      owner_scope:String(d.owner_scope||""),
-      verified:Boolean(d.verified)
-    };
-    if(!sessionFromAuth.authenticated){
-      akiraClearSession("google_verification_failed");
-      alert("Google autenticó la identidad, pero el backend no confirmó la sesión.");
+    const session=await akiraVerifySession();
+    if(!session || session.authenticated!==true || (session.is_authorized!==true && session.is_owner!==true)){
+      akiraClearSession("google_session_verification_failed");
+      akiraSetEntryAccess(false,"Google reconoció la cuenta, pero el servidor no confirmó el acceso. Inténtalo de nuevo.","error");
       return;
     }
-    _akiraApplyVerifiedSession(sessionFromAuth,200);
-    const email=sessionFromAuth.email||"";
-    const ver=sessionFromAuth.is_owner ? " · 🔒 sesión verificada (propietario)" : " · 🔒 sesión verificada";
+    akiraSetEntryAccess(true,"Acceso verificado.");
+    const email=session.email||"";
+    const ver=session.is_owner ? " · sesión verificada (propietario)" : " · sesión verificada";
     const i=document.getElementById("userInfo");
     if(i){i.style.display="block";i.textContent="✅ "+email+ver;}
     const av=document.getElementById("userAvatar");
@@ -1835,7 +1910,7 @@ async function handleCredentialResponse(r){
     addMsg(`Bienvenido ${d.email} a Akira`,"akira");
     showSection('chat');
     setTimeout(()=>{ try{ akiraVerifySession(); }catch(_){} },250);
-  }catch(e){alert(e.message);}
+  }catch(e){akiraSetEntryAccess(false,"No se pudo validar el inicio de sesión. Revisa tu conexión e inténtalo otra vez.","error");}
 }
 window.handleCredentialResponse = handleCredentialResponse;
 
@@ -2824,6 +2899,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_hive_catalog.js?v=akira-hive-v1"></script>
 <script src="./js/akira_missions_modern.js?v=akira-missions-hive-specialists-v1"></script>
 <script src="./js/akira_admin_modern.js?v=akira-admin-v6-20caps-active-supervision"></script>
+<script src="./js/akira_capability_truth.js"></script>
 <script src="./js/akira_reference_workspace_v2.js?v=akira-reference-v18-20caps-verified"></script>
 <script src="./js/akira_cognitive_ui.js?v=akira-cognitive-ui-v1"></script>
 <script src="./js/akira_sandbox.js?v=akira-sandbox-v1"></script>
@@ -3073,7 +3149,7 @@ async function renderLevels(){
     const r=await fetch(b+"/api/v8/self",{headers:akiraAuthHeaders(),cache:"no-store"});
     const d=await r.json();
     if(!d.ok) throw new Error(d.reason || "self_model_unavailable");
-    const sm = d.self_model;
+    const sm = d.self_model || {};
     const capabilityRegistry = Array.isArray(d.capabilities_registry)
       ? d.capabilities_registry
       : [];
@@ -3099,72 +3175,14 @@ async function renderLevels(){
     const imageDesc=runtime && runtime.image ? "Proveedor externo; gratuidad no garantizada." : "Estado runtime no verificado.";
     const pdfDesc=runtime && runtime.pdf ? "Motor local PyMuPDF, límite de 5 MB." : "Estado runtime no verificado.";
     const videoDesc=runtime && runtime.video ? "No implementado bajo la política 100% gratuita." : "Estado runtime no verificado.";
-    const levels = [
-      {id:"V1", name:"Chat Cognitivo", desc:"Chat multi-proveedor con fallback inteligente y persistencia.", status: "verified"},
-      {id:"V2", name:"Colmena Compartida", desc:"IndexedDB sincronizado + almacenamiento persistente.", status: "verified"},
-      {id:"V3", name:"Búsqueda y Razonamiento", desc:"Herramientas web disponibles en el runtime.", status: "verified"},
-      {id:"V4", name:"Streaming AUTO", desc:"SSE interno con fallback automático en tiempo real.", status: "verified"},
-      {id:"V5", name:"Visión Multimodal", desc:"Análisis de imágenes integrado en el chat con Gemini.", status: "verified"},
-      {id:"V6", name:"Auto-Repair", desc:"Reparación automática de transporte y fallbacks.", status: "verified"},
-      {id:"V7", name:"PDF Local & Documentos", desc:"Motor local PyMuPDF para lectura de documentos.", status: "verified"},
-      {id:"V8", name:"Akira Live (Voz 3D)", desc:"Conversación bidireccional por voz con orbe cuántico en vivo.", status: "verified"},
-      {id:"F5", name:"Autoconocimiento persistente", desc:"Akira puede conservar y consultar información sobre su propio estado.", status: "verified"},
-      {id:"F6", name:"Cerebro y aprendizaje", desc:"Memoria relacional, grafo de conocimiento y sinapsis persistentes sincronizadas en tiempo real.", status: "verified"},
-      {id:"F7", name:"Proceso cognitivo persistente", desc:"Akira conserva los pasos de sus ciclos cognitivos.", status: "verified"},
-      {id:"F8", name:"Herramientas de Akira", desc:"Herramientas registradas y verificadas por el sistema.", status: "verified"},
-      {id:"F9", name:"Agentes + Colmena Táctica (267 Especialistas)", desc:"267 agentes tácticos y 8 agentes núcleo en 18 divisiones operativas con orquestación inteligente de tareas.", status: "verified"},
-      {id:"F10", name:"Mission Engine + Conversaciones", desc:"Orquestador de misiones autónomas y chats persistentes.", status: "verified"},
-      {id:"F11", name:"Self-knowledge / Autoconocimiento", desc:"Runtime de autoconocimiento persistente.", status: "verified"},
-      {id:"F12", name:"Self-Repair / Reparación", desc:"Motor de reparación implementado y verificable.", status: "verified"},
-      {id:"F13", name:"Evolution / Evolución", desc:"Motor de evolución implementado y verificable.", status: "verified"},
-      {id:"F14", name:"Controlled Autonomy / Autonomía", desc:"Ejecución autónoma verificada y supervisada.", status: "verified"},
-      {id:"F15", name:"Hive Collective Sync & Colmena Táctica", desc:"267 especialistas en 18 divisiones, sincronización multi-dispositivo descentralizada con Ed25519 y persistencia SQLite/RLS.", status: "verified"},
-      {id:"F16", name:"Hive Agent Orchestration & Router", desc:"Orquestación heurística de 267 especialistas tácticos y 10 comandantes en 18 divisiones.", status: "verified"},
-      {id:"F17", name:"Voice VAD & Push-to-Talk Callejero", desc:"Cancelación de ruido ambiente por hardware WebAudio y Push-to-Talk directo de 1 solo toque para calle.", status: "verified"},
-      {id:"F18", name:"Upwork Bidding Autonomous Engine", desc:"Generación de propuestas técnicas y de negocio de alta conversión con convocatoria táctica de la colmena.", status: "verified"},
-      {id:"F19", name:"Membrane Spatial Brain Graph", desc:"Grafo tridimensional de neuronas, sinapsis y memorias persistentes en tiempo real.", status: "verified"},
-      {id:"F20", name:"Autonomous Active Supervisor", desc:"Ejecución autónoma de tareas y aprendizaje continuo bajo supervisión activa no-bloqueante del creador.", status: "verified"},
-      {id:"P1", name:"Sandbox & Live Artifacts Preview", desc:"Ejecución segura y aislada en tiempo real de componentes HTML, CSS, SVG y JS interactivos.", status: "verified"},
-      {id:"P2", name:"Radar Tecnológico & Ingesta Continua", desc:"Monitoreo y asimilación autónoma de feeds RSS/Atom de Hacker News, GitHub, Dev.to y Python.", status: "verified"},
-      {id:"P3", name:"Swarm Multi-Agent Collaboration", desc:"Pipelines de handoff en cadena con presets para SaaS Full-Stack, Licitación Upwork e Investigación.", status: "verified"},
-      {id:"P4", name:"1-Click Project ZIP & GitHub Export", desc:"Generador PKZIP universal puro en JavaScript con empaquetado de código y exportación a repositorios.", status: "verified"},
-      {id:"M1", name:"Consola Python REPL WebAssembly", desc:"Ejecución in-browser de scripts Python 3.12 con Pyodide WASM, terminal interactiva y captura de stdout.", status: "verified"},
-      {id:"M2", name:"Búsqueda Semántica Vectorial Local", desc:"Indexador TF-IDF, BM25 y similitud de coseno en memoria con buscador Spotlight (Ctrl+K) instantáneo.", status: "verified"},
-      {id:"M3", name:"Cron & Automatizaciones Programadas", desc:"Watchdog de tareas periódicas en segundo plano: radar continuo, reflexión nocturna y auto-curación.", status: "verified"},
-      {id:"M4", name:"Pipeline CRM Freelance & Facturación", desc:"Tablero Kanban de 6 fases para proyectos y generador de facturas profesionales imprimibles en PDF.", status: "verified"},
-      {id:"M5", name:"Dashboards & Gráficas Visuales en Vivo", desc:"Motor de visualización de datos en Canvas: gráficas de barras, líneas, pastel y donas con exportación PNG.", status: "verified"},
-      {id:"M6", name:"Escudo de Auditoría & Seguridad de Código", desc:"Análisis estático de vulnerabilidades OWASP, detección de claves expuestas, eval() inseguro y XSS.", status: "verified"},
-      {id:"M7", name:"Exportador de Memoria a Bóveda Obsidian", desc:"Generador de bovedas completas de Obsidian en ZIP con formato Markdown y enlaces bidireccionales [[wikilinks]].", status: "verified"},
-      {id:"M8", name:"Estudio de Voz Situacional & Manos Libres", desc:"4 perfiles acústicos en tiempo real (Natural, Ejecutivo, Táctico, Nocturno) y dictado continuo por silencio.", status: "verified"},
-      {id:"M9", name:"Motor de Hojas de Cálculo & Data Wrangler", desc:"Grid tabular interactivo con evaluación de fórmulas (=SUM, =AVERAGE, =COUNT), import/export CSV y limpieza.", status: "verified"},
-      {id:"M10", name:"Simulador de Pruebas Web & Auditoría UX", desc:"Validador sintético automático de accesibilidad (a11y), responsive viewport móvil, enlaces rotos y SEO.", status: "verified"},
-      {id:"M11", name:"Modo Offline Resiliente PWA & IndexedDB", desc:"Cola local en segundo plano que almacena mensajes y acciones durante caídas de red y sincroniza al volver.", status: "verified"},
-      {id:"L4", name:"Motor Proactivo J.A.R.V.I.S. (Nivel 4)", desc:"Evaluación contextual autónoma de necesidades, radar de oportunidades y recomendación de siguiente paso lógico.", status: "verified"},
-      {id:"M12", name:"Vigilante de Auto-Curación Técnica", desc:"Guardián contra corrupción de almacenamiento local, recuperación de fallbacks y reintentos en cold-starts.", status: "verified"},
-      {id:"M13", name:"Probador de APIs REST & Servidor Mock", desc:"Cliente HTTP para probar endpoints con headers/parámetros y simular respuestas mockeadas para frontend.", status: "verified"},
-      {id:"M14", name:"Estudio de Temas & Accesibilidad WCAG", desc:"Selector visual de temas (Cyberpunk, Obsidian OLED, Arctic, Solarized) y auditor de contraste 2.1 AA/AAA.", status: "verified"},
-      {id:"M15", name:"Constructor Visual de Agentes (Colmena Studio)", desc:"Interfaz visual para crear nuevos agentes especializados, definir directivas y tejerlos en la membrana 2D.", status: "verified"},
-      {id:"M16", name:"Mapa de Calor de Productividad & ROI", desc:"Telemetría ejecutiva con cálculo de horas ahorradas (~146 hrs), valor económico ($USD / $COP) y matriz de calor.", status: "verified"},
-      {id:"M17", name:"Motor de Conexión Web en Tiempo Real", desc:"Búsqueda web en vivo (DuckDuckGo/Wikipedia) y lector universal de URLs con extracción limpia de contenido a $0.00 COP.", status: "verified"},
-      {id:"T1", name:"Telegram Suite Ejecutiva (24 Comandos)", desc:"Canal móvil bidireccional 24/7 con notas de voz, OCR Vision de recibos, ejecución de código y control autopilot.", status: "verified"},
-      {id:"T2", name:"Doble Motor de Transcripción Multimodal", desc:"Transcripción dual Whisper Large v3 Turbo + Gemini Flash Audio nativo con conmutación en milisegundos a $0.00 COP.", status: "verified"},
-      {id:"T3", name:"Facturación Proforma & Minutas en PDF", desc:"Generador formal de cuentas de cobro #AK-2026, actas de reunión ejecutivas y bóveda de contratos listos para firma.", status: "verified"},
-      {id:"T4", name:"Sincronización Web ⟷ Telegram", desc:"Memoria rodante y puente de contexto unificado en tiempo real entre la plataforma web y el móvil de Jhon.", status: "verified"},
-      {id:"E1", name:"Arquitectura & Diagramas Mermaid en Vivo", desc:"Modelado visual de diagramas de arquitectura, bases de datos ERD, microservicios y secuencias.", status: "verified"},
-      {id:"E2", name:"Laboratorio SQL & Base de Datos In-Browser (SQLite WASM)", desc:"Motor SQLite real en WebAssembly para ejecutar DDL, DML, consultas JOIN y generar archivos .db.", status: "verified"},
-      {id:"E3", name:"Generador de Blueprints Full-Stack & Boilerplates", desc:"Estructuras de proyectos limpias con arquitectura modular (React/Vite, FastAPI, Node.js Express).", status: "verified"},
-      {id:"E4", name:"Auditor Estático Clean Code & Principios SOLID", desc:"Análisis de complejidad ciclomática, acoplamiento, anti-patrones y refactorización guiada.", status: "verified"},
-      {id:"E5", name:"Diseñador OpenAPI 3.0 & Simulador Swagger", desc:"Modelado interactivo de contratos RESTful con esquemas JSON, simulación de endpoints y validación.", status: "verified"},
-      {id:"E6", name:"Laboratorio Regex & Tokenizador de Código (AST)", desc:"Probador avanzado de expresiones regulares con desglose sintáctico, visualización de grupos y parsing.", status: "verified"},
-      {id:"E7", name:"Auditor Sintético WCAG AAA & SEO de Alto Rendimiento", desc:"Inspección cromática de contraste, accesibilidad ARIA, semántica HTML5 y estimación de carga web.", status: "verified"},
-      {id:"E8", name:"Transformador Políglota de Estructuras de Datos", desc:"Conversión bidireccional instantánea entre JSON, YAML, CSV, SQL Inserts y TypeScript Interfaces.", status: "verified"},
-      {id:"E9", name:"Terminal Virtual Shell & Simulador CLI (Bash/Git)", desc:"Consola interactiva en navegador para simulación de flujos Git, árbol de directorios y comandos CLI.", status: "verified"},
-      {id:"E10", name:"Laboratorio de Pruebas Unitarias Automatizadas", desc:"Generación instantánea de suites de pruebas PyTest y Jest con fixtures, casos límite y assertions.", status: "verified"},
-    ];
+    const safeText = value => String(value || "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+    const levels = capabilityRegistry.map(c => ({id:safeText(c.id || c.name), name:safeText(c.display_name || c.name), desc:safeText(c.description || c.evidence_summary || "Estado informado por el registro del servidor."), status:c.effective_state || c.status || "unknown"}));
+    if (window.akiraPublishCapabilityRegistry) window.akiraPublishCapabilityRegistry(capabilityRegistry);
     listEl.className = "ak-levels-hud-grid";
+    if (!levels.length) { listEl.textContent = "El servidor no devolvió capacidades registradas. El total permanece sin verificar."; return; }
     listEl.innerHTML = levels.map(l => {
       const isVerified = l.status === "verified";
-      const statusText = isVerified ? "Verificado · 100%" : (l.status === "partial" ? "Parcial" : "En desarrollo");
+      const statusText = isVerified ? "Verificada" : (l.status === "partial" ? "Parcial" : "En desarrollo");
       const statusColor = isVerified ? "#34d399" : (l.status === "partial" ? "#fbbf24" : "#f87171");
       const statusBg = isVerified ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)";
       const statusBorder = isVerified ? "rgba(16,185,129,0.3)" : "rgba(245,158,11,0.3)";

@@ -22,6 +22,7 @@
   }
 
   function hasValidSession(){
+    if (!window.akiraSessionState || window.akiraSessionState.authenticated !== true || window.akiraSessionState.is_owner !== true) return false;
     const token = localStorage.getItem("akira_session_token");
     const exp = localStorage.getItem("akira_session_exp");
     if(!token) return false;
@@ -153,6 +154,7 @@
   };
 
   window.akiraRunAutonomousEvolution = async function(manual){
+    manual = manual === true;
     if(isExecutingCycle) return;
     if(!hasValidSession()) {
       if(manual) alert("Inicia sesión para ejecutar el ciclo de auto-reflexión.");

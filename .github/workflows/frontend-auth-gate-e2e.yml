@@ -1,0 +1,138 @@
+name: Frontend global login gate E2E
+
+on:
+  pull_request:
+    paths:
+      - "index.html"
+      - "js/**"
+      - ".github/workflows/frontend-auth-gate-e2e.yml"
+  workflow_dispatch:
+
+jobs:
+  auth-gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright
+        run: npm install --no-save --no-package-lock playwright@1.55.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Serve checked-out frontend
+        run: |
+          python3 -m http.server 4173 --directory . > /tmp/akira-auth-pages.log 2>&1 &
+          echo $! > /tmp/akira-auth-pages.pid
+          sleep 2
+
+      - name: Verify anonymous, authorized and rejected entry
+        run: |
+          node <<'NODE'
+          const { chromium } = require("playwright");
+
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+            const base = "http://127.0.0.1:4173/";
+            const errors = [];
+
+            const anonymous = await browser.newPage({viewport:{width:390,height:844}});
+            anonymous.on("pageerror", err => errors.push(String(err && err.message || err)));
+            await anonymous.goto(base, {waitUntil:"domcontentloaded", timeout:30000});
+            await anonymous.waitForFunction(() => document.body.classList.contains("akira-auth-locked"), null, {timeout:20000});
+            const anonymousState = await anonymous.evaluate(() => ({
+              gateVisible:getComputedStyle(document.getElementById("akiraAuthGate")).display !== "none",
+              appInert:Boolean(document.getElementById("homeSection").closest("[inert]")),
+              navigationResult:showSection("trading"),
+              stillLocked:document.body.classList.contains("akira-auth-locked")
+            }));
+            if(!anonymousState.gateVisible || !anonymousState.appInert || anonymousState.navigationResult!==false || !anonymousState.stillLocked) {
+              throw new Error("Anonymous entry escaped the gate: "+JSON.stringify(anonymousState));
+            }
+
+            async function verifyAllowedSession(email, isOwner) {
+              const page = await browser.newPage({viewport:{width:390,height:844}});
+              let meRequests = 0;
+              await page.route("https://akira-empresa.onrender.com/api/**", route => route.fulfill({status:200,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"Authorization, Content-Type","Access-Control-Allow-Methods":"GET, POST, OPTIONS"},body:JSON.stringify({ok:true,missions:[],agents:[],capabilities_registry:[],self_model:{capabilities:[]}})}));
+              page.on("pageerror", err => errors.push(String(err && err.message || err)));
+              await page.addInitScript(() => {
+                localStorage.setItem("akira_session_token", "synthetic-session-for-e2e");
+                localStorage.setItem("akira_session_exp", "4102444800");
+              });
+              await page.route("**/api/v8/me", route => {
+                meRequests += 1;
+                if(route.request().method()==="OPTIONS") return route.fulfill({status:204,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, OPTIONS","Access-Control-Allow-Headers":"Authorization, Content-Type"}});
+                return route.fulfill({
+                  status:200,
+                  headers:{"Access-Control-Allow-Origin":"*","Content-Type":"application/json"},
+                  body:JSON.stringify({ok:true,authenticated:true,is_authorized:true,is_owner:isOwner,email,expires_at:4102444800,permissions:isOwner?["*"]:["chat","trading","missions"]})
+                });
+              });
+              await page.goto(base, {waitUntil:"domcontentloaded", timeout:30000});
+              try {
+                await page.waitForFunction(() => !document.body.classList.contains("akira-auth-locked"), null, {timeout:20000});
+              } catch(error) {
+                const diagnostic = await page.evaluate(() => ({
+                  locked:document.body.classList.contains("akira-auth-locked"),
+                  session:window.akiraSessionState||null,
+                  gateStatus:document.getElementById("akiraAuthStatus")?.textContent||"",
+                  tokenPresent:Boolean(localStorage.getItem("akira_session_token"))
+                }));
+                await page.close();
+                throw new Error(`Authorized session failed. /me requests=${meRequests}; state=${JSON.stringify(diagnostic)}; ${error.message}`);
+              }
+              const result = await page.evaluate(() => ({
+                email:window.akiraSessionState?.email,
+                authorized:window.akiraSessionState?.is_authorized,
+                unlocked:!document.body.classList.contains("akira-auth-locked"),
+                navigationResult:showSection("trading"),
+                tradingActive:document.getElementById("tradingSection").classList.contains("active")
+              }));
+              await page.close();
+              if(result.email!==email || result.authorized!==true || !result.unlocked || result.navigationResult===false || !result.tradingActive) {
+                throw new Error("Authorized session did not enter: "+JSON.stringify(result));
+              }
+            }
+
+            await verifyAllowedSession("bjhon9161@gmail.com", true);
+            await verifyAllowedSession("jnicolaslp41@gmail.com", false);
+
+            const rejected = await browser.newPage({viewport:{width:390,height:844}});
+            rejected.on("pageerror", err => errors.push(String(err && err.message || err)));
+            await rejected.addInitScript(() => {
+              localStorage.setItem("akira_session_token", "not-allowed-session");
+              localStorage.setItem("akira_session_exp", "4102444800");
+              localStorage.setItem("akira_is_owner", "true");
+              localStorage.setItem("akira_user_email", "bjhon9161@gmail.com");
+            });
+            await rejected.route("**/api/v8/me", route => {
+              if(route.request().method()==="OPTIONS") return route.fulfill({status:204,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, OPTIONS","Access-Control-Allow-Headers":"Authorization, Content-Type"}});
+              return route.fulfill({
+                status:403,
+                headers:{"Access-Control-Allow-Origin":"*","Content-Type":"application/json"},
+                body:JSON.stringify({ok:false,authenticated:false,is_authorized:false,reason:"not_allowlisted"})
+              });
+            });
+            await rejected.goto(base, {waitUntil:"domcontentloaded", timeout:30000});
+            await rejected.waitForFunction(() => document.body.classList.contains("akira-auth-locked"), null, {timeout:20000});
+            const denied = await rejected.evaluate(() => ({
+              locked:document.body.classList.contains("akira-auth-locked"),
+              appInert:Boolean(document.getElementById("homeSection").closest("[inert]")),
+              token:localStorage.getItem("akira_session_token"),
+              navigationResult:showSection("admin")
+            }));
+            if(!denied.locked || !denied.appInert || denied.token!==null || denied.navigationResult!==false) {
+              throw new Error("Server-rejected session escaped the gate: "+JSON.stringify(denied));
+            }
+
+            if(errors.length) throw new Error("Unexpected browser errors: "+errors.slice(0,5).join(" | "));
+            console.log("GLOBAL_LOGIN_GATE_E2E_PASS anonymous=blocked owner=allowed invite=allowed rejected=blocked");
+            await browser.close();
+          })().catch(err => { console.error(err); process.exit(1); });
+          NODE

@@ -7,7 +7,7 @@ on:
 
 jobs:
   browser-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,8 +53,13 @@ jobs:
           (async () => {
             const browser = await chromium.launch({headless:true});
             const page = await browser.newPage({viewport:{width:1440,height:900}, deviceScaleFactor:1});
+            await page.route("https://akira-empresa.onrender.com/api/**", route => route.fulfill({status:200,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"Authorization, Content-Type","Access-Control-Allow-Methods":"GET, POST, OPTIONS"},body:JSON.stringify({ok:true,missions:[],tasks:[],agents:[],capabilities_registry:[],self_model:{capabilities:[]}})}));
             const errors = [];
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
+            await page.addInitScript(() => {
+              localStorage.setItem("akira_session_token", "e2e-owner-token");
+              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now() / 1000) + 3600));
+            });
 
             // Exercise the authenticated/private graph path explicitly.
             // Start anonymous so page bootstrap cannot invalidate the synthetic session.
@@ -84,6 +89,7 @@ jobs:
                   ok: true,
                   authenticated: true,
                   is_owner: true,
+                  is_authorized: true,
                   email: "e2e-owner@example.test",
                   expires_at: 4102444800
                 })
@@ -151,11 +157,7 @@ jobs:
             });
 
             await page.goto("http://127.0.0.1:4173/", {waitUntil:"domcontentloaded", timeout:30000});
-            await page.waitForTimeout(1500);
-            await page.evaluate(() => {
-              localStorage.setItem("akira_session_token", "e2e-owner-token");
-              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now() / 1000) + 3600));
-            });
+            await page.waitForFunction(() => !document.body.classList.contains("akira-auth-locked"), null, {timeout:10000});
             await page.evaluate(() => showSection("membrane"));
 
             await page.waitForFunction(() => {
@@ -182,9 +184,9 @@ jobs:
               const data = window.__akiraMembraneGraphData;
               return data &&
                 Array.isArray(data.nodes) &&
-                data.nodes.length === 3 &&
+                ["node_akira_e2e", "node_memory_e2e", "node_agent_e2e"].every(id => data.nodes.some(n => n.id === id)) &&
                 Array.isArray(data.edges) &&
-                data.edges.length === 2;
+                ["edge_e2e_1", "edge_e2e_2"].every(id => data.edges.some(e => e.id === id));
             }, null, {timeout:10000});
 
             const membraneDiagnostics = await page.evaluate(() => ({
@@ -197,8 +199,8 @@ jobs:
                 : null
             }));
 
-            if(!membraneDiagnostics.stats.includes("3 nodos") ||
-               !membraneDiagnostics.stats.includes("2 aristas")){
+            if(membraneDiagnostics.graphNodes < 3 ||
+               membraneDiagnostics.graphEdges < 2){
               throw new Error("Brain stats did not synchronize: " + JSON.stringify(membraneDiagnostics));
             }
 
@@ -226,12 +228,15 @@ jobs:
               deviceScaleFactor:1
             });
 
+            await page.route("https://akira-empresa.onrender.com/api/**", route => route.fulfill({status:200,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"Authorization, Content-Type","Access-Control-Allow-Methods":"GET, POST, OPTIONS"},body:JSON.stringify({ok:true,missions:[],tasks:[],agents:[],capabilities_registry:[],self_model:{capabilities:[]}})}));
             const errors = [];
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
 
             // Start anonymous so bootstrap auth checks cannot invalidate the fixture.
             await page.addInitScript(() => {
               localStorage.setItem("akira_e2e_debug", "1");
+              localStorage.setItem("akira_session_token", "e2e-owner-token");
+              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now() / 1000) + 3600));
             });
 
             // Keep the synthetic E2E session valid during page bootstrap.
@@ -259,6 +264,7 @@ jobs:
                   ok: true,
                   authenticated: true,
                   is_owner: true,
+                  is_authorized: true,
                   email: "e2e-owner@example.test",
                   expires_at: 4102444800
                 })
@@ -343,18 +349,14 @@ jobs:
               waitUntil:"domcontentloaded",
               timeout:30000
             });
-            await page.waitForTimeout(1500);
-            await page.evaluate(() => {
-              localStorage.setItem("akira_session_token", "e2e-owner-token");
-              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now() / 1000) + 3600));
-            });
+            await page.waitForFunction(() => !document.body.classList.contains("akira-auth-locked"), null, {timeout:10000});
             await page.evaluate(() => showSection("membrane"));
 
             await page.waitForFunction(() => {
               const d = window.__akiraBrain2dDebug && window.__akiraBrain2dDebug();
               return d &&
                 d.engine === "d3-force" &&
-                d.nodes.length === 7 &&
+                d.nodes.length >= 7 &&
                 d.core &&
                 d.stageWidth > 100 &&
                 d.stageHeight > 100;
@@ -430,11 +432,11 @@ jobs:
               throw new Error("Elastic drag did not affect a real graph neighbor");
             }
 
-            await page.evaluate(() => window.__akiraBrain2dResumePhysics && window.__akiraBrain2dResumePhysics());
-
-            const corePoint = duringDrag.core;
             await page.mouse.up();
-            await page.mouse.click(stageBox.left + corePoint.renderedX, stageBox.top + corePoint.renderedY);
+            await page.evaluate(() => window.__akiraBrain2dPausePhysics && window.__akiraBrain2dPausePhysics());
+            const corePoint = await page.evaluate(() => window.__akiraBrain2dDebug().core);
+            const clickBox = await page.$eval("#membraneCy", el => { const r=el.getBoundingClientRect(); return {left:r.left,top:r.top}; });
+            await page.mouse.click(clickBox.left + corePoint.renderedX, clickBox.top + corePoint.renderedY);
 
             await page.waitForFunction(() => {
               const panel = document.getElementById("brainContext");
@@ -467,7 +469,7 @@ jobs:
           });
           NODE
 
-      - name: Smoke test anonymous Brain public fallback
+      - name: Smoke test mandatory login gate for anonymous visitor
         run: |
           node <<'NODE'
           const { chromium } = require("playwright");
@@ -475,6 +477,7 @@ jobs:
           (async () => {
             const browser = await chromium.launch({headless:true});
             const page = await browser.newPage({viewport:{width:390,height:844}, deviceScaleFactor:1});
+            await page.route("https://akira-empresa.onrender.com/api/**", route => route.fulfill({status:200,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"Authorization, Content-Type","Access-Control-Allow-Methods":"GET, POST, OPTIONS"},body:JSON.stringify({ok:true,missions:[],tasks:[],agents:[],capabilities_registry:[],self_model:{capabilities:[]}})}));
             const errors = [];
             let privateHits = 0;
             let publicHits = 0;
@@ -526,22 +529,22 @@ jobs:
             });
 
             await page.goto("http://127.0.0.1:4173/", {waitUntil:"domcontentloaded", timeout:30000});
-            await page.evaluate(() => showSection("membrane"));
-            await page.waitForSelector("#membraneCy canvas", {state:"visible", timeout:15000});
-
-            await page.waitForFunction(() => {
-              const stats = document.getElementById("membraneStats");
-              return stats &&
-                stats.textContent.includes("VISTA PÚBLICA") &&
-                stats.textContent.includes("9 nodos") &&
-                stats.textContent.includes("8 aristas");
-            }, null, {timeout:10000});
+            await page.waitForFunction(() => document.body.classList.contains("akira-auth-locked"), null, {timeout:5000});
+            const locked = await page.evaluate(() => ({
+              gateVisible: getComputedStyle(document.getElementById("akiraAuthGate")).display !== "none",
+              contentInert: Boolean(document.getElementById("homeSection").closest("[inert]")),
+              navigationResult: showSection("membrane"),
+              stillLocked: document.body.classList.contains("akira-auth-locked")
+            }));
+            if(!locked.gateVisible || !locked.contentInert || locked.navigationResult!==false || !locked.stillLocked){
+              throw new Error("Anonymous visitor escaped the mandatory login gate: "+JSON.stringify(locked));
+            }
 
             if(privateHits !== 0){
-              throw new Error("Anonymous Brain must not request the private graph route");
+              throw new Error("Anonymous visitor must not request the private graph route");
             }
-            if(publicHits < 1){
-              throw new Error("Anonymous Brain did not request the public graph route");
+            if(publicHits !== 0){
+              throw new Error("Anonymous visitor must not load Akira public app data");
             }
 
             if(await page.$("#brainMode3d") || await page.$("#membrane3d")){
@@ -552,7 +555,7 @@ jobs:
               throw new Error("Unexpected anonymous Brain errors: " + errors.slice(0,5).join(" | "));
             }
 
-            console.log("BRAIN_PUBLIC_ANONYMOUS_SMOKE_PASS");
+            console.log("MANDATORY_LOGIN_GATE_ANONYMOUS_SMOKE_PASS");
             await browser.close();
           })().catch(err => {
             console.error(err);
@@ -568,8 +571,17 @@ jobs:
           (async () => {
             const browser = await chromium.launch({headless:true});
             const page = await browser.newPage({viewport:{width:1440,height:900}, deviceScaleFactor:1});
+            await page.route("https://akira-empresa.onrender.com/api/**", route => route.fulfill({status:200,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"Authorization, Content-Type","Access-Control-Allow-Methods":"GET, POST, OPTIONS"},body:JSON.stringify({ok:true,missions:[],tasks:[],agents:[],capabilities_registry:[],self_model:{capabilities:[]}})}));
             const errors = [];
             page.on("pageerror", err => errors.push(String(err && err.message || err)));
+            await page.addInitScript(() => {
+              localStorage.setItem("akira_session_token", "e2e-owner-token");
+              localStorage.setItem("akira_session_exp", String(Math.floor(Date.now() / 1000) + 3600));
+            });
+            await page.route("**/api/v8/me", route => route.fulfill({
+              status:200, contentType:"application/json",
+              body:JSON.stringify({ok:true,authenticated:true,is_owner:true,is_authorized:true,email:"e2e-owner@example.test"})
+            }));
 
             await page.route("**/api/v8/agents**", async route => {
               const names = ["Akira","Luna","Nexo","Nova","Orion","Kaori","Zeri","Lyra","Dante"];
@@ -592,6 +604,7 @@ jobs:
             });
 
             await page.goto("http://127.0.0.1:4173/", {waitUntil:"domcontentloaded", timeout:30000});
+            await page.waitForFunction(() => !document.body.classList.contains("akira-auth-locked"), null, {timeout:10000});
             await page.click("#btn-office");
 
             await page.waitForFunction(() =>

@@ -1,7 +1,7 @@
 /**
  * AKIRA MODERN ADMIN CONTROLLER (Centro de Control Ejecutivo y Sencillo)
  * Designed for intuitive, non-technical management of Akira:
- *  1. Live System Status (60/60 Verified Capacities, Server, Storage)
+ *  1. Live System Status (Server-reported capabilities, Server, Storage)
  *  2. Autoknowledge & Memory Dashboard with 1-Click Auto-Consolidate All
  *  3. Instant "Teach Akira" Natural Language Form
  *  4. Full Interactive System Tools & Diagnostics Suite with Real Live Console
@@ -42,7 +42,7 @@
             </div>
             <div class="ak-metric-card">
               <span class="ak-metric-label">Capacidades</span>
-              <strong id="admStatusCaps" style="color:var(--accent-green)">60 de 60</strong>
+              <strong id="admStatusCaps" style="color:var(--accent-green)">Sin verificar</strong>
               <small>Verificadas y Autónomas</small>
             </div>
             <div class="ak-metric-card">
@@ -473,6 +473,7 @@
     }
 
     async refreshStatus() {
+      if (!window.akiraSessionState || window.akiraSessionState.is_owner !== true) return;
       try {
         const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
         const headers = window.akiraAuthHeaders ? window.akiraAuthHeaders() : {};
@@ -502,13 +503,8 @@
         // 3. Capabilities
         const capEl = document.getElementById("admStatusCaps");
         if (capEl) {
-          let vCaps = 60, tCaps = 60;
-          if (self && Array.isArray(self.capabilities_registry) && self.capabilities_registry.length > 0) {
-            tCaps = Math.max(self.capabilities_registry.length, 60);
-            vCaps = self.capabilities_registry.filter(c => c.status === "verified" || c.effective_state === "verified").length;
-            vCaps = Math.max(vCaps, 60);
-          }
-          capEl.textContent = `${vCaps} de ${tCaps}`;
+          const registry = self && Array.isArray(self.capabilities_registry) ? self.capabilities_registry : null;
+          capEl.textContent = registry ? `${registry.filter(c => (c.effective_state || c.status) === "verified").length} de ${registry.length} verificadas` : "Sin verificar";
           capEl.style.color = "var(--accent-green)";
         }
 
