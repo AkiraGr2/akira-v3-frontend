@@ -33,6 +33,8 @@ jobs:
           node --check js/akira_trading_lab.js
           node test_trading_scanner_core.js
           node test_trading_connection.js
+          node --check js/akira_scalp_research_core.js
+          node test_scalp_research.js
                     
       - name: Guard canonical public identity contract
         run: |

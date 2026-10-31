@@ -22,7 +22,7 @@ function fixture() {
   const doc = {hidden:false, head:{appendChild(){}}, createElement:()=>({style:{}}),
     getElementById:id=>["tradingSection","akiraMarketCanvas"].includes(id) ? {} : null,
     addEventListener:(name,fn)=>add("document",name,fn)};
-  const win = {AkiraTradingScannerCore:core, innerWidth:1440, addEventListener:(name,fn)=>add("window",name,fn)};
+  const win = {AkiraScalpResearchCore:require("./js/akira_scalp_research_core.js"),AkiraTradingScannerCore:core, innerWidth:1440, addEventListener:(name,fn)=>add("window",name,fn)};
   const sandbox = {window:win, document:doc, navigator:{onLine:true}, WebSocket:Socket, Date:FakeDate, console,
     localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,String(v))},
     setTimeout:(fn,ms)=>timer(fn,ms,false),clearTimeout:id=>timers.delete(id),
@@ -170,6 +170,22 @@ async function main() {
     a.marketPrices.BOOM1000=100;a.paper.openPositions=[{id:"offline",marketId:"BOOM1000",timeframe:"M1",strategy:"spike_scalp_v1",type:"BUY",entryPrice:100,lot:.2,sl:99,tp:101,expiresAt:now-1}];
     f.sandbox.navigator.onLine=false;f.emit("window","offline");a.updateOpenPositionsPnL();
     assert.equal(a.paper.openPositions.length,1,"offline expiry must wait for a real quote, never fabricate a fill");
+  }
+  {
+    const f=fixture();f.app.scannerStrategy='multi_scalp';
+    f.app.generateMultiScalpSignal('BOOM1000','M1',[],1700000000);
+    assert.equal(f.app.currentSignal,null,"no report means no invented strategy");
+    f.app.scalpResearchReport={generatedAt:new f.sandbox.Date().toISOString(),markets:[{marketId:'BOOM1000',selected:'range_reversion',validation:{expectancyR:-1},holdout:{expectancyR:1}}]};
+    f.app.generateMultiScalpSignal('BOOM1000','M1',[],1700000000);
+    assert.equal(f.app.currentSignal,null,"favorable holdout cannot hide a losing validation period");
+    f.app.scalpResearchReport.generatedAt='2020-01-01T00:00:00Z';
+    f.app.generateMultiScalpSignal('BOOM1000','M1',[],1700000000);
+    assert.equal(f.app.currentSignal,null,"stale report cannot create a recommendation");
+    f.app.currentSignal={strategy:'multi_scalp_v1',marketId:'BOOM1000',riskRewardTargets:[1.5,2,3]};
+    const size=f.app.calculateSafeLot(50,100,'BOOM1000');
+    assert.equal(size.tp1Pips,150);assert.equal(size.tp1Profit,Number((size.actualRiskMoney*1.5).toFixed(2)),"target amount matches actual 1.5R strategy");
+    assert.equal(f.app.localDemoUnitValue('UNKNOWN'),null);
+    assert.equal(f.app.localDemoUnitValue('BOOM1000'),1);
   }
   console.log("PASS: single connection, bounded reconnect, stale-socket isolation, market switch, offline freeze/gates, recovery, heartbeat, Telegram levels and dedup; no external messages sent.");
 }

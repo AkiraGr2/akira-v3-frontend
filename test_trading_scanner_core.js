@@ -177,6 +177,10 @@ const quiet=Array.from({length:3},(_,i)=>({epoch:start+i*60,open:scalp.entry,hig
 assert.equal(resolveSpikeScalpExit(quiet,liveScalp,scalp.entry,start+180).status,"TIME_EXIT");
 assert.equal(resolveSpikeScalpExit([...quiet,{epoch:start+180,open:scalp.entry,high:scalp.tp3+1,low:scalp.entry,close:scalp.tp3}],liveScalp,scalp.tp3,start+240).status,"TIME_EXIT","a spike after expiry cannot turn an expired trade into a win");
 assert.equal(resolveSpikeScalpExit([{...quiet[0],high:scalp.tp1}],liveScalp,scalp.tp1,start+60).status,"TP1_HIT");
+const multiQuick={...liveScalp,strategy:"multi_scalp_v1",maxHoldSeconds:300};
+const quietFive=Array.from({length:5},(_,i)=>({...quiet[0],epoch:start+i*60}));
+assert.equal(resolveSpikeScalpExit(quietFive,multiQuick,scalp.entry,start+240),null);
+assert.equal(resolveSpikeScalpExit(quietFive,multiQuick,scalp.entry,start+300).status,"TIME_EXIT","multipair profile honors its five-minute deadline");
 const cooling=simulateSignalOutcomes(Array.from({length:12},(_,i)=>({epoch:i*60,open:100,high:100.1,low:99.9,close:100})),()=>({direction:"BUY",entry:100,stop:99,target:101}),{maxHoldBars:3,cooldownBars:2});
 assert.deepEqual(cooling.entries.map(e=>e.entryIndex),[0,6]);
 assert.ok(cooling.trades.every(t=>t.exitIndex-t.entryIndex===3));
