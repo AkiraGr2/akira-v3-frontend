@@ -286,6 +286,19 @@
       this.activeSubscriptionId = null;
       this.derivRequestSerial = 0;
       this.activeDerivRequestIds = new Set();
+      this.derivReconnectTimer = null;
+      this.derivConnectTimeout = null;
+      this.derivReconnectAttempt = 0;
+      this.lastDerivMessageAt = 0;
+      this.lastMarketMessageAt = 0;
+      this.activeDerivFeedKey = null;
+      this.derivRecoveryBound = false;
+      this.tradingMounted = false;
+      this.pendingTelegramSignalIds = new Set();
+      try {
+        const saved = JSON.parse(localStorage.getItem("akira_trading_sent_signals_v1") || "[]");
+        this.sentTelegramSignalIds = new Set(Array.isArray(saved) ? saved.slice(-100) : []);
+      } catch (_) { this.sentTelegramSignalIds = new Set(); }
 
       Object.keys(MARKETS).forEach(k => {
         this.marketPrices[k] = MARKETS[k].basePrice;
@@ -354,6 +367,12 @@
     init() {
       const container = document.getElementById("tradingSection");
       if (!container) return;
+      if (this.tradingMounted && document.getElementById("akiraMarketCanvas")) {
+        this.initDerivWebSocket();
+        this.requestCanvasRedraw();
+        return;
+      }
+      this.tradingMounted = true;
       this.render();
       this.bindEvents();
       this.renderScannerSignal();
@@ -366,91 +385,154 @@
       this.startLocalFallbackTicker();
     }
 
-    // CONEXIÓN DIRECTA A WEBSOCKET OFICIAL DERIV (ALTA FIDELIDAD EN TIEMPO REAL)
+    hasLiveDerivFeed(marketId = this.selectedMarket, timeframe = this.selectedTimeframe) {
+      return Boolean(this.derivWs && this.derivWs.readyState === WebSocket.OPEN &&
+        this.isDerivWsConnected && this.dataFeedKeys[marketId] === `${marketId}:${timeframe}` &&
+        this.activeDerivFeedKey === `${marketId}:${timeframe}` &&
+        this.lastMarketMessageAt > 0 && Date.now() - this.lastMarketMessageAt < 60000);
+    }
+
+    invalidateDerivFeed(message) {
+      this.isDerivWsConnected = false;
+      this.dataFeedKeys = {};
+      this.confirmedThroughEpoch = {};
+      this.activeDerivRequestIds.clear();
+      this.activeDerivFeedKey = null;
+      this.currentSignal = null;
+      this.spikeRadar = null;
+      this.scannerStatus = message || "Conexión con Deriv interrumpida; último dato real conservado. Señales y práctica pausadas.";
+      this.renderScannerSignal();
+      this.drawMarketCanvas();
+      this.updateWsConnectionBadge(false);
+    }
+
+    retireDerivSocket() {
+      const socket = this.derivWs;
+      this.derivWs = null; // Retired socket events cannot affect its replacement.
+      clearInterval(this.wsPingInterval);
+      clearTimeout(this.derivConnectTimeout);
+      this.wsPingInterval = null;
+      this.derivConnectTimeout = null;
+      if (socket) { try { socket.close(); } catch (_) {} }
+    }
+
+    scheduleDerivReconnect() {
+      if (this.derivReconnectTimer !== null || navigator.onLine === false) return;
+      const delay = Math.min(30000, 1000 * Math.pow(2, Math.min(this.derivReconnectAttempt, 5)));
+      this.derivReconnectAttempt += 1;
+      this.derivReconnectTimer = setTimeout(() => {
+        this.derivReconnectTimer = null;
+        this.initDerivWebSocket();
+      }, delay);
+    }
+
+    recoverDerivConnection() {
+      if (navigator.onLine === false) return;
+      const socket = this.derivWs;
+      if (socket && socket.readyState === WebSocket.CONNECTING) return;
+      if (socket && socket.readyState === WebSocket.OPEN && Date.now() - this.lastDerivMessageAt < 60000) return;
+      clearTimeout(this.derivReconnectTimer);
+      this.derivReconnectTimer = null;
+      this.retireDerivSocket();
+      this.invalidateDerivFeed("Recuperando conexión con Deriv; datos anteriores conservados y señales pausadas.");
+      this.initDerivWebSocket();
+    }
+
+    bindDerivRecoveryEvents() {
+      if (this.derivRecoveryBound) return;
+      this.derivRecoveryBound = true;
+      window.addEventListener("offline", () => {
+        clearTimeout(this.derivReconnectTimer);
+        this.derivReconnectTimer = null;
+        this.retireDerivSocket();
+        this.invalidateDerivFeed("Sin internet; último dato real conservado. Señales y práctica pausadas.");
+      });
+      window.addEventListener("online", () => this.recoverDerivConnection());
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) this.recoverDerivConnection();
+      });
+    }
+
     initDerivWebSocket() {
       if (typeof WebSocket === "undefined") return;
-
-      if (this.wsPingInterval) {
-        clearInterval(this.wsPingInterval);
-        this.wsPingInterval = null;
-      }
-
-      if (this.derivWs) {
-        try { this.derivWs.close(); } catch(_) {}
-        this.derivWs = null;
-      }
-
+      this.bindDerivRecoveryEvents();
+      if (navigator.onLine === false) return;
+      if (this.derivWs && [WebSocket.OPEN, WebSocket.CONNECTING].includes(this.derivWs.readyState)) return;
+      if (this.derivReconnectTimer !== null) return;
+      this.retireDerivSocket();
+      this.invalidateDerivFeed("Conectando a Deriv; esperando histórico real antes de reanudar señales.");
       try {
-        this.derivWs = new WebSocket(DERIV_WS_URL);
-
-        this.derivWs.onopen = () => {
+        const socket = new WebSocket(DERIV_WS_URL);
+        this.derivWs = socket;
+        const current = () => this.derivWs === socket;
+        this.derivConnectTimeout = setTimeout(() => {
+          if (!current() || socket.readyState !== WebSocket.CONNECTING) return;
+          this.retireDerivSocket();
+          this.invalidateDerivFeed("Deriv no respondió a tiempo; reconexión pendiente.");
+          this.scheduleDerivReconnect();
+        }, 15000);
+        socket.onopen = () => {
+          if (!current()) return;
+          clearTimeout(this.derivConnectTimeout);
+          this.derivConnectTimeout = null;
+          this.lastDerivMessageAt = Date.now();
           this.isDerivWsConnected = true;
           this.updateWsConnectionBadge(true);
           this.subscribeToCurrentMarketDeriv();
-
-          // Heartbeat ping continuo cada 25 segundos para evitar desconexiones de Deriv
           this.wsPingInterval = setInterval(() => {
-            if (this.derivWs && this.derivWs.readyState === WebSocket.OPEN) {
-              try { this.derivWs.send(JSON.stringify({ ping: 1 })); } catch(_) {}
+            if (!current() || socket.readyState !== WebSocket.OPEN) return;
+            const now = Date.now();
+            if (now - this.lastDerivMessageAt > 60000 ||
+                (this.dataFeedKeys[this.selectedMarket] && now - this.lastMarketMessageAt > 60000)) {
+              this.retireDerivSocket();
+              this.invalidateDerivFeed("Datos Deriv desactualizados; señales y práctica pausadas mientras se recupera el feed.");
+              this.scheduleDerivReconnect();
+              return;
             }
+            try { socket.send(JSON.stringify({ping:1})); } catch (_) { socket.close(); }
           }, 25000);
         };
-
-        this.derivWs.onmessage = (event) => {
+        socket.onmessage = event => {
+          if (!current()) return;
           try {
             const data = JSON.parse(event.data);
+            this.lastDerivMessageAt = Date.now();
             if (data.msg_type === "ping" || data.ping === "pong") return;
+            if (!this.activeDerivRequestIds.has(Number(data.req_id))) return;
             if (data.error) {
               this.scannerStatus = "Deriv: " + String(data.error.message || data.error.code || "datos no disponibles");
               this.renderScannerSignal();
               return;
             }
-            if (["candles", "ohlc", "tick"].includes(data.msg_type) && !this.activeDerivRequestIds.has(Number(data.req_id))) return;
-
-
-            // Velas históricas devueltas por Deriv oficial
-            if (data.msg_type === "candles" || (data.candles && Array.isArray(data.candles) && data.candles.length > 0)) {
+            if (data.msg_type === "candles" || Array.isArray(data.candles)) {
               this.handleDerivHistoricalCandles(data.candles);
-            }
-            // Vela en formación devuelta por Deriv oficial (tick a tick)
-            else if (data.msg_type === "ohlc" || data.ohlc) {
+            } else if (data.msg_type === "ohlc" || data.ohlc) {
+              if (!this.dataFeedKeys[this.selectedMarket]) return;
+              this.lastMarketMessageAt = Date.now();
               this.handleDerivLiveOhlc(data.ohlc);
-            }
-            // Ticks en tiempo real devueltos por Deriv
-            else if (data.msg_type === "tick" || data.tick) {
+            } else if (data.msg_type === "tick" || data.tick) {
+              if (!this.dataFeedKeys[this.selectedMarket]) return;
+              this.lastMarketMessageAt = Date.now();
               this.handleDerivLiveTick(data.tick);
             }
-          } catch(e) {}
+          } catch (_) {}
         };
-
-        this.derivWs.onerror = () => {
-          this.isDerivWsConnected = false;
-          this.updateWsConnectionBadge(false);
+        socket.onerror = () => {
+          if (!current()) return;
+          this.retireDerivSocket();
+          this.invalidateDerivFeed();
+          this.scheduleDerivReconnect();
         };
-
-        this.derivWs.onclose = () => {
-          this.isDerivWsConnected = false;
-          delete this.dataFeedKeys[this.selectedMarket];
-          this.currentSignal = null;
-          this.spikeRadar = null;
-          this.scannerStatus = "Conexión con Deriv interrumpida; las señales están pausadas.";
-          this.renderScannerSignal();
-          this.drawMarketCanvas();
-          this.updateWsConnectionBadge(false);
-          if (this.wsPingInterval) {
-            clearInterval(this.wsPingInterval);
-            this.wsPingInterval = null;
-          }
-          // Reintentar reconexión automática en 3.5 segundos con el endpoint oficial
-          setTimeout(() => {
-            if (document.getElementById("tradingSection")) {
-              this.initDerivWebSocket();
-            }
-          }, 3500);
+        socket.onclose = () => {
+          if (!current()) return;
+          this.retireDerivSocket();
+          this.invalidateDerivFeed();
+          this.scheduleDerivReconnect();
         };
-      } catch(e) {
-        this.isDerivWsConnected = false;
-        this.updateWsConnectionBadge(false);
+      } catch (_) {
+        this.retireDerivSocket();
+        this.invalidateDerivFeed();
+        this.scheduleDerivReconnect();
       }
     }
 
@@ -472,6 +554,9 @@
       const m = MARKETS[this.selectedMarket] || MARKETS["BOOM1000"];
       const symbol = m.derivSymbol || "BOOM1000";
       const granularity = this.getGranularitySeconds();
+      this.activeDerivFeedKey = `${this.selectedMarket}:${this.selectedTimeframe}`;
+      this.lastMarketMessageAt = 0;
+      this.currentSignal = null;
       delete this.dataFeedKeys[this.selectedMarket];
       delete this.confirmedThroughEpoch[this.selectedMarket];
       this.scannerStatus = `Cargando historial real de ${m.name} · ${this.selectedTimeframe}…`;
@@ -512,7 +597,21 @@
 
     handleDerivHistoricalCandles(rawCandles) {
       if (!Array.isArray(rawCandles) || rawCandles.length === 0) {
+        delete this.dataFeedKeys[this.selectedMarket];
+        this.lastMarketMessageAt = 0;
+        this.currentSignal = null;
         this.scannerStatus = "Deriv no devolvió velas para este mercado. Puede estar cerrado o no disponible; las señales permanecen pausadas.";
+        this.renderScannerSignal();
+        return;
+      }
+      if (!rawCandles.every((c, index) => c && [c.epoch, c.open, c.high, c.low, c.close].every(v => Number.isFinite(Number(v))) &&
+          Number(c.high) >= Math.max(Number(c.open), Number(c.close), Number(c.low)) &&
+          Number(c.low) <= Math.min(Number(c.open), Number(c.close)) &&
+          (index === 0 || Number(c.epoch) > Number(rawCandles[index - 1].epoch)))) {
+        delete this.dataFeedKeys[this.selectedMarket];
+        this.lastMarketMessageAt = 0;
+        this.currentSignal = null;
+        this.scannerStatus = "Histórico Deriv inválido; señales y práctica pausadas.";
         this.renderScannerSignal();
         return;
       }
@@ -548,6 +647,8 @@
 
       const last = this.candles[this.selectedMarket][this.candles[this.selectedMarket].length - 1];
       this.marketPrices[this.selectedMarket] = last.close;
+      this.lastMarketMessageAt = Date.now();
+      this.derivReconnectAttempt = 0; // Reset only after valid real history has arrived.
       this.dataFeedKeys[this.selectedMarket] = `${this.selectedMarket}:${this.selectedTimeframe}`;
       this.confirmedThroughEpoch[this.selectedMarket] = last.epoch;
       this.lastEvaluatedCandleEpoch[this.selectedMarket] = null;
@@ -779,81 +880,11 @@
       }
     }
 
-    // Ticker local complementario (se ejecuta 1 vez por segundo)
+    // UI clock only: disconnected markets retain their last real quote and candle.
     startLocalFallbackTicker() {
-      if (this.liveTickerInterval) clearInterval(this.liveTickerInterval);
+      if (this.liveTickerInterval) return;
       this.liveTickerInterval = setInterval(() => {
-        // Si el WS oficial Deriv está conectado, NO inventar datos simulados.
-        // Solo mantener sincronizado el temporizador exacto de Deriv.
-        if (this.isDerivWsConnected) {
-          this.updateRemainingCandleCountdown();
-          if ((this.formingCandleSeconds % 45 === 0) && this.telegramAutoSend && this.telegramToken && this.telegramChatId) {
-            this.scanBackgroundMarketsForTelegram();
-          }
-          return;
-        }
-
-        // Modo de contingencia / offline únicamente
-        const granSecs = this.getGranularitySeconds();
-        this.formingCandleSeconds--;
-        if (this.formingCandleSeconds <= 0) this.formingCandleSeconds = granSecs;
-        this.updateRemainingCandleCountdown();
-
-        const m = MARKETS[this.selectedMarket];
-        const pip = m.pipSize;
-        const decimals = this.getMarketDecimals(this.selectedMarket);
-
-        let delta = (Math.random() - 0.495) * pip * 1.8;
-        let isSpikeNow = false;
-
-        if (m.platformMode === "deriv_boom") {
-          this.ticksSinceLastSpike++;
-          if (this.ticksSinceLastSpike >= 28 && Math.random() > 0.58) {
-            delta = pip * (35 + Math.floor(Math.random() * 45));
-            this.ticksSinceLastSpike = 0;
-
-            isSpikeNow = true;
-          } else {
-            delta = -pip * (0.6 + Math.random() * 0.5);
-
-          }
-        } else if (m.platformMode === "deriv_crash") {
-          this.ticksSinceLastSpike++;
-          if (this.ticksSinceLastSpike >= 28 && Math.random() > 0.58) {
-            delta = -pip * (35 + Math.floor(Math.random() * 45));
-            this.ticksSinceLastSpike = 0;
-
-            isSpikeNow = true;
-          } else {
-            delta = pip * (0.6 + Math.random() * 0.5);
-
-          }
-        }
-
-        const newPrice = parseFloat((this.marketPrices[this.selectedMarket] + delta).toFixed(decimals));
-        this.marketPrices[this.selectedMarket] = newPrice;
-
-        const marketCandles = this.candles[this.selectedMarket];
-        if (marketCandles && marketCandles.length > 0) {
-          const currentCandle = marketCandles[marketCandles.length - 1];
-          currentCandle.close = newPrice;
-          if (newPrice > currentCandle.high) currentCandle.high = newPrice;
-          if (newPrice < currentCandle.low) currentCandle.low = newPrice;
-          currentCandle.isBull = currentCandle.close >= currentCandle.open;
-          currentCandle.pips = parseFloat(((currentCandle.close - currentCandle.open) / pip).toFixed(1));
-          if (isSpikeNow) currentCandle.isSpike = true;
-        }
-
-        this.addLiveTick(this.selectedMarket, newPrice, delta >= 0 ? "BUY" : "SELL");
-        this.updateOpenPositionsPnL();
-        this.drawMarketCanvas();
-        this.updateLiveHeaderTelemetry();
-
-        // ESCANEO MULTI-MERCADO EN SEGUNDO PLANO PARA TELEGRAM (CADA 40 SEGUNDOS)
-        if (this.formingCandleSeconds === 40 && this.telegramAutoSend && this.telegramToken && this.telegramChatId) {
-          this.scanBackgroundMarketsForTelegram();
-        }
-
+        if (this.hasLiveDerivFeed()) this.updateRemainingCandleCountdown();
       }, 1000);
     }
 
@@ -2665,8 +2696,9 @@
           const mainTfBtn = document.querySelector(`.ak-tf-btn[data-tf="${tf}"]`);
           if (mainTfBtn) mainTfBtn.click();
           else {
-            this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 350);
-            this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
+            this.invalidateDerivFeed("Cargando datos reales de la temporalidad seleccionada.");
+            if (this.isDerivWsConnected) this.subscribeToCurrentMarketDeriv();
+            else this.initDerivWebSocket();
             this.updateChartCanvasHeader();
             this.drawMarketCanvas();
           }
@@ -4856,7 +4888,7 @@
     }
 
     executeDemoOrder(marketId, type, lot, sl = null, tp = null, isBinary = false, duration = 60) {
-      if (!this.isDerivWsConnected || this.dataFeedKeys[marketId] !== `${marketId}:${this.selectedTimeframe}`) {
+      if (!this.hasLiveDerivFeed(marketId, this.selectedTimeframe)) {
         alert("Carga este mercado en el gráfico y espera la conexión con datos reales antes de abrir una operación de práctica.");
         return false;
       }
@@ -5262,8 +5294,8 @@
             this.renderTradingViewChart();
           } else {
             if (!this.isDerivWsConnected) {
-              this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 350);
-              this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
+              this.invalidateDerivFeed("Sin conexión: esperando datos reales de la temporalidad seleccionada.");
+              this.initDerivWebSocket();
               this.renderCandleHistoryTable();
               this.drawMarketCanvas();
             } else {
@@ -6109,22 +6141,7 @@ if __name__ == "__main__":
             localStorage.setItem(STORAGE_KEY_TG_CHAT_ID, chat);
           }
 
-          const sigToSend = this.currentSignal || {
-            marketId: this.selectedMarket,
-            marketName: MARKETS[this.selectedMarket]?.name || "Boom 1000",
-            pattern: "Sniper Test Connection",
-            type: "BUY",
-            entry: this.marketPrices[this.selectedMarket] || 10420.0,
-            sl: (this.marketPrices[this.selectedMarket] || 10420.0) - 1.2,
-            tp1: (this.marketPrices[this.selectedMarket] || 10420.0) + 1.8,
-            tp2: (this.marketPrices[this.selectedMarket] || 10420.0) + 2.64,
-            tp3: (this.marketPrices[this.selectedMarket] || 10420.0) + 3.83,
-            riskPips: 12,
-            confluence: 98,
-            smc: "Test de Conexión en Vivo con Akira Quantum",
-            timestamp: new Date().toLocaleTimeString()
-          };
-          this.sendSignalToTelegram(sigToSend, false);
+          this.sendTelegramConnectionTest();
         });
       }
 
@@ -6165,7 +6182,18 @@ if __name__ == "__main__":
     }
 
     async sendSignalToTelegram(signal, isAuto = false) {
-      if (!signal) return;
+      if (!signal || !this.hasLiveDerivFeed(signal.marketId, signal.timeframe) || signal.completedAt ||
+          !["BUY", "SELL"].includes(signal.type) || !Number.isFinite(signal.signalCandleEpoch) ||
+          ![signal.entry, signal.sl, signal.tp1, signal.tp2, signal.tp3].every(Number.isFinite)) {
+        if (!isAuto) alert("No hay una señal confirmada con datos reales vigentes para enviar.");
+        return false;
+      }
+      const chat = String(this.telegramChatId || localStorage.getItem(STORAGE_KEY_TG_CHAT_ID) || "").trim();
+      const signalKey = `${chat}:${signal.marketId}:${signal.timeframe}:${signal.signalCandleEpoch}`;
+      if (this.sentTelegramSignalIds.has(signalKey) || this.pendingTelegramSignalIds.has(signalKey)) {
+        if (!isAuto) alert("Esta señal ya fue enviada o su envío está en curso.");
+        return false;
+      }
       const m = MARKETS[signal.marketId] || MARKETS["XAUUSD"];
       const isBin = Boolean(m.isBinary);
       const isBuy = signal.type === "BUY" || signal.type === "CALL";
@@ -6201,6 +6229,23 @@ if __name__ == "__main__":
           `_Akira Quantum Trading Terminal • Para el Director Jhon Grimm._`;
       }
 
+      this.pendingTelegramSignalIds.add(signalKey);
+      try {
+        const sent = await this.deliverTelegramMessage(msg, isAuto, signal.marketName);
+        if (sent) {
+          this.sentTelegramSignalIds.add(signalKey);
+          this.sentTelegramSignalIds = new Set([...this.sentTelegramSignalIds].slice(-100));
+          try { localStorage.setItem("akira_trading_sent_signals_v1", JSON.stringify([...this.sentTelegramSignalIds])); } catch (_) {}
+        }
+        return sent;
+      } finally { this.pendingTelegramSignalIds.delete(signalKey); }
+    }
+
+    sendTelegramConnectionTest() {
+      return this.deliverTelegramMessage("Prueba de conexión de Akira. Este mensaje confirma la entrega a Telegram; no es una señal de entrada y no contiene objetivos de operación.", false, "Prueba de conexión");
+    }
+
+    async deliverTelegramMessage(msg, isAuto, label) {
       let token = (this.telegramToken || localStorage.getItem(STORAGE_KEY_TG_TOKEN) || "").trim();
       let chatId = (this.telegramChatId || localStorage.getItem(STORAGE_KEY_TG_CHAT_ID) || "").trim();
 
@@ -6238,7 +6283,7 @@ if __name__ == "__main__":
           try {
             const relayRes = await fetch("https://akira-empresa.onrender.com/api/v8/telegram/send", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: window.akiraAuthHeaders ? window.akiraAuthHeaders() : { "Content-Type": "application/json" },
               body: JSON.stringify({ token: token, chat_id: chatId, text: msg })
             });
             const relayData = await relayRes.json();
@@ -6256,10 +6301,10 @@ if __name__ == "__main__":
         if (sentOk) {
           const lastStatusEl = document.getElementById("tgLastSentStatus");
           if (lastStatusEl) {
-            lastStatusEl.innerHTML = `<span style="color:#10b981;">✅ Señal de ${signal.marketName} enviada con éxito (${new Date().toLocaleTimeString()})</span>`;
+            lastStatusEl.innerHTML = `<span style="color:#10b981;">✅ Mensaje de ${label} enviado con éxito (${new Date().toLocaleTimeString()})</span>`;
           }
           if (!isAuto) {
-            alert(`✅ ¡SEÑAL ENVIADA CON ÉXITO! 📲\n\nEl mensaje ha llegado directamente a tu Telegram (Chat ID: ${chatId}). Revisa tu aplicación.`);
+            alert(`✅ ¡MENSAJE ENVIADO CON ÉXITO! 📲\n\nEl mensaje ha llegado directamente a tu Telegram (Chat ID: ${chatId}). Revisa tu aplicación.`);
           }
         } else {
           let helpfulTip = "";
@@ -6275,13 +6320,15 @@ if __name__ == "__main__":
             alert("⚠️ Aviso de Telegram: " + (errorDesc || "No se pudo conectar") + helpfulTip);
           }
         }
+        return sentOk;
       } else {
         if (!isAuto) {
-          alert("📱 Señal formateada para Telegram:\n\n" + msg + "\n\n(Ingresa tu Bot Token y Chat ID en la pestaña 'Conexiones & Automatización' para que se envíe sola a tu celular).");
+          alert("📱 Mensaje formateado para Telegram:\n\n" + msg + "\n\n(Ingresa tu Bot Token y Chat ID en la pestaña 'Conexiones & Automatización' para que se envíe sola a tu celular).");
           const connTabBtn = document.querySelector('[data-ttab="connections"]');
           if (connTabBtn) connTabBtn.click();
         }
       }
+      return false;
     }
 
     openTradingViewPineModal() {
