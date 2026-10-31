@@ -239,7 +239,7 @@
       this.visibleBars = 45;
       this.rightMarginBars = 8;
       this.scrollOffset = 0;
-      this.chartTheme = localStorage.getItem("akira_chart_theme") || "light";
+      this.chartTheme = localStorage.getItem("akira_chart_theme") || "dark";
 
       const savedCap = parseFloat(localStorage.getItem(STORAGE_KEY_CAPITAL));
       this.accountSize = (!isNaN(savedCap) && savedCap > 0) ? savedCap : 50;
@@ -1527,7 +1527,17 @@
         const row = (label, stats) => `<div style="padding:10px 0;border-top:1px solid rgba(148,163,184,.18);"><strong>${label}</strong> · ${stats.trades} operaciones cerradas · acierto ${pct(stats.winRate)} · expectativa ${number(stats.expectancyR)} R/op · factor de beneficio ${number(stats.profitFactor)} · caída máx. ${number(stats.maxDrawdownR)} R</div>`;
         const ambiguous = replayResult.trades.filter(trade => trade.outcome === "AMBIGUOUS_BAR_STOP_FIRST").length;
         const timeExit = replayResult.trades.filter(trade => trade.outcome === "TIME_EXIT").length;
-        panel.innerHTML = `<div>Datos: ${source.length} velas confirmadas · entrada al cierre · salida completa en stop o 3R · límite de permanencia: ${maxHoldBars} velas · si stop y objetivo tocaron la misma vela, cuenta como stop.</div>${row("Tramo inicial (70%; operaciones cerradas antes del corte)", train)}${row("Tramo posterior fuera de muestra", test)}<div style="margin-top:8px;color:#94a3b8;">Cierres por tiempo: ${timeExit} · velas ambiguas resueltas como stop: ${ambiguous} · no incluye parciales, spread, comisiones ni deslizamiento. Métrica histórica bruta; no predice resultados futuros.</div>`;
+        const entries = replayResult.entries;
+        const evaluatedStart = Number(source[59].epoch) + granularity;
+        const evaluatedEnd = Number(source[source.length - 1].epoch) + granularity;
+        const hours = (evaluatedEnd - evaluatedStart) / 3600;
+        const meanGapMinutes = entries.length >= 2
+          ? (entries[entries.length - 1].entryEpoch - entries[0].entryEpoch) / (entries.length - 1) / 60 : null;
+        const cadence = meanGapMinutes === null
+          ? "No hay suficientes entradas para calcular un intervalo medio."
+          : `Separación media observada: ${meanGapMinutes.toFixed(1)} minutos entre entradas; no es una cuenta atrás ni predice la siguiente.`;
+        const frequency = `<div style="margin:8px 0;padding:10px;border:1px solid #475569;border-radius:8px;">${entries.length} entradas en ${hours.toFixed(1)} horas evaluadas de ${marketId} · ${timeframe} (tras 60 velas de preparación). ${cadence} ${replayResult.ignoredOpenSignal ? "Incluye una operación aún abierta al final de la muestra." : ""} Los rayos del gráfico marcan spikes, no señales de entrada.</div>`;
+        panel.innerHTML = `${frequency}<div>Datos: ${source.length} velas confirmadas · entrada al cierre · salida completa en stop o 3R · límite de permanencia: ${maxHoldBars} velas · si stop y objetivo tocaron la misma vela, cuenta como stop.</div>${row("Tramo inicial (70%; operaciones cerradas antes del corte)", train)}${row("Tramo posterior fuera de muestra", test)}<div style="margin-top:8px;color:#94a3b8;">Cierres por tiempo: ${timeExit} · velas ambiguas resueltas como stop: ${ambiguous} · no incluye parciales, spread, comisiones ni deslizamiento. Métrica histórica bruta; no predice resultados futuros.</div>`;
         return replayResult;
       } catch (error) {
         panel.textContent = `No se pudo completar la prueba histórica: ${String(error?.message || error)}`;
@@ -1760,7 +1770,7 @@
             <div id="platformSpecialDeck" style="margin-bottom:12px;"></div>
             </details>
 
-            <div class="ak-chart-canvas-wrapper" id="akiraChartCanvasWrapper">
+            <div class="ak-chart-canvas-wrapper ${this.chartTheme === 'light' ? 'theme-light' : ''}" id="akiraChartCanvasWrapper">
               <div class="ak-chart-canvas-header" id="akiraChartCanvasHeader">
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;" id="chartMarketHeaderInfo">
                   <span style="font-size:18px;" id="chartMarketIcon">${m.icon}</span>
@@ -1940,7 +1950,7 @@
                 <div><strong style="color:#c4b5fd;">Prueba histórica del escáner</strong><div style="font-size:11px;color:#94a3b8;margin-top:4px;">Reproduce las señales del mercado y temporalidad seleccionados con velas cerradas.</div></div>
                 <button id="btnScannerBacktest" type="button" onclick="window.AkiraTradingLab.runScannerBacktest()" style="padding:10px 14px;border:1px solid #8b5cf6;border-radius:9px;background:#312e81;color:white;font-weight:700;cursor:pointer;">Medir en histórico</button>
               </div>
-              <div id="scannerBacktestResults" aria-live="polite" style="margin-top:10px;font-size:12px;color:#cbd5e1;line-height:1.6;">Aún no se ha ejecutado una prueba histórica.</div>
+              <div id="scannerBacktestResults" aria-live="polite" style="margin-top:10px;font-size:12px;color:#cbd5e1;line-height:1.6;">No hay una frecuencia fija. Pulsa «Medir en histórico» para contar entradas en los datos cargados y ver su separación observada.</div>
             </div>
             <div id="scannerSignalContainer" style="margin-top:16px;"></div>
           </div>
@@ -4248,7 +4258,7 @@
         const signal = this.currentSignal;
         plan.textContent = signal
           ? `${signal.type} · ${signal.marketName} · ${signal.timeframe} | Entrada ${signal.entry} | Stop ${signal.sl} | Objetivos ${signal.tp1} / ${signal.tp2} / ${signal.tp3} · Práctica: simulador local; verifica los precios en tu cuenta demo.`
-          : (this.scannerStatus || "Esperando confirmación con velas reales. Sin señal de entrada.");
+          : `${this.scannerStatus || "Esperando confirmación con velas reales. Sin señal de entrada."} Se revisa al cierre de cada vela (${this.selectedTimeframe}); no hay una entrada cada cierto número de minutos. Los rayos indican spikes, no entradas.`;
       }
       const container = document.getElementById("scannerSignalContainer");
       if (!container) return;
@@ -6893,7 +6903,7 @@ if __name__ == "__main__":
       .ak-pill-btn.active { background: rgba(0, 242, 254, 0.25); border-color: #00f2fe; color: #ffffff; font-weight: bold; }
       .ak-chart-nav-bar {
         display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
-        padding: 8px 16px; background: rgba(15, 23, 42, 0.9); border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 8px 16px; background: #101a2b; border-top: 1px solid rgba(255, 255, 255, 0.08);
       }
       .ak-nav-left-group, .ak-nav-right-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
       .ak-nav-btn {
@@ -6910,7 +6920,7 @@ if __name__ == "__main__":
       .ak-slider-lbl { font-size: 9px; color: #64748b; font-weight: 700; }
       .ak-slider-lbl.live { color: #10b981; }
       .ak-nav-slider {
-        -webkit-appearance: none; appearance: none; width: 140px; height: 5px; border-radius: 5px;
+        -webkit-appearance: none; appearance: none; width: 140px; min-width: 24px; flex: 1 1 80px; height: 5px; border-radius: 5px;
         background: rgba(255, 255, 255, 0.15); outline: none; cursor: pointer;
       }
       .ak-nav-slider::-webkit-slider-thumb {
@@ -6940,10 +6950,22 @@ if __name__ == "__main__":
       }
       .ak-pill-btn:hover { background: rgba(0, 242, 254, 0.15); border-color: #00f2fe; color: #00f2fe; }
       .ak-pill-btn.active { background: rgba(0, 242, 254, 0.25); border-color: #00f2fe; color: #ffffff; font-weight: bold; }
-      .ak-chart-nav-bar {
-        background: #f8fafc !important;
-        border-top-color: #e2e8f0 !important;
+      .ak-chart-canvas-wrapper.theme-light .ak-chart-nav-bar {
+        background: #e8edf3;
+        border-top-color: #b8c5d5;
       }
+      #akiraChartCanvasWrapper .ak-nav-btn:disabled { color: #94a3b8 !important; opacity: 1; cursor: not-allowed; }
+      #akiraChartCanvasWrapper.theme-light .ak-nav-btn:disabled { color: #52637a !important; background: #e2e8f0 !important; }
+      .ak-chart-nav-bar .ak-slider-lbl { color: #cbd5e1; }
+      .ak-chart-nav-bar .ak-slider-lbl.live { color: #6ee7b7; }
+      .ak-chart-nav-bar .ak-nav-btn:focus-visible,
+      .ak-chart-nav-bar .ak-nav-slider:focus-visible { outline: 2px solid #22d3ee; outline-offset: 3px; }
+      .ak-chart-canvas-wrapper.theme-light .ak-slider-wrap {
+        background: #dce4ee; border-color: #94a3b8;
+      }
+      .ak-chart-canvas-wrapper.theme-light .ak-slider-lbl { color: #334155; }
+      .ak-chart-canvas-wrapper.theme-light .ak-slider-lbl.live { color: #166534; }
+      .ak-chart-canvas-wrapper.theme-light .ak-nav-slider { background: #64748b; }
       .ak-chart-canvas-wrapper.theme-light .ak-nav-btn {
         background: #ffffff !important;
         border-color: #cbd5e1 !important;
@@ -7466,8 +7488,10 @@ if __name__ == "__main__":
           gap: 6px !important;
         }
         .ak-slider-wrap {
-          flex: 1 !important;
-          min-width: 110px !important;
+          flex: 1 1 100% !important;
+          min-width: 0 !important;
+          box-sizing: border-box;
+          max-width: 100%;
         }
         .ak-nav-btn {
           font-size: 10px !important;

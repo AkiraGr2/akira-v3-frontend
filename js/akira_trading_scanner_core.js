@@ -211,6 +211,7 @@
     const cfg = options || {};
     const maxHoldBars = Math.max(1, Math.floor(Number(cfg.maxHoldBars) || 100));
     const trades = [];
+    const entries = [];
     let active = null;
     let ignoredOpenSignal = false;
     for (let i = 0; i < bars.length; i += 1) {
@@ -225,6 +226,7 @@
         if (![entry, stop, target, risk].every(Number.isFinite) || risk <= 0 ||
             (target - entry) * directionSign <= 0 || (stop - entry) * directionSign >= 0) continue;
         active = { direction: signal.direction, entry, stop, target, risk, entryIndex: i, entryEpoch: bars[i]?.epoch ?? null };
+        entries.push({ entryIndex: i, entryEpoch: bars[i]?.epoch ?? null });
         continue; // Entry occurs at this bar's close; never score its earlier high/low.
       }
 
@@ -266,7 +268,7 @@
       active = null; // No same-candle re-entry.
     }
     if (active) ignoredOpenSignal = true;
-    return { trades, ignoredOpenSignal, barCount: bars.length, maxHoldBars };
+    return { trades, entries, ignoredOpenSignal, barCount: bars.length, maxHoldBars };
   }
 
   function summarizeBacktest(trades) {

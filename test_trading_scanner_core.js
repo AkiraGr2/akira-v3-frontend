@@ -122,6 +122,14 @@ const replay = simulateSignalOutcomes(replayBars, index => index === 0
   ? { direction: "BUY", entry: 101, stop: 100, target: 105 }
   : null, { maxHoldBars: 3 });
 assert.equal(replay.trades.length, 1);
+assert.deepEqual(replay.entries, [{ entryIndex: 0, entryEpoch: 0 }], "entry count includes only validated orders, without same-bar re-entry");
+const openReplay = simulateSignalOutcomes(replayBars.slice(0, 1), () => ({ direction: "BUY", entry: 101, stop: 90, target: 130 }));
+assert.equal(openReplay.trades.length, 0);
+assert.equal(openReplay.entries.length, 1, "an entry still open at the end must count toward frequency");
+assert.equal(openReplay.ignoredOpenSignal, true);
+assert.equal(simulateSignalOutcomes(replayBars, () => ({ direction: "BUY", entry: 101, stop: 102, target: 105 })).entries.length, 0, "invalid orders must not count as entries");
+assert.equal(simulateSignalOutcomes(replayBars, () => null).entries.length, 0);
+
 assert.equal(replay.trades[0].outcome, "AMBIGUOUS_BAR_STOP_FIRST");
 assert.equal(replay.trades[0].rMultiple, -1);
 assert.equal(replay.trades[0].exitIndex, 2);
