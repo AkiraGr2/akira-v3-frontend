@@ -107,7 +107,7 @@
             '</div>' +
             '<div style="display:flex;gap:6px;align-items:center;">' +
               '<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(16,185,129,0.12);color:#34d399;border:1px solid rgba(16,185,129,0.25);">🟢 Presupuesto: $0.00 COP</span>' +
-              '<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.25);">60/60 Verificadas</span>' +
+              '<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.25);">Capacidades: sin verificar</span>' +
             '</div>' +
           '</div>' +
           '<div id="akRefBriefingContent" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:12px;margin-bottom:14px;">' +
@@ -190,7 +190,7 @@
       const topPill = document.getElementById("akHudStatusText");
       if(topPill) topPill.textContent = "✦ COLMENA ACTIVA · " + count(nodes) + " NODOS · MEMORIA PERSISTENTE";
       const telem = document.querySelector(".ak-sidebar-telemetry .ak-telemetry-sub");
-      if(telem) telem.textContent = count(nodes) + " Nodos · 60/60 Verificadas";
+      if(telem) telem.textContent = count(nodes) + " Nodos · Capacidades: sin verificar";
       try{ window.dispatchEvent(new CustomEvent("akira:brain-stats",{detail:{nodes:nodes,edges:edges}})); }catch(_){}
     }
     const brainBar=home.querySelector("#akRefBrainBar");
@@ -327,7 +327,7 @@
     {
       title: "Supervisión & Sistema",
       items: [
-        ["levels", "📊 Capacidades", "60/60 Verificadas"],
+        ["levels", "📊 Capacidades", "Capacidades: sin verificar"],
         ["admin", "⚙️ Panel de Control", "Supervisión y estado"],
         ["keys", "🔑 Mi Cuenta", "Sesión y ajustes"]
       ]
@@ -377,7 +377,7 @@
           <span class="ak-live-dot"></span>
           <span>Colmena: Activa & Persistente</span>
         </div>
-        <div class="ak-telemetry-sub">60/60 Verificadas · Render 0$</div>
+        <div class="ak-telemetry-sub">Capacidades: sin verificar · Render 0$</div>
       `;
       const sidebar = qs("#sidebar");
       if(sidebar) sidebar.appendChild(telem);
@@ -445,7 +445,7 @@
         const topPill = document.getElementById("akHudStatusText");
         if(topPill) topPill.textContent = "✦ COLMENA ACTIVA · " + count(n) + " NODOS · MEMORIA PERSISTENTE";
         const telem = document.querySelector(".ak-sidebar-telemetry .ak-telemetry-sub");
-        if(telem) telem.textContent = count(n) + " Nodos · 60/60 Verificadas";
+        if(telem) telem.textContent = count(n) + " Nodos · Capacidades: sin verificar";
       }
     }catch(_){}
   });
@@ -470,7 +470,7 @@
   });
 
   window.akiraPlayBriefingVoice = function(){
-    const text = window.__akiraLatestBriefingVoiceText || "¡Hola Jhon! Tu ecosistema Akira está en línea al cien por ciento y con presupuesto cero intacto. Todas tus capacidades están operativas.";
+    const text = window.__akiraLatestBriefingVoiceText || "¡Hola Jhon! Consulta el estado actual de tus capacidades en el panel de Akira.";
     if("speechSynthesis" in window){
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(text);

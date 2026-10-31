@@ -105,7 +105,7 @@
             </div>
           </div>
           <div class="ak-lab-header-actions">
-            <span class="ak-lab-caps-badge">60/60 VERIFICADAS</span>
+            <span class="ak-lab-caps-badge"><span data-akira-capability-summary>Sin verificar</span></span>
             <button class="ak-lab-close-btn" onclick="window.akiraCloseSoftwareLab()" title="Cerrar Software Lab">✕</button>
           </div>
         </div>

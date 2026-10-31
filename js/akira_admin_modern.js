@@ -42,7 +42,7 @@
             </div>
             <div class="ak-metric-card">
               <span class="ak-metric-label">Capacidades</span>
-              <strong id="admStatusCaps" style="color:var(--accent-green)">60 de 60</strong>
+              <strong id="admStatusCaps" style="color:var(--accent-green)">Sin verificar</strong>
               <small>Verificadas y Autónomas</small>
             </div>
             <div class="ak-metric-card">
@@ -502,13 +502,8 @@
         // 3. Capabilities
         const capEl = document.getElementById("admStatusCaps");
         if (capEl) {
-          let vCaps = 60, tCaps = 60;
-          if (self && Array.isArray(self.capabilities_registry) && self.capabilities_registry.length > 0) {
-            tCaps = Math.max(self.capabilities_registry.length, 60);
-            vCaps = self.capabilities_registry.filter(c => c.status === "verified" || c.effective_state === "verified").length;
-            vCaps = Math.max(vCaps, 60);
-          }
-          capEl.textContent = `${vCaps} de ${tCaps}`;
+          const registry = self && Array.isArray(self.capabilities_registry) ? self.capabilities_registry : null;
+          capEl.textContent = registry ? `${registry.filter(c => (c.effective_state || c.status) === "verified").length} de ${registry.length} verificadas` : "Sin verificar";
           capEl.style.color = "var(--accent-green)";
         }
 
