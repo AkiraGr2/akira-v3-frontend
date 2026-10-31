@@ -24,7 +24,7 @@
   const STORAGE_KEY_TG_MARKETS = "akira_telegram_filter_markets";
   const ScannerCore = window.AkiraTradingScannerCore;
   const ScalpResearch = window.AkiraScalpResearchCore;
-  const isQuickScalpSignal = signal => ["spike_scalp_v1","multi_scalp_v1"].includes(signal?.strategy);
+  const isQuickScalpSignal = signal => ["spike_scalp_v1","multi_scalp_v1","reference_sniper_v1"].includes(signal?.strategy);
   const DERIV_WS_PRIMARY = "wss://api.derivws.com/trading/v1/options/ws/public";
   let DERIV_WS_URL = DERIV_WS_PRIMARY;
 
@@ -1424,6 +1424,33 @@
       this.accumulationStatus=null;this.spikeRadar=null;this.renderScannerSignal();this.drawMarketCanvas();
     }
 
+    generateReferenceSignal(marketId,timeframe,bars,candleEpoch) {
+      const fail=message=>{this.scannerStatus=message;this.renderScannerSignal();};
+      if(!['STEP100','XAUUSD'].includes(marketId)||timeframe!=='M1')return fail('Chulito de referencia: selecciona Step Index u oro y M1. No aplica reglas de otro mercado.');
+      if(!window.AkiraReferenceScanner)return fail('Motor de referencia no disponible.');
+      if(candleEpoch<=(this.scalpCooldownThroughEpoch[marketId]||0))return fail('Pausa tras la señal anterior.');
+      const setup=window.AkiraReferenceScanner.referenceSetup(bars,{marketId,timeframeSeconds:60});
+      if(!setup)return fail('Esperando rechazo en soporte/resistencia y ruptura confirmada por la siguiente vela. Sin entrada.');
+      const now=Date.now(),age=now/1000-setup.signalEpoch;
+      if(age<0||age>20)return fail('Confirmación histórica o vencida: no se marca como entrada nueva. Esperando otra oportunidad.');
+      const id=`REF-${marketId}-${setup.signalEpoch}`;
+      let journal=[];try{journal=JSON.parse(localStorage.getItem('akira_reference_signals_v1')||'[]');if(!Array.isArray(journal))journal=[];journal=journal.filter(x=>x&&typeof x.id==="string");}catch(_){}
+      if(journal.some(x=>x.id===id))return fail('Esta confirmación ya fue registrada; no se repite la entrada.');
+      const m=MARKETS[marketId],bar=bars.at(-1),round=x=>Number(x.toFixed(this.getMarketDecimals(marketId)));
+      this.currentSignal={id,strategy:'reference_sniper_v1',marketId,marketName:m.name,timeframe,type:setup.type,
+        entry:round(setup.entryReference),sl:round(setup.stop),tp1:round(setup.tp1),tp2:round(setup.tp2),tp3:round(setup.tp3),
+        pattern:'Chulito de referencia · reconstrucción experimental',smc:'Zona de 20 velas → rechazo → ruptura al cierre. No es el indicador original.',
+        confluences:['Zona previa','Rechazo cerrado','Ruptura confirmada'],confluence:3,riskRewardTargets:[1,2,3],
+        entryCandleIdx:bar.index,createdCandleIndex:bar.index,signalCandleEpoch:bar.epoch,entryTime:setup.signalEpoch*1000,
+        entryValidUntil:(setup.signalEpoch+20)*1000,expiresAt:(setup.signalEpoch+300)*1000,maxHoldSeconds:300,
+        createdAt:now,timestamp:new Date().toLocaleTimeString(),atr:setup.atr,riskPips:Math.abs(setup.entryReference-setup.stop)/m.pipSize,
+        pivots:null,przZone:null,orderBlock:null,spikeMetrics:null};
+      journal.push({id,marketId,type:setup.type,confirmedAt:setup.signalEpoch,entry:this.currentSignal.entry,sl:this.currentSignal.sl,tp1:this.currentSignal.tp1,tp2:this.currentSignal.tp2,tp3:this.currentSignal.tp3});
+      try{localStorage.setItem('akira_reference_signals_v1',JSON.stringify(journal.slice(-200)));}catch(_){}
+      this.scannerStatus='✓ Confirmación nueva. Entrada vigente 20 segundos; salida de práctica TP1, stop o 5 minutos. TP2/TP3 son referencias. Sin rentabilidad validada.';
+      this.renderScannerSignal();this.drawMarketCanvas();
+    }
+
     usesSpikeScalp(marketId = this.selectedMarket) {
       return this.scannerStrategy === "spike_scalp" && /^(BOOM|CRASH)/.test(marketId);
     }
@@ -1482,6 +1509,7 @@
       this.lastEvaluatedCandleEpoch[marketId] = candleEpoch;
       if (this.currentSignal && this.currentSignal.marketId === marketId && this.currentSignal.timeframe === timeframe && !this.currentSignal.completedAt) return;
 
+      if (this.scannerStrategy==="reference_sniper") return this.generateReferenceSignal(marketId,timeframe,bars,candleEpoch);
       if (this.scannerStrategy==="multi_scalp") return this.generateMultiScalpSignal(marketId,timeframe,bars,candleEpoch);
       if (this.usesSpikeScalp(marketId)) return this.generateSpikeScalpSignal(marketId,timeframe,bars,candleEpoch);
       const slCooldown = this.marketSlCooldowns[marketId];
@@ -1576,6 +1604,7 @@
     }
 
     runScannerBacktest() {
+      if(this.scannerStrategy==="reference_sniper"){alert("Esta reconstrucción aún no tiene backtest económico validado. El chulito indica reglas cumplidas, no una tasa de acierto.");return null;}
       if(this.scannerStrategy==="multi_scalp") {
         const panel=document.getElementById("scannerBacktestResults");
         if(panel)panel.textContent="Usa la comparación multipar junto al gráfico: evalúa 20.000 velas por mercado, entrada en la vela siguiente, costes explícitos y prueba posterior. La prueba antigua sin costes no valida este modo.";
@@ -1697,7 +1726,7 @@
         };
       }
 
-      const scalpSizing=(this.usesSpikeScalp(targetMarket)||this.scannerStrategy==='multi_scalp') && this.localDemoUnitValue(targetMarket)>0 && this.selectedTimeframe==='M1' && !isBinary;
+      const scalpSizing=(this.usesSpikeScalp(targetMarket)||['multi_scalp','reference_sniper'].includes(this.scannerStrategy)) && this.localDemoUnitValue(targetMarket)>0 && this.selectedTimeframe==='M1' && !isBinary;
       let recommendedLot;
       if (scalpSizing) recommendedLot=Math.floor((cap*0.005/(pips*(m.pipSize||0.01)*this.localDemoUnitValue(targetMarket)))*1000)/1000;
       else if (isBinary) {
@@ -1957,9 +1986,10 @@
                   <select id="scannerStrategyMode" style="padding:9px;background:#101a2b;color:#e2e8f0;border:1px solid #475569;border-radius:8px;max-width:100%;">
                     <option value="multi_scalp" ${this.scannerStrategy==='multi_scalp'?'selected':''}>Scalping multipar · M1/M5 · investigación MT5 demo</option>
                     <option value="spike_scalp" ${this.scannerStrategy==='spike_scalp'?'selected':''}>Caza spikes · Boom/Crash M1 · demo experimental</option>
+                    <option value="reference_sniper" ${this.scannerStrategy==='reference_sniper'?'selected':''}>Chulito de referencia · Step/oro M1 · práctica</option>
                     <option value="structural" ${this.scannerStrategy==='structural'?'selected':''}>Sniper estructural y armónico</option>
                   </select></label>
-                <label style="display:block;padding:10px;color:#cbd5e1;font-size:12px;"><input id="scalpPracticeToggle" type="checkbox" ${this.scalpPracticeEnabled ? 'checked' : ''}> Mostrar configuraciones para practicar · sin rentabilidad validada, solo simulador local</label><div id="multiScalpResearchSummary" style="color:#fde68a;font-size:12px;margin:8px 0;">Validación MT5 pendiente; no hay beneficio garantizado.</div><details ${window.innerWidth>768?'open':''} style="padding:12px;background:#101a2b;border:1px solid #334155;border-radius:10px;margin:8px 0;color:#cbd5e1;font-size:12px;line-height:1.6;"><summary style="cursor:pointer;font-weight:700;">Comparación de estrategias rápidas · Deriv MT5 demo</summary><button id="btnReloadScalpResearch" type="button" style="margin:8px 0;padding:8px 12px;background:#164e63;color:#ecfeff;border:1px solid #0891b2;border-radius:6px;">Actualizar informe publicado</button><div id="multiScalpResearchResults" aria-live="polite">Cargando comparación histórica…</div></details>
+                <p style="color:#cbd5e1;font-size:12px;">Chulito de referencia: Step Index u oro, M1. Zona previa → rechazo → confirmación en la siguiente vela. Marca el cierre que confirma, sin adelantar el aviso al máximo anterior. Entrada válida 20 s; stop, TP1 y salida máxima de 5 min; TP2/TP3 son referencias. Step: niveles visibles, simulación monetaria no disponible sin valor de contrato. Reconstrucción experimental, no copia exacta ni rentabilidad validada.</p><label style="display:block;padding:10px;color:#cbd5e1;font-size:12px;"><input id="scalpPracticeToggle" type="checkbox" ${this.scalpPracticeEnabled ? 'checked' : ''}> Mostrar configuraciones para practicar · sin rentabilidad validada, solo simulador local</label><div id="multiScalpResearchSummary" style="color:#fde68a;font-size:12px;margin:8px 0;">Validación MT5 pendiente; no hay beneficio garantizado.</div><details ${window.innerWidth>768?'open':''} style="padding:12px;background:#101a2b;border:1px solid #334155;border-radius:10px;margin:8px 0;color:#cbd5e1;font-size:12px;line-height:1.6;"><summary style="cursor:pointer;font-weight:700;">Comparación de estrategias rápidas · Deriv MT5 demo</summary><button id="btnReloadScalpResearch" type="button" style="margin:8px 0;padding:8px 12px;background:#164e63;color:#ecfeff;border:1px solid #0891b2;border-radius:6px;">Actualizar informe publicado</button><div id="multiScalpResearchResults" aria-live="polite">Cargando comparación histórica…</div></details>
                 <div id="chartTradePlan" role="status" aria-live="polite" style="padding:10px 12px;margin:8px 0;border:1px solid rgba(148,163,184,.3);border-radius:8px;color:#cbd5e1;font-size:12px;line-height:1.6;overflow-wrap:anywhere;">Esperando velas reales cerradas. Operaciones de práctica en el simulador local.</div>
               <!-- ESCENARIO PRINCIPAL DEL GRÁFICO (TRADINGVIEW O CANVAS) -->
               <div class="ak-chart-stage-container" id="chartStageContainer">
@@ -4299,7 +4329,7 @@
         ctx.font = "bold 10px sans-serif";
         ctx.textAlign = "center";
         const bannerTxt = this.currentSignal.completedStatus==='TIME_EXIT' ? `Operación cerrada por tiempo (${(this.currentSignal.maxHoldSeconds||180)/60} minutos)` : isWin
-          ? `${this.currentSignal.strategy==='spike_scalp_v1'?'TP1':'TP3'} alcanzado (+${this.currentSignal.pipsWon ?? 0} pips en el modelo OHLC)`
+          ? `${isQuickScalpSignal(this.currentSignal)?'TP1':'TP3'} alcanzado (+${this.currentSignal.pipsWon ?? 0} pips en el modelo OHLC)`
           : (this.currentSignal.completedStatus === "AMBIGUOUS_BAR_SL_FIRST"
               ? "Stop alcanzado o misma vela ambigua; contado conservadoramente como stop"
               : `Stop alcanzado (${this.currentSignal.pipsWon ?? 0} pips en el modelo OHLC)`);
@@ -4472,19 +4502,19 @@
               <span class="ak-pill live" style="font-size:10px;padding:2px 8px;">Objetivos ${(sig.riskRewardTargets||[1,2,3]).join('R / ')}R</span>
             </div>
             <p style="margin:0 0 10px 0;font-size:12px;color:#cbd5e1;line-height:1.5;">
-              ${sig.strategy==='multi_scalp_v1' ? "El marcador es una preparación de investigación por indicadores M1/M5 cerrados. La selección se hizo antes de la prueba final, pero faltan costes MT5 reales y prueba demo independiente. No equivale a beneficio futuro." : isQuickScalpSignal(sig) ? "El marcador indica una preparación de deriva corta, compresión y extremo. El armónico puede aportar contexto, pero no es obligatorio. La salida rápida es TP1 o tres minutos; ningún filtro conoce cuándo vendrá el spike." : "El marcador representa el cierre que cumplió los filtros de tendencia, rechazo y zona. Las líneas son referencias técnicas; la caja usa el stop estructural y objetivos 1R, 2R y 3R."}
+              ${sig.strategy==='reference_sniper_v1' ? 'Chulito confirmado después del rechazo y ruptura. Registro fijo de precio y hora, no señal retrospectiva. Entrada 20 s; salida TP1/SL o 5 minutos. Reconstrucción sin rentabilidad validada.' : sig.strategy==='multi_scalp_v1' ? "El marcador es una preparación de investigación por indicadores M1/M5 cerrados. La selección se hizo antes de la prueba final, pero faltan costes MT5 reales y prueba demo independiente. No equivale a beneficio futuro." : isQuickScalpSignal(sig) ? "El marcador indica una preparación de deriva corta, compresión y extremo. El armónico puede aportar contexto, pero no es obligatorio. La salida rápida es TP1 o tres minutos; ningún filtro conoce cuándo vendrá el spike." : "El marcador representa el cierre que cumplió los filtros de tendencia, rechazo y zona. Las líneas son referencias técnicas; la caja usa el stop estructural y objetivos 1R, 2R y 3R."}
             </p>
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:10px;">
               <div style="background:rgba(22, 163, 74, 0.12);border:1px solid #16a34a;border-radius:8px;padding:10px 12px;">
                 <strong style="color:#16a34a;font-size:12px;">✓ CHULITO VERDE = COMPRA SNIPER:</strong>
                 <p style="margin:4px 0 0 0;font-size:11px;color:#cbd5e1;line-height:1.4;">
-                  ${isQuickScalpSignal(sig) ? "Preparación experimental de compra en Boom: deriva corta, compresión y extremo local. No predice el salto." : "Aparece únicamente después de una vela cerrada con rechazo comprador y confirmación en una zona estructural aceptada por el escáner."}
+                  ${sig.strategy==='reference_sniper_v1' ? "Compra de referencia: rechazo en soporte y ruptura confirmada; stop bajo el rechazo." : isQuickScalpSignal(sig) ? "Preparación experimental de compra en Boom: deriva corta, compresión y extremo local. No predice el salto." : "Aparece únicamente después de una vela cerrada con rechazo comprador y confirmación en una zona estructural aceptada por el escáner."}
                 </p>
               </div>
               <div style="background:rgba(220, 38, 38, 0.12);border:1px solid #dc2626;border-radius:8px;padding:10px 12px;">
                 <strong style="color:#dc2626;font-size:12px;">✓ CHULITO ROJO = VENTA SNIPER:</strong>
                 <p style="margin:4px 0 0 0;font-size:11px;color:#cbd5e1;line-height:1.4;">
-                  ${isQuickScalpSignal(sig) ? "Preparación experimental de venta en Crash: deriva corta, compresión y extremo local. No predice la caída." : "Aparece únicamente después de una vela cerrada con rechazo vendedor y confirmación en una zona estructural aceptada por el escáner."}
+                  ${sig.strategy==='reference_sniper_v1' ? "Venta de referencia: rechazo en resistencia y ruptura confirmada; stop sobre el rechazo." : isQuickScalpSignal(sig) ? "Preparación experimental de venta en Crash: deriva corta, compresión y extremo local. No predice la caída." : "Aparece únicamente después de una vela cerrada con rechazo vendedor y confirmación en una zona estructural aceptada por el escáner."}
                 </p>
               </div>
             </div>

@@ -187,6 +187,20 @@ async function main() {
     assert.equal(f.app.localDemoUnitValue('UNKNOWN'),null);
     assert.equal(f.app.localDemoUnitValue('BOOM1000'),1);
   }
+  {
+    const f=fixture(),a=f.app;f.sandbox.window.AkiraReferenceScanner=require('./js/akira_reference_scanner');
+    const now=f.sandbox.Date.now()/1000;
+    const bars=Array.from({length:60},(_,i)=>({index:i,epoch:now-3600+i*60,open:100,high:101,low:99,close:100}));
+    bars[58]={...bars[58],open:100.4,high:101.5,low:100,close:100.2};bars[59]={...bars[59],open:100.1,high:100.3,low:99.4,close:99.5};
+    a.generateReferenceSignal('STEP100','M1',bars,now);
+    assert.equal(a.currentSignal.strategy,'reference_sniper_v1');assert.equal(a.currentSignal.type,'SELL');
+    assert.equal(a.currentSignal.entryTime,now*1000);assert.equal(a.currentSignal.entryValidUntil,(now+20)*1000);
+    const original=JSON.stringify(a.currentSignal);a.generateReferenceSignal('STEP100','M1',bars,now);assert.equal(JSON.stringify(a.currentSignal),original);
+    a.currentSignal=null;a.generateReferenceSignal('STEP100','M1',bars,now);assert.equal(a.currentSignal,null,'journal prevents repeat after switching');
+    a.generateReferenceSignal('XAUUSD','M5',bars,now);assert.equal(a.currentSignal,null);
+    a.generateReferenceSignal('XAUUSD','M1',bars.map(b=>({...b,epoch:b.epoch-60})),now-60);assert.equal(a.currentSignal,null,'old confirmations are not fresh entries');
+    await a.sendSignalToTelegram({strategy:'reference_sniper_v1',marketId:'STEP100'},false);
+  }
   console.log("PASS: single connection, bounded reconnect, stale-socket isolation, market switch, offline freeze/gates, recovery, heartbeat, Telegram levels and dedup; no external messages sent.");
 }
 main().catch(err=>{console.error(err);process.exitCode=1;});
