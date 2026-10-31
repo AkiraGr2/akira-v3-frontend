@@ -237,7 +237,7 @@
   }
 
   function resolveSpikeScalpExit(candles, signal, currentPrice, nowEpoch) {
-    if (!signal || !["spike_scalp_v1","multi_scalp_v1"].includes(signal.strategy) || !Number.isFinite(nowEpoch)) return null;
+    if (!signal || !["spike_scalp_v1","multi_scalp_v1","reference_sniper_v1"].includes(signal.strategy) || !Number.isFinite(nowEpoch)) return null;
     const entryEpoch=signal.signalCandleEpoch+60, deadline=entryEpoch+Math.min(300,Math.max(180,Number(signal.maxHoldSeconds)||180)), buy=signal.type==="BUY";
     for (const bar of (candles || [])) {
       if (bar.epoch<entryEpoch || bar.epoch>=deadline || bar.epoch>nowEpoch) continue;
