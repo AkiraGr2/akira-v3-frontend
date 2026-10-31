@@ -2696,8 +2696,9 @@
           const mainTfBtn = document.querySelector(`.ak-tf-btn[data-tf="${tf}"]`);
           if (mainTfBtn) mainTfBtn.click();
           else {
-            this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 350);
-            this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
+            this.invalidateDerivFeed("Cargando datos reales de la temporalidad seleccionada.");
+            if (this.isDerivWsConnected) this.subscribeToCurrentMarketDeriv();
+            else this.initDerivWebSocket();
             this.updateChartCanvasHeader();
             this.drawMarketCanvas();
           }
@@ -5293,8 +5294,8 @@
             this.renderTradingViewChart();
           } else {
             if (!this.isDerivWsConnected) {
-              this.candles[this.selectedMarket] = this.generateHistoricalCandles(this.selectedMarket, 350);
-              this.generateHarmonicSignal(this.selectedMarket, this.selectedTimeframe);
+              this.invalidateDerivFeed("Sin conexión: esperando datos reales de la temporalidad seleccionada.");
+              this.initDerivWebSocket();
               this.renderCandleHistoryTable();
               this.drawMarketCanvas();
             } else {
