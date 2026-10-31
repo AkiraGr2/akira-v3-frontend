@@ -4856,6 +4856,14 @@
     }
 
     executeDemoOrder(marketId, type, lot, sl = null, tp = null, isBinary = false, duration = 60) {
+      if (!this.isDerivWsConnected || this.dataFeedKeys[marketId] !== `${marketId}:${this.selectedTimeframe}`) {
+        alert("Carga este mercado en el gráfico y espera la conexión con datos reales antes de abrir una operación de práctica.");
+        return false;
+      }
+      if (!Number.isFinite(Number(lot)) || Number(lot) <= 0) {
+        alert("El tamaño de la operación debe ser un número mayor que cero.");
+        return false;
+      }
       if (this.sentinel.isCircuitBreakerActive) {
         alert("🛑 CORTACIRCUITO ACTIVADO: " + this.sentinel.lockReason);
         return;
