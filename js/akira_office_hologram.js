@@ -165,8 +165,14 @@
     }
 
     init() {
-      this.container = document.getElementById("officeSection");
-      if (!this.container) return;
+      const office = document.getElementById("officeSection");
+      if (!office) return;
+      this.container = document.getElementById("officeHologramBridge");
+      if (!this.container) {
+        this.container = document.createElement("div");
+        this.container.id = "officeHologramBridge";
+        office.appendChild(this.container);
+      }
 
       this.render();
       this.setupTabs();
