@@ -2231,25 +2231,14 @@
                 <div class="ak-conn-header">
                   <div class="ak-conn-icon" style="background:rgba(239,68,68,0.15);color:#ef4444;">⚡</div>
                   <div>
-                    <h4 style="margin:0;font-size:14px;color:#fff;">Opción B1: Conexión Deriv API (Boom / Crash 1000)</h4>
-                    <span style="font-size:11px;color:#94a3b8;">Trading algorítmico automatizado en índices sintéticos a costo $0.00</span>
+                    <h4 style="margin:0;font-size:14px;color:#fff;">Precios públicos de Deriv y práctica</h4>
+                    <span style="font-size:11px;color:#94a3b8;">Feed de precios en vivo; simulación local de operaciones</span>
                   </div>
                 </div>
                 <p style="font-size:12px;color:#cbd5e1;line-height:1.5;">
-                  Para operar índices como Boom y Crash 1000 directamente desde Akira sin costo de suscripción, ingresa tu API Token de Deriv con permisos de lectura y operaciones (Trade).
+                  Los precios públicos de Deriv no necesitan token. Las operaciones de Akira se registran en su simulador local: no se envían a una cuenta del broker. Para comparar ejecuciones, abre tu cuenta demo de Deriv en otra pestaña.
                 </p>
-                <div class="ak-api-token-box">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <label style="font-size:11px;color:#94a3b8;">DERIV API TOKEN:</label>
-                    <a href="https://app.deriv.com/account/api-token" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#00f2fe;text-decoration:none;">
-                      🔗 Obtener Token en Deriv.com &rarr;
-                    </a>
-                  </div>
-                  <div style="display:flex;gap:8px;">
-                    <input type="password" id="derivApiTokenInput" class="ak-input-text" placeholder="Ej: a1-b2c3d4e5f6g7h8" value="${localStorage.getItem(STORAGE_KEY_DERIV) || ''}">
-                    <button id="btnSaveDerivToken" class="ak-btn primary">Guardar</button>
-                  </div>
-                </div>
+                <a href="https://app.deriv.com/" target="_blank" rel="noopener noreferrer" class="ak-btn primary">Abrir Deriv para usar tu cuenta demo</a>
               </div>
 
               <div class="ak-conn-card">
