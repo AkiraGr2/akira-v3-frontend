@@ -1,0 +1,28 @@
+"use strict";
+// Public market-data requests only. No credentials, subscriptions or broker orders.
+const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");
+const core=require("../js/akira_scalp_research_core.js");
+const MARKETS=[
+  ["EURUSD","frxEURUSD",.00012],["GBPUSD","frxGBPUSD",.00016],["USDJPY","frxUSDJPY",.015],
+  ["XAUUSD","frxXAUUSD",.30],["BTCUSDT","cryBTCUSD",10],["ETHUSDT","cryETHUSD",.8],
+  ["BOOM1000","BOOM1000",.5],["CRASH1000","CRASH1000",.5]
+];
+const wanted=Math.max(1000,Math.min(100000,Number(process.argv.find(x=>x.startsWith("--bars="))?.split("=")[1])||20000));
+const cacheArg=process.argv.find(x=>x.startsWith("--cache="))?.slice(8);
+const cache=path.resolve(cacheArg||path.join(__dirname,"../../.akira-market-research/2026-10-31"));
+const destination=path.resolve(__dirname,"../research/scalp-validation-latest.json");
+const cutoff=Math.floor(Date.now()/60000)*60;
+let seq=0;
+async function connect(){return new Promise((resolve,reject)=>{const ws=new WebSocket("wss://api.derivws.com/trading/v1/options/ws/public");const timer=setTimeout(()=>{ws.close();reject(Error("Tiempo de conexión agotado"));},15000);ws.addEventListener("open",()=>{clearTimeout(timer);resolve(ws);},{once:true});ws.addEventListener("error",()=>{clearTimeout(timer);reject(Error("No se pudo conectar al feed público Deriv"));},{once:true});});}
+async function request(ws,payload){return new Promise((resolve,reject)=>{const id=++seq;const cleanup=()=>{clearTimeout(timer);ws.removeEventListener("message",onMessage);ws.removeEventListener("close",onClose);};const onClose=()=>{cleanup();reject(Error("Conexión interrumpida"));};const onMessage=event=>{let d;try{d=JSON.parse(event.data);}catch(_){return;}if(d.req_id!==id)return;cleanup();d.error?reject(Error(String(d.error.message||d.error.code))):resolve(d);};const timer=setTimeout(()=>{cleanup();reject(Error("Tiempo de histórico agotado"));},20000);ws.addEventListener("message",onMessage);ws.addEventListener("close",onClose);ws.send(JSON.stringify({...payload,req_id:id}));});}
+async function history(symbol,market){const file=path.join(cache,`${market}-${wanted}.json`);let prior=null;if(fs.existsSync(file)){const saved=JSON.parse(fs.readFileSync(file,"utf8"));if(saved.symbol===symbol&&saved.bars.length>=1000&&saved.cutoff<=cutoff&&cutoff-saved.cutoff<86400){core.validateBars(saved.bars);if(saved.bars.length>=wanted)return saved;prior=saved;}}
+  const ws=await connect(),all=new Map((prior?.bars||[]).map(b=>[b.epoch,b]));let end=prior?prior.bars[0].epoch-1:cutoff-1;
+  try{for(let page=0;page<Math.ceil(wanted/1000)+8&&all.size<wanted;page++){const d=await request(ws,{ticks_history:symbol,end:String(end),style:"candles",granularity:60,count:Math.min(1000,wanted-all.size),adjust_start_time:1});if(!Array.isArray(d.candles)||!d.candles.length)break;const batch=d.candles.map(b=>({epoch:Number(b.epoch),open:Number(b.open),high:Number(b.high),low:Number(b.low),close:Number(b.close)})).filter(b=>b.epoch+60<=cutoff);if(!batch.length)break;const oldest=Math.min(...batch.map(b=>b.epoch));const before=all.size;for(const b of batch)all.set(b.epoch,b);if(all.size===before||oldest>end)break;end=oldest-1;await new Promise(resolve=>setTimeout(resolve,250));}}
+  finally{ws.close();}
+  const bars=[...all.values()].sort((a,b)=>a.epoch-b.epoch).slice(-wanted);core.validateBars(bars);const saved={provider:"Deriv public historical candles",symbol,cutoff:prior?.cutoff||cutoff,retrievedAt:new Date().toISOString(),bars};fs.writeFileSync(file,JSON.stringify(saved));return saved;
+}
+async function main(){fs.mkdirSync(cache,{recursive:true});fs.mkdirSync(path.dirname(destination),{recursive:true});const markets=[];for(const [marketId,symbol,spread] of MARKETS){try{const saved=await history(symbol,marketId);const cost={spread,slippagePerSide:spread*.25,commissionRoundTrip:0,verified:false,source:"Escenario explícito no cotizado por el broker; comisión cero es supuesto, no confirmación",priceBasis:"OHLC público de referencia; bid/ask histórico no disponible"};const result=core.validateMarket(saved.bars,{marketId,cost});result.dataHash=crypto.createHash("sha256").update(JSON.stringify(saved.bars)).digest("hex");result.symbol=symbol;result.retrievedAt=saved.retrievedAt;markets.push(result);console.log(JSON.stringify({marketId,bars:result.bars,selected:result.selected,validation:result.validation,holdout:result.holdout,statisticalPass:result.statisticalPass,eligibleForAlerts:false}));}
+    catch(error){markets.push({marketId,symbol,error:String(error.message||error),eligibleForAlerts:false});console.log(JSON.stringify({marketId,error:String(error.message||error)}));}}
+  const report={version:core.VERSION,generatedAt:new Date().toISOString(),status:"research_only",strategyFrozenBeforeEvaluation:true,requestedBars:wanted,selection:"50% selección inicial entre tres familias fijas; 25% validación; 25% prueba final sin ajuste",forwardDemoVerified:false,brokerCostsVerified:false,eligibleForAlerts:false,markets};fs.writeFileSync(destination,JSON.stringify(report,null,2)+"\n");console.log("RESEARCH_REPORT "+destination);if(markets.every(m=>m.error))process.exitCode=1;
+}
+main().catch(error=>{console.error(error.message);process.exitCode=1;});

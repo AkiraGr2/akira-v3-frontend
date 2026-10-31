@@ -1,0 +1,743 @@
+{
+  "version": "multi-scalp-research-v1",
+  "generatedAt": "2026-10-31T13:34:46.483Z",
+  "status": "research_only",
+  "strategyFrozenBeforeEvaluation": true,
+  "requestedBars": 20000,
+  "selection": "50% selección inicial entre tres familias fijas; 25% validación; 25% prueba final sin ajuste",
+  "forwardDemoVerified": false,
+  "brokerCostsVerified": false,
+  "eligibleForAlerts": false,
+  "markets": [
+    {
+      "marketId": "EURUSD",
+      "version": "multi-scalp-research-v1",
+      "bars": 20000,
+      "from": 1791826080,
+      "to": 1793393700,
+      "cost": {
+        "spread": 0.00012,
+        "slippagePerSide": 0.00003,
+        "commissionRoundTrip": 0,
+        "verified": false,
+        "source": "Escenario explícito no cotizado por el broker; comisión cero es supuesto, no confirmación",
+        "priceBasis": "OHLC público de referencia; bid/ask histórico no disponible"
+      },
+      "training": [
+        {
+          "family": "trend_pullback",
+          "trades": 0,
+          "winRate": null,
+          "expectancyR": null,
+          "netR": 0,
+          "profitFactor": 0,
+          "maxDrawdownR": 0,
+          "meanCostR": null,
+          "days": 0
+        },
+        {
+          "family": "range_reversion",
+          "trades": 0,
+          "winRate": null,
+          "expectancyR": null,
+          "netR": 0,
+          "profitFactor": 0,
+          "maxDrawdownR": 0,
+          "meanCostR": null,
+          "days": 0
+        },
+        {
+          "family": "momentum_breakout",
+          "trades": 0,
+          "winRate": null,
+          "expectancyR": null,
+          "netR": 0,
+          "profitFactor": 0,
+          "maxDrawdownR": 0,
+          "meanCostR": null,
+          "days": 0
+        }
+      ],
+      "selected": null,
+      "selectedBy": "Mayor expectativa de entrenamiento; sin reoptimizar después",
+      "validation": null,
+      "holdout": null,
+      "stress": null,
+      "bootstrapLowerR": null,
+      "statisticalPass": false,
+      "historicalCandidate": false,
+      "eligibleForAlerts": false,
+      "reasons": [
+        "Ninguna familia con 30 operaciones de selección",
+        "Costes son escenarios; falta spread/comisión real del broker",
+        "Falta prueba prospectiva demo independiente; no habilita recomendaciones"
+      ],
+      "split": {
+        "trainingEnd": 10000,
+        "validationEnd": 15000
+      },
+      "assumptions": [
+        "Entrada en apertura de la vela siguiente, no en un precio retrospectivo",
+        "M5 solo cerrado; stop primero en velas ambiguas",
+        "Costes en unidades de precio: spread + dos deslizamientos + comisión",
+        "Sin volumen real ni orden book; no se inventan",
+        "La selección compara tres familias y hasta ocho mercados; bootstrap diario con alfa 0.05/8",
+        "La prueba final nunca elige ni reajusta parámetros",
+        "Simulación de señales; no aplica el cortacircuito diario del saldo local"
+      ],
+      "dataHash": "4bb345d291baa4ae456b212727949c1add63130451f58d242e6b7fe6689b2aa9",
+      "symbol": "frxEURUSD",
+      "retrievedAt": "2026-10-31T13:33:30.767Z"
+    },
+    {
+      "marketId": "GBPUSD",
+      "version": "multi-scalp-research-v1",
+      "bars": 20000,
+      "from": 1791826080,
+      "to": 1793393700,
+      "cost": {
+        "spread": 0.00016,
+        "slippagePerSide": 0.00004,
+        "commissionRoundTrip": 0,
+        "verified": false,
+        "source": "Escenario explícito no cotizado por el broker; comisión cero es supuesto, no confirmación",
+        "priceBasis": "OHLC público de referencia; bid/ask histórico no disponible"
+      },
+      "training": [
+        {
+          "family": "trend_pullback",
+          "trades": 0,
+          "winRate": null,
+          "expectancyR": null,
+          "netR": 0,
+          "profitFactor": 0,
+          "maxDrawdownR": 0,
+          "meanCostR": null,
+          "days": 0
+        },
+        {
+          "family": "range_reversion",
+          "trades": 0,
+          "winRate": null,
+          "expectancyR": null,
+          "netR": 0,
+          "profitFactor": 0,
+          "maxDrawdownR": 0,
+          "meanCostR": null,
+          "days": 0
+        },
+        {
+          "family": "momentum_breakout",
+          "trades": 0,
+          "winRate": null,
+          "expectancyR": null,
+          "netR": 0,
+          "profitFactor": 0,
+          "maxDrawdownR": 0,
+          "meanCostR": null,
+          "days": 0
+        }
+      ],
+      "selected": null,
+      "selectedBy": "Mayor expectativa de entrenamiento; sin reoptimizar después",
+      "validation": null,
+      "holdout": null,
+      "stress": null,
+      "bootstrapLowerR": null,
+      "statisticalPass": false,
+      "historicalCandidate": false,
+      "eligibleForAlerts": false,
+      "reasons": [
+        "Ninguna familia con 30 operaciones de selección",
+        "Costes son escenarios; falta spread/comisión real del broker",
+        "Falta prueba prospectiva demo independiente; no habilita recomendaciones"
+      ],
+      "split": {
+        "trainingEnd": 10000,
+        "validationEnd": 15000
+      },
+      "assumptions": [
+        "Entrada en apertura de la vela siguiente, no en un precio retrospectivo",
+        "M5 solo cerrado; stop primero en velas ambiguas",
+        "Costes en unidades de precio: spread + dos deslizamientos + comisión",
+        "Sin volumen real ni orden book; no se inventan",
+        "La selección compara tres familias y hasta ocho mercados; bootstrap diario con alfa 0.05/8",
+        "La prueba final nunca elige ni reajusta parámetros",
+        "Simulación de señales; no aplica el cortacircuito diario del saldo local"
+      ],
+      "dataHash": "100f8fe819c86ff0a0b229251d1d5d87b68b581f74a7af2c99b8df7c8af889da",
+      "symbol": "frxGBPUSD",
+      "retrievedAt": "2026-10-31T13:33:41.795Z"
+    },
+    {
+      "marketId": "USDJPY",
+      "version": "multi-scalp-research-v1",
+      "bars": 20000,
+      "from": 1791826080,
+      "to": 1793393700,
+      "cost": {
+        "spread": 0.015,
+        "slippagePerSide": 0.00375,
+        "commissionRoundTrip": 0,
+        "verified": false,
+        "source": "Escenario explícito no cotizado por el broker; comisión cero es supuesto, no confirmación",
+        "priceBasis": "OHLC público de referencia; bid/ask histórico no disponible"
+      },
+      "training": [
+        {
+          "family": "trend_pullback",
+          "trades": 0,
+          "winRate": null,
+          "expectancyR": null,
+          "netR": 0,
+          "profitFactor": 0,
+          "maxDrawdownR": 0,
+          "meanCostR": null,
+          "days": 0
+        },
+        {
+          "family": "range_reversion",
+          "trades": 0,
+          "winRate": null,
+          "expectancyR": null,
+          "netR": 0,
+          "profitFactor": 0,
+          "maxDrawdownR": 0,
+          "meanCostR": null,
+          "days": 0
+        },
+        {
+          "family": "momentum_breakout",
+          "trades": 0,
+          "winRate": null,
+          "expectancyR": null,
+          "netR": 0,
+          "profitFactor": 0,
+          "maxDrawdownR": 0,
+          "meanCostR": null,
+          "days": 0
+        }
+      ],
+      "selected": null,
+      "selectedBy": "Mayor expectativa de entrenamiento; sin reoptimizar después",
+      "validation": null,
+      "holdout": null,
+      "stress": null,
+      "bootstrapLowerR": null,
+      "statisticalPass": false,
+      "historicalCandidate": false,
+      "eligibleForAlerts": false,
+      "reasons": [
+        "Ninguna familia con 30 operaciones de selección",
+        "Costes son escenarios; falta spread/comisión real del broker",
+        "Falta prueba prospectiva demo independiente; no habilita recomendaciones"
+      ],
+      "split": {
+        "trainingEnd": 10000,
+        "validationEnd": 15000
+      },
+      "assumptions": [
+        "Entrada en apertura de la vela siguiente, no en un precio retrospectivo",
+        "M5 solo cerrado; stop primero en velas ambiguas",
+        "Costes en unidades de precio: spread + dos deslizamientos + comisión",
+        "Sin volumen real ni orden book; no se inventan",
+        "La selección compara tres familias y hasta ocho mercados; bootstrap diario con alfa 0.05/8",
+        "La prueba final nunca elige ni reajusta parámetros",
+        "Simulación de señales; no aplica el cortacircuito diario del saldo local"
+      ],
+      "dataHash": "4f865e6744c4e41f70da14040ce9b96ced83398c75d1dd3216babaad70a071bf",
+      "symbol": "frxUSDJPY",
+      "retrievedAt": "2026-10-31T13:33:52.749Z"
+    },
+    {
+      "marketId": "XAUUSD",
+      "version": "multi-scalp-research-v1",
+      "bars": 20000,
+      "from": 1791783600,
+      "to": 1793393700,
+      "cost": {
+        "spread": 0.3,
+        "slippagePerSide": 0.075,
+        "commissionRoundTrip": 0,
+        "verified": false,
+        "source": "Escenario explícito no cotizado por el broker; comisión cero es supuesto, no confirmación",
+        "priceBasis": "OHLC público de referencia; bid/ask histórico no disponible"
+      },
+      "training": [
+        {
+          "family": "trend_pullback",
+          "trades": 118,
+          "winRate": 0.3813559322033898,
+          "expectancyR": -0.2343426917880851,
+          "netR": -27.65243763099404,
+          "profitFactor": 0.5387947218953418,
+          "maxDrawdownR": 31.400222332927946,
+          "meanCostR": 0.1713418469472233,
+          "days": 8
+        },
+        {
+          "family": "range_reversion",
+          "trades": 54,
+          "winRate": 0.4074074074074074,
+          "expectancyR": -0.2157244322073293,
+          "netR": -11.649119339195781,
+          "profitFactor": 0.5555872546138716,
+          "maxDrawdownR": 14.770393616518252,
+          "meanCostR": 0.18254268236169865,
+          "days": 8
+        },
+        {
+          "family": "momentum_breakout",
+          "trades": 50,
+          "winRate": 0.32,
+          "expectancyR": -0.19149012505968488,
+          "netR": -9.574506252984245,
+          "profitFactor": 0.47500323324171806,
+          "maxDrawdownR": 11.039727925129453,
+          "meanCostR": 0.1511026070602092,
+          "days": 8
+        }
+      ],
+      "selected": "momentum_breakout",
+      "selectedBy": "Mayor expectativa de entrenamiento; sin reoptimizar después",
+      "validation": {
+        "trades": 39,
+        "winRate": 0.41025641025641024,
+        "expectancyR": -0.08531980553059255,
+        "netR": -3.3274724156931095,
+        "profitFactor": 0.7326688573645979,
+        "maxDrawdownR": 5.883835072318387,
+        "meanCostR": 0.14651579065281045,
+        "days": 5
+      },
+      "holdout": {
+        "trades": 35,
+        "winRate": 0.2857142857142857,
+        "expectancyR": -0.23405179172160695,
+        "netR": -8.191812710256244,
+        "profitFactor": 0.3684253224642863,
+        "maxDrawdownR": 8.620807259608673,
+        "meanCostR": 0.1490324696350429,
+        "days": 4
+      },
+      "stress": {
+        "trades": 35,
+        "winRate": 0.2857142857142857,
+        "expectancyR": -0.3830842613566499,
+        "netR": -13.407949147482746,
+        "profitFactor": 0.20959021813627152,
+        "maxDrawdownR": 13.407949147482746,
+        "meanCostR": 0.2980649392700858,
+        "days": 4
+      },
+      "bootstrapLowerR": null,
+      "statisticalPass": false,
+      "historicalCandidate": false,
+      "eligibleForAlerts": false,
+      "reasons": [
+        "Selección inicial con expectativa no positiva",
+        "Expectativa neta no positiva en validación o prueba final",
+        "Factor de beneficio posterior inferior a 1.20",
+        "Prueba final con menos de diez días operados",
+        "No supera costes duplicados",
+        "Costes son escenarios; falta spread/comisión real del broker",
+        "Falta prueba prospectiva demo independiente; no habilita recomendaciones"
+      ],
+      "split": {
+        "trainingEnd": 10000,
+        "validationEnd": 15000
+      },
+      "assumptions": [
+        "Entrada en apertura de la vela siguiente, no en un precio retrospectivo",
+        "M5 solo cerrado; stop primero en velas ambiguas",
+        "Costes en unidades de precio: spread + dos deslizamientos + comisión",
+        "Sin volumen real ni orden book; no se inventan",
+        "La selección compara tres familias y hasta ocho mercados; bootstrap diario con alfa 0.05/8",
+        "La prueba final nunca elige ni reajusta parámetros",
+        "Simulación de señales; no aplica el cortacircuito diario del saldo local"
+      ],
+      "dataHash": "2ff78b5f559dab1a0b03a3b218a38635cb30565950ef688bdc68579a95b3ae13",
+      "symbol": "frxXAUUSD",
+      "retrievedAt": "2026-10-31T13:34:04.179Z"
+    },
+    {
+      "marketId": "BTCUSDT",
+      "version": "multi-scalp-research-v1",
+      "bars": 20000,
+      "from": 1792252320,
+      "to": 1793453400,
+      "cost": {
+        "spread": 10,
+        "slippagePerSide": 2.5,
+        "commissionRoundTrip": 0,
+        "verified": false,
+        "source": "Escenario explícito no cotizado por el broker; comisión cero es supuesto, no confirmación",
+        "priceBasis": "OHLC público de referencia; bid/ask histórico no disponible"
+      },
+      "training": [
+        {
+          "family": "trend_pullback",
+          "trades": 110,
+          "winRate": 0.42727272727272725,
+          "expectancyR": -0.12182570113376182,
+          "netR": -13.4008271247138,
+          "profitFactor": 0.7083830911519611,
+          "maxDrawdownR": 18.357469906125402,
+          "meanCostR": 0.180867384304576,
+          "days": 8
+        },
+        {
+          "family": "range_reversion",
+          "trades": 24,
+          "winRate": 0.4583333333333333,
+          "expectancyR": -0.23994286926181618,
+          "netR": -5.758628862283588,
+          "profitFactor": 0.5630689935754342,
+          "maxDrawdownR": 5.79773949392152,
+          "meanCostR": 0.19450558729793913,
+          "days": 5
+        },
+        {
+          "family": "momentum_breakout",
+          "trades": 50,
+          "winRate": 0.3,
+          "expectancyR": -0.2398564582062,
+          "netR": -11.99282291031,
+          "profitFactor": 0.423880105922825,
+          "maxDrawdownR": 11.99282291031,
+          "meanCostR": 0.15905192291718065,
+          "days": 7
+        }
+      ],
+      "selected": "trend_pullback",
+      "selectedBy": "Mayor expectativa de entrenamiento; sin reoptimizar después",
+      "validation": {
+        "trades": 36,
+        "winRate": 0.3888888888888889,
+        "expectancyR": -0.27198366298776605,
+        "netR": -9.791411867559578,
+        "profitFactor": 0.4314737023699573,
+        "maxDrawdownR": 11.737358543715427,
+        "meanCostR": 0.15365234633730598,
+        "days": 4
+      },
+      "holdout": {
+        "trades": 93,
+        "winRate": 0.5268817204301075,
+        "expectancyR": 0.08197715349966345,
+        "netR": 7.6238752754687,
+        "profitFactor": 1.2537825297702967,
+        "maxDrawdownR": 3.769807549694629,
+        "meanCostR": 0.15296877688891083,
+        "days": 4
+      },
+      "stress": {
+        "trades": 93,
+        "winRate": 0.46236559139784944,
+        "expectancyR": -0.0709916233892474,
+        "netR": -6.602220975200008,
+        "profitFactor": 0.8229257368723729,
+        "maxDrawdownR": 8.574028121079849,
+        "meanCostR": 0.30593755377782167,
+        "days": 4
+      },
+      "bootstrapLowerR": null,
+      "statisticalPass": false,
+      "historicalCandidate": false,
+      "eligibleForAlerts": false,
+      "reasons": [
+        "Selección inicial con expectativa no positiva",
+        "Expectativa neta no positiva en validación o prueba final",
+        "Factor de beneficio posterior inferior a 1.20",
+        "Prueba final con menos de diez días operados",
+        "No supera costes duplicados",
+        "Costes son escenarios; falta spread/comisión real del broker",
+        "Falta prueba prospectiva demo independiente; no habilita recomendaciones"
+      ],
+      "split": {
+        "trainingEnd": 10000,
+        "validationEnd": 15000
+      },
+      "assumptions": [
+        "Entrada en apertura de la vela siguiente, no en un precio retrospectivo",
+        "M5 solo cerrado; stop primero en velas ambiguas",
+        "Costes en unidades de precio: spread + dos deslizamientos + comisión",
+        "Sin volumen real ni orden book; no se inventan",
+        "La selección compara tres familias y hasta ocho mercados; bootstrap diario con alfa 0.05/8",
+        "La prueba final nunca elige ni reajusta parámetros",
+        "Simulación de señales; no aplica el cortacircuito diario del saldo local"
+      ],
+      "dataHash": "761cc8e94cb381434b096a717eb60e40ef1fe09f54d72be1aa9202d9746b5765",
+      "symbol": "cryBTCUSD",
+      "retrievedAt": "2026-10-31T13:34:15.131Z"
+    },
+    {
+      "marketId": "ETHUSDT",
+      "version": "multi-scalp-research-v1",
+      "bars": 20000,
+      "from": 1792252320,
+      "to": 1793453400,
+      "cost": {
+        "spread": 0.8,
+        "slippagePerSide": 0.2,
+        "commissionRoundTrip": 0,
+        "verified": false,
+        "source": "Escenario explícito no cotizado por el broker; comisión cero es supuesto, no confirmación",
+        "priceBasis": "OHLC público de referencia; bid/ask histórico no disponible"
+      },
+      "training": [
+        {
+          "family": "trend_pullback",
+          "trades": 24,
+          "winRate": 0.2916666666666667,
+          "expectancyR": -0.11451370058685069,
+          "netR": -2.7483288140844166,
+          "profitFactor": 0.6893503157139476,
+          "maxDrawdownR": 5.999964600454609,
+          "meanCostR": 0.19570056658348509,
+          "days": 7
+        },
+        {
+          "family": "range_reversion",
+          "trades": 6,
+          "winRate": 0.6666666666666666,
+          "expectancyR": 0.03760063489815909,
+          "netR": 0.22560380938895452,
+          "profitFactor": 1.115431907708362,
+          "maxDrawdownR": 1.2137118272736573,
+          "meanCostR": 0.19806973044189205,
+          "days": 3
+        },
+        {
+          "family": "momentum_breakout",
+          "trades": 17,
+          "winRate": 0.4117647058823529,
+          "expectancyR": -0.18928420233797486,
+          "netR": -3.2178314397455727,
+          "profitFactor": 0.4651457166308817,
+          "maxDrawdownR": 3.4531555807569974,
+          "meanCostR": 0.18885007189407307,
+          "days": 5
+        }
+      ],
+      "selected": null,
+      "selectedBy": "Mayor expectativa de entrenamiento; sin reoptimizar después",
+      "validation": null,
+      "holdout": null,
+      "stress": null,
+      "bootstrapLowerR": null,
+      "statisticalPass": false,
+      "historicalCandidate": false,
+      "eligibleForAlerts": false,
+      "reasons": [
+        "Ninguna familia con 30 operaciones de selección",
+        "Costes son escenarios; falta spread/comisión real del broker",
+        "Falta prueba prospectiva demo independiente; no habilita recomendaciones"
+      ],
+      "split": {
+        "trainingEnd": 10000,
+        "validationEnd": 15000
+      },
+      "assumptions": [
+        "Entrada en apertura de la vela siguiente, no en un precio retrospectivo",
+        "M5 solo cerrado; stop primero en velas ambiguas",
+        "Costes en unidades de precio: spread + dos deslizamientos + comisión",
+        "Sin volumen real ni orden book; no se inventan",
+        "La selección compara tres familias y hasta ocho mercados; bootstrap diario con alfa 0.05/8",
+        "La prueba final nunca elige ni reajusta parámetros",
+        "Simulación de señales; no aplica el cortacircuito diario del saldo local"
+      ],
+      "dataHash": "28a6b8c36a993d1f8bfe18e0aac8868c9333b12ad7434407232c0462d74399ec",
+      "symbol": "cryETHUSD",
+      "retrievedAt": "2026-10-31T13:34:25.481Z"
+    },
+    {
+      "marketId": "BOOM1000",
+      "version": "multi-scalp-research-v1",
+      "bars": 20000,
+      "from": 1792253460,
+      "to": 1793453400,
+      "cost": {
+        "spread": 0.5,
+        "slippagePerSide": 0.125,
+        "commissionRoundTrip": 0,
+        "verified": false,
+        "source": "Escenario explícito no cotizado por el broker; comisión cero es supuesto, no confirmación",
+        "priceBasis": "OHLC público de referencia; bid/ask histórico no disponible"
+      },
+      "training": [
+        {
+          "family": "trend_pullback",
+          "trades": 1,
+          "winRate": 0,
+          "expectancyR": -1.1833216484978537,
+          "netR": -1.1833216484978537,
+          "profitFactor": 0,
+          "maxDrawdownR": 1.1833216484978537,
+          "meanCostR": 0.1833216484978537,
+          "days": 1
+        },
+        {
+          "family": "range_reversion",
+          "trades": 50,
+          "winRate": 0.76,
+          "expectancyR": 0.29759941017994523,
+          "netR": 14.87997050899726,
+          "profitFactor": 2.1147989714577973,
+          "maxDrawdownR": 3.5919833358873667,
+          "meanCostR": 0.1979248125682799,
+          "days": 7
+        },
+        {
+          "family": "momentum_breakout",
+          "trades": 0,
+          "winRate": null,
+          "expectancyR": null,
+          "netR": 0,
+          "profitFactor": 0,
+          "maxDrawdownR": 0,
+          "meanCostR": null,
+          "days": 0
+        }
+      ],
+      "selected": "range_reversion",
+      "selectedBy": "Mayor expectativa de entrenamiento; sin reoptimizar después",
+      "validation": {
+        "trades": 28,
+        "winRate": 0.8571428571428571,
+        "expectancyR": 0.5026851936556184,
+        "netR": 14.075185422357313,
+        "profitFactor": 3.984946388683029,
+        "maxDrawdownR": 1.191160849930218,
+        "meanCostR": 0.19811709977099876,
+        "days": 4
+      },
+      "holdout": {
+        "trades": 16,
+        "winRate": 0.8125,
+        "expectancyR": 0.4567860498718901,
+        "netR": 7.308576797950241,
+        "profitFactor": 3.605279145042631,
+        "maxDrawdownR": 1.2453121230643642,
+        "meanCostR": 0.21409542672303222,
+        "days": 4
+      },
+      "stress": {
+        "trades": 16,
+        "winRate": 0.8125,
+        "expectancyR": 0.2426906231488578,
+        "netR": 3.883049970381725,
+        "profitFactor": 2.1318059232164805,
+        "maxDrawdownR": 1.4906242461287285,
+        "meanCostR": 0.42819085344606445,
+        "days": 4
+      },
+      "bootstrapLowerR": null,
+      "statisticalPass": false,
+      "historicalCandidate": false,
+      "eligibleForAlerts": false,
+      "reasons": [
+        "Muestra posterior insuficiente: mínimo 30 operaciones por tramo",
+        "Prueba final con menos de diez días operados",
+        "Costes son escenarios; falta spread/comisión real del broker",
+        "Falta prueba prospectiva demo independiente; no habilita recomendaciones"
+      ],
+      "split": {
+        "trainingEnd": 10000,
+        "validationEnd": 15000
+      },
+      "assumptions": [
+        "Entrada en apertura de la vela siguiente, no en un precio retrospectivo",
+        "M5 solo cerrado; stop primero en velas ambiguas",
+        "Costes en unidades de precio: spread + dos deslizamientos + comisión",
+        "Sin volumen real ni orden book; no se inventan",
+        "La selección compara tres familias y hasta ocho mercados; bootstrap diario con alfa 0.05/8",
+        "La prueba final nunca elige ni reajusta parámetros",
+        "Simulación de señales; no aplica el cortacircuito diario del saldo local"
+      ],
+      "dataHash": "47b6b5652b9e9cdd3c472cfad57589e2560a4493a46c7c9d232ef3595274f048",
+      "symbol": "BOOM1000",
+      "retrievedAt": "2026-10-31T13:34:35.815Z"
+    },
+    {
+      "marketId": "CRASH1000",
+      "version": "multi-scalp-research-v1",
+      "bars": 20000,
+      "from": 1792253460,
+      "to": 1793453400,
+      "cost": {
+        "spread": 0.5,
+        "slippagePerSide": 0.125,
+        "commissionRoundTrip": 0,
+        "verified": false,
+        "source": "Escenario explícito no cotizado por el broker; comisión cero es supuesto, no confirmación",
+        "priceBasis": "OHLC público de referencia; bid/ask histórico no disponible"
+      },
+      "training": [
+        {
+          "family": "trend_pullback",
+          "trades": 0,
+          "winRate": null,
+          "expectancyR": null,
+          "netR": 0,
+          "profitFactor": 0,
+          "maxDrawdownR": 0,
+          "meanCostR": null,
+          "days": 0
+        },
+        {
+          "family": "range_reversion",
+          "trades": 0,
+          "winRate": null,
+          "expectancyR": null,
+          "netR": 0,
+          "profitFactor": 0,
+          "maxDrawdownR": 0,
+          "meanCostR": null,
+          "days": 0
+        },
+        {
+          "family": "momentum_breakout",
+          "trades": 0,
+          "winRate": null,
+          "expectancyR": null,
+          "netR": 0,
+          "profitFactor": 0,
+          "maxDrawdownR": 0,
+          "meanCostR": null,
+          "days": 0
+        }
+      ],
+      "selected": null,
+      "selectedBy": "Mayor expectativa de entrenamiento; sin reoptimizar después",
+      "validation": null,
+      "holdout": null,
+      "stress": null,
+      "bootstrapLowerR": null,
+      "statisticalPass": false,
+      "historicalCandidate": false,
+      "eligibleForAlerts": false,
+      "reasons": [
+        "Ninguna familia con 30 operaciones de selección",
+        "Costes son escenarios; falta spread/comisión real del broker",
+        "Falta prueba prospectiva demo independiente; no habilita recomendaciones"
+      ],
+      "split": {
+        "trainingEnd": 10000,
+        "validationEnd": 15000
+      },
+      "assumptions": [
+        "Entrada en apertura de la vela siguiente, no en un precio retrospectivo",
+        "M5 solo cerrado; stop primero en velas ambiguas",
+        "Costes en unidades de precio: spread + dos deslizamientos + comisión",
+        "Sin volumen real ni orden book; no se inventan",
+        "La selección compara tres familias y hasta ocho mercados; bootstrap diario con alfa 0.05/8",
+        "La prueba final nunca elige ni reajusta parámetros",
+        "Simulación de señales; no aplica el cortacircuito diario del saldo local"
+      ],
+      "dataHash": "4d7a29a363d7d8d45b94ed30623c97f8d5c77b3702d47d7be86d42c38ee8f9b9",
+      "symbol": "CRASH1000",
+      "retrievedAt": "2026-10-31T13:34:46.375Z"
+    }
+  ]
+}
