@@ -58,12 +58,14 @@ jobs:
 
             async function verifyAllowedSession(email, isOwner) {
               const page = await browser.newPage({viewport:{width:390,height:844}});
+              let meRequests = 0;
               page.on("pageerror", err => errors.push(String(err && err.message || err)));
               await page.addInitScript(() => {
                 localStorage.setItem("akira_session_token", "synthetic-session-for-e2e");
                 localStorage.setItem("akira_session_exp", "4102444800");
               });
               await page.route("**/api/v8/me", route => {
+                meRequests += 1;
                 if(route.request().method()==="OPTIONS") return route.fulfill({status:204,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, OPTIONS","Access-Control-Allow-Headers":"Authorization, Content-Type"}});
                 return route.fulfill({
                   status:200,
@@ -72,7 +74,18 @@ jobs:
                 });
               });
               await page.goto(base, {waitUntil:"domcontentloaded", timeout:30000});
-              await page.waitForFunction(() => !document.body.classList.contains("akira-auth-locked"), null, {timeout:10000});
+              try {
+                await page.waitForFunction(() => !document.body.classList.contains("akira-auth-locked"), null, {timeout:10000});
+              } catch(error) {
+                const diagnostic = await page.evaluate(() => ({
+                  locked:document.body.classList.contains("akira-auth-locked"),
+                  session:window.akiraSessionState||null,
+                  gateStatus:document.getElementById("akiraAuthStatus")?.textContent||"",
+                  tokenPresent:Boolean(localStorage.getItem("akira_session_token"))
+                }));
+                await page.close();
+                throw new Error(`Authorized session failed. /me requests=${meRequests}; state=${JSON.stringify(diagnostic)}; ${error.message}`);
+              }
               const result = await page.evaluate(() => ({
                 email:window.akiraSessionState?.email,
                 authorized:window.akiraSessionState?.is_authorized,
