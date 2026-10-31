@@ -1679,6 +1679,8 @@
           </div>
 
           <div id="tab-market" class="ak-ttab-pane ${this.activeTab === 'market' ? 'active' : ''}">
+            <details class="ak-market-settings" ${window.innerWidth > 768 ? 'open' : ''}>
+              <summary style="padding:10px;color:#94a3b8;cursor:pointer;">Ajustes de mercado, motor y simulación</summary>
             <div class="ak-market-topbar">
               <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                 <div class="ak-control-group">
@@ -1722,7 +1724,10 @@
               <div class="ak-market-telemetry-badge" id="telemetryBadgeBox"></div>
             </div>
 
+            </details>
+            <details class="ak-radar-settings" ${window.innerWidth > 768 ? 'open' : ''}><summary style="padding:10px;color:#94a3b8;cursor:pointer;">Radar y modos del producto</summary>
             <div id="platformSpecialDeck" style="margin-bottom:12px;"></div>
+            </details>
 
             <div class="ak-chart-canvas-wrapper" id="akiraChartCanvasWrapper">
               <div class="ak-chart-canvas-header" id="akiraChartCanvasHeader">
@@ -1775,12 +1780,12 @@
                 <span>Pasa el mouse sobre el gráfico para auditar cualquier vela histórica en números exactos.</span>
               </div>
 
+                <div id="chartTradePlan" role="status" aria-live="polite" style="padding:10px 12px;margin:8px 0;border:1px solid rgba(148,163,184,.3);border-radius:8px;color:#cbd5e1;font-size:12px;line-height:1.6;overflow-wrap:anywhere;">Esperando velas reales cerradas. Operaciones de práctica en el simulador local.</div>
               <!-- ESCENARIO PRINCIPAL DEL GRÁFICO (TRADINGVIEW O CANVAS) -->
               <div class="ak-chart-stage-container" id="chartStageContainer">
                 <!-- CONTENEDOR TRADINGVIEW OFICIAL (EN TIEMPO REAL CON DERIV) -->
                 <div id="tvChartContainer" style="width:100%;height:560px;display:${this.chartEngine === 'tradingview' ? 'flex' : 'none'};flex-direction:column;border-radius:8px;overflow:hidden;background:#080c14;border:1px solid rgba(0,242,254,0.25);"></div>
 
-                <div id="chartTradePlan" role="status" aria-live="polite" style="padding:10px 12px;margin:8px 0;border:1px solid rgba(148,163,184,.3);border-radius:8px;color:#cbd5e1;font-size:12px;line-height:1.6;overflow-wrap:anywhere;">Esperando velas reales cerradas. Operaciones de práctica en el simulador local.</div>
                 <!-- CONTENEDOR CANVAS LOCAL AKIRA -->
                 <div id="canvasChartContainer" style="width:100%;display:${this.chartEngine === 'canvas' ? 'flex' : 'none'};position:relative;flex:1;">
                   <canvas id="akiraMarketCanvas" class="ak-market-canvas" width="1100" height="540"></canvas>
@@ -2289,15 +2294,15 @@
         box.innerHTML = `
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <div class="ak-bid-ask-box">
-              <span class="lbl">BID:</span>
+              <span class="lbl">BID ESTIMADO:</span>
               <strong class="val bid">${bid}</strong>
             </div>
             <div class="ak-bid-ask-box">
-              <span class="lbl">ASK:</span>
+              <span class="lbl">ASK ESTIMADO:</span>
               <strong class="val ask">${ask}</strong>
             </div>
             <div class="ak-spread-box">
-              <span class="lbl">SPREAD:</span>
+              <span class="lbl">SPREAD REFERENCIA:</span>
               <strong class="val">${spreadPips} ${m.pipName}</strong>
             </div>
             <div class="ak-bid-ask-box" style="border-color:rgba(0,242,254,0.35);background:rgba(0,242,254,0.08);">
@@ -2308,7 +2313,9 @@
         `;
       }
 
-      if (ribbon) {
+      if (ribbon && !this.currentSignal) {
+        ribbon.textContent = `Simulador local: $${calc.capital} USD · Sin señal confirmada. Los niveles aparecerán cuando se cumpla la estrategia.`;
+      } else if (ribbon) {
         ribbon.innerHTML = `
           <div style="display:flex;align-items:center;justify-content:space-between;width:100%;flex-wrap:wrap;gap:8px;">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -7268,6 +7275,12 @@ if __name__ == "__main__":
          ADAPTACIÓN MÓVIL PROFESIONAL (SMARTPHONES, TABLETS & VIEWPORTS PEQUEÑOS)
          ========================================================================== */
       @media (max-width: 768px) {
+        .ak-trading-tabs {display:flex;overflow-x:auto;gap:6px;max-width:100%;}
+        .ak-trading-tabs .ak-ttab-btn {flex-shrink:0;}
+        .ak-market-topbar, .ak-control-group {min-width:0;max-width:100%;}
+        .ak-input-select {max-width:100%;min-width:0;}
+        .ak-market-topbar > div {flex-wrap:wrap!important;}
+        .ak-trading-title-group p {display:none;}
         .ak-trading-wrap {
           gap: 10px;
           padding: 0 4px;
