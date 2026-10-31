@@ -1,7 +1,27 @@
 (function(root){
   "use strict";
-  const VERSION="multi-scalp-research-v1";
+  const VERSION="market-specific-research-v2";
   const FAMILIES=Object.freeze(["trend_pullback","range_reversion","momentum_breakout"]);
+  // Policies are explicit hypotheses, not fitted winners. Unknown products fail closed.
+  const PROFILES=Object.freeze({
+    forex:Object.freeze({id:"forex",label:"Forex · retroceso o rango",families:Object.freeze(["trend_pullback","range_reversion"]),description:"EUR/USD, GBP/USD y USD/JPY: retroceso EMA/RSI con tendencia M5, o regreso a Bollinger cuando ADX indica rango. Ventana fija 07:00–17:00 UTC entre semana; no representa sesiones ajustadas al horario de verano. Salida TP1, stop o 5 minutos. Sin filtro automático de noticias."}),
+    gold:Object.freeze({id:"gold",label:"Oro · ruptura confirmada",families:Object.freeze(["momentum_breakout"]),description:"XAU/USD: cierre que rompe las 20 velas anteriores, a favor de EMA20/50 M5 y ADX ≥ 25. Vela entre 0,8 y 1,8 ATR; descarta movimientos ya extendidos. Ventana fija 12:00–17:00 UTC entre semana. TP1 a 1,5R, stop o 3 minutos. No hay calendario de noticias integrado."}),
+    crypto:Object.freeze({id:"crypto",label:"Criptomonedas · continuación",families:Object.freeze(["trend_pullback","momentum_breakout"]),description:"BTC/USD y ETH/USD: retroceso o ruptura a favor de tendencia M5; ADX ≥ 25, ATR entre 0,01% y 1% del precio y vela ≤ 2 ATR. Sin reversión de rango. Funciona 24/7; TP1 a 1,5R, stop o 3–5 minutos. No utiliza volumen inventado ni detecta liquidaciones."}),
+    synthetic:Object.freeze({id:"synthetic",label:"Boom/Crash · rechazo a favor del spike",families:Object.freeze(["range_reversion"]),description:"Boom 1000: solo compras tras rechazo inferior; Crash 1000: solo ventas tras rechazo superior. Bollinger y RSI confirman retorno al rango, ADX M5 < 20. No entra por tiempo transcurrido ni después de una vela > 2 ATR. TP1 a 1R, stop o 3 minutos. Es una hipótesis experimental: no predice cuándo llegará un spike."}),
+    unsupported:Object.freeze({id:"unsupported",label:"Sin estrategia para este producto",families:Object.freeze([]),description:"No se aplican reglas de otro mercado. Binarias requieren contrato, vencimiento y pago específicos; este motor CFD no las evalúa ni emite señales para ellas."})
+  });
+  function marketProfile(id){return PROFILES[({EURUSD:"forex",GBPUSD:"forex",USDJPY:"forex",XAUUSD:"gold",BTCUSDT:"crypto",ETHUSDT:"crypto",BOOM1000:"synthetic",CRASH1000:"synthetic"})[id]||"unsupported"];}
+  function profileAllows(ctx,i,family,sign){
+    if(!ctx.marketId)return true; // Generic mathematical fixtures only; production always supplies marketId.
+    const profile=marketProfile(ctx.marketId),b=ctx.bars[i],atr=ctx.atr[i],h=ctx.hMap[i],adx=ctx.hAdx[h];
+    if(!profile.families.includes(family))return false;
+    const date=new Date((b.epoch+60)*1000),hour=date.getUTCHours(),day=date.getUTCDay();
+    if(profile.id==="forex" && (day===0||day===6||hour<7||hour>=17))return false;
+    if(profile.id==="gold" && (day===0||day===6||hour<12||hour>=17||adx<25||b.high-b.low>1.8*atr))return false;
+    if(profile.id==="crypto" && (adx<25||atr/b.close<.0001||atr/b.close>.01||b.high-b.low>2*atr))return false;
+    if(profile.id==="synthetic" && (sign!==(ctx.marketId==="BOOM1000"?1:-1)||b.high-b.low>2*atr))return false;
+    return true;
+  }
   function ema(values,n){let prior=null;return values.map(v=>{if(!Number.isFinite(v))return null;prior=prior===null?v:prior+(v-prior)*2/(n+1);return prior;});}
   function rsi(bars,n=14){const out=Array(bars.length).fill(null);let up=0,down=0;for(let i=1;i<bars.length;i++){const d=bars[i].close-bars[i-1].close;if(i<=n){up+=Math.max(d,0)/n;down+=Math.max(-d,0)/n;}else{up=(up*(n-1)+Math.max(d,0))/n;down=(down*(n-1)+Math.max(-d,0))/n;}if(i>=n)out[i]=down===0?(up===0?50:100):100-100/(1+up/down);}return out;}
   function volatility(bars,n=14){const atr=Array(bars.length).fill(null),dx=Array(bars.length).fill(null),adx=Array(bars.length).fill(null);let tr=0,plus=0,minus=0,adxSum=0;
@@ -21,7 +41,7 @@
     if(family==="trend_pullback"&&adx>=20){if(up&&p.close<=ctx.e9[i-1]&&b.close>ctx.e9[i]&&r>=50&&r<=68&&b.close-ctx.e20[i]<=atr)sign=1;else if(!up&&p.close>=ctx.e9[i-1]&&b.close<ctx.e9[i]&&r<=50&&r>=32&&ctx.e20[i]-b.close<=atr)sign=-1;}
     if(family==="range_reversion"&&adx<20&&ctx.bands[i-1]&&ctx.bands[i]){rr=1; if(p.close<ctx.bands[i-1].low&&b.close>=ctx.bands[i].low&&ctx.rsi[i-1]<35&&r>ctx.rsi[i-1])sign=1;else if(p.close>ctx.bands[i-1].high&&b.close<=ctx.bands[i].high&&ctx.rsi[i-1]>65&&r<ctx.rsi[i-1])sign=-1;}
     if(family==="momentum_breakout"&&adx>=20){hold=3;const previous=bars.slice(i-20,i),high=Math.max(...previous.map(x=>x.high)),low=Math.min(...previous.map(x=>x.low));if(b.high-b.low<=atr*2&&b.high-b.low>=atr*.8){if(up&&b.close>high&&r>=55&&r<=75)sign=1;else if(!up&&b.close<low&&r<=45&&r>=25)sign=-1;}}
-    if(!sign)return null;const local=bars.slice(i-4,i+1),extreme=sign===1?Math.min(...local.map(x=>x.low)):Math.max(...local.map(x=>x.high));const risk=Math.max(atr*1.2,Math.abs(b.close-extreme)+atr*.15);if(risk>atr*2.5)return null;
+    if(!sign||!profileAllows(ctx,i,family,sign))return null;if(ctx.marketId&&marketProfile(ctx.marketId).id==="synthetic")hold=3;const local=bars.slice(i-4,i+1),extreme=sign===1?Math.min(...local.map(x=>x.low)):Math.max(...local.map(x=>x.high));const risk=Math.max(atr*1.2,Math.abs(b.close-extreme)+atr*.15);if(risk>atr*2.5)return null;
     return {family,strategy:"multi_scalp_v1",type:sign===1?"BUY":"SELL",entry:b.close,sl:b.close-sign*risk,tp1:b.close+sign*risk*rr,tp2:b.close+sign*risk*2,tp3:b.close+sign*risk*3,risk,rr,maxHoldBars:hold,maxHoldSeconds:hold*60,entryWindowSeconds:20,signalCandleEpoch:b.epoch,entryEpoch:b.epoch+60,indicators:{ema9:ctx.e9[i],ema20:ctx.e20[i],rsi14:r,atr14:atr,m5Adx14:adx,m5Ema20:ctx.h20[h],m5Ema50:ctx.h50[h]},confluences:[family,"Contexto M5 cerrado",`RSI ${r.toFixed(1)} · ADX M5 ${adx.toFixed(1)}`]};}
   function costPrice(cost,multiplier=1){if(!cost||![cost.spread,cost.slippagePerSide,cost.commissionRoundTrip].every(x=>Number.isFinite(x)&&x>=0))throw Error("Costes explícitos requeridos");return (cost.spread+cost.slippagePerSide*2+cost.commissionRoundTrip)*multiplier;}
   function simulate(ctx,family,cost,lo=0,hi=ctx.bars.length,multiplier=1){const bars=ctx.bars,trades=[];let nextDecision=Math.max(299,lo),censored=0;const charge=costPrice(cost,multiplier);
@@ -36,7 +56,9 @@
     return {trades:n,winRate:n?wins/n:null,expectancyR:n?sum/n:null,netR:sum,profitFactor:loss?win/loss:win?null:0,maxDrawdownR:dd,meanCostR:n?trades.reduce((s,t)=>s+t.costR,0)/n:null,days:new Set(trades.map(t=>Math.floor(t.entryEpoch/86400))).size};}
   function dailyBootstrapLower(trades,alpha=.00625){const groups=new Map();for(const t of trades){const day=Math.floor(t.entryEpoch/86400);if(!groups.has(day))groups.set(day,[]);groups.get(day).push(t.netR);}const days=[...groups.values()];if(days.length<10)return null;let seed=2718281829;const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};const means=[];for(let k=0;k<2000;k++){let sum=0,n=0;for(let j=0;j<days.length;j++){const sample=days[Math.floor(rand()*days.length)];sum+=sample.reduce((a,b)=>a+b,0);n+=sample.length;}means.push(sum/n);}means.sort((a,b)=>a-b);return means[Math.floor(alpha*means.length)];}
   function validateMarket(bars,options){const ctx=buildContext(bars),a=Math.floor(bars.length*.5),b=Math.floor(bars.length*.75),cost=options.cost;
-    const training=FAMILIES.map(family=>({family,...summarize(simulate(ctx,family,cost,0,a).trades)}));
+    ctx.marketId=options.marketId;
+    const profile=marketProfile(options.marketId);
+    const training=profile.families.map(family=>({family,...summarize(simulate(ctx,family,cost,0,a).trades)}));
     const ranked=training.filter(s=>s.trades>=30).sort((x,y)=>(y.expectancyR??-Infinity)-(x.expectancyR??-Infinity));
     const selected=ranked[0]?.family||null;
     const reasons=[];let validation=null,holdout=null,stress=null,lower=null;
@@ -54,6 +76,6 @@
     if(cost.verified!==true)reasons.push("Costes son escenarios; falta spread/comisión real del broker");
     const historicalCandidate=statisticalPass&&cost.verified===true;
     reasons.push("Falta prueba prospectiva demo independiente; no habilita recomendaciones");
-    return {marketId:options.marketId,version:VERSION,bars:bars.length,from:bars[0].epoch,to:bars.at(-1).epoch,cost,training,selected,selectedBy:"Mayor expectativa de entrenamiento; sin reoptimizar después",validation,holdout,stress,bootstrapLowerR:lower,statisticalPass,historicalCandidate,eligibleForAlerts:false,reasons,split:{trainingEnd:a,validationEnd:b},assumptions:["Entrada en apertura de la vela siguiente, no en un precio retrospectivo", "M5 solo cerrado; stop primero en velas ambiguas", "Costes en unidades de precio: spread + dos deslizamientos + comisión", "Sin volumen real ni orden book; no se inventan", "La selección compara tres familias y hasta ocho mercados; bootstrap diario con alfa 0.05/8", "La prueba final nunca elige ni reajusta parámetros", "Simulación de señales; no aplica el cortacircuito diario del saldo local"]};}
-  const api={VERSION,FAMILIES,ema,rsi,volatility,validateBars,aggregateM5,buildContext,setupAt,costPrice,simulate,summarize,dailyBootstrapLower,validateMarket};root.AkiraScalpResearchCore=api;if(typeof module!=="undefined"&&module.exports)module.exports=api;
+    return {marketId:options.marketId,profileId:profile.id,profileLabel:profile.label,version:VERSION,bars:bars.length,from:bars[0].epoch,to:bars.at(-1).epoch,cost,training,selected,selectedBy:"Mayor expectativa de entrenamiento; sin reoptimizar después",validation,holdout,stress,bootstrapLowerR:lower,statisticalPass,historicalCandidate,eligibleForAlerts:false,reasons,split:{trainingEnd:a,validationEnd:b},assumptions:["Entrada en apertura de la vela siguiente, no en un precio retrospectivo", "M5 solo cerrado; stop primero en velas ambiguas", "Costes en unidades de precio: spread + dos deslizamientos + comisión", "Sin volumen real ni orden book; no se inventan", "La selección compara solo familias permitidas por mercado; bootstrap diario con alfa 0.05/8", "La prueba final nunca elige ni reajusta parámetros", "Simulación de señales; no aplica el cortacircuito diario del saldo local"]};}
+  const api={VERSION,FAMILIES,PROFILES,marketProfile,profileAllows,ema,rsi,volatility,validateBars,aggregateM5,buildContext,setupAt,costPrice,simulate,summarize,dailyBootstrapLower,validateMarket};root.AkiraScalpResearchCore=api;if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof globalThis!=="undefined"?globalThis:this);

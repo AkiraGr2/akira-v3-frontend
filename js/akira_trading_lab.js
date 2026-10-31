@@ -1374,7 +1374,7 @@
       if(this.loadingScalpResearch) return;
       this.loadingScalpResearch=true;this.scalpResearchError="";
       try {
-        const response=await fetch("./research/scalp-validation-latest.json?v=20261031-multi-scalp-v1",{cache:"no-store"});
+        const response=await fetch("./research/scalp-validation-latest.json?v=20261031-market-profiles-v2",{cache:"no-store"});
         if(!response.ok)throw Error("No se pudo cargar la comparación histórica");
         const report=await response.json();
         if(!ScalpResearch || report.version!==ScalpResearch.VERSION || !Array.isArray(report.markets))throw Error("Informe incompatible; las señales permanecen pausadas");
@@ -1394,9 +1394,10 @@
       const num=value=>Number.isFinite(value)?value.toFixed(2):"—";
       const labels={trend_pullback:"Retroceso + EMA/RSI",range_reversion:"Rango + Bollinger/RSI",momentum_breakout:"Ruptura + EMA/ATR"};
       const rows=report.markets.filter(r=>MARKETS[r.marketId]).map(r=>`<tr><td style="padding:8px;">${escape(r.marketId)}</td><td style="padding:8px;">${escape(labels[r.selected]||"Muestra insuficiente")}</td><td style="padding:8px;">${escape(r.holdout ? r.holdout.trades : "Sin prueba final")}</td><td style="padding:8px;">${num(r.holdout?.expectancyR)} R</td><td style="padding:8px;">${r.historicalCandidate===true?"Candidata histórica; falta demo MT5":"Sin validar"}</td></tr>`).join("");
+      const profiles=Object.values(ScalpResearch.PROFILES).map(p=>`<details style="margin:8px 0;padding:10px;border:1px solid #334155;border-radius:8px;"><summary>${escape(p.label)}</summary><p>${escape(p.description)}</p></details>`).join("");
       const details=report.markets.filter(r=>MARKETS[r.marketId]).map(r=>`<details style="margin-top:8px;"><summary>${escape(r.marketId)} · motivos y costes</summary><div style="padding:8px;">${escape(r.error||(r.reasons||[]).join(". "))}<br>Velas: ${escape(r.bars||0)}. Spread supuesto: ${escape(r.cost?.spread)}; deslizamiento por lado: ${escape(r.cost?.slippagePerSide)}; comisión supuesta: ${escape(r.cost?.commissionRoundTrip)}. Son escenarios, no costes confirmados de tu cuenta MT5.</div></details>`).join("");
       const stale=!Number.isFinite(Date.parse(report.generatedAt)) || Date.now()-Date.parse(report.generatedAt)>86400000;
-      panel.innerHTML=`<p style="color:#fde68a;">${stale?"Informe antiguo: nuevas preparaciones pausadas. ":""}${report.markets.filter(r=>r.historicalCandidate===true).length} candidatas históricas · 0 estrategias con rentabilidad validada en tu MT5 demo. Ninguna habilita órdenes ni recomendaciones automáticas.</p><div style="overflow-x:auto;"><table style="width:100%;font-size:12px;text-align:left;min-width:510px;"><thead><tr><th>Mercado</th><th>Modelo elegido antes de prueba</th><th>Operaciones finales</th><th>Resultado neto supuesto por operación</th><th>Estado</th></tr></thead><tbody>${rows}</tbody></table></div><p>Entrada M1 y contexto M5 cerrado · salidas en 3–5 minutos · selección 50%, validación 25%, prueba final 25%. Los costes incluyen spread, deslizamiento y comisión supuestos. Un porcentaje de aciertos alto puede perder dinero. 1R es el riesgo previsto de una operación; los importes son resultados del modelo, no ganancias de MT5.</p>${details}`;
+      panel.innerHTML=`<p style="color:#fde68a;">${stale?"Informe antiguo: nuevas preparaciones pausadas. ":""}${report.markets.filter(r=>r.historicalCandidate===true).length} candidatas históricas · 0 estrategias con rentabilidad validada en tu MT5 demo. Ninguna habilita órdenes ni recomendaciones automáticas.</p><div style="overflow-x:auto;"><table style="width:100%;font-size:12px;text-align:left;min-width:510px;"><thead><tr><th>Mercado</th><th>Modelo elegido antes de prueba</th><th>Operaciones finales</th><th>Resultado neto supuesto por operación</th><th>Estado</th></tr></thead><tbody>${rows}</tbody></table></div><p>Entrada M1 y contexto M5 cerrado · salidas en 3–5 minutos · selección 50%, validación 25%, prueba final 25%. Los costes incluyen spread, deslizamiento y comisión supuestos. Un porcentaje de aciertos alto puede perder dinero. 1R es el riesgo previsto de una operación; los importes son resultados del modelo, no ganancias de MT5.</p>${details}<p>Esta revisión reutiliza históricos ya examinados: es exploratoria, no una prueba futura independiente. La casilla de práctica permite estudiar reglas, no certifica ganancias.</p><h4>Qué estrategia utiliza cada mercado</h4>${profiles}<p>Operativa actual: gráfico y análisis con precios Deriv, simulador local y preparaciones experimentales solo cuando cumplen las reglas y la evidencia disponible. No se envían órdenes a MT5. TP2 y TP3 son referencias; esta modalidad sale en TP1. La frecuencia depende de las condiciones, no de un temporizador.</p>`;
     }
 
     generateMultiScalpSignal(marketId,timeframe,bars,candleEpoch) {
@@ -1405,19 +1406,21 @@
       if(timeframe!=="M1") reason="Scalping multipar: selecciona M1; el contexto M5 se calcula con velas completas.";
       else if(!ScalpResearch || !row || row.error) reason="Sin datos de validación de este mercado; no se inventa una estrategia.";
       else if(!Number.isFinite(Date.parse(report.generatedAt)) || Date.now()-Date.parse(report.generatedAt)>86400000) reason="Informe histórico caducado; no se emiten nuevas preparaciones.";
-      else if(!row.selected || !(row.validation?.expectancyR>0 && row.holdout?.expectancyR>0)) reason="Ningún modelo seleccionado mantuvo beneficio supuesto en ambos periodos posteriores; no se fuerza una entrada.";
+      else if(!this.scalpPracticeEnabled && (!row.selected || !(row.validation?.expectancyR>0 && row.holdout?.expectancyR>0))) reason="Ningún modelo seleccionado mantuvo beneficio supuesto en ambos periodos posteriores; no se fuerza una entrada.";
       else if(candleEpoch<=(this.scalpCooldownThroughEpoch[marketId]||0)) reason="Pausa de dos velas tras la salida; no acumular operaciones.";
       if(reason){this.scannerStatus=reason;this.renderScannerSignal();return;}
-      const setup=ScalpResearch.setupAt(ScalpResearch.buildContext(bars),bars.length-1,row.selected);
+      const context=ScalpResearch.buildContext(bars);context.marketId=marketId;
+      const families=this.scalpPracticeEnabled ? ScalpResearch.marketProfile(marketId).families : [row.selected];
+      const setup=families.map(f=>ScalpResearch.setupAt(context,bars.length-1,f)).find(Boolean);
       if(!setup || ScalpResearch.costPrice(row.cost)/setup.risk>.25){this.scannerStatus="Esperando confluencia de indicadores M1/M5 y un coste supuesto menor al 25% del riesgo. Sin entrada.";this.renderScannerSignal();return;}
       const m=MARKETS[marketId],bar=bars.at(-1),round=value=>Number(value.toFixed(this.getMarketDecimals(marketId)));
-      this.currentSignal={...setup,id:`MULTI-${row.selected}-${marketId}-${bar.epoch}`,marketId,marketName:m.name,timeframe,
+      this.currentSignal={...setup,id:`MULTI-${setup.family}-${marketId}-${bar.epoch}`,marketId,marketName:m.name,timeframe,
         entry:round(setup.entry),sl:round(setup.sl),tp1:round(setup.tp1),tp2:round(setup.tp2),tp3:round(setup.tp3),
-        pattern:`Scalping ${row.selected} · PRÁCTICA SIN VALIDAR`,confluence:setup.confluences.length,smc:setup.confluences.join(" · "),
+        pattern:`Scalping ${setup.family} · PRÁCTICA SIN VALIDAR`,confluence:setup.confluences.length,smc:setup.confluences.join(" · "),
         riskPips:Math.abs(setup.entry-setup.sl)/(m.pipSize||1),entryCandleIdx:bar.index,entryTime:setup.entryEpoch*1000,createdAt:Date.now(),createdCandleIndex:bar.index,
         expiresAt:(setup.entryEpoch+setup.maxHoldSeconds)*1000,entryValidUntil:(setup.entryEpoch+20)*1000,timestamp:new Date().toLocaleTimeString(),
         atr:setup.indicators.atr14,spikeMetrics:null,przZone:null,pivots:null,orderBlock:null,riskRewardTargets:[setup.rr,2,3]};
-      this.scannerStatus="Preparación de investigación: resultado favorable en la muestra, pero falta validar costes MT5, tamaño de muestra y prueba demo independiente. Sin Telegram.";
+      this.scannerStatus=this.scalpPracticeEnabled ? "Práctica manual: cumple las reglas de este mercado, pero NO tiene rentabilidad validada; puede perder dinero. Solo simulador local, sin Telegram ni órdenes MT5." : "Preparación de investigación: resultado favorable en la muestra, pero falta validar costes MT5, tamaño de muestra y prueba demo independiente. Sin Telegram.";
       this.accumulationStatus=null;this.spikeRadar=null;this.renderScannerSignal();this.drawMarketCanvas();
     }
 
@@ -1956,7 +1959,7 @@
                     <option value="spike_scalp" ${this.scannerStrategy==='spike_scalp'?'selected':''}>Caza spikes · Boom/Crash M1 · demo experimental</option>
                     <option value="structural" ${this.scannerStrategy==='structural'?'selected':''}>Sniper estructural y armónico</option>
                   </select></label>
-                <div id="multiScalpResearchSummary" style="color:#fde68a;font-size:12px;margin:8px 0;">Validación MT5 pendiente; no hay beneficio garantizado.</div><details ${window.innerWidth>768?'open':''} style="padding:12px;background:#101a2b;border:1px solid #334155;border-radius:10px;margin:8px 0;color:#cbd5e1;font-size:12px;line-height:1.6;"><summary style="cursor:pointer;font-weight:700;">Comparación de estrategias rápidas · Deriv MT5 demo</summary><button id="btnReloadScalpResearch" type="button" style="margin:8px 0;padding:8px 12px;background:#164e63;color:#ecfeff;border:1px solid #0891b2;border-radius:6px;">Actualizar informe publicado</button><div id="multiScalpResearchResults" aria-live="polite">Cargando comparación histórica…</div></details>
+                <label style="display:block;padding:10px;color:#cbd5e1;font-size:12px;"><input id="scalpPracticeToggle" type="checkbox" ${this.scalpPracticeEnabled ? 'checked' : ''}> Mostrar configuraciones para practicar · sin rentabilidad validada, solo simulador local</label><div id="multiScalpResearchSummary" style="color:#fde68a;font-size:12px;margin:8px 0;">Validación MT5 pendiente; no hay beneficio garantizado.</div><details ${window.innerWidth>768?'open':''} style="padding:12px;background:#101a2b;border:1px solid #334155;border-radius:10px;margin:8px 0;color:#cbd5e1;font-size:12px;line-height:1.6;"><summary style="cursor:pointer;font-weight:700;">Comparación de estrategias rápidas · Deriv MT5 demo</summary><button id="btnReloadScalpResearch" type="button" style="margin:8px 0;padding:8px 12px;background:#164e63;color:#ecfeff;border:1px solid #0891b2;border-radius:6px;">Actualizar informe publicado</button><div id="multiScalpResearchResults" aria-live="polite">Cargando comparación histórica…</div></details>
                 <div id="chartTradePlan" role="status" aria-live="polite" style="padding:10px 12px;margin:8px 0;border:1px solid rgba(148,163,184,.3);border-radius:8px;color:#cbd5e1;font-size:12px;line-height:1.6;overflow-wrap:anywhere;">Esperando velas reales cerradas. Operaciones de práctica en el simulador local.</div>
               <!-- ESCENARIO PRINCIPAL DEL GRÁFICO (TRADINGVIEW O CANVAS) -->
               <div class="ak-chart-stage-container" id="chartStageContainer">
@@ -5983,6 +5986,7 @@
 
       container.addEventListener("click", (e) => {
         if(e.target.id==="btnReloadScalpResearch") this.loadScalpResearch();
+        if(e.target.id==="scalpPracticeToggle"){this.scalpPracticeEnabled=e.target.checked;this.currentSignal=null;this.lastEvaluatedCandleEpoch[this.selectedMarket]=null;this.scannerStatus="Modo de práctica actualizado; esperando el siguiente análisis con datos vivos.";this.renderScannerSignal();}
         if (e.target.id === "btnExecuteDemoSignal" && this.currentSignal) {
           const sig = this.currentSignal;
           const calc = this.calculateSafeLot(this.accountSize, sig.riskPips, sig.marketId, this.scannerSimulatedLot);

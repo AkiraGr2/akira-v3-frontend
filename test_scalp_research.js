@@ -25,3 +25,37 @@ const report=core.validateMarket(bars,{marketId:"FIXTURE",cost:costs});assert.eq
 const misleading=core.summarize([{netR:.1,costR:0},{netR:.1,costR:0},{netR:-3,costR:0}]);assert.ok(misleading.winRate>.5 && misleading.expectancyR<0,"high hit rate is not profitability");
 assert.equal(core.summarize([]).winRate,null);assert.equal(core.summarize([]).expectancyR,null);
 console.log("PASS: causal M1/M5 indicators, next-bar fills, explicit costs, stress, gaps, stop-first, deadlines, fold separation, sample sufficiency and blocked unverified profitability.");
+// The same mathematical trigger must not leak into an incompatible market/product.
+const profiled=fixture();const ix=399;
+profiled.bars[ix].epoch=Date.UTC(2026,9,30,13,0)/1000;
+profiled.marketId="EURUSD";
+assert.ok(core.setupAt(profiled,ix,"trend_pullback")===null,"inconsistent minute sequence is rejected before policy");
+assert.equal(core.profileAllows(profiled,ix,"trend_pullback",1),true);
+profiled.bars[ix].epoch=Date.UTC(2026,9,31,13,0)/1000;
+assert.equal(core.profileAllows(profiled,ix,"trend_pullback",1),false,"Forex weekend blocked");
+profiled.bars[ix].epoch=Date.UTC(2026,9,30,20,0)/1000;
+assert.equal(core.profileAllows(profiled,ix,"trend_pullback",1),false,"Forex off-hours blocked");
+profiled.bars[ix].epoch=Date.UTC(2026,9,30,13,0)/1000;
+profiled.marketId="XAUUSD";
+assert.equal(core.profileAllows(profiled,ix,"trend_pullback",1),false,"gold never borrows Forex pullback policy");
+assert.equal(core.profileAllows(profiled,ix,"momentum_breakout",1),true);
+profiled.hAdx.fill(24);assert.equal(core.profileAllows(profiled,ix,"momentum_breakout",1),false);
+profiled.hAdx.fill(25);profiled.marketId="BTCUSDT";
+assert.equal(core.profileAllows(profiled,ix,"range_reversion",1),false);
+assert.equal(core.profileAllows(profiled,ix,"trend_pullback",1),true);
+profiled.atr[ix]=.0001;assert.equal(core.profileAllows(profiled,ix,"trend_pullback",1),false,"crypto dead volatility blocked");profiled.atr[ix]=.3;
+profiled.marketId="BOOM1000";
+assert.equal(core.profileAllows(profiled,ix,"range_reversion",-1),false,"no Boom short from generic range model");
+assert.equal(core.profileAllows(profiled,ix,"range_reversion",1),true);
+profiled.marketId="CRASH1000";
+assert.equal(core.profileAllows(profiled,ix,"range_reversion",1),false);
+assert.equal(core.profileAllows(profiled,ix,"range_reversion",-1),true);
+profiled.marketId="BINARY";assert.equal(core.profileAllows(profiled,ix,"trend_pullback",1),false);
+assert.equal(core.validateMarket(bars,{marketId:"BINARY",cost:costs}).selected,null);
+for(const marketId of ["EURUSD","XAUUSD","BTCUSDT","BOOM1000","CRASH1000"]){
+  const full=core.buildContext(bars);full.marketId=marketId;
+  for(const i of [511,809,1201]){const prefix=core.buildContext(bars.slice(0,i+1));prefix.marketId=marketId;
+    for(const family of core.FAMILIES)assert.deepEqual(core.setupAt(full,i,family),core.setupAt(prefix,i,family));}
+  const result=core.validateMarket(bars,{marketId,cost:costs});assert.deepEqual(result.training.map(t=>t.family),core.marketProfile(marketId).families);
+}
+console.log("PASS: distinct market policies, direction, hours, volatility, unknown/binary refusal and causal profile replay.");
