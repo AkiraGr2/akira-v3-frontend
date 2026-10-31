@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const { findConfirmedSwings, detectHarmonicPattern, rejectionDirection, spikeCycleStats, validateEntryConditions, resolveTerminalOutcome, simulateSignalOutcomes, summarizeBacktest, validateHarmonicSequence } = require("./js/akira_trading_scanner_core.js");
+const { buildSpikeScalpSetup, resolveSpikeScalpExit, findConfirmedSwings, detectHarmonicPattern, rejectionDirection, spikeCycleStats, validateEntryConditions, resolveTerminalOutcome, simulateSignalOutcomes, summarizeBacktest, validateHarmonicSequence } = require("./js/akira_trading_scanner_core.js");
 
 function candlesFromPoints(points, length, radius) {
   const candles = Array.from({ length }, (_, index) => ({
@@ -147,6 +147,39 @@ assert.equal(replayStats.winRate, 0.5);
 assert.equal(replayStats.expectancyR, 0.625);
 assert.equal(replayStats.profitFactor, 4 / 1.5);
 assert.equal(replayStats.netR, 2.5);
+
+// Fixed spike-scalp rules must use only the supplied confirmed prefix.
+const scalpBars=Array.from({length:60},(_,i)=>({epoch:1700000040+i*60,open:200-i*.1,high:200-i*.1+.1,low:200-i*.1-.2,close:200-i*.1-.1,isSpike:false}));
+const scalp=buildSpikeScalpSetup(scalpBars,{marketId:"BOOM1000",timeframe:"M1",decimals:3});
+assert.equal(scalp.valid,true);assert.equal(scalp.type,"BUY");
+assert.ok(scalp.sl<scalp.entry && scalp.tp1>scalp.entry);
+assert.equal(scalp.maxHoldSeconds,180);assert.equal(scalp.entryWindowSeconds,20);
+const crashBars=scalpBars.map(b=>({...b,open:400-b.open,close:400-b.close,high:400-b.low,low:400-b.high}));
+const crashScalp=buildSpikeScalpSetup(crashBars,{marketId:"CRASH1000",timeframe:"M1",decimals:3});
+assert.equal(crashScalp.valid,true);assert.equal(crashScalp.type,"SELL");
+assert.ok(crashScalp.sl>crashScalp.entry && crashScalp.tp1<crashScalp.entry);
+assert.equal(buildSpikeScalpSetup(scalpBars,{marketId:"BOOM1000",timeframe:"M5"}).valid,false);
+assert.equal(buildSpikeScalpSetup(scalpBars,{marketId:"XAUUSD",timeframe:"M1"}).valid,false);
+assert.equal(buildSpikeScalpSetup(scalpBars.slice(1),{marketId:"BOOM1000",timeframe:"M1"}).valid,false);
+const gapScalp=scalpBars.map(b=>({...b}));gapScalp[20].epoch+=1;
+assert.equal(buildSpikeScalpSetup(gapScalp,{marketId:"BOOM1000",timeframe:"M1"}).valid,false);
+const chased=scalpBars.map(b=>({...b}));chased.at(-1).isSpike=true;
+assert.equal(buildSpikeScalpSetup(chased,{marketId:"BOOM1000",timeframe:"M1"}).valid,false,"never chase an already detected spike");
+const wide=scalpBars.map(b=>({...b}));wide.at(-1).high+=10;
+assert.equal(buildSpikeScalpSetup(wide,{marketId:"BOOM1000",timeframe:"M1"}).valid,false);
+const waitOnly=scalpBars.map((b,i)=>({...b,open:100,close:100,high:100.1,low:99.9,isSpike:i===0}));
+assert.equal(buildSpikeScalpSetup(waitOnly,{marketId:"BOOM1000",timeframe:"M1"}).valid,false,"time since a spike alone cannot trigger an entry");
+const liveScalp={...scalp,strategy:"spike_scalp_v1"};const start=scalp.entryEpoch;
+assert.equal(resolveSpikeScalpExit(scalpBars,liveScalp,scalp.entry,start),null,"entry candle cannot score earlier price extremes");
+const tie={epoch:start,open:scalp.entry,high:scalp.tp1+1,low:scalp.sl-1,close:scalp.entry};
+assert.equal(resolveSpikeScalpExit([tie],liveScalp,scalp.entry,start+60).status,"AMBIGUOUS_BAR_SL_FIRST");
+const quiet=Array.from({length:3},(_,i)=>({epoch:start+i*60,open:scalp.entry,high:scalp.entry+.01,low:scalp.entry-.01,close:scalp.entry}));
+assert.equal(resolveSpikeScalpExit(quiet,liveScalp,scalp.entry,start+180).status,"TIME_EXIT");
+assert.equal(resolveSpikeScalpExit([...quiet,{epoch:start+180,open:scalp.entry,high:scalp.tp3+1,low:scalp.entry,close:scalp.tp3}],liveScalp,scalp.tp3,start+240).status,"TIME_EXIT","a spike after expiry cannot turn an expired trade into a win");
+assert.equal(resolveSpikeScalpExit([{...quiet[0],high:scalp.tp1}],liveScalp,scalp.tp1,start+60).status,"TP1_HIT");
+const cooling=simulateSignalOutcomes(Array.from({length:12},(_,i)=>({epoch:i*60,open:100,high:100.1,low:99.9,close:100})),()=>({direction:"BUY",entry:100,stop:99,target:101}),{maxHoldBars:3,cooldownBars:2});
+assert.deepEqual(cooling.entries.map(e=>e.entryIndex),[0,6]);
+assert.ok(cooling.trades.every(t=>t.exitIndex-t.entryIndex===3));
 
 global.window = global;
 require("./js/quantick_akira_tv_pine.js");

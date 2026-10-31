@@ -148,6 +148,29 @@ async function main() {
     await f.app.sendTelegramConnectionTest();
     assert.ok(testMessage.includes("no es una señal"));assert.ok(!/\bTP[123]\b|\bBUY\b|\bSELL\b|98/.test(testMessage));
   }
+  {
+    const f=fixture();f.app.initDerivWebSocket();const socket=f.sockets[0];socket.open();f.history(socket);
+    const a=f.app;for(const method of ["savePaperAccount","renderOpenPositions","renderClosedTrades","updateSimulatorLiveUI","updateSentinelStats"])a[method]=()=>{};
+    a.marketPrices.BOOM1000=100;a.paper.balance=50;a.paper.openPositions=[];a.paper.closedTrades=[];
+    const now=f.sandbox.Date.now(),sig={strategy:"spike_scalp_v1",id:"SCALP-TEST",marketId:"BOOM1000",timeframe:"M1",type:"BUY",entry:100,sl:99,tp1:101,tp2:102,tp3:103,signalCandleEpoch:now/1000-60,entryValidUntil:now+20000,expiresAt:now+180000};
+    a.currentSignal=sig;
+    a.deliverTelegramMessage=()=>{throw Error("Unvalidated scalp must not send external recommendations");};
+    assert.equal(await a.sendSignalToTelegram(sig,true),false,"research profile never sends Telegram recommendations");
+    assert.equal(a.executeDemoOrder("BOOM1000","BUY",1,99,101,false,60,sig),false,"planned loss over 1% of local balance must be rejected");
+    a.executeDemoOrder("BOOM1000","BUY",.2,99,101,false,60,sig);
+    assert.equal(a.paper.openPositions.length,1);assert.equal(a.paper.openPositions[0].expiresAt,sig.expiresAt);
+    assert.equal(a.executeDemoOrder("BOOM1000","BUY",.2,99,101,false,60,sig),false,"no stacking");
+    a.paper.openPositions[0].expiresAt=now-1;a.updateOpenPositionsPnL();
+    assert.equal(a.paper.openPositions.length,0);assert.equal(a.paper.closedTrades[0].signalId,sig.id);
+    assert.equal(a.executeDemoOrder("BOOM1000","BUY",.2,99,101,false,60,sig),false,"closed signal cannot be reused");
+    a.paper.closedTrades=[];sig.entryValidUntil=now-1;
+    assert.equal(a.executeDemoOrder("BOOM1000","BUY",.2,99,101,false,60,sig),false,"late entries rejected");
+    sig.entryValidUntil=now+20000;a.marketPrices.BOOM1000=100.3;
+    assert.equal(a.executeDemoOrder("BOOM1000","BUY",.2,99,101,false,60,sig),false,"price chasing rejected");
+    a.marketPrices.BOOM1000=100;a.paper.openPositions=[{id:"offline",marketId:"BOOM1000",timeframe:"M1",strategy:"spike_scalp_v1",type:"BUY",entryPrice:100,lot:.2,sl:99,tp:101,expiresAt:now-1}];
+    f.sandbox.navigator.onLine=false;f.emit("window","offline");a.updateOpenPositionsPnL();
+    assert.equal(a.paper.openPositions.length,1,"offline expiry must wait for a real quote, never fabricate a fill");
+  }
   console.log("PASS: single connection, bounded reconnect, stale-socket isolation, market switch, offline freeze/gates, recovery, heartbeat, Telegram levels and dedup; no external messages sent.");
 }
 main().catch(err=>{console.error(err);process.exitCode=1;});

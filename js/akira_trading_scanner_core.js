@@ -197,6 +197,65 @@
     return { valid: reasons.length === 0, reasons };
   }
 
+  // Experimental, fixed rules; never infer spike probability from elapsed time.
+  function buildSpikeScalpSetup(candles, options = {}) {
+    const bars = Array.isArray(candles) ? candles : [];
+    const market = String(options.marketId || "");
+    const buy = market.startsWith("BOOM"), sell = market.startsWith("CRASH");
+    const fail = reason => ({ valid: false, reasons: [reason] });
+    if ((!buy && !sell) || options.timeframe !== "M1") return fail("Caza spikes demo requiere Boom/Crash en M1");
+    if (bars.length < 60) return fail("Esperando 60 velas reales cerradas");
+    const recent = bars.slice(-60);
+    if (recent.some((b,i) => ![b.epoch,b.open,b.high,b.low,b.close].every(Number.isFinite) || b.high < Math.max(b.open,b.close) || b.low > Math.min(b.open,b.close) || (i && b.epoch-recent[i-1].epoch !== 60))) return fail("Histórico M1 incompleto o inválido; caza pausada");
+    const last = recent.at(-1), previous = recent.slice(-6,-1);
+    const ranges = recent.slice(0,-3).map(b=>b.high-b.low).filter(r=>r>0);
+    const normalRange = median(ranges);
+    if (!(normalRange > 0)) return fail("No hay rango suficiente para definir stop y objetivo");
+    const sign = buy ? 1 : -1;
+    const spikeBar = b => b.isSpike === true || (b.close-b.open)*sign > normalRange*2;
+    if (recent.slice(-3).some(spikeBar)) return fail("Spike reciente: no perseguir el salto; esperar una nueva preparación");
+    const driftBars = previous.filter(b=>(b.close-b.open)*sign<0).length;
+    const driftMove = (previous[0].open-last.close)*sign;
+    if (driftBars < 4 || driftMove < normalRange) return fail("Esperando deriva corta contra la dirección del spike");
+    const microRange = median(recent.slice(-3).map(b=>b.high-b.low));
+    if (microRange > normalRange*1.25 || last.high-last.low > normalRange*1.5) return fail("Esperando compresión; no entrar con expansión ya iniciada");
+    const zone = recent.slice(-20), low = Math.min(...zone.map(b=>b.low)), high = Math.max(...zone.map(b=>b.high));
+    const location = high>low ? (last.close-low)/(high-low) : 0.5;
+    if ((buy && location>0.3) || (sell && location<0.7)) return fail("Precio lejos del extremo de la preparación corta");
+    const entry = last.close;
+    const stop = buy ? Math.min(...recent.slice(-5).map(b=>b.low))-normalRange*0.25 : Math.max(...recent.slice(-5).map(b=>b.high))+normalRange*0.25;
+    const risk = Math.max(Math.abs(entry-stop), normalRange*1.5);
+    if (risk>normalRange*4) return fail("Stop demasiado amplio para una operación rápida");
+    const decimals = Number.isInteger(options.decimals) ? Math.max(0,Math.min(8,options.decimals)) : 3;
+    const round = n=>Number(n.toFixed(decimals));
+    const sl=round(entry-sign*risk), tp1=round(entry+sign*risk),tp2=round(entry+sign*risk*2),tp3=round(entry+sign*risk*3);
+    if ((entry-sl)*sign<=0 || (tp1-entry)*sign<=0) return fail("Precisión insuficiente para niveles válidos");
+    return {valid:true,reasons:[],type:buy?"BUY":"SELL",entry,sl,tp1,tp2,tp3,
+      strategy:"spike_scalp_v1",maxHoldBars:3,maxHoldSeconds:180,entryWindowSeconds:20,cooldownBars:2,
+      normalRange,driftBars,confluences:["Deriva corta observada", "Compresión de rango", "Precio en extremo local"],
+      signalCandleEpoch:last.epoch,entryEpoch:last.epoch+60};
+  }
+
+  function resolveSpikeScalpExit(candles, signal, currentPrice, nowEpoch) {
+    if (!signal || signal.strategy!=="spike_scalp_v1" || !Number.isFinite(nowEpoch)) return null;
+    const entryEpoch=signal.signalCandleEpoch+60, deadline=entryEpoch+180, buy=signal.type==="BUY";
+    for (const bar of (candles || [])) {
+      if (bar.epoch<entryEpoch || bar.epoch>=deadline || bar.epoch>nowEpoch) continue;
+      const stop=buy?bar.low<=signal.sl:bar.high>=signal.sl;
+      const target=buy?bar.high>=signal.tp1:bar.low<=signal.tp1;
+      const at=Math.min(bar.epoch+60,nowEpoch);
+      if (stop) return {status:target?"AMBIGUOUS_BAR_SL_FIRST":"SL_HIT",price:buy?Math.min(signal.sl,bar.open):Math.max(signal.sl,bar.open),epoch:at};
+      if (target) return {status:"TP1_HIT",price:signal.tp1,epoch:at};
+      if (bar.epoch+60===deadline && nowEpoch>=deadline) return {status:"TIME_EXIT",price:bar.close,epoch:deadline};
+    }
+    if (nowEpoch>=deadline && Number.isFinite(currentPrice)) return {status:"TIME_EXIT",price:currentPrice,epoch:nowEpoch};
+    if (nowEpoch>=entryEpoch && Number.isFinite(currentPrice)) {
+      if (buy?currentPrice<=signal.sl:currentPrice>=signal.sl) return {status:"SL_HIT",price:currentPrice,epoch:nowEpoch};
+      if (buy?currentPrice>=signal.tp1:currentPrice<=signal.tp1) return {status:"TP1_HIT",price:signal.tp1,epoch:nowEpoch};
+    }
+    return null;
+  }
+
   function resolveTerminalOutcome(tp3Index, stopIndex) {
     const hasTarget = Number.isInteger(tp3Index) && tp3Index >= 0;
     const hasStop = Number.isInteger(stopIndex) && stopIndex >= 0;
@@ -214,8 +273,11 @@
     const entries = [];
     let active = null;
     let ignoredOpenSignal = false;
+    let nextEntryIndex = 0;
+    const cooldownBars = Math.max(0,Math.floor(Number(cfg.cooldownBars)||0));
     for (let i = 0; i < bars.length; i += 1) {
       if (!active) {
+        if (i < nextEntryIndex) continue;
         const signal = typeof signalAtIndex === "function" ? signalAtIndex(i, bars.slice(0, i + 1)) : null;
         if (!signal || !["BUY", "SELL"].includes(signal.direction)) continue;
         const entry = Number(signal.entry);
@@ -266,6 +328,7 @@
         rMultiple: signedMove / active.risk
       });
       active = null; // No same-candle re-entry.
+      nextEntryIndex = i + cooldownBars + 1;
     }
     if (active) ignoredOpenSignal = true;
     return { trades, entries, ignoredOpenSignal, barCount: bars.length, maxHoldBars };
@@ -301,7 +364,7 @@
     };
   }
 
-  const api = { averageTrueRange, findConfirmedSwings, detectHarmonicPattern, rejectionDirection, spikeCycleStats, validateEntryConditions, resolveTerminalOutcome, simulateSignalOutcomes, summarizeBacktest, validateHarmonicSequence: projectPattern };
+  const api = { buildSpikeScalpSetup, resolveSpikeScalpExit, averageTrueRange, findConfirmedSwings, detectHarmonicPattern, rejectionDirection, spikeCycleStats, validateEntryConditions, resolveTerminalOutcome, simulateSignalOutcomes, summarizeBacktest, validateHarmonicSequence: projectPattern };
   root.AkiraTradingScannerCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

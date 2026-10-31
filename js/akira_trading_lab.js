@@ -253,6 +253,9 @@
       this.paper = this.loadPaperAccount();
       this.sentinel = this.loadSentinel();
       this.currentSignal = null;
+      this.scannerStrategy = localStorage.getItem("akira_scanner_strategy_v1") || "spike_scalp";
+      this.scalpCooldownThroughEpoch = {};
+      try {const saved=JSON.parse(localStorage.getItem("akira_scalp_cooldowns_v1")||"{}");for(const [market,epoch] of Object.entries(saved))if(Number.isFinite(epoch))this.scalpCooldownThroughEpoch[market]=epoch;}catch(_){}
       this.scannerSimulatedLot = null;
       this.marketPrices = {};
       this.candles = {};
@@ -1015,7 +1018,8 @@
       let openPnL = 0;
       let positionsChanged = false;
 
-      this.paper.openPositions.forEach(pos => {
+      this.paper.openPositions.slice().forEach(pos => {
+        if (pos.strategy==='spike_scalp_v1' && !this.hasLiveDerivFeed(pos.marketId,pos.timeframe)) return;
         const cur = this.marketPrices[pos.marketId] || pos.entryPrice;
         pos.currentPrice = cur;
         const diff = pos.type === "BUY" ? (cur - pos.entryPrice) : (pos.entryPrice - cur);
@@ -1047,6 +1051,8 @@
           } else if (pos.tp && ((pos.type === "BUY" && cur >= pos.tp) || (pos.type === "SELL" && cur <= pos.tp))) {
             this.closePosition(pos.id, "TP_HIT");
             positionsChanged = true;
+          } else if (pos.expiresAt && Date.now()>=pos.expiresAt) {
+            this.closePosition(pos.id,"TIME_EXIT");positionsChanged=true;
           }
         }
       });
@@ -1359,6 +1365,47 @@
       };
     }
 
+    usesSpikeScalp(marketId = this.selectedMarket) {
+      return this.scannerStrategy === "spike_scalp" && /^(BOOM|CRASH)/.test(marketId);
+    }
+
+    refreshScalpLifecycle() {
+      const sig=this.currentSignal;
+      if (!sig || sig.strategy!=="spike_scalp_v1" || sig.completedAt || !this.hasLiveDerivFeed(sig.marketId,sig.timeframe)) return;
+      if (!sig.entryWindowClosed && Date.now()>sig.entryValidUntil) {sig.entryWindowClosed=true;this.renderScannerSignal();}
+      const exit=ScannerCore.resolveSpikeScalpExit(this.candles[sig.marketId],sig,this.marketPrices[sig.marketId],Date.now()/1000);
+      if (!exit) return;
+      sig.completedAt=Date.now();sig.completedStatus=exit.status;
+      sig.pipsWon=(exit.price-sig.entry)*(sig.type==="BUY"?1:-1)/(MARKETS[sig.marketId].pipSize||1);
+      this.scalpCooldownThroughEpoch[sig.marketId]=exit.epoch+120;
+      try {localStorage.setItem("akira_scalp_cooldowns_v1",JSON.stringify(this.scalpCooldownThroughEpoch));}catch(_){}
+      this.scannerStatus=`Caza spikes cerrada: ${exit.status}. Pausa de dos velas antes de otra preparación.`;
+      this.renderScannerSignal();
+    }
+
+    generateSpikeScalpSignal(marketId,timeframe,bars,candleEpoch) {
+      if (candleEpoch <= (this.scalpCooldownThroughEpoch[marketId] || 0)) {
+        this.scannerStatus="Caza spikes: pausa de dos velas tras la salida; sin acumular operaciones.";
+        this.renderScannerSignal();return;
+      }
+      const setup=ScannerCore.buildSpikeScalpSetup(bars,{marketId,timeframe,decimals:this.getMarketDecimals(marketId)});
+      if (!setup.valid) {this.scannerStatus=setup.reasons.join(". ");this.renderScannerSignal();return;}
+      const m=MARKETS[marketId],bar=bars.at(-1),geom=this.detectHarmonicPivots(bars);
+      const harmonic=geom && geom.isBull===(setup.type==="BUY") && geom.isAtPrz;
+      const confluences=setup.confluences.concat(harmonic?[`${geom.patternName}: apoyo armónico`]:[]);
+      this.currentSignal={...setup,id:`SCALP-${marketId}-${bar.epoch}`,marketId,marketName:m.name,timeframe,
+        pattern:"Caza spikes · preparación corta · DEMO EXPERIMENTAL",confluences,confluence:confluences.length,
+        smc:confluences.join(" · ")+". No predice cuándo ocurre el spike.",riskPips:Math.abs(setup.entry-setup.sl)/(m.pipSize||1),
+        entryCandleIdx:bar.index,entryTime:setup.entryEpoch*1000,createdAt:Date.now(),createdCandleIndex:bar.index,
+        expiresAt:(setup.entryEpoch+180)*1000,entryValidUntil:(setup.entryEpoch+20)*1000,
+        riskRewardTargets:[1,2,3],atr:setup.normalRange,timestamp:new Date().toLocaleTimeString(),
+        przZone:harmonic?geom.przZone:null,pivots:null,orderBlock:null,spikeMetrics:null};
+      this.accumulationStatus=null;this.spikeRadar=null;
+      this.scannerStatus="Preparación experimental: salida en TP1, stop o 3 minutos; TP2/TP3 son referencias, no se esperan.";
+      this.renderScannerSignal();this.drawMarketCanvas();
+      // Research-only profile: adverse replay results do not authorize external recommendations.
+    }
+
     generateHarmonicSignal(marketId, timeframe, forceRegenerate = false, confirmedEpoch = null) {
       const m = MARKETS[marketId];
       const feedKey = `${marketId}:${timeframe}`;
@@ -1369,12 +1416,14 @@
         return;
       }
 
+      this.refreshScalpLifecycle();
       const bar = bars[bars.length - 1];
       const candleEpoch = Number(confirmedEpoch || (Number(bar.epoch) + ({M1:60,M5:300,M15:900,H1:3600,H4:14400,D1:86400})[timeframe]));
       if (!Number.isFinite(candleEpoch) || this.lastEvaluatedCandleEpoch[marketId] === candleEpoch) return;
       this.lastEvaluatedCandleEpoch[marketId] = candleEpoch;
       if (this.currentSignal && this.currentSignal.marketId === marketId && this.currentSignal.timeframe === timeframe && !this.currentSignal.completedAt) return;
 
+      if (this.usesSpikeScalp(marketId)) return this.generateSpikeScalpSignal(marketId,timeframe,bars,candleEpoch);
       const slCooldown = this.marketSlCooldowns[marketId];
       if (slCooldown && Date.now() - slCooldown.hitAt < slCooldown.cooldownMs) {
         this.scannerStatus = "Pausa de protección después de alcanzar el stop; esperando nuevas velas.";
@@ -1491,6 +1540,8 @@
         replay.dataFeedKeys = { [marketId]: `${marketId}:${timeframe}` };
         replay.lastEvaluatedCandleEpoch = {};
         replay.marketSlCooldowns = {};
+        replay.scalpCooldownThroughEpoch = {};
+        replay.refreshScalpLifecycle = () => {};
         replay.currentSignal = null;
         replay.scannerSimulatedLot = null;
         replay.accumulationStatus = null;
@@ -1501,7 +1552,8 @@
         replay.sendSignalToTelegram = () => {};
 
         const splitIndex = Math.floor(source.length * 0.7);
-        const maxHoldBars = 100;
+        const scalpMode = this.usesSpikeScalp(marketId);
+        const maxHoldBars = scalpMode ? 3 : 100;
         const replayResult = ScannerCore.simulateSignalOutcomes(source, (index, prefix) => {
           if (index < 59) return null;
           replay.candles[marketId] = prefix;
@@ -1515,8 +1567,8 @@
           replay.generateHarmonicSignal(marketId, timeframe, true, confirmedEpoch);
           const signal = replay.currentSignal;
           if (!signal || Number(signal.signalCandleEpoch) !== Number(last.epoch)) return null;
-          return { direction: signal.type, entry: signal.entry, stop: signal.sl, target: signal.tp3 };
-        }, { maxHoldBars });
+          return { direction: signal.type, entry: signal.entry, stop: signal.sl, target: scalpMode ? signal.tp1 : signal.tp3 };
+        }, { maxHoldBars, cooldownBars: scalpMode ? 2 : 0 });
 
         const trainTrades = replayResult.trades.filter(trade => trade.entryIndex < splitIndex && trade.exitIndex < splitIndex);
         const testTrades = replayResult.trades.filter(trade => trade.entryIndex >= splitIndex);
@@ -1537,7 +1589,7 @@
           ? "No hay suficientes entradas para calcular un intervalo medio."
           : `Separación media observada: ${meanGapMinutes.toFixed(1)} minutos entre entradas; no es una cuenta atrás ni predice la siguiente.`;
         const frequency = `<div style="margin:8px 0;padding:10px;border:1px solid #475569;border-radius:8px;">${entries.length} entradas en ${hours.toFixed(1)} horas evaluadas de ${marketId} · ${timeframe} (tras 60 velas de preparación). ${cadence} ${replayResult.ignoredOpenSignal ? "Incluye una operación aún abierta al final de la muestra." : ""} Los rayos del gráfico marcan spikes, no señales de entrada.</div>`;
-        panel.innerHTML = `${frequency}<div>Datos: ${source.length} velas confirmadas · entrada al cierre · salida completa en stop o 3R · límite de permanencia: ${maxHoldBars} velas · si stop y objetivo tocaron la misma vela, cuenta como stop.</div>${row("Tramo inicial (70%; operaciones cerradas antes del corte)", train)}${row("Tramo posterior fuera de muestra", test)}<div style="margin-top:8px;color:#94a3b8;">Cierres por tiempo: ${timeExit} · velas ambiguas resueltas como stop: ${ambiguous} · no incluye parciales, spread, comisiones ni deslizamiento. Métrica histórica bruta; no predice resultados futuros.</div>`;
+        panel.innerHTML = `${scalpMode ? `<p style="padding:10px;border:1px solid #f59e0b;color:#fde68a;border-radius:8px;">INVESTIGACIÓN DEMO: ${test.trades && test.expectancyR<0 ? "resultado fuera de muestra negativo. Esta configuración no supera la validación económica." : "rentabilidad no validada; esta muestra no autoriza operar dinero real."} Sin recomendaciones por Telegram. El replay cuenta preparaciones sin aplicar el límite diario del centinela; la práctica manual sí lo respeta.</p>` : ""}${frequency}<div>Datos: ${source.length} velas confirmadas · entrada al cierre · salida completa en stop o ${scalpMode ? "TP1 (1R) · caza spikes experimental" : "3R"} · límite de permanencia: ${maxHoldBars} velas · si stop y objetivo tocaron la misma vela, cuenta como stop.</div>${row("Tramo inicial (70%; operaciones cerradas antes del corte)", train)}${row("Tramo posterior fuera de muestra", test)}<div style="margin-top:8px;color:#94a3b8;">Cierres por tiempo: ${timeExit} · velas ambiguas resueltas como stop: ${ambiguous} · no incluye parciales, spread, comisiones ni deslizamiento. Métrica histórica bruta; no predice resultados futuros.</div>`;
         return replayResult;
       } catch (error) {
         panel.textContent = `No se pudo completar la prueba histórica: ${String(error?.message || error)}`;
@@ -1571,8 +1623,10 @@
         };
       }
 
+      const scalpSizing=this.usesSpikeScalp(targetMarket) && this.selectedTimeframe==='M1' && !isBinary;
       let recommendedLot;
-      if (isBinary) {
+      if (scalpSizing) recommendedLot=Math.floor((cap*0.005/(pips*(m.pipSize||0.01)))*1000)/1000;
+      else if (isBinary) {
         recommendedLot = 1.00;
       } else if (isBoomCrash) {
         recommendedLot = 0.20;
@@ -1591,7 +1645,7 @@
       } else if (isBoomCrash) {
         // En Deriv Boom/Crash: 1 punto de precio = $1.00 USD por cada 1.00 lote.
         // Como 1 pip = 0.01 puntos (450 pips = 4.50 puntos):
-        const pts = pips * 0.01;
+        const pts = pips * (scalpSizing ? (m.pipSize||0.01) : 0.01);
         actualRiskMoney = parseFloat((pts * activeLot).toFixed(2));
       } else if (isGold) {
         // En Oro (XAUUSD): 1 pip = $0.10 USD a 0.01 lote ($10.00 USD por lote estándar).
@@ -1603,7 +1657,7 @@
         actualRiskMoney = parseFloat((pips * 0.10 * (activeLot / 0.01)).toFixed(2));
       }
 
-      actualRiskMoney = Math.max(0.10, actualRiskMoney);
+      actualRiskMoney = Math.max(scalpSizing ? 0 : 0.10, actualRiskMoney);
 
       // CÁLCULO DEL CAPITAL BASE RECOMENDADO EN CUENTA SEGÚN LOTAJE:
       // Norma de Oro Institucional: Máximo 1.8% a 2.0% de riesgo por operación para nunca sobreapalancarse.
@@ -1621,7 +1675,8 @@
         recommendedBaseCapital = Math.max(50, Math.round(actualRiskMoney / 0.02));
       }
 
-      const effectiveCapital = (overrideLot !== null && overrideLot !== undefined)
+      if (scalpSizing) recommendedBaseCapital=cap;
+      const effectiveCapital = (!scalpSizing && overrideLot !== null && overrideLot !== undefined)
         ? recommendedBaseCapital
         : cap;
 
@@ -1655,7 +1710,7 @@
         tp3Profit: tp3Profit,
         isMicroAccount: effectiveCapital <= 100,
         isCustomLot: activeLot !== recommendedLot,
-        microNote: isBoomCrash
+        microNote: scalpSizing ? `Modelo local experimental: tamaño ${activeLot}, riesgo previsto $${actualRiskMoney} sobre saldo de referencia $${cap}. La apertura limita el riesgo previsto al 1% del saldo local real. No representa especificaciones ni ejecución de una cuenta del broker.` : isBoomCrash
           ? `En cuenta recomendada de $${effectiveCapital} USD (Boom/Crash), a ${activeLot} lotes con SL de ${pips} pips (4.50 pts), arriesgas -$${actualRiskMoney} USD (${actualRiskPercent}% del capital). Ganancias reales: TP1: +$${tp1Profit} USD, TP2: +$${tp2Profit} USD, TP3: +$${tp3Profit} USD.`
           : `En cuenta recomendada de $${effectiveCapital} USD, a ${activeLot} lotes con SL de ${pips} pips, arriesgas -$${actualRiskMoney} USD (${actualRiskPercent}% del capital). Ganancias reales: TP1: +$${tp1Profit} USD, TP2: +$${tp2Profit} USD, TP3: +$${tp3Profit} USD.`
       };
@@ -1821,6 +1876,11 @@
                 <span>Pasa el mouse sobre el gráfico para auditar cualquier vela histórica en números exactos.</span>
               </div>
 
+                <label style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;color:#cbd5e1;font-size:12px;">Estrategia
+                  <select id="scannerStrategyMode" style="padding:9px;background:#101a2b;color:#e2e8f0;border:1px solid #475569;border-radius:8px;max-width:100%;">
+                    <option value="spike_scalp" ${this.scannerStrategy==='spike_scalp'?'selected':''}>Caza spikes · Boom/Crash M1 · demo experimental</option>
+                    <option value="structural" ${this.scannerStrategy==='structural'?'selected':''}>Sniper estructural y armónico</option>
+                  </select></label>
                 <div id="chartTradePlan" role="status" aria-live="polite" style="padding:10px 12px;margin:8px 0;border:1px solid rgba(148,163,184,.3);border-radius:8px;color:#cbd5e1;font-size:12px;line-height:1.6;overflow-wrap:anywhere;">Esperando velas reales cerradas. Operaciones de práctica en el simulador local.</div>
               <!-- ESCENARIO PRINCIPAL DEL GRÁFICO (TRADINGVIEW O CANVAS) -->
               <div class="ak-chart-stage-container" id="chartStageContainer">
@@ -2735,6 +2795,11 @@
       if (!this.currentSignal || !candles || candles.length === 0) return null;
       const sig = this.currentSignal;
       const isBinary = sig.type === "CALL" || sig.type === "PUT";
+      if (sig.strategy === "spike_scalp_v1") {
+        const exit=ScannerCore.resolveSpikeScalpExit(candles,sig,this.marketPrices[sig.marketId],Date.now()/1000);
+        return {tp1Hit:exit?.status==="TP1_HIT",tp2Hit:false,tp3Hit:false,slHit:false,
+          currentPrice:this.marketPrices[sig.marketId],pipsFloating:((this.marketPrices[sig.marketId]-sig.entry)*(sig.type==="BUY"?1:-1))/(MARKETS[sig.marketId].pipSize||1)};
+      }
       const isBuy = sig.type === "BUY" || sig.type === "CALL";
       const cur = this.marketPrices[this.selectedMarket] || candles[candles.length - 1].close;
 
@@ -2918,6 +2983,7 @@
       if (allCandles.length === 0) return;
 
       const isLight = this.chartTheme === "light";
+      this.refreshScalpLifecycle();
       const targetSync = this.calculateTargetSync(allCandles);
 
       // GESTIÓN DEL CICLO DE VIDA DE LA ENTRADA (MANTENER SIEMPRE VISIBLE EN EL GRÁFICO)
@@ -4142,7 +4208,7 @@
 
       // PÍLDORA DE ESTADO INSTITUCIONAL (SIN ELIMINAR LA ENTRADA)
       if (this.currentSignal && this.currentSignal.completedAt) {
-        const isWin = this.currentSignal.completedStatus === "TP3_HIT";
+        const isWin = ["TP3_HIT","TP1_HIT"].includes(this.currentSignal.completedStatus);
         ctx.save();
         ctx.fillStyle = isWin ? "rgba(16, 185, 129, 0.92)" : "rgba(234, 179, 8, 0.92)";
         ctx.fillRect((chartWidth / 2) - 180, 10, 360, 24);
@@ -4153,8 +4219,8 @@
         ctx.fillStyle = "#ffffff";
         ctx.font = "bold 10px sans-serif";
         ctx.textAlign = "center";
-        const bannerTxt = isWin
-          ? `TP3 alcanzado (+${this.currentSignal.pipsWon ?? 0} pips en el modelo OHLC)`
+        const bannerTxt = this.currentSignal.completedStatus==='TIME_EXIT' ? "Caza cerrada por tiempo (3 minutos), sin esperar otro spike" : isWin
+          ? `${this.currentSignal.strategy==='spike_scalp_v1'?'TP1':'TP3'} alcanzado (+${this.currentSignal.pipsWon ?? 0} pips en el modelo OHLC)`
           : (this.currentSignal.completedStatus === "AMBIGUOUS_BAR_SL_FIRST"
               ? "Stop alcanzado o misma vela ambigua; contado conservadoramente como stop"
               : `Stop alcanzado (${this.currentSignal.pipsWon ?? 0} pips en el modelo OHLC)`);
@@ -4257,8 +4323,8 @@
       if (plan) {
         const signal = this.currentSignal;
         plan.textContent = signal
-          ? `${signal.type} · ${signal.marketName} · ${signal.timeframe} | Entrada ${signal.entry} | Stop ${signal.sl} | Objetivos ${signal.tp1} / ${signal.tp2} / ${signal.tp3} · Práctica: simulador local; verifica los precios en tu cuenta demo.`
-          : `${this.scannerStatus || "Esperando confirmación con velas reales. Sin señal de entrada."} Se revisa al cierre de cada vela (${this.selectedTimeframe}); no hay una entrada cada cierto número de minutos. Los rayos indican spikes, no entradas.`;
+          ? `${signal.completedAt ? "CERRADA: "+signal.completedStatus : signal.strategy==="spike_scalp_v1" && Date.now()>signal.entryValidUntil ? "Entrada caducada; no abrir tarde" : signal.strategy==="spike_scalp_v1" ? "Caza spikes · DEMO EXPERIMENTAL" : "Señal"} · ${signal.type} · ${signal.marketName} · ${signal.timeframe} | Entrada ${signal.entry} | Stop ${signal.sl} | Objetivos ${signal.tp1} / ${signal.tp2} / ${signal.tp3} ${signal.strategy==="spike_scalp_v1" ? "| Salida rápida: TP1, SL o 3 min. TP2/TP3 solo referencias." : ""} · Práctica: simulador local; verifica los precios en tu cuenta demo.`
+          : `${this.usesSpikeScalp() ? "INVESTIGACIÓN DEMO: rentabilidad no validada; sin alertas Telegram. " : ""}${this.scannerStatus || "Esperando confirmación con velas reales. Sin señal de entrada."} Se revisa al cierre de cada vela (${this.selectedTimeframe}); no hay una entrada cada cierto número de minutos. Los rayos indican spikes, no entradas.`;
       }
       const container = document.getElementById("scannerSignalContainer");
       if (!container) return;
@@ -4272,7 +4338,7 @@
           <div class="ak-signal-card" style="background:linear-gradient(135deg,#0b111e,#060a12);border:1px solid rgba(148,163,184,.25);border-radius:12px;padding:20px;">
             <strong style="color:#cbd5e1;">Escáner Sniper y armónico</strong>
             <p style="margin:8px 0 0;color:#94a3b8;font-size:13px;line-height:1.5;">${status}</p>
-            <p style="margin:8px 0 0;color:#64748b;font-size:12px;">Una señal requiere vela cerrada, rechazo direccional y zona estructural. No muestra porcentajes de acierto no validados.</p>
+            <p style="margin:8px 0 0;color:#64748b;font-size:12px;">${this.usesSpikeScalp() ? "Caza spikes M1: deriva corta, compresión y extremo local; entrada de práctica durante 20 s, salida TP1/SL o 3 min. No es predicción del próximo spike." : "Una señal requiere vela cerrada, rechazo direccional y zona estructural."} No muestra porcentajes de acierto no validados.</p>
           </div>`;
         return;
       }
@@ -4289,7 +4355,7 @@
           <div class="ak-sig-head">
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
               <span class="ak-sig-type-pill ${isBuy ? 'bull' : 'bear'}">
-                ${isBuy ? '🟢 SEÑAL BUY CONFIRMADA' : '🔴 SEÑAL SELL CONFIRMADA'}
+                ${sig.strategy==='spike_scalp_v1' ? `⚡ ${sig.type} · DEMO EXPERIMENTAL` : isBuy ? '🟢 SEÑAL BUY CONFIRMADA' : '🔴 SEÑAL SELL CONFIRMADA'}
               </span>
               <div>
                 <h3 style="margin:0;font-size:16px;color:#fff;">${sig.pattern}</h3>
@@ -4302,6 +4368,7 @@
             </div>
           </div>
 
+          ${sig.strategy==='spike_scalp_v1' ? `<p style="padding:12px;background:#172239;color:#e2e8f0;">Caza corta: entrada válida solo 20 s tras el cierre. Salida completa en TP1 (1R), SL o 180 s. TP2 y TP3 son referencias; no se esperan. Sin martingala, sin acumular posiciones. Práctica local experimental: pruebas recientes desfavorables; no usar como recomendación. Sin alertas Telegram. El límite temporal requiere feed activo; una desconexión se resuelve con la primera cotización real posterior, no con un precio inventado.</p>` : ''}
           ${sig.spikeMetrics ? `
             <!-- Ciclo empírico: solo describe deriva observada; no predice cuándo ocurrirá el spike. -->
             <div style="background:rgba(16, 185, 129, 0.08);border:1px solid rgba(16, 185, 129, 0.35);border-radius:8px;padding:12px;margin-bottom:12px;">
@@ -4313,7 +4380,7 @@
                   <span class="ak-pill live" style="font-size:10px;padding:2px 8px;">${sig.confluence} confluencias</span>
               </div>
               <p style="margin:0;font-size:11.5px;color:#cbd5e1;line-height:1.4;">
-                Entrada ejecutada tras <strong>${sig.spikeMetrics.driftCandles} velas consecutivas de deriva</strong> con <strong>${sig.spikeMetrics.wickDetails}</strong>. El intervalo se estima con ${sig.spikeMetrics.observedIntervals} ciclos completos observados. Ese intervalo describe el pasado y no predice cuándo ocurrirá el siguiente spike.
+                Preparación observada tras <strong>${sig.spikeMetrics.driftCandles} velas consecutivas de deriva</strong> con <strong>${sig.spikeMetrics.wickDetails}</strong>. El intervalo se estima con ${sig.spikeMetrics.observedIntervals} ciclos completos observados. Ese intervalo describe el pasado y no predice cuándo ocurrirá el siguiente spike.
               </p>
             </div>
           ` : ''}
@@ -4326,19 +4393,19 @@
               <span class="ak-pill live" style="font-size:10px;padding:2px 8px;">Objetivos 1R / 2R / 3R</span>
             </div>
             <p style="margin:0 0 10px 0;font-size:12px;color:#cbd5e1;line-height:1.5;">
-              El marcador representa el cierre que cumplió los filtros de tendencia, rechazo y zona. Las líneas son referencias técnicas; la caja usa el stop estructural y objetivos 1R, 2R y 3R.
+              ${sig.strategy==='spike_scalp_v1' ? "El marcador indica una preparación de deriva corta, compresión y extremo. El armónico puede aportar contexto, pero no es obligatorio. La salida rápida es TP1 o tres minutos; ningún filtro conoce cuándo vendrá el spike." : "El marcador representa el cierre que cumplió los filtros de tendencia, rechazo y zona. Las líneas son referencias técnicas; la caja usa el stop estructural y objetivos 1R, 2R y 3R."}
             </p>
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:10px;">
               <div style="background:rgba(22, 163, 74, 0.12);border:1px solid #16a34a;border-radius:8px;padding:10px 12px;">
                 <strong style="color:#16a34a;font-size:12px;">✓ CHULITO VERDE = COMPRA SNIPER:</strong>
                 <p style="margin:4px 0 0 0;font-size:11px;color:#cbd5e1;line-height:1.4;">
-                  Aparece únicamente después de una vela cerrada con rechazo comprador y confirmación en una zona estructural aceptada por el escáner.
+                  ${sig.strategy==='spike_scalp_v1' ? "Preparación experimental de compra en Boom: deriva corta, compresión y extremo local. No predice el salto." : "Aparece únicamente después de una vela cerrada con rechazo comprador y confirmación en una zona estructural aceptada por el escáner."}
                 </p>
               </div>
               <div style="background:rgba(220, 38, 38, 0.12);border:1px solid #dc2626;border-radius:8px;padding:10px 12px;">
                 <strong style="color:#dc2626;font-size:12px;">✓ CHULITO ROJO = VENTA SNIPER:</strong>
                 <p style="margin:4px 0 0 0;font-size:11px;color:#cbd5e1;line-height:1.4;">
-                  Aparece únicamente después de una vela cerrada con rechazo vendedor y confirmación en una zona estructural aceptada por el escáner.
+                  ${sig.strategy==='spike_scalp_v1' ? "Preparación experimental de venta en Crash: deriva corta, compresión y extremo local. No predice la caída." : "Aparece únicamente después de una vela cerrada con rechazo vendedor y confirmación en una zona estructural aceptada por el escáner."}
                 </p>
               </div>
             </div>
@@ -4897,7 +4964,7 @@
       }
     }
 
-    executeDemoOrder(marketId, type, lot, sl = null, tp = null, isBinary = false, duration = 60) {
+    executeDemoOrder(marketId, type, lot, sl = null, tp = null, isBinary = false, duration = 60, signal = null) {
       if (!this.hasLiveDerivFeed(marketId, this.selectedTimeframe)) {
         alert("Carga este mercado en el gráfico y espera la conexión con datos reales antes de abrir una operación de práctica.");
         return false;
@@ -4913,6 +4980,16 @@
 
       const m = MARKETS[marketId] || MARKETS["XAUUSD"];
       const price = this.marketPrices[marketId] || m.basePrice;
+      if (signal?.strategy === "spike_scalp_v1") {
+        this.refreshScalpLifecycle();
+        const risk=Math.abs(signal.entry-signal.sl);
+        if (signal.completedAt || Date.now()>signal.entryValidUntil || Math.abs(price-signal.entry)>risk*0.2 ||
+            this.paper.openPositions.some(p=>p.marketId===marketId) || this.paper.closedTrades.some(p=>p.signalId===signal.id)) {
+          alert("Preparación caducada, precio alejado u operación ya usada/abierta. Espera una nueva señal; no persigas el spike.");return false;
+        }
+        const maxRisk=Math.max(0,this.paper.balance)*0.01;
+        if (Math.abs(price-sl)*Number(lot)>maxRisk) {alert("La práctica caza spikes limita el riesgo previsto al 1% del saldo. Reduce el tamaño.");return false;}
+      }
 
       const pos = {
         id: "POS-" + Math.floor(100000 + Math.random() * 900000),
@@ -4926,7 +5003,10 @@
         tp: tp,
         isBinary: isBinary,
         pnl: 0,
-        openedAt: new Date().toLocaleTimeString()
+        openedAt: new Date().toLocaleTimeString(),
+        strategy:signal?.strategy || null,signalId:signal?.id || null,
+        expiresAt:signal?.strategy==='spike_scalp_v1'?signal.expiresAt:null,
+        timeframe:signal?.timeframe || this.selectedTimeframe
       };
 
       if (isBinary) {
@@ -4981,6 +5061,7 @@
 
       this.paper.closedTrades.push({
         id: pos.id,
+        signalId: pos.signalId || null,
         marketId: pos.marketId,
         marketName: pos.marketName,
         type: pos.type,
@@ -5002,12 +5083,14 @@
       const idx = this.paper.openPositions.findIndex(p => p.id === posId);
       if (idx === -1) return;
       const pos = this.paper.openPositions[idx];
+      if(pos.strategy==='spike_scalp_v1' && !this.hasLiveDerivFeed(pos.marketId,pos.timeframe)) {alert("Espera una cotización real de este mercado para cerrar la práctica.");return false;}
       const cur = this.marketPrices[pos.marketId] || pos.entryPrice;
       const pnl = pos.pnl || 0;
       this.paper.balance = parseFloat((this.paper.balance + pnl).toFixed(2));
 
       this.paper.closedTrades.push({
         id: pos.id,
+        signalId: pos.signalId || null,
         marketId: pos.marketId,
         marketName: pos.marketName,
         type: pos.type,
@@ -5834,7 +5917,8 @@
             sig.sl,
             sig.tp1,
             isBin,
-            60
+            60,
+            sig
           );
           const simTabBtn = container.querySelector('[data-ttab="simulator"]');
           if (simTabBtn) simTabBtn.click();
@@ -5904,7 +5988,7 @@
         if (e.target.id === "btnCopySignalText" && this.currentSignal) {
           const s = this.currentSignal;
           const calc = this.calculateSafeLot(this.accountSize, s.riskPips, s.marketId);
-          const txt = `📈 AKIRA QUANTUM TRADING SIGNAL\nMercado: ${s.marketName}\nAcción: ${s.type}\nEntrada: ${s.entry}\nDebido Lotaje (Cta $${calc.capital} USD): ${calc.lot}\nSL: ${s.sl || '-'} (-${calc.slPips} pips | -$${calc.actualRiskMoney} USD)\nTP1: ${s.tp1 || '-'} (+${calc.tp1Pips} pips | +$${calc.tp1Profit} USD)\nTP2: ${s.tp2 || '-'} (+${calc.tp2Pips} pips | +$${calc.tp2Profit} USD)\nTP3: ${s.tp3 || '-'} (+${calc.tp3Pips} pips | +$${calc.tp3Profit} USD)\nConfluencias verificadas: ${s.confluence}\nEstrategia: ${s.smc}`;
+          const txt = `${s.strategy==='spike_scalp_v1'?'INVESTIGACIÓN DEMO · historial desfavorable · salida TP1/SL o 3 min · TP2/TP3 referencias. No es recomendación.\n':''}📈 AKIRA QUANTUM TRADING SIGNAL\nMercado: ${s.marketName}\nAcción: ${s.type}\nEntrada: ${s.entry}\nDebido Lotaje (Cta $${calc.capital} USD): ${calc.lot}\nSL: ${s.sl || '-'} (-${calc.slPips} pips | -$${calc.actualRiskMoney} USD)\nTP1: ${s.tp1 || '-'} (+${calc.tp1Pips} pips | +$${calc.tp1Profit} USD)\nTP2: ${s.tp2 || '-'} (+${calc.tp2Pips} pips | +$${calc.tp2Profit} USD)\nTP3: ${s.tp3 || '-'} (+${calc.tp3Pips} pips | +$${calc.tp3Profit} USD)\nConfluencias verificadas: ${s.confluence}\nEstrategia: ${s.smc}`;
           navigator.clipboard.writeText(txt).then(() => {
             alert("📋 Señal copiada al portapapeles con métricas completas para cuenta de $50 USD");
           });
@@ -5917,6 +6001,11 @@
       });
 
       container.addEventListener("change", (e) => {
+        if (e.target.id === "scannerStrategyMode") {
+          this.scannerStrategy=e.target.value;localStorage.setItem("akira_scanner_strategy_v1",this.scannerStrategy);
+          this.currentSignal=null;this.scannerSimulatedLot=null;this.scannerStatus="Estrategia cambiada. Esperando el próximo cierre real; no se inventa una entrada retrospectiva.";
+          this.renderScannerSignal();this.drawMarketCanvas();
+        }
         if (e.target.id === "inputCustomLotSim") {
           const val = parseFloat(e.target.value);
           if (!isNaN(val) && val > 0) {
@@ -6198,6 +6287,8 @@ if __name__ == "__main__":
         if (!isAuto) alert("No hay una señal confirmada con datos reales vigentes para enviar.");
         return false;
       }
+      if (signal.strategy==='spike_scalp_v1' && Date.now()>signal.entryValidUntil) return false;
+      if (signal.strategy==='spike_scalp_v1') {if(!isAuto)alert("Caza spikes es investigación demo con resultados históricos desfavorables; no envía recomendaciones por Telegram.");return false;}
       const chat = String(this.telegramChatId || localStorage.getItem(STORAGE_KEY_TG_CHAT_ID) || "").trim();
       const signalKey = `${chat}:${signal.marketId}:${signal.timeframe}:${signal.signalCandleEpoch}`;
       if (this.sentTelegramSignalIds.has(signalKey) || this.pendingTelegramSignalIds.has(signalKey)) {
@@ -6218,6 +6309,7 @@ if __name__ == "__main__":
           `⏱️ *Expiración:* 60 Segundos / 2 Minutos (Turbo)\n` +
           `🔥 *Retorno Esperado:* +85% Payout Neto\n` +
           `💰 *Inversión Sugerida:* $1.00 a $10.00 USD (Stake fijo)\n\n` +
+          (signal.strategy==='spike_scalp_v1' ? `⚡ *CAZA SPIKES · DEMO EXPERIMENTAL:* entrada solo 20 s tras el cierre; salir en TP1, SL o 3 min. TP2/TP3 solo referencias.\n` : '') +
           `📈 *Confluencias verificadas:* ${signal.confluence}\n` +
           `🔬 *Estrategia:* Absorción de Liquidez Institucional\n` +
           `⏱️ *Hora:* ${signal.timestamp}\n\n` +
