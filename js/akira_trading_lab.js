@@ -284,6 +284,8 @@
       this.derivWs = null;
       this.isDerivWsConnected = false;
       this.activeSubscriptionId = null;
+      this.derivRequestSerial = 0;
+      this.activeDerivRequestIds = new Set();
 
       Object.keys(MARKETS).forEach(k => {
         this.marketPrices[k] = MARKETS[k].basePrice;
@@ -398,6 +400,13 @@
           try {
             const data = JSON.parse(event.data);
             if (data.msg_type === "ping" || data.ping === "pong") return;
+            if (data.error) {
+              this.scannerStatus = "Deriv: " + String(data.error.message || data.error.code || "datos no disponibles");
+              this.renderScannerSignal();
+              return;
+            }
+            if (["candles", "ohlc", "tick"].includes(data.msg_type) && !this.activeDerivRequestIds.has(Number(data.req_id))) return;
+
 
             // Velas históricas devueltas por Deriv oficial
             if (data.msg_type === "candles" || (data.candles && Array.isArray(data.candles) && data.candles.length > 0)) {
@@ -473,9 +482,14 @@
         this.derivWs.send(JSON.stringify({ "forget_all": ["candles", "ticks"] }));
       } catch(_) {}
 
+      const historyReqId = ++this.derivRequestSerial;
+      const tickReqId = ++this.derivRequestSerial;
+      this.activeDerivRequestIds = new Set([historyReqId, tickReqId]);
+
       // 1. Solicitar velas auténticas de Deriv con suscripción de vela viva (Historial Completo Ampliado)
       const reqCandles = {
         "ticks_history": symbol,
+        "req_id": historyReqId,
         "end": "latest",
         "count": 1000,
         "style": "candles",
@@ -485,7 +499,9 @@
 
       // 2. Suscribirse simultáneamente al stream de ticks continuos (en vivo tick a tick)
       const reqTicks = {
-        "ticks": symbol
+        "ticks": symbol,
+        "subscribe": 1,
+        "req_id": tickReqId
       };
 
       try {
@@ -495,7 +511,11 @@
     }
 
     handleDerivHistoricalCandles(rawCandles) {
-      if (!Array.isArray(rawCandles) || rawCandles.length === 0) return;
+      if (!Array.isArray(rawCandles) || rawCandles.length === 0) {
+        this.scannerStatus = "Deriv no devolvió velas para este mercado. Puede estar cerrado o no disponible; las señales permanecen pausadas.";
+        this.renderScannerSignal();
+        return;
+      }
 
       const m = MARKETS[this.selectedMarket] || MARKETS["XAUUSD"];
       const pip = m.pipSize;
