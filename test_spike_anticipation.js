@@ -1,0 +1,35 @@
+const assert=require('node:assert/strict');
+const api=require('./js/akira_spike_anticipation');
+const core=require('./js/akira_scalp_research_core');
+const bars=Array.from({length:180},(_,i)=>({epoch:1800000000+i*60,open:500-i,high:501-i,low:498-i,close:499-i}));
+const buy=api.setup(bars,'BOOM1000',core);
+assert.ok(buy);assert.equal(buy.type,'BUY');assert.deepEqual(buy.causes,['zone_rsi']);
+assert.equal(buy.signalEpoch,bars.at(-1).epoch+60);
+assert.equal(api.setup(bars,'XAUUSD',core),null);
+const mirrored=bars.map(b=>({...b,open:1000-b.open,high:1000-b.low,low:1000-b.high,close:1000-b.close}));
+assert.equal(api.setup(mirrored,'CRASH500',core).type,'SELL');
+const gap=structuredClone(bars);gap[100].epoch+=1;assert.equal(api.setup(gap,'BOOM1000',core),null);
+const future=bars.concat([{epoch:bars.at(-1).epoch+60,open:999,high:1000,low:998,close:999}]);
+assert.deepEqual(api.setup(future.slice(0,180),'BOOM1000',core),buy);
+const base={...buy,entry:100,risk:10,sl:90,tp1:115,signalEpoch:1000,status:'available'};
+let s=structuredClone(base);api.advance(s,100,1004);assert.equal(s.fillEpoch,undefined);api.advance(s,101,1005);assert.equal(s.fillEpoch,1005);assert.equal(s.sl,91);
+api.advance(s,118,1010);assert.equal(s.status,'target');assert.equal(s.exitPrice,116);
+s=structuredClone(base);api.advance(s,105,1001);assert.equal(s.status,'cancelled_price');api.advance(s,120,1005);assert.equal(s.resultR,null);
+s=structuredClone(base);api.advance(s,100,1021);assert.equal(s.status,'expired');
+s=structuredClone(base);api.advance(s,100,1005);api.advance(s,80,1006);assert.equal(s.status,'stop');assert.equal(s.resultR,-2);
+s=structuredClone(base);api.advance(s,100,1005);api.advance(s,99,1305);assert.equal(s.status,'time_exit');assert.equal(s.hadDataGap,true);
+assert.equal(api.profile('BOOM300N').direction,'BUY');assert.equal(api.profile('CRASH300N').direction,'SELL');
+assert.equal(api.profile('XAUUSD').id,'gold');assert.equal(api.profile('EURUSD').id,'forex');assert.equal(api.profile('BTCUSDT').id,'crypto');assert.equal(api.profile('STEP100').id,'reference');assert.equal(api.profile('BINARY').id,'unsupported');
+let saved='[]';const storage={getItem:()=>saved,setItem:(_,value)=>{saved=value;}};
+const monitor=new api.Monitor(core,storage);monitor.select('BOOM1000');monitor.history(bars);
+const epoch=bars.at(-1).epoch+60;
+const result=monitor.tick(bars.at(-1).close,epoch);assert.ok(result);assert.equal(monitor.journal.length,1);
+const restored=new api.Monitor(core,storage);restored.select('BOOM1000');restored.history(bars);restored.tick(bars.at(-1).close,epoch);assert.equal(restored.journal.length,1);
+restored.select('CRASH1000');assert.equal(restored.journal[0].status,'cancelled_market_change');assert.equal(restored.ready,false);
+// Divergence becomes known only two candles after the second pivot.
+const d=structuredClone(bars);for(let i=0;i<d.length;i++){d[i].open=d[i].close=100;d[i].high=101;d[i].low=99;}
+d[160].low=90;d[177].low=89;d[179].close=90;d[179].low=90;
+const fake={buildContext:()=>({hMap:Array(180).fill(11),higher:Array(12).fill({low:80,high:180}),atr:Array(180).fill(1),rsi:Array.from({length:180},(_,i)=>i===160?20:30)})};
+assert.ok(api.setup(d,'BOOM1000',fake).causes.includes('zone_divergence'));
+assert.ok(!api.pivots(d.slice(0,-1),true).includes(177));
+console.log('PASS anticipation: causal BUY/SELL, divergence timing, gaps, latency, stops, expiry, profile routing, persistence and deduplication');

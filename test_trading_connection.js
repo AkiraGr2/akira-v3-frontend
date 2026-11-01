@@ -22,7 +22,7 @@ function fixture() {
   const doc = {hidden:false, head:{appendChild(){}}, createElement:()=>({style:{}}),
     getElementById:id=>["tradingSection","akiraMarketCanvas"].includes(id) ? {} : null,
     addEventListener:(name,fn)=>add("document",name,fn)};
-  const win = {AkiraScalpResearchCore:require("./js/akira_scalp_research_core.js"),AkiraTradingScannerCore:core, innerWidth:1440, addEventListener:(name,fn)=>add("window",name,fn)};
+  const win = {AkiraSpikeAnticipation:require("./js/akira_spike_anticipation.js"),AkiraScalpResearchCore:require("./js/akira_scalp_research_core.js"),AkiraTradingScannerCore:core, innerWidth:1440, addEventListener:(name,fn)=>add("window",name,fn)};
   const sandbox = {window:win, document:doc, navigator:{onLine:true}, WebSocket:Socket, Date:FakeDate, console,
     localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,String(v))},
     setTimeout:(fn,ms)=>timer(fn,ms,false),clearTimeout:id=>timers.delete(id),
@@ -46,7 +46,7 @@ function fixture() {
     clock=end;
   }
   function history(socket, extra={}) {
-    const req=socket.sent.filter(r=>r.ticks_history).at(-1);
+    const req=socket.sent.filter(r=>r.ticks_history&&r.subscribe).at(-1);
     const candles=Array.from({length:65},(_,i)=>({epoch:1699996080+i*60,open:100+i,high:102+i,low:99+i,close:101+i}));
     socket.message({msg_type:"candles",req_id:req.req_id,candles,...extra});
   }
@@ -60,7 +60,7 @@ async function main() {
     assert.equal(f.sockets.length,1,"repeated entry must reuse CONNECTING socket");
     const socket=f.sockets[0]; socket.open(); f.app.init();
     assert.equal(f.sockets.length,1,"repeated entry must reuse OPEN socket");
-    assert.equal(socket.sent.filter(r=>r.ticks_history).length,1,"no duplicate history subscription on repeated entry");
+    assert.equal(socket.sent.filter(r=>r.ticks_history&&r.subscribe).length,1,"no duplicate history subscription on repeated entry");
     f.history(socket); assert.equal(f.app.hasLiveDerivFeed(),true);
     const oldClose=socket.onclose, oldError=socket.onerror, oldMessage=socket.onmessage;
     socket.close(); const timer=f.app.derivReconnectTimer;
@@ -172,7 +172,7 @@ async function main() {
     assert.equal(a.paper.openPositions.length,1,"offline expiry must wait for a real quote, never fabricate a fill");
   }
   {
-    const f=fixture();f.app.scannerStrategy='multi_scalp';
+    const f=fixture();f.app.scannerStrategy='multi_scalp';f.app.scalpPracticeEnabled=false;
     f.app.generateMultiScalpSignal('BOOM1000','M1',[],1700000000);
     assert.equal(f.app.currentSignal,null,"no report means no invented strategy");
     f.app.scalpResearchReport={generatedAt:new f.sandbox.Date().toISOString(),markets:[{marketId:'BOOM1000',selected:'range_reversion',validation:{expectancyR:-1},holdout:{expectancyR:1}}]};
@@ -200,6 +200,18 @@ async function main() {
     a.generateReferenceSignal('XAUUSD','M5',bars,now);assert.equal(a.currentSignal,null);
     a.generateReferenceSignal('XAUUSD','M1',bars.map(b=>({...b,epoch:b.epoch-60})),now-60);assert.equal(a.currentSignal,null,'old confirmations are not fresh entries');
     await a.sendSignalToTelegram({strategy:'reference_sniper_v1',marketId:'STEP100'},false);
+  }
+  {
+    const f=fixture(),a=f.app,now=f.sandbox.Date.now()/1000,close=Math.floor(now/60)*60;
+    a.selectedMarket='BOOM500';a.selectedTimeframe='M5';a.anticipationMonitor.select('BOOM500');
+    const bars=Array.from({length:180},(_,i)=>({epoch:close-(180-i)*60,open:500-i,high:501-i,low:498-i,close:499-i}));
+    a.anticipationMonitor.history(bars);a.candles.BOOM500=bars;a.marketPrices.BOOM500=320;
+    a.observeAutomaticTick(320,now);assert.equal(a.currentSignal.strategy,'spike-anticipation-v1');
+    assert.equal(a.currentSignal.analysisTimeframe,'M1');assert.equal(a.currentSignal.timeframe,'M5');
+    assert.equal(a.anticipationMonitor.journal.length,1);
+    a.observeAutomaticTick(320,now);assert.equal(a.anticipationMonitor.journal.length,1);
+    await a.sendSignalToTelegram(a.currentSignal,false);
+    a.selectedMarket='XAUUSD';a.assignAutomaticProfile();assert.equal(a.automaticProfile.id,'gold');
   }
   console.log("PASS: single connection, bounded reconnect, stale-socket isolation, market switch, offline freeze/gates, recovery, heartbeat, Telegram levels and dedup; no external messages sent.");
 }
