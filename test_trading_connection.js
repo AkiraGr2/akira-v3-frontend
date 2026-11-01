@@ -87,7 +87,9 @@ async function main() {
     assert.equal(f.app.hasLiveDerivFeed(),false);
     f.history(socket,{candles:[{epoch:1,open:1,high:0,low:2,close:1}]});
     assert.equal(f.app.hasLiveDerivFeed(),false,"invalid OHLC cannot restore readiness");
-    f.history(socket); assert.equal(f.app.derivReconnectAttempt,0);
+    f.history(socket); assert.equal(f.app.derivReconnectAttempt,7,'history does not end the backoff until ticks resume');
+    f.app.handleDerivLiveTick({quote:100,symbol:'BOOM1000',epoch:1700000000});
+    assert.equal(f.app.derivReconnectAttempt,0);
   }
   {
     const f=fixture();f.app.initDerivWebSocket();const socket=f.sockets[0];socket.open();f.history(socket);
