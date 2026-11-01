@@ -39,6 +39,8 @@ jobs:
           node test_trading_connection.js
           node --check js/akira_scalp_research_core.js
           node test_scalp_research.js
+          node --check js/akira_spike_anticipation.js
+          node test_spike_anticipation.js
           node --check js/akira_reference_scanner.js
           node test_reference_scanner.js
                     
