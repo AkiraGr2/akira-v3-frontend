@@ -68,7 +68,9 @@ async function main() {
     f.advance(1000); const replacement=f.sockets[1]; replacement.open(); f.history(replacement);
     oldClose(); oldError(); oldMessage({data:JSON.stringify({msg_type:"candles",candles:[]})});
     assert.equal(f.app.derivWs,replacement); assert.equal(f.app.hasLiveDerivFeed(),true);
-    assert.equal(f.app.derivReconnectTimer,null); assert.equal(f.app.derivReconnectAttempt,0);
+    assert.equal(f.app.derivReconnectTimer,null); assert.equal(f.app.derivReconnectAttempt,1,'history alone does not reset error backoff');
+    f.app.handleDerivLiveTick({quote:100,symbol:'BOOM1000',epoch:1700000000});
+    assert.equal(f.app.derivReconnectAttempt,0,'a valid live tick resets backoff');
     assert.equal(f.events.window.get("online").length,1,"recovery handlers bind once");
   }
   {
