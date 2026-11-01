@@ -20,8 +20,17 @@ const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),
       const actual=await page.evaluate(id=>{const a=window.AkiraTradingLab;a.selectedMarket=id;a.assignAutomaticProfile();return a.automaticProfile.id;},id);assert.equal(actual,expected);
     }
     await page.evaluate(()=>{const a=window.AkiraTradingLab;a.selectedMarket='BOOM500';a.assignAutomaticProfile();});
+    assert.equal(await page.locator('#simpleTradingResults').getAttribute('open'),null);
+    assert.equal(await page.locator('#simpleTradingHistory').getAttribute('open'),null);
+    assert.equal(await page.locator('#btnHeaderTelegramAlerts').isVisible(),false);
+    assert.equal(await page.locator('#btnScannerBacktest').isVisible(),false);
+    assert.equal(await page.locator('#simpleTradingWarning').isVisible(),true);
+    assert.equal(await page.locator('#selMarketHeader').isVisible(),true);
+    assert.ok((await page.locator('#chartStageContainer').boundingBox()).y<650,'chart must appear before technical details');
+    await page.locator('#simpleTradingResults > summary').click();
     const box=await page.locator('#automaticStrategyInfo').boundingBox();assert.ok(box.width>0&&box.width<=390);
-    await page.locator('#automaticStrategyInfo').scrollIntoViewIfNeeded();
+    await page.locator('#simpleTradingResults > summary').click();
+    await page.evaluate(()=>window.scrollTo(0,0));
     if(process.env.AKIRA_SCREENSHOT)await page.screenshot({path:process.env.AKIRA_SCREENSHOT});
     assert.deepEqual(errors,[]);console.log('PASS mobile: automatic profiles, old preference ignored, demo visible, no strategy selector, panel fits 390px, no browser exceptions');
   }finally{if(browser)await browser.close();await new Promise(r=>server.close(r));}

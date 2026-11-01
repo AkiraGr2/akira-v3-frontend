@@ -213,6 +213,24 @@ async function main() {
     await a.sendSignalToTelegram(a.currentSignal,false);
     a.selectedMarket='XAUUSD';a.assignAutomaticProfile();assert.equal(a.automaticProfile.id,'gold');
   }
+  {
+    const f=fixture();f.app.init();const socket=f.sockets[0];socket.open();
+    assert.equal(socket.sent.filter(r=>r.ticks_history).length,1,'M1 reuses chart history for analysis');
+    f.history(socket);assert.equal(f.app.anticipationMonitor.ready,true);
+  }
+  {
+    const f=fixture();f.app.selectedTimeframe='M5';f.app.init();const socket=f.sockets[0];socket.open();f.history(socket);
+    const first=f.app.scannerHistoryReqId;
+    socket.message({req_id:first,error:{code:'InternalServerError',message:'internal server error'}});
+    assert.equal(f.app.anticipationMonitor.ready,false);
+    assert.ok(f.app.feedProblem.includes('avisos en pausa'));
+    f.advance(2000);assert.notEqual(f.app.scannerHistoryReqId,first);
+    const candles=Array.from({length:80},(_,i)=>({epoch:1699995000+i*60,open:100,high:101,low:99,close:100}));
+    socket.message({req_id:f.app.scannerHistoryReqId,candles});
+    assert.equal(f.app.anticipationMonitor.ready,true);assert.equal(f.app.feedProblem,null);
+    socket.message({req_id:f.app.scannerHistoryReqId,error:{code:'InternalServerError'}});
+    const before=socket.sent.length;f.app.retireDerivSocket();f.advance(16000);assert.equal(socket.sent.length,before,'retired socket cancels pending history retry');
+  }
   console.log("PASS: single connection, bounded reconnect, stale-socket isolation, market switch, offline freeze/gates, recovery, heartbeat, Telegram levels and dedup; no external messages sent.");
 }
 main().catch(err=>{console.error(err);process.exitCode=1;});
