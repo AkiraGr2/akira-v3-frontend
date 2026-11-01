@@ -423,6 +423,7 @@
 
     retireDerivSocket() {
       const socket = this.derivWs;
+      clearTimeout(this.scannerHistoryRetryTimer);
       this.derivWs = null; // Retired socket events cannot affect its replacement.
       clearInterval(this.wsPingInterval);
       clearTimeout(this.derivConnectTimeout);
@@ -515,16 +516,19 @@
             if (data.msg_type === "ping" || data.ping === "pong") return;
             if (!this.activeDerivRequestIds.has(Number(data.req_id))) return;
             if (data.error) {
-              this.scannerStatus = "Deriv: " + String(data.error.message || data.error.code || "datos no disponibles");
-              this.renderScannerSignal();
-              return;
+              this.anticipationMonitor.ready=false;
+              if(Number(data.req_id)===this.scannerHistoryReqId){this.retryScannerHistory(socket);return;}
+              this.feedProblem='Deriv no pudo enviar los precios. Reconectando; avisos en pausa.';
+              this.retireDerivSocket();this.invalidateDerivFeed(this.feedProblem);this.scheduleDerivReconnect();
+              this.renderScannerSignal();return;
             }
             if (Number(data.req_id) === this.scannerHistoryReqId) {
-              if (Array.isArray(data.candles)) this.anticipationMonitor.history(data.candles);
+              if (Array.isArray(data.candles)){this.anticipationMonitor.history(data.candles);if(this.anticipationMonitor.ready){this.feedProblem=null;clearTimeout(this.scannerHistoryRetryTimer);this.scannerHistoryRetryCount=0;}else this.retryScannerHistory(socket);this.renderScannerSignal();}
               return;
             }
             if (data.msg_type === "candles" || Array.isArray(data.candles)) {
               this.handleDerivHistoricalCandles(data.candles);
+              if(this.selectedTimeframe==="M1"&&this.dataFeedKeys[this.selectedMarket]){this.anticipationMonitor.history(data.candles);if(this.anticipationMonitor.ready)this.feedProblem=null;}
             } else if (data.msg_type === "ohlc" || data.ohlc) {
               if (!this.dataFeedKeys[this.selectedMarket]) return;
               this.lastMarketMessageAt = Date.now();
@@ -573,6 +577,7 @@
       const m = MARKETS[this.selectedMarket] || MARKETS["BOOM1000"];
       const symbol = m.derivSymbol || "BOOM1000";
       const granularity = this.getGranularitySeconds();
+      clearTimeout(this.scannerHistoryRetryTimer);this.scannerHistoryRetryCount=0;this.feedProblem=null;
       this.assignAutomaticProfile();
       this.anticipationMonitor.select(this.selectedMarket);
       this.activeDerivFeedKey = `${this.selectedMarket}:${this.selectedTimeframe}`;
@@ -590,8 +595,8 @@
 
       const historyReqId = ++this.derivRequestSerial;
       const tickReqId = ++this.derivRequestSerial;
-      this.scannerHistoryReqId = ++this.derivRequestSerial;
-      this.activeDerivRequestIds = new Set([historyReqId, tickReqId, this.scannerHistoryReqId]);
+      this.scannerHistoryReqId = granularity===60 ? null : ++this.derivRequestSerial;
+      this.activeDerivRequestIds = new Set([historyReqId,tickReqId,...(this.scannerHistoryReqId?[this.scannerHistoryReqId]:[])]);
 
       // 1. Solicitar velas auténticas de Deriv con suscripción de vela viva (Historial Completo Ampliado)
       const reqCandles = {
@@ -614,8 +619,23 @@
       try {
         this.derivWs.send(JSON.stringify(reqCandles));
         this.derivWs.send(JSON.stringify(reqTicks));
-        this.derivWs.send(JSON.stringify({ticks_history:symbol,req_id:this.scannerHistoryReqId,end:"latest",count:1000,style:"candles",granularity:60}));
+        if(this.scannerHistoryReqId)this.derivWs.send(JSON.stringify({ticks_history:symbol,req_id:this.scannerHistoryReqId,end:"latest",count:1000,style:"candles",granularity:60}));
       } catch(_) {}
+    }
+
+    retryScannerHistory(socket) {
+      clearTimeout(this.scannerHistoryRetryTimer);
+      const attempt=(this.scannerHistoryRetryCount||0)+1;this.scannerHistoryRetryCount=attempt;
+      this.feedProblem=attempt<=3?'Los precios siguen visibles, pero el análisis se interrumpió. Reintentando; avisos en pausa.':'No se pudo preparar el análisis. Cambia de mercado o recarga para volver a intentarlo.';
+      this.renderScannerSignal();
+      if(attempt>3)return;
+      const market=this.selectedMarket,feed=this.activeDerivFeedKey;
+      this.scannerHistoryRetryTimer=setTimeout(()=>{
+        if(this.derivWs!==socket||socket.readyState!==WebSocket.OPEN||this.selectedMarket!==market||this.activeDerivFeedKey!==feed)return;
+        this.activeDerivRequestIds.delete(this.scannerHistoryReqId);
+        this.scannerHistoryReqId=++this.derivRequestSerial;this.activeDerivRequestIds.add(this.scannerHistoryReqId);
+        socket.send(JSON.stringify({ticks_history:MARKETS[market].derivSymbol,req_id:this.scannerHistoryReqId,end:'latest',count:1000,style:'candles',granularity:60}));
+      },1000*Math.pow(2,attempt));
     }
 
     handleDerivHistoricalCandles(rawCandles) {
@@ -671,7 +691,7 @@
       const last = this.candles[this.selectedMarket][this.candles[this.selectedMarket].length - 1];
       this.marketPrices[this.selectedMarket] = last.close;
       this.lastMarketMessageAt = Date.now();
-      this.derivReconnectAttempt = 0; // Reset only after valid real history has arrived.
+      // Reconnect backoff is reset by a valid live tick, not a partial history response.
       this.dataFeedKeys[this.selectedMarket] = `${this.selectedMarket}:${this.selectedTimeframe}`;
       this.confirmedThroughEpoch[this.selectedMarket] = last.epoch;
       this.lastEvaluatedCandleEpoch[this.selectedMarket] = null;
@@ -804,7 +824,8 @@
 
       const decimals = this.getMarketDecimals(this.selectedMarket);
       const rawPrice = (typeof tick.bid === "number") ? tick.bid : (typeof tick.quote === "number" ? tick.quote : parseFloat(tick.quote || tick.bid));
-      if (isNaN(rawPrice)) return;
+      if (!Number.isFinite(rawPrice)) return;
+      this.derivReconnectAttempt=0;
       const curPrice = parseFloat(rawPrice.toFixed(decimals));
       this.marketPrices[this.selectedMarket] = curPrice;
       this.observeAutomaticTick(rawPrice, Number(tick.epoch));
@@ -1928,8 +1949,8 @@
               <div class="ak-trading-title-group">
                 <span class="ak-trading-logo">📈</span>
                 <div>
-                  <h2>Akira Quantum Trading Lab &amp; Real-Time Terminal</h2>
-                  <p>Estación institucional completa: Conexión WebSocket Oficial Deriv, velas japonesas, historial numérico OHLC, Deriv Spikes y Opciones Binarias a $0.00 COP.</p>
+                  <h2>Trading Lab · práctica</h2>
+                  <p>Elige un mercado, observa el gráfico y revisa los avisos de práctica.</p>
                 </div>
               </div>
               <div class="ak-trading-badge-group">
@@ -1942,8 +1963,8 @@
             </div>
 
             <div class="ak-trading-tabs">
-              <button class="ak-ttab-btn ${this.activeTab === 'market' ? 'active' : ''}" data-ttab="market">🕯️ Gráfico de Velas &amp; Historial</button>
-              <button class="ak-ttab-btn ${this.activeTab === 'simulator' ? 'active' : ''}" data-ttab="simulator">🎮 Simulador Demo (Paper Trading)</button>
+              <button class="ak-ttab-btn ${this.activeTab === 'market' ? 'active' : ''}" data-ttab="market">Gráfico</button>
+              <button class="ak-ttab-btn ${this.activeTab === 'simulator' ? 'active' : ''}" data-ttab="simulator">Mi práctica</button>
               <button class="ak-ttab-btn ${this.activeTab === 'sentinel' ? 'active' : ''}" data-ttab="sentinel">🛡️ Centinela &amp; Interés Compuesto</button>
               <button class="ak-ttab-btn ${this.activeTab === 'tvchart' ? 'active' : ''}" data-ttab="tvchart">📊 TradingView Feed Externo</button>
               <button class="ak-ttab-btn ${this.activeTab === 'connections' ? 'active' : ''}" data-ttab="connections">🔌 Conexiones &amp; Automatización</button>
@@ -2550,6 +2571,66 @@
       this.renderClosedTrades();
       this.renderAccountCalculations();
       this.renderCompoundTable();
+      this.simplifyTradingView();
+    }
+
+
+    simplifyTradingView() {
+      const root=document.getElementById('tradingSection'),pane=document.getElementById('tab-market');
+      if(!root||!pane)return;
+      root.classList.add('ak-simple-trading');
+      const make=(id,label)=>{let d=document.getElementById(id);if(d)return d;d=document.createElement('details');d.id=id;d.className='ak-simple-details';const summary=document.createElement('summary');summary.textContent=label;d.append(summary);pane.append(d);return d;};
+      const results=make('simpleTradingResults','Resultados y explicación');
+      const history=make('simpleTradingHistory','Consultar precios anteriores');
+      const options=make('simpleTradingOptions','Más opciones del gráfico');
+      const signal=make('simpleTradingSignal','Ver entrada y practicar');
+      const auto=document.getElementById('automaticStrategyInfo');
+      const explanation=auto?.nextElementSibling;
+      const originalReport=document.getElementById('multiScalpResearchResults')?.closest('details');
+      if(originalReport)originalReport.open=false;
+      for(const node of [auto,explanation,document.getElementById('anticipationJournalSummary'),document.getElementById('exportAnticipationJournal'),document.getElementById('scalpPracticeToggle')?.closest('label'),document.getElementById('multiScalpResearchSummary'),originalReport])if(node)results.append(node);
+      const grid=pane.querySelector('.ak-market-data-grid');if(grid)history.append(grid);
+      const settings=pane.querySelector('.ak-market-settings');if(settings){settings.open=false;options.append(settings);}
+      const panel=document.getElementById('scannerSignalContainer');if(panel)signal.append(panel);
+      for(const id of ['btnToggleEMA','btnToggleHarmonics','btnToggleTheme']){const node=document.getElementById(id);if(node)options.append(node);}
+      const hidden=['canvasAccountTelemetryRibbon','canvasOhlcInspector','chartMarketCategory','chartMarketTfPill','chartAccuracyBadge','btnHeaderTelegramAlerts','platformSpecialDeck','btnScannerBacktest','btnJumpToStart','btnScrollLeft','btnScrollRight','btnFitAllHistory','btnToggleMargin','vScrollBadge'];
+      for(const id of hidden){const node=document.getElementById(id);if(node)node.hidden=true;}
+      for(const node of root.querySelectorAll('.ak-radar-settings,.ak-scanner-replay-card,.ak-slider-wrap,.ak-trading-badge-group .sentinel,.ak-trading-badge-group .free,[data-ttab="sentinel"],[data-ttab="tvchart"],[data-ttab="connections"]'))node.hidden=true;
+      for(const b of root.querySelectorAll('.ak-chart-header-tf [data-tf]')){b.hidden=!['M1','M5'].includes(b.dataset.tf);b.textContent=b.dataset.tf==='M1'?'1 min':b.dataset.tf==='M5'?'5 min':b.dataset.tf;}
+      const labels={btnToggleLevels:'Ver objetivos',btnToggleSniper:'Ver avisos ✓',btnToggleEMA:'Líneas de tendencia',btnToggleHarmonics:'Patrones del gráfico',btnJumpToLive:'Volver al presente',btnResetView:'Centrar gráfico',exportAnticipationJournal:'Descargar mi historial'};
+      for(const [id,label] of Object.entries(labels)){const node=document.getElementById(id);if(node)node.textContent=label;}
+      const plan=document.getElementById('chartTradePlan');
+      let warning=document.getElementById('simpleTradingWarning');
+      if(!warning&&plan){warning=document.createElement('p');warning.id='simpleTradingWarning';warning.textContent='Solo práctica: estas estrategias no han demostrado ganancias. Las pruebas de spikes dieron pérdidas. No se envían operaciones a tu cuenta.';plan.before(warning);}
+      if(!document.getElementById('simpleTradingStyle')){const style=document.createElement('style');style.id='simpleTradingStyle';style.textContent=`
+        .ak-simple-trading [hidden]{display:none!important}
+        .ak-simple-trading .ak-trading-hero{padding:14px!important;margin-bottom:12px!important}
+        .ak-simple-trading .ak-trading-title-group h2{font-size:20px!important}
+        .ak-simple-trading .ak-trading-title-group p{font-size:13px!important;line-height:1.5}
+        .ak-simple-trading .ak-chart-canvas-header{gap:12px;padding:12px!important}
+        .ak-simple-trading button,.ak-simple-trading select{min-height:36px}
+        .ak-simple-trading #chartTradePlan{font-size:15px!important;line-height:1.6;white-space:pre-line;margin:8px 12px!important}
+        .ak-simple-trading #simpleTradingWarning{margin:8px 12px;color:#fcd58a;font-size:13px;line-height:1.5}
+        .ak-simple-trading .ak-simple-details{margin-top:12px;padding:12px;border:1px solid #334155;border-radius:10px;background:#101827;color:#dbe5f1}
+        .ak-simple-trading .ak-simple-details>summary{cursor:pointer;font-size:14px;font-weight:600;padding:4px}
+        .ak-simple-trading .ak-simple-details[open]>summary{margin-bottom:12px}
+        .ak-simple-trading #exportAnticipationJournal{background:#17283c;border:1px solid #466180;border-radius:8px;color:#e2e8f0;padding:8px 14px;width:auto}
+        .ak-simple-trading .ak-ohlc-table thead{background:#101827;position:sticky;top:0;z-index:2}
+        @media(max-width:600px){.ak-simple-trading .ak-chart-canvas-header{display:block}.ak-simple-trading .ak-chart-canvas-header>div{margin-bottom:8px}.ak-simple-trading #selMarketHeader{max-width:100%!important}.ak-simple-trading .ak-market-data-grid{display:block}.ak-simple-trading .ak-chart-nav-bar{flex-wrap:wrap}}
+      `;document.head.append(style);}
+      this.assignAutomaticProfile();
+    }
+
+    renderSimpleTradePlan() {
+      const plan=document.getElementById('chartTradePlan');if(!plan)return;
+      if(this.feedProblem){plan.textContent=this.feedProblem;return;}
+      if(!this.hasLiveDerivFeed()){plan.textContent='Conectando los precios… Los avisos están en pausa.';return;}
+      if(!this.anticipationMonitor?.ready){plan.textContent='Preparando el análisis… Todavía no hay una entrada disponible.';return;}
+      const s=this.currentSignal;
+      if(!s){plan.textContent='Esperando una oportunidad de práctica. No necesitas cambiar la estrategia.';return;}
+      const states={target:'Objetivo alcanzado',stop:'Límite de pérdida alcanzado',time_exit:'Terminó el tiempo de espera',expired:'Entrada vencida',cancelled_price:'Entrada cancelada: el precio cambió',TP1_HIT:'Objetivo alcanzado',SL_HIT:'Límite de pérdida alcanzado',TIME_EXIT:'Terminó el tiempo de espera'};
+      const status=s.completedAt?(states[s.status]||states[s.completedStatus]||'Práctica finalizada'):Date.now()>s.entryValidUntil?'Entrada vencida: no entres tarde':'Aviso de práctica: '+(s.type==='BUY'?'compra':'venta');
+      plan.textContent=status+'\nEntrada: '+s.entry+' · Límite de pérdida: '+s.sl+' · Objetivo: '+s.tp1;
     }
 
     updateLiveHeaderTelemetry() {
@@ -4494,13 +4575,7 @@
     }
 
     renderScannerSignal() {
-      const plan = document.getElementById("chartTradePlan");
-      if (plan) {
-        const signal = this.currentSignal;
-        plan.textContent = signal
-          ? `${signal.completedAt ? "CERRADA: "+signal.completedStatus : isQuickScalpSignal(signal) && Date.now()>signal.entryValidUntil ? "Entrada caducada; no abrir tarde" : isQuickScalpSignal(signal) ? "Scalping · DEMO EXPERIMENTAL" : "Señal"} · ${signal.type} · ${signal.marketName} · ${signal.timeframe} | Entrada ${signal.entry} | Stop ${signal.sl} | Objetivos ${signal.tp1} / ${signal.tp2} / ${signal.tp3} ${isQuickScalpSignal(signal) ? `| Salida rápida: TP1, SL o ${(signal.maxHoldSeconds||180)/60} min. TP2/TP3 solo referencias.` : ""} · Práctica: simulador local; verifica los precios en tu cuenta demo.`
-          : `${this.scannerStrategy==='multi_scalp' ? "SCALPING MULTIPAR · INVESTIGACIÓN MT5 DEMO: " : ""}${this.usesSpikeScalp() ? "INVESTIGACIÓN DEMO: rentabilidad no validada; sin alertas Telegram. " : ""}${this.scannerStatus || "Esperando confirmación con velas reales. Sin señal de entrada."} Se revisa al cierre de cada vela (${this.selectedTimeframe}); no hay una entrada cada cierto número de minutos. Los rayos indican spikes, no entradas.`;
-      }
+      this.renderSimpleTradePlan();
       const container = document.getElementById("scannerSignalContainer");
       if (!container) return;
 

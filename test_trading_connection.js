@@ -68,7 +68,9 @@ async function main() {
     f.advance(1000); const replacement=f.sockets[1]; replacement.open(); f.history(replacement);
     oldClose(); oldError(); oldMessage({data:JSON.stringify({msg_type:"candles",candles:[]})});
     assert.equal(f.app.derivWs,replacement); assert.equal(f.app.hasLiveDerivFeed(),true);
-    assert.equal(f.app.derivReconnectTimer,null); assert.equal(f.app.derivReconnectAttempt,0);
+    assert.equal(f.app.derivReconnectTimer,null); assert.equal(f.app.derivReconnectAttempt,1,'history alone does not reset error backoff');
+    f.app.handleDerivLiveTick({quote:100,symbol:'BOOM1000',epoch:1700000000});
+    assert.equal(f.app.derivReconnectAttempt,0,'a valid live tick resets backoff');
     assert.equal(f.events.window.get("online").length,1,"recovery handlers bind once");
   }
   {
@@ -85,7 +87,9 @@ async function main() {
     assert.equal(f.app.hasLiveDerivFeed(),false);
     f.history(socket,{candles:[{epoch:1,open:1,high:0,low:2,close:1}]});
     assert.equal(f.app.hasLiveDerivFeed(),false,"invalid OHLC cannot restore readiness");
-    f.history(socket); assert.equal(f.app.derivReconnectAttempt,0);
+    f.history(socket); assert.equal(f.app.derivReconnectAttempt,7,'history does not end the backoff until ticks resume');
+    f.app.handleDerivLiveTick({quote:100,symbol:'BOOM1000',epoch:1700000000});
+    assert.equal(f.app.derivReconnectAttempt,0);
   }
   {
     const f=fixture();f.app.initDerivWebSocket();const socket=f.sockets[0];socket.open();f.history(socket);
@@ -212,6 +216,24 @@ async function main() {
     a.observeAutomaticTick(320,now);assert.equal(a.anticipationMonitor.journal.length,1);
     await a.sendSignalToTelegram(a.currentSignal,false);
     a.selectedMarket='XAUUSD';a.assignAutomaticProfile();assert.equal(a.automaticProfile.id,'gold');
+  }
+  {
+    const f=fixture();f.app.init();const socket=f.sockets[0];socket.open();
+    assert.equal(socket.sent.filter(r=>r.ticks_history).length,1,'M1 reuses chart history for analysis');
+    f.history(socket);assert.equal(f.app.anticipationMonitor.ready,true);
+  }
+  {
+    const f=fixture();f.app.selectedTimeframe='M5';f.app.init();const socket=f.sockets[0];socket.open();f.history(socket);
+    const first=f.app.scannerHistoryReqId;
+    socket.message({req_id:first,error:{code:'InternalServerError',message:'internal server error'}});
+    assert.equal(f.app.anticipationMonitor.ready,false);
+    assert.ok(f.app.feedProblem.includes('avisos en pausa'));
+    f.advance(2000);assert.notEqual(f.app.scannerHistoryReqId,first);
+    const candles=Array.from({length:80},(_,i)=>({epoch:1699995000+i*60,open:100,high:101,low:99,close:100}));
+    socket.message({req_id:f.app.scannerHistoryReqId,candles});
+    assert.equal(f.app.anticipationMonitor.ready,true);assert.equal(f.app.feedProblem,null);
+    socket.message({req_id:f.app.scannerHistoryReqId,error:{code:'InternalServerError'}});
+    const before=socket.sent.length;f.app.retireDerivSocket();f.advance(16000);assert.equal(socket.sent.length,before,'retired socket cancels pending history retry');
   }
   console.log("PASS: single connection, bounded reconnect, stale-socket isolation, market switch, offline freeze/gates, recovery, heartbeat, Telegram levels and dedup; no external messages sent.");
 }

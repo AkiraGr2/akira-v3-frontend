@@ -13,15 +13,24 @@ const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),
     browser=await chromium.launch({headless:true,...(process.env.AKIRA_CHROME_PATH?{executablePath:process.env.AKIRA_CHROME_PATH}:{})});
     const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.addInitScript(()=>{window.WebSocket=class{static OPEN=1;static CONNECTING=0;static CLOSED=3;constructor(){this.readyState=0;}send(){}close(){this.readyState=3;}};localStorage.setItem('akira_scanner_strategy_v1','structural');});
-    await page.goto(`http://127.0.0.1:${server.address().port}`);await page.waitForSelector('#automaticStrategyInfo');
+    await page.goto(`http://127.0.0.1:${server.address().port}`);await page.waitForSelector('#simpleTradingWarning');
     assert.equal(await page.locator('#scannerStrategyMode').count(),0);
     assert.equal(await page.locator('#scalpPracticeToggle').isChecked(),true);
     for(const [id,expected] of [['BOOM500','spike'],['CRASH300N','spike'],['XAUUSD','gold'],['EURUSD','forex'],['BTCUSDT','crypto'],['STEP100','reference']]){
       const actual=await page.evaluate(id=>{const a=window.AkiraTradingLab;a.selectedMarket=id;a.assignAutomaticProfile();return a.automaticProfile.id;},id);assert.equal(actual,expected);
     }
     await page.evaluate(()=>{const a=window.AkiraTradingLab;a.selectedMarket='BOOM500';a.assignAutomaticProfile();});
+    assert.equal(await page.locator('#simpleTradingResults').getAttribute('open'),null);
+    assert.equal(await page.locator('#simpleTradingHistory').getAttribute('open'),null);
+    assert.equal(await page.locator('#btnHeaderTelegramAlerts').isVisible(),false);
+    assert.equal(await page.locator('#btnScannerBacktest').isVisible(),false);
+    assert.equal(await page.locator('#simpleTradingWarning').isVisible(),true);
+    assert.equal(await page.locator('#selMarketHeader').isVisible(),true);
+    assert.ok((await page.locator('#chartStageContainer').boundingBox()).y<650,'chart must appear before technical details');
+    await page.locator('#simpleTradingResults > summary').click();
     const box=await page.locator('#automaticStrategyInfo').boundingBox();assert.ok(box.width>0&&box.width<=390);
-    await page.locator('#automaticStrategyInfo').scrollIntoViewIfNeeded();
+    await page.locator('#simpleTradingResults > summary').click();
+    await page.evaluate(()=>window.scrollTo(0,0));
     if(process.env.AKIRA_SCREENSHOT)await page.screenshot({path:process.env.AKIRA_SCREENSHOT});
     assert.deepEqual(errors,[]);console.log('PASS mobile: automatic profiles, old preference ignored, demo visible, no strategy selector, panel fits 390px, no browser exceptions');
   }finally{if(browser)await browser.close();await new Promise(r=>server.close(r));}
