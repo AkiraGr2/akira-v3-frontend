@@ -1264,7 +1264,8 @@
 
     detectHarmonicPivots(candles) {
       if (!ScannerCore || !Array.isArray(candles)) return null;
-      return ScannerCore.detectHarmonicPattern(candles, { pivotStrength: 3, atrPeriod: 14, maxSwings: 24 });
+      // The last chart candle is still forming; it cannot confirm a pivot.
+      return ScannerCore.detectHarmonicPattern(candles.slice(0, -1), { pivotStrength: 3, atrPeriod: 14, maxSwings: 24 });
     }
 
     getMarketSniperRiskPips(marketId, m) {
@@ -2592,7 +2593,7 @@
       const grid=pane.querySelector('.ak-market-data-grid');if(grid)history.append(grid);
       const settings=pane.querySelector('.ak-market-settings');if(settings){settings.open=false;options.append(settings);}
       const panel=document.getElementById('scannerSignalContainer');if(panel)signal.append(panel);
-      for(const id of ['btnToggleEMA','btnToggleHarmonics','btnToggleTheme']){const node=document.getElementById(id);if(node)options.append(node);}
+      for(const id of ['btnToggleEMA','btnToggleTheme']){const node=document.getElementById(id);if(node)options.append(node);}
       const hidden=['canvasAccountTelemetryRibbon','canvasOhlcInspector','chartMarketCategory','chartMarketTfPill','chartAccuracyBadge','btnHeaderTelegramAlerts','platformSpecialDeck','btnScannerBacktest','btnJumpToStart','btnScrollLeft','btnScrollRight','btnFitAllHistory','btnToggleMargin','vScrollBadge'];
       for(const id of hidden){const node=document.getElementById(id);if(node)node.hidden=true;}
       for(const node of root.querySelectorAll('.ak-radar-settings,.ak-scanner-replay-card,.ak-slider-wrap,.ak-trading-badge-group .sentinel,.ak-trading-badge-group .free,[data-ttab="sentinel"],[data-ttab="tvchart"],[data-ttab="connections"]'))node.hidden=true;
@@ -2600,6 +2601,7 @@
       const labels={btnToggleLevels:'Ver objetivos',btnToggleSniper:'Ver avisos ✓',btnToggleEMA:'Líneas de tendencia',btnToggleHarmonics:'Patrones del gráfico',btnJumpToLive:'Volver al presente',btnResetView:'Centrar gráfico',exportAnticipationJournal:'Descargar mi historial'};
       for(const [id,label] of Object.entries(labels)){const node=document.getElementById(id);if(node)node.textContent=label;}
       const plan=document.getElementById('chartTradePlan');
+      if(plan&&!document.getElementById('simpleHarmonicStatus')){const status=document.createElement('p');status.id='simpleHarmonicStatus';status.style.cssText='margin:8px 12px;color:#cbd5e1;font-size:13px;line-height:1.5';status.textContent='Patrones: esperando precios para analizar.';plan.after(status);}
       let warning=document.getElementById('simpleTradingWarning');
       if(!warning&&plan){warning=document.createElement('p');warning.id='simpleTradingWarning';warning.textContent='Solo práctica: estas estrategias no han demostrado ganancias. Las pruebas de spikes dieron pérdidas. No se envían operaciones a tu cuenta.';plan.before(warning);}
       if(!document.getElementById('simpleTradingStyle')){const style=document.createElement('style');style.id='simpleTradingStyle';style.textContent=`
@@ -2623,14 +2625,23 @@
 
     renderSimpleTradePlan() {
       const plan=document.getElementById('chartTradePlan');if(!plan)return;
+      plan.setAttribute('role','status');plan.setAttribute('aria-live','polite');
       if(this.feedProblem){plan.textContent=this.feedProblem;return;}
       if(!this.hasLiveDerivFeed()){plan.textContent='Conectando los precios… Los avisos están en pausa.';return;}
       if(!this.anticipationMonitor?.ready){plan.textContent='Preparando el análisis… Todavía no hay una entrada disponible.';return;}
-      const s=this.currentSignal;
-      if(!s){plan.textContent='Esperando una oportunidad de práctica. No necesitas cambiar la estrategia.';return;}
+      const s=this.currentSignal?.marketId===this.selectedMarket?this.currentSignal:null;
+      const recent=this.anticipationMonitor.journal.filter(x=>x.marketId===this.selectedMarket);
+      if(!s){
+        const last=recent.at(-1);
+        const count=recent.length+' avisos guardados para este mercado en este navegador.';
+        plan.textContent=(this.scalpPracticeEnabled===false?'Avisos de práctica desactivados en Resultados y explicación.':this.scannerStatus||'Esperando una oportunidad de práctica. Se revisa cada vela cerrada de 1 minuto.')+
+          '\n'+count+(last?' Último: '+new Date(last.signalEpoch*1000).toLocaleString()+'. No es una entrada nueva.':'');
+        return;
+      }
       const states={target:'Objetivo alcanzado',stop:'Límite de pérdida alcanzado',time_exit:'Terminó el tiempo de espera',expired:'Entrada vencida',cancelled_price:'Entrada cancelada: el precio cambió',TP1_HIT:'Objetivo alcanzado',SL_HIT:'Límite de pérdida alcanzado',TIME_EXIT:'Terminó el tiempo de espera'};
-      const status=s.completedAt?(states[s.status]||states[s.completedStatus]||'Práctica finalizada'):Date.now()>s.entryValidUntil?'Entrada vencida: no entres tarde':'Aviso de práctica: '+(s.type==='BUY'?'compra':'venta');
-      plan.textContent=status+'\nEntrada: '+s.entry+' · Límite de pérdida: '+s.sl+' · Objetivo: '+s.tp1;
+      const status=s.completedAt?(states[s.status]||states[s.completedStatus]||'Práctica finalizada'):s.status==='tracking'?'Práctica en seguimiento · no es una nueva entrada':Date.now()>s.entryValidUntil?'Entrada vencida: no entres tarde':'✓ Aviso de práctica: '+(s.type==='BUY'?'compra':'venta');
+      const format=n=>Number.isFinite(n)?n.toFixed(this.getMarketDecimals(this.selectedMarket)):'—';
+      plan.textContent=status+'\nEntrada: '+format(s.entry)+' · Límite de pérdida: '+format(s.sl)+' · Objetivo: '+format(s.tp1);
     }
 
     updateLiveHeaderTelemetry() {
@@ -3633,10 +3644,12 @@
       let pD_coord = null;
       let isBullishSignal = true;
 
+      const harmonicStatus=document.getElementById('simpleHarmonicStatus');
+      const geom=this.showHarmonics?this.detectHarmonicPivots(allCandles):null;
+      if(harmonicStatus)harmonicStatus.textContent=!this.showHarmonics?'Patrones ocultos. Activa «Patrones del gráfico» para verlos.':geom?
+        'Patrón '+geom.patternName+' confirmado en '+this.selectedTimeframe+'. '+(geom.idxD<startIdx?'Está en el historial; desplaza el gráfico hacia atrás.':'Marcado en amarillo; por sí solo no es una entrada.'):
+        'Patrones activos · todavía no hay un armónico confirmado en estas velas.';
       if (this.showHarmonics && allCandles.length >= 18) {
-        const sig = this.currentSignal;
-        const isBullPreferred = sig ? (sig.type === "BUY" || sig.type === "CALL") : true;
-        const geom = this.detectHarmonicPivots(allCandles, isBullPreferred ? "BUY" : "SELL");
 
         if (geom) {
           isBullishSignal = geom.isBull;
@@ -3650,7 +3663,7 @@
           const pA = { x: getScreenX(geom.idxA), y: getY(geom.pA_price), price: geom.pA_price, idx: geom.idxA, label: "A" };
           const pB = { x: getScreenX(geom.idxB), y: getY(geom.pB_price), price: geom.pB_price, idx: geom.idxB, label: `B (${geom.ratios.AB})` };
           const pC = { x: getScreenX(geom.idxC), y: getY(geom.pC_price), price: geom.pC_price, idx: geom.idxC, label: `C (${geom.ratios.BC})` };
-          const pD = { x: getScreenX(geom.idxD), y: getY(geom.pD_price), price: geom.pD_price, idx: geom.idxD, label: `D [PRZ] (${geom.ratios.XD})` };
+          const pD = { x: getScreenX(geom.idxD), y: getY(geom.pD_price), price: geom.pD_price, idx: geom.idxD, label: `D [PRZ] (${geom.ratios.AD_XA.toFixed(3)})` };
           pD_coord = pD;
 
           // COLOR AMARILLO DORADO MUY PRONUNCIADO
@@ -3710,8 +3723,8 @@
           const przLeft = Math.max(0, pD.x);
           const przWidth = chartWidth - przLeft;
           if (przWidth > 10) {
-            const przHeight = Math.max(16, Math.abs(pD.y - getY(pD.price + (MARKETS[this.selectedMarket]?.pipSize * 12))));
-            const przTop = isBullishSignal ? pD.y - (przHeight * 0.3) : pD.y - (przHeight * 0.7);
+            const przTop = Math.min(getY(geom.przZone.high), getY(geom.przZone.low));
+            const przHeight = Math.max(1, Math.abs(getY(geom.przZone.low)-getY(geom.przZone.high)));
             ctx.fillStyle = "rgba(234, 179, 8, 0.16)";
             ctx.fillRect(przLeft, przTop, przWidth, przHeight);
             ctx.strokeStyle = "#eab308";
@@ -3764,11 +3777,8 @@
       // 5.5 ESCÁNER SNIPER DE ALTA PRECISIÓN: LÍNEA ROJA, LÍNEA PÚRPURA Y CHULITOS (✓)
       if (this.showSniper && allCandles.length >= 15) {
         const chan = this.calculateSniperChannel(allCandles);
+        const getScreenX = (globalIdx) => ((globalIdx - startIdx) * stepX) + (stepX / 2);
         if (chan) {
-          const getScreenX = (globalIdx) => {
-            const localSlot = globalIdx - startIdx;
-            return (localSlot * stepX) + (stepX / 2);
-          };
 
           // A. LÍNEA ROJA SUPERIOR (Resistencia / Techo Institucional)
           const redY1 = getY(chan.resistance.p1.price);
@@ -3825,6 +3835,8 @@
             }
           }
 
+        }
+          // Markers must not depend on a channel being available.
           // C. DIBUJAR LOS CHULITOS (✓) DE ENTRADA SNIPER Y LA CAJA DE POSICIÓN ESTILO TRADINGVIEW
           if (this.currentSignal && this.currentSignal.marketId === this.selectedMarket && !MARKETS[this.selectedMarket]?.isBinary) {
             const sig = this.currentSignal;
@@ -4050,7 +4062,6 @@
               ctx.globalAlpha = 1.0;
             }
           }
-        }
       }
 
       // 6. LÍNEA Y FLECHA GIGANTE DE ENTRADA (ENTRY POINT)

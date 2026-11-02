@@ -31,6 +31,42 @@ const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),
     const box=await page.locator('#automaticStrategyInfo').boundingBox();assert.ok(box.width>0&&box.width<=390);
     await page.locator('#simpleTradingResults > summary').click();
     await page.evaluate(()=>window.scrollTo(0,0));
+
+    // Exercise the real canvas renderer with a valid confirmed Gartley and no channel.
+    const drawn=await page.evaluate(()=>{
+      const a=window.AkiraTradingLab,labels=[];
+      const original=CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText=function(text,...args){labels.push(String(text));return original.call(this,text,...args);};
+      const bars=Array.from({length:42},(_,i)=>({epoch:i*60,open:149.4,high:150,low:149,close:149.6}));
+      const pivots=[['low',5,100],['high',12,200],['low',19,138.2],['high',26,180],['low',33,121.4]];
+      for(const [kind,i,price] of pivots){
+        bars[i]={epoch:i*60,open:price,close:price,high:kind==='high'?price:price+1,low:kind==='low'?price:price-1};
+        for(let d=-3;d<=3;d++){if(!d)continue;const b=bars[i+d];
+          if(kind==='high'){b.high=Math.min(b.high,price-1);b.low=Math.min(b.low,b.high-1);}
+          else{b.low=Math.max(b.low,price+1);b.high=Math.max(b.high,b.low+1);}
+          b.open=b.low+(b.high-b.low)*.4;b.close=b.low+(b.high-b.low)*.6;
+        }
+      }
+      a.candles[a.selectedMarket]=bars;a.showHarmonics=true;a.showSniper=true;
+      a.calculateSniperChannel=()=>null;
+      a.hasLiveDerivFeed=()=>true;a.anticipationMonitor.ready=true;
+      a.currentSignal={marketId:a.selectedMarket,type:'BUY',strategy:'spike-anticipation-v1',entry:145,sl:140,tp1:152.5,tp2:155,tp3:160,riskPips:5,entryCandleIdx:35,signalEpoch:2100,entryValidUntil:Date.now()+20000,status:'available'};
+      a.renderSimpleTradePlan();a.drawMarketCanvas();
+      CanvasRenderingContext2D.prototype.fillText=original;
+      return {labels,pattern:a.detectHarmonicPivots(bars)?.patternName};
+    });
+    assert.equal(drawn.pattern,'Gartley 0.786');
+    assert.ok(drawn.labels.some(x=>x.includes('D [PRZ] (0.786)')),'actual harmonic D label must be drawn');
+    assert.ok(drawn.labels.some(x=>x.includes('CHULITO VERDE')),'entry marker must render even without a channel');
+    assert.equal(await page.locator('#btnToggleHarmonics').isVisible(),true);
+    assert.match(await page.locator('#simpleHarmonicStatus').innerText(),/confirmado/);
+    assert.match(await page.locator('#chartTradePlan').innerText(),/✓ Aviso de práctica: compra/);
+    await page.evaluate(()=>{const a=window.AkiraTradingLab;a.currentSignal.status='tracking';a.currentSignal.entryValidUntil=0;a.renderSimpleTradePlan();});
+    assert.match(await page.locator('#chartTradePlan').innerText(),/en seguimiento/);
+    await page.evaluate(()=>{const a=window.AkiraTradingLab;a.currentSignal=null;a.scannerStatus='Esperando zona extrema';a.candles[a.selectedMarket]=Array.from({length:42},(_,i)=>({epoch:i*60,open:100,high:101,low:99,close:100}));a.drawMarketCanvas();a.renderSimpleTradePlan();});
+    assert.match(await page.locator('#simpleHarmonicStatus').innerText(),/no hay un armónico confirmado/);
+    assert.match(await page.locator('#chartTradePlan').innerText(),/0 avisos guardados/);
+
     if(process.env.AKIRA_SCREENSHOT)await page.screenshot({path:process.env.AKIRA_SCREENSHOT});
     assert.deepEqual(errors,[]);console.log('PASS mobile: automatic profiles, old preference ignored, demo visible, no strategy selector, panel fits 390px, no browser exceptions');
   }finally{if(browser)await browser.close();await new Promise(r=>server.close(r));}
