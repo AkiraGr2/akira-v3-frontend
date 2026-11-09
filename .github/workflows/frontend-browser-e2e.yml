@@ -26,6 +26,9 @@ jobs:
       - name: Automatic strategy mobile test
         run: node scripts/test_anticipation_browser.js
 
+      - name: Manual scanner chart on mobile and desktop
+        run: node scripts/test_manual_chart_browser.js
+
       - name: Serve checked-out frontend
         run: |
           python3 -m http.server 4173 --directory . > /tmp/akira-pages.log 2>&1 &

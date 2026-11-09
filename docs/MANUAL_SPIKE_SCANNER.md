@@ -1,5 +1,7 @@
 # Manual spike scanner — 2026-11-08
 
+Visual update 2026-11-09: entry checkmark is anchored to the observed candle; entry/SL/TP1–3 labels and translucent risk/target zones render directly on the chart. Expired entries are muted and labeled expired. The Levels toggle controls these overlays, and offscreen signals are not relocated to another candle. Details, sizing, evidence and history are collapsed under one section. The visible strip offers one copy-all action, valid only for a fresh non-expired signal. No strategy or profitability criteria were changed by this visual update. Browser regression covers actual rendering at390px and1280px.
+
 Trading Lab observes the selected Boom/Crash 300/500/1000 market. It displays experimental BUY/SELL, entry, SL and TP1/2/3 for manual placement in MetaTrader. It does not send orders, authorize a broker, or claim to record actual executions. Other market profiles remain separate.
 
 The causal detector compares directional changes with three times the median of the previous 300 absolute tick changes. A regularized three-class model estimates events within 60 seconds, 61–300 seconds, or no event. Elapsed ticks are not a countdown or a probability of profit. Five of six models failed to improve Brier score against base rates; Boom500 improved only marginally. Artifact economicValidation remains false.
