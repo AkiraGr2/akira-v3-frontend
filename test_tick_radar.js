@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict');
+const {Radar,cumulative}=require('./js/akira_tick_radar');
+function fixture(market='BOOM500') {const r=new Radar();r.select(market);const sign=market.startsWith('BOOM')?-1:1;for(let i=0;i<=300;i++)r.tick(market,1000+sign*i,1000+i);return r;}
+assert.equal(Math.round(cumulative(1631,500)),96);assert.equal(Math.round(cumulative(25,500)),5);assert.equal(Math.round(cumulative(40,500)),8);
+let r=fixture();assert.equal(r.snapshot('BOOM500',1300).ticksSince,null);
+assert.equal(r.tick('BOOM500',710,1301).interval,null);
+assert.equal(r.snapshot('BOOM500',1301).ticksSince,0);
+r.tick('BOOM500',709,1302);r.tick('BOOM500',709,1302);
+assert.equal(r.snapshot('BOOM500',1302).ticksSince,1);
+assert.equal(r.tick('BOOM500',720,1303).interval,2);
+assert.equal(r.snapshot('BOOM500',1303).observedIntervals,1);
+assert.equal(r.snapshot('BOOM500',1303).referenceNextTickPercent,.2);
+assert.equal(r.snapshot('BOOM500',1310).ticksSince,null);
+r.tick('BOOM500',719,1310);assert.equal(r.snapshot('BOOM500',1310).ticksSince,null);
+assert.equal(r.snapshot('BOOM500',1310).warmup,0);
+assert.equal(r.tick('BOOM500',1,1309),null);
+assert.equal(r.tick('CRASH500',1,1311),null);
+r.pause();assert.equal(r.snapshot('BOOM500',1310).live,false);
+r.select('XAUUSD');assert.equal(r.snapshot('XAUUSD',1400),null);
+r=fixture('CRASH500');assert.ok(r.tick('CRASH500',1290,1301));
+assert.equal(r.snapshot('CRASH500',1301).eligibleForEntry,false);
+r.tick('CRASH500',1291,1301);assert.equal(r.snapshot('CRASH500',1301).ticksSince,null);
+assert.equal(r.export().eligibleForEntry,false);
+assert.equal(r.export().states[0].events.length,1);
+console.log('PASS tick radar: causal detection, formula, gaps, duplicate/conflicting ticks, routing and no entry authorization');

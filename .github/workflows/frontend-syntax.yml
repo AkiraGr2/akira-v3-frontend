@@ -41,6 +41,12 @@ jobs:
           node test_scalp_research.js
           node --check js/akira_spike_anticipation.js
           node test_spike_anticipation.js
+          node --check js/akira_tick_radar.js
+          node test_tick_radar.js
+          node --check js/akira_manual_spike_ui.js
+          node test_manual_spike_plan.js
+          node test_tick_probability.js
+          node test_manual_spike_ui.js
           node --check js/akira_reference_scanner.js
           node test_reference_scanner.js
                     
