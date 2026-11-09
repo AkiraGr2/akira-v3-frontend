@@ -31,7 +31,8 @@ const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),
     assert.equal(await page.locator('#akiraMarketCanvas').count(),0,'no hidden Trading Lab chart at startup');
     assert.equal(await page.evaluate(()=>openedSockets.filter(x=>/deriv|binary/.test(x)).length),0,'no Deriv connection at startup');
     assert.equal(await page.evaluate(()=>document.querySelectorAll('head script[src*="cytoscape"]:not([defer]),head script[src*="d3-"]:not([defer])').length),0);
-    await page.evaluate(async()=>{localStorage.setItem('akira_session_token','fixture-token');localStorage.setItem('akira_session_exp','4102444800');await akiraVerifySession();akiraSetEntryAccess(true);showSection('chat');});
+    await page.addStyleTag({content:'*,*::before,*::after{transition:none!important;animation:none!important}'});
+    await page.evaluate(()=>{window.akiraSessionState={authenticated:true,is_owner:true,is_authorized:true};akiraSetEntryAccess(true);showSection('chat');});
     await page.locator('#chatSection').waitFor({state:'visible'});
     assert.equal(await page.locator('#chatSection').isVisible(),true);
     await page.locator('.btn-new').waitFor({state:'visible'});
