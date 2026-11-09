@@ -45,7 +45,7 @@ jobs:
             const anonymous = await browser.newPage({viewport:{width:390,height:844}});
             anonymous.on("pageerror", err => errors.push(String(err && err.message || err)));
             await anonymous.goto(base, {waitUntil:"domcontentloaded", timeout:30000});
-            await anonymous.waitForFunction(() => document.body.classList.contains("akira-auth-locked"), null, {timeout:20000});
+            await anonymous.waitForFunction(() => document.body.classList.contains("akira-auth-locked"), null, {timeout:20000,polling:100});
             const anonymousState = await anonymous.evaluate(() => ({
               gateVisible:getComputedStyle(document.getElementById("akiraAuthGate")).display !== "none",
               appInert:Boolean(document.getElementById("homeSection").closest("[inert]")),
@@ -76,7 +76,7 @@ jobs:
               });
               await page.goto(base, {waitUntil:"domcontentloaded", timeout:30000});
               try {
-                await page.waitForFunction(() => !document.body.classList.contains("akira-auth-locked"), null, {timeout:20000});
+                await page.waitForFunction(() => !document.body.classList.contains("akira-auth-locked"), null, {timeout:20000,polling:100});
               } catch(error) {
                 const diagnostic = await page.evaluate(() => ({
                   locked:document.body.classList.contains("akira-auth-locked"),
@@ -120,7 +120,7 @@ jobs:
               });
             });
             await rejected.goto(base, {waitUntil:"domcontentloaded", timeout:30000});
-            await rejected.waitForFunction(() => document.body.classList.contains("akira-auth-locked"), null, {timeout:20000});
+            await rejected.waitForFunction(() => document.body.classList.contains("akira-auth-locked"), null, {timeout:20000,polling:100});
             const denied = await rejected.evaluate(() => ({
               locked:document.body.classList.contains("akira-auth-locked"),
               appInert:Boolean(document.getElementById("homeSection").closest("[inert]")),
