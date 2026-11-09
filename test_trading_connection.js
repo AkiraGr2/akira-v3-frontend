@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const core = require("./js/akira_trading_scanner_core.js");
 
-function fixture() {
+function fixture(manual = false) {
   let clock = 1700000000000, serial = 0;
   const timers = new Map(), sockets = [], storage = new Map(), alerts = [];
   const events = {window: new Map(), document: new Map()};
@@ -29,6 +29,7 @@ function fixture() {
     setInterval:(fn,ms)=>timer(fn,ms,true),clearInterval:id=>timers.delete(id),
     alert:msg=>alerts.push(msg), fetch:()=>{throw Error("Unexpected network request in isolated test");}};
   vm.createContext(sandbox);
+  if(manual)for(const name of ['akira_tick_radar','akira_tick_probability','akira_manual_spike_plan','akira_manual_spike_ui'])vm.runInContext(fs.readFileSync('js/'+name+'.js','utf8'),sandbox);
   const source=fs.readFileSync("js/akira_trading_lab.js","utf8").replace(
     "window.AkiraTradingLab = new AkiraTradingLab();", "window.TradingLabClass = AkiraTradingLab;");
   vm.runInContext(source,sandbox);
@@ -55,6 +56,16 @@ function fixture() {
 }
 
 async function main() {
+  {
+    const f=fixture(true),a=f.app;a.init();const socket=f.sockets[0];socket.open();f.history(socket);
+    a.handleDerivLiveTick({quote:100,symbol:'BOOM1000',epoch:1700000000});
+    assert.equal(a.manualSpike.market,'BOOM1000');assert.equal(a.manualSpike.last.price,100);
+    assert.equal(a.currentSignal,null,'manual scanner cannot activate legacy order signals');
+    a.selectedTimeframe='M5';a.subscribeToCurrentMarketDeriv();
+    assert.equal(a.manualSpike.last.price,100,'view changes preserve tick observation');
+    assert.equal(socket.sent.some(r=>r.buy||r.sell||r.authorize),false,'scanner sends market-data requests only');
+    a.invalidateDerivFeed('test');assert.equal(a.manualSpike.last,null);
+  }
   {
     const f=fixture(); f.app.init(); f.app.init();
     assert.equal(f.sockets.length,1,"repeated entry must reuse CONNECTING socket");
@@ -187,7 +198,7 @@ async function main() {
     assert.equal(f.app.currentSignal,null,"stale report cannot create a recommendation");
     f.app.currentSignal={strategy:'multi_scalp_v1',marketId:'BOOM1000',riskRewardTargets:[1.5,2,3]};
     const size=f.app.calculateSafeLot(50,100,'BOOM1000');
-    assert.equal(size.tp1Pips,150);assert.equal(size.tp1Profit,Number((size.actualRiskMoney*1.5).toFixed(2)),"target amount matches actual 1.5R strategy");
+    assert.equal(size.lot,'N/D');assert.equal(size.tp1Profit,'N/D',"Boom money and lot require confirmed MT5 specifications");
     assert.equal(f.app.localDemoUnitValue('UNKNOWN'),null);
     assert.equal(f.app.localDemoUnitValue('BOOM1000'),1);
   }

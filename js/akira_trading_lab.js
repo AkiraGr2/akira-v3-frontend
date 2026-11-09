@@ -262,6 +262,8 @@
       this.currentSignal = null;
       this.scannerStrategy = "multi_scalp"; // Assigned by market; legacy manual preference is intentionally ignored.
       this.anticipationMonitor = new window.AkiraSpikeAnticipation.Monitor(ScalpResearch, localStorage);
+      this.tickRadar = window.AkiraTickRadar ? new window.AkiraTickRadar.Radar() : null;
+      this.manualSpike = window.AkiraManualSpikeUI ? new window.AkiraManualSpikeUI.Controller(this) : null;
       this.scalpPracticeEnabled = true;
       this.scalpCooldownThroughEpoch = {};
       this.scalpResearchReport = null;
@@ -408,6 +410,9 @@
     }
 
     invalidateDerivFeed(message) {
+      this.tickRadar?.pause();
+      this.manualSpike?.pause();
+      this.renderTickRadar();
       this.isDerivWsConnected = false;
       this.dataFeedKeys = {};
       this.confirmedThroughEpoch = {};
@@ -580,6 +585,9 @@
       clearTimeout(this.scannerHistoryRetryTimer);this.scannerHistoryRetryCount=0;this.feedProblem=null;
       this.assignAutomaticProfile();
       this.anticipationMonitor.select(this.selectedMarket);
+      this.tickRadar?.select(this.selectedMarket);
+      this.manualSpike?.select(this.selectedMarket);
+      this.renderTickRadar();
       this.activeDerivFeedKey = `${this.selectedMarket}:${this.selectedTimeframe}`;
       this.lastMarketMessageAt = 0;
       this.currentSignal = null;
@@ -829,6 +837,8 @@
       const curPrice = parseFloat(rawPrice.toFixed(decimals));
       this.marketPrices[this.selectedMarket] = curPrice;
       this.observeAutomaticTick(rawPrice, Number(tick.epoch));
+      this.tickRadar?.tick(this.selectedMarket,rawPrice,Number(tick.epoch));
+      this.renderTickRadar();
 
       // Actualizar en tiempo real milimétrico la vela actual en curso
       const marketCandles = this.candles[this.selectedMarket];
@@ -1414,13 +1424,23 @@
       this.automaticProfile=profile;
       this.scannerStrategy=profile.id==='spike'?'anticipation':profile.id==='reference'?'reference_sniper':'multi_scalp';
       const node=document.getElementById('automaticStrategyInfo');
-      if(node)node.textContent=`Automática: ${profile.label} · experimental, sin rentabilidad validada`;
+      if(node)node.textContent=`Automática: ${this.manualSpike?.supports()?'Escáner por ticks · niveles manuales M1/M5':profile.label} · experimental, sin rentabilidad validada`;
     }
 
     observeAutomaticTick(price,epoch) {
       if(!Number.isFinite(epoch)||Math.abs(Date.now()/1000-epoch)>10)return;
       this.assignAutomaticProfile();
       const monitor=this.anticipationMonitor;
+      if(this.manualSpike?.supports()) {
+        const bucket=Math.floor(epoch/60)*60,last=monitor.bars.at(-1);
+        if(monitor.ready&&last&&bucket>=last.epoch){
+          if(bucket===last.epoch){last.close=price;last.high=Math.max(last.high,price);last.low=Math.min(last.low,price);}
+          else{monitor.bars.push({epoch:bucket,open:price,high:price,low:price,close:price});monitor.bars=monitor.bars.slice(-1000);}
+        }
+        this.currentSignal=null;this.spikeRadar=null;this.manualSpike.tick(price,epoch);
+        this.scannerStatus='Escáner por ticks · avisos experimentales para operar manualmente.';
+        this.renderScannerSignal();this.requestCanvasRedraw();return;
+      }
       const priorEpoch=monitor.bars.at(-1)?.epoch;
       const result=monitor.tick(price,epoch);
       if(this.automaticProfile.id==='spike') {
@@ -1807,14 +1827,14 @@
         ? riskPips
         : this.getMarketSniperRiskPips(targetMarket, m);
 
-      if (m.platformMode === "step_index") {
+      if (m.platformMode === "step_index" || isBoomCrash) {
         return {
           capital: "N/D", recommendedBaseCapital: "N/D", lot: "N/D", defaultLot: null,
           slPips: pips, tp1Pips: pips, tp2Pips: pips * 2, tp3Pips: pips * 3,
           targetRiskMoney: "N/D", actualRiskMoney: "N/D", actualRiskPercent: "N/D",
           tp1Profit: "N/D", tp2Profit: "N/D", tp3Profit: "N/D",
           isMicroAccount: false, isCustomLot: false,
-          microNote: "Deriv Step Index: conversión de puntos a dinero/lote no configurada; consulta las especificaciones del contrato."
+          microNote: "Lote pendiente de especificaciones MT5. Consulta la tarjeta de entradas manuales."
         };
       }
 
@@ -2601,6 +2621,18 @@
       const labels={btnToggleLevels:'Ver objetivos',btnToggleSniper:'Ver avisos ✓',btnToggleEMA:'Líneas de tendencia',btnToggleHarmonics:'Patrones del gráfico',btnJumpToLive:'Volver al presente',btnResetView:'Centrar gráfico',exportAnticipationJournal:'Descargar mi historial'};
       for(const [id,label] of Object.entries(labels)){const node=document.getElementById(id);if(node)node.textContent=label;}
       const plan=document.getElementById('chartTradePlan');
+      if(plan&&this.tickRadar&&!document.getElementById('tickRadarCard')){
+        const card=document.createElement('details');card.id='tickRadarCard';card.className='ak-simple-details';
+        const title=document.createElement('summary');title.textContent='Radar de saltos · mercado seleccionado';card.append(title);
+        const status=document.createElement('p');status.id='tickRadarStatus';card.append(status);
+        const math=document.createElement('p');math.id='tickRadarMath';card.append(math);
+        const note=document.createElement('p');note.textContent='El contador no predice el próximo salto ni autoriza una entrada. Observación desde que abres este mercado; no reconstruimos ticks a partir de velas. Los saltos se detectan por su tamaño frente a los 300 cambios anteriores.';card.append(note);
+        const button=document.createElement('button');button.type='button';button.textContent='Descargar observaciones';button.className='ak-btn secondary';
+        button.addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(this.tickRadar.export(),null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='akira-radar-ticks.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});card.append(button);plan.after(card);
+        this.tickRadarRefreshTimer ||= setInterval(()=>this.renderTickRadar(),1000);
+      }
+      this.renderTickRadar();
+      this.manualSpike?.mount();
       if(plan&&!document.getElementById('simpleHarmonicStatus')){const status=document.createElement('p');status.id='simpleHarmonicStatus';status.style.cssText='margin:8px 12px;color:#cbd5e1;font-size:13px;line-height:1.5';status.textContent='Patrones: esperando precios para analizar.';plan.after(status);}
       let warning=document.getElementById('simpleTradingWarning');
       if(!warning&&plan){warning=document.createElement('p');warning.id='simpleTradingWarning';warning.textContent='Solo práctica: estas estrategias no han demostrado ganancias. Las pruebas de spikes dieron pérdidas. No se envían operaciones a tu cuenta.';plan.before(warning);}
@@ -2623,8 +2655,17 @@
       this.assignAutomaticProfile();
     }
 
+    renderTickRadar() {
+      const card=document.getElementById('tickRadarCard');if(!card||!this.tickRadar)return;
+      const s=this.tickRadar.snapshot(this.selectedMarket,Date.now()/1000);card.hidden=!s;if(!s)return;
+      const status=document.getElementById('tickRadarStatus'),math=document.getElementById('tickRadarMath');
+      status.textContent=!s.live?'Sin datos recientes: contador en pausa.':s.warmup<300?`Preparando detector: ${s.warmup}/300 cambios de precio.`:s.ticksSince===null?'Observando: aún no hemos visto un salto que permita iniciar el contador.':`${s.ticksSince} ticks desde el último salto observado. ${s.observedIntervals} intervalos completos registrados.`;
+      math.textContent=s.cumulativePercent===null?'El análisis es el mismo en las vistas de 1 y 5 minutos.':`Acumulada teórica del intervalo: ${s.cumulativePercent.toFixed(1)} %. No es efectividad ni probabilidad de la próxima entrada. Referencia del próximo tick: ${s.referenceNextTickPercent.toFixed(2)} %; próximos 60 ticks: ${s.referenceNext60TicksPercent.toFixed(1)} %, bajo un modelo independiente. Esta referencia no aumenta por esperar.`;
+    }
+
     renderSimpleTradePlan() {
       const plan=document.getElementById('chartTradePlan');if(!plan)return;
+      plan.hidden=Boolean(this.manualSpike?.supports());this.manualSpike?.render();if(plan.hidden)return;
       plan.setAttribute('role','status');plan.setAttribute('aria-live','polite');
       if(this.feedProblem){plan.textContent=this.feedProblem;return;}
       if(!this.hasLiveDerivFeed()){plan.textContent='Conectando los precios… Los avisos están en pausa.';return;}
@@ -3331,6 +3372,8 @@
 
       // Margen de respiración natural del 10% estilo Deriv Trader y TradingView
       // (Mantiene las proporciones exactas de las velas sin aplastarlas jamás)
+      const manual=this.manualSpike?.plan;
+      if(this.showSLTP!==false&&manual?.marketId===this.selectedMarket&&(!manual.expired||this.manualSpike.active())){minPrice=Math.min(minPrice,manual.sl,manual.tp3);maxPrice=Math.max(maxPrice,manual.sl,manual.tp3);}
       const rawSpan = (maxPrice - minPrice) || 1;
       const vPad = rawSpan * 0.10;
       minPrice -= vPad;
@@ -4519,6 +4562,7 @@
         ctx.fillText("El histórico describe ciclos pasados; no predice el siguiente spike", chartWidth / 2, hudY + 27);
         ctx.restore();
       }
+      this.manualSpike?.draw(ctx,getY,chartWidth);
     }
 
     renderCandleHistoryTable() {
@@ -4589,6 +4633,7 @@
       this.renderSimpleTradePlan();
       const container = document.getElementById("scannerSignalContainer");
       if (!container) return;
+      if(this.manualSpike?.supports()){container.textContent='Consulta entrada, SL y objetivos en la tarjeta junto al gráfico. La operación se realiza manualmente en MetaTrader.';return;}
 
       if (!this.currentSignal) {
         const liveFeed = this.dataFeedKeys[this.selectedMarket] === `${this.selectedMarket}:${this.selectedTimeframe}`;
