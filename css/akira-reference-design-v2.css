@@ -7,8 +7,9 @@ body.ak-reference-mode .brand{border-bottom:0!important;padding:3px 6px 15px!imp
 body.ak-reference-mode .brand h1{font-size:22px!important;letter-spacing:.02em!important;font-weight:780!important}
 body.ak-reference-mode .brand p{font-size:9px!important;letter-spacing:.12em!important;text-transform:uppercase!important;color:#7f88a3!important}
 body.ak-reference-mode .brand .orb{width:38px!important;height:38px!important}
-body.ak-reference-mode .btn-new{display:none!important}
-body.ak-reference-mode .history{display:none!important}
+body.ak-reference-mode .btn-new{display:block!important}
+body.ak-reference-mode .history{display:flex!important;max-height:240px;overflow:auto}
+.ak-chat-history{margin:8px 0 12px;color:#cbd5e1;font-size:13px}.ak-chat-history summary{cursor:pointer;padding:8px 4px}
 body.ak-reference-mode .nav{gap:4px!important;margin-top:3px!important}
 body.ak-reference-mode .nav-btn{border:1px solid transparent!important;border-radius:12px!important;padding:11px 12px!important;min-height:42px!important;color:#c7ccdd!important;font-size:13px!important;background:transparent!important;transition:background .18s ease,transform .18s ease,border-color .18s ease!important}
 body.ak-reference-mode .nav-btn:hover{background:rgba(92,82,191,.10)!important;border-color:rgba(148,126,255,.16)!important}

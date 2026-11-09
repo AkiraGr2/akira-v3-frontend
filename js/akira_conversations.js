@@ -10,6 +10,12 @@
   const BACKEND = () => localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
   const LS_CURRENT = "akira_current_conversation_id";
   const LS_LOCAL_CONVS = "akira_local_conversations_v3";
+  let openVersion = 0;
+  let listPending = null;
+  function _showChat(){
+    if (typeof window.showSection === 'function') return window.showSection('chat') !== false;
+    return true;
+  }
 
   function _getLocalConvs(){
     try { return JSON.parse(localStorage.getItem(LS_LOCAL_CONVS) || '[]'); } catch(_){ return []; }
@@ -378,12 +384,15 @@
       return id;
     },
 
-    onConversationIdReceived: function(newId, messageCount){
+    onConversationIdReceived: function(newId, messageCount, sourceId){
       if (!newId) return;
-      const oldId = api.currentId || _getCurrentId();
+      const oldId = sourceId || api.currentId || _getCurrentId();
       const changed = (newId !== oldId);
-      api.currentId = newId;
-      _setCurrentId(newId);
+      // A late response belongs to its original chat, never to a newly opened one.
+      if ((api.currentId || _getCurrentId()) === oldId) {
+        api.currentId = newId;
+        _setCurrentId(newId);
+      }
 
       // Migrar conversacion local si comenzo con prefijo local_
       const convs = _getLocalConvs();
@@ -420,6 +429,12 @@
     },
 
     async loadList(){
+      if (listPending) return listPending;
+      listPending = api._loadList();
+      try { return await listPending; } finally { listPending = null; }
+    },
+
+    async _loadList(){
       const listEl = document.getElementById('historyList');
       if (!listEl) return;
       
@@ -432,17 +447,19 @@
       
       // 2. Sincronización en segundo plano con el servidor
       const r = await _fetchJson("/api/v8/conversations?limit=30");
+      // Messages may arrive while the request is in flight. Merge the latest copy.
+      const latestLocalConvs = _getLocalConvs();
       if (r.ok && r.data && r.data.ok) {
         const remoteConvs = r.data.conversations || [];
         // Preservar messages de localConvs si ya existian para ese id
         const merged = remoteConvs.map(function(rc){
-          const existingLocal = localConvs.find(function(lc){ return lc.id === rc.id; });
+          const existingLocal = latestLocalConvs.find(function(lc){ return lc.id === rc.id; });
           if (existingLocal && existingLocal.messages && existingLocal.messages.length) {
             return Object.assign({}, rc, { messages: existingLocal.messages });
           }
           return rc;
         });
-        localConvs.forEach(function(lc){
+        latestLocalConvs.forEach(function(lc){
           if(!merged.some(function(mc){ return mc.id === lc.id; })){
             merged.push(lc);
           }
@@ -450,15 +467,16 @@
         api.convsCache = merged;
         _saveLocalConvs(merged);
         api.renderList(merged);
-      } else if(localConvs.length) {
-        api.convsCache = localConvs;
-        api.renderList(localConvs);
+      } else if(latestLocalConvs.length) {
+        api.convsCache = latestLocalConvs;
+        api.renderList(latestLocalConvs);
       }
     },
 
-    recordMessage(role, content){
-      const curId = api.currentId || _getCurrentId() || ('local_' + Date.now());
-      if(!api.currentId) { api.currentId = curId; _setCurrentId(curId); }
+    recordMessage(role, content, conversationId){
+      const curId = conversationId || api.currentId || _getCurrentId() || ('local_' + Date.now());
+      if(!api.currentId && !conversationId) { api.currentId = curId; _setCurrentId(curId); }
+      if (curId === api.currentId) ++openVersion;
       const convs = _getLocalConvs();
       let idx = convs.findIndex(function(c){ return c.id === curId; });
       const nowIso = new Date().toISOString();
@@ -546,9 +564,10 @@
       _highlightCurrentInList();
     },
 
-    async openConversation(convId){
+    async openConversation(convId, navigate = true){
       if (!convId) return;
-      _showLoading("Abriendo conversación…");
+      if (navigate && !_showChat()) return;
+      const version = ++openVersion;
       api.currentId = convId;
       _setCurrentId(convId);
       _highlightCurrentInList();
@@ -559,10 +578,14 @@
       // Buscar si existe copia local en caché
       const localConvs = _getLocalConvs();
       const localMatch = localConvs.find(function(c){ return c.id === convId; });
+      if (localMatch && localMatch.messages && localMatch.messages.length) {
+        api.renderMessages(localMatch.messages);
+      } else _showLoading("Abriendo conversación…");
 
       // Si no es un id puramente local, consultar backend
       if (!String(convId).startsWith('local_')) {
         const r = await _fetchJson("/api/v8/conversations/" + encodeURIComponent(convId) + "?include_messages=true");
+        if (version !== openVersion) return;
         if (r.ok && r.data && r.data.ok) {
           conv = r.data.conversation || {};
           msgs = r.data.messages || [];
@@ -581,9 +604,27 @@
         return;
       }
 
+      if (version !== openVersion) return;
+      if (msgs.length) {
+        const latest = _getLocalConvs();
+        const idx = latest.findIndex(c => c.id === convId);
+        const cached = Object.assign({}, localMatch, conv, {id: convId, messages: msgs});
+        if (idx >= 0) latest[idx] = cached; else latest.unshift(cached);
+        _saveLocalConvs(latest);
+      }
+      api.renderMessages(msgs);
+      _highlightCurrentInList();
+    },
+
+    renderMessages(msgs){
       _clearChatScreen();
       const inner = document.getElementById('msgsInner');
       if (!inner) return;
+      if (msgs.length >= 500) {
+        const note = document.createElement('p');
+        note.textContent = 'Se muestran los 500 mensajes más recientes. Los anteriores siguen guardados en el servidor.';
+        inner.appendChild(note);
+      }
       if (!msgs.length) {
         _showEmptyChat();
       } else {
@@ -604,12 +645,11 @@
         }
         inner.scrollTop = inner.scrollHeight;
       }
-      api.currentId = (conv && conv.id) || convId;
-      _setCurrentId(api.currentId);
-      _highlightCurrentInList();
     },
 
     newChat(){
+      if (!_showChat()) return;
+      ++openVersion;
       api.currentId = null;
       _setCurrentId(null);
       _showEmptyChat();
@@ -620,58 +660,10 @@
     async restoreLast(){
       const lastId = _getCurrentId();
       if (!lastId) return;
+      return api.openConversation(lastId, false);
+    },
 
-      let conv = null;
-      let msgs = [];
-      const localConvs = _getLocalConvs();
-      const localMatch = localConvs.find(function(c){ return c.id === lastId; });
 
-      if (!String(lastId).startsWith('local_')) {
-        const r = await _fetchJson("/api/v8/conversations/" + encodeURIComponent(lastId) + "?include_messages=true");
-        if (r.ok && r.data && r.data.ok) {
-          conv = r.data.conversation || {};
-          msgs = r.data.messages || [];
-        }
-      }
-
-      if (!msgs.length && localMatch && localMatch.messages && localMatch.messages.length) {
-        conv = conv || localMatch;
-        msgs = localMatch.messages;
-      }
-
-      if (!msgs.length) {
-        if (!localMatch) {
-          _setCurrentId(null);
-          api.currentId = null;
-        }
-        return;
-      }
-
-      _clearChatScreen();
-      const inner = document.getElementById('msgsInner');
-      if (msgs.length && inner) {
-        for (let i = 0; i < msgs.length; i++) {
-          const m = msgs[i];
-          const who = m.role === 'user' ? 'user' : 'akira';
-          const content = m.content || '';
-          const row = document.createElement('div');
-          row.className = 'msg-row ' + who;
-          const html = (window.akiraFormatMarkdown ? window.akiraFormatMarkdown(content) : _esc(content).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>'));
-          row.innerHTML = who === 'akira'
-            ? '<div class="avatar akira-entity-slot" data-akira-entity data-state="success" data-size="42" aria-label="Akira"></div><div class="bubble">' + html + '</div>'
-            : '<div class="bubble">' + _esc(content) + '</div>';
-          inner.appendChild(row);
-        }
-        if (window.AkiraEntity && window.AkiraEntity.mountAll) {
-          window.AkiraEntity.mountAll(inner);
-        }
-        inner.scrollTop = inner.scrollHeight;
-      } else {
-        _showEmptyChat();
-      }
-      api.currentId = (conv && conv.id) || lastId;
-      _highlightCurrentInList();
-    }
   };
 
   window.akiraConversations = api;
@@ -702,9 +694,8 @@
   document.addEventListener("DOMContentLoaded", function(){
     _injectStyles();
     setTimeout(function(){
-      api.restoreLast().then(function(){
-        api.loadList();
-      });
+      api.restoreLast();
+      api.loadList();
     }, 400);
     setInterval(function(){ api.loadList(); }, 60000);
     window.addEventListener('resize', _closeConvMenu);

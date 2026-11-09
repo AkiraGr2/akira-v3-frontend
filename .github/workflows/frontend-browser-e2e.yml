@@ -26,6 +26,12 @@ jobs:
       - name: Automatic strategy mobile test
         run: node scripts/test_anticipation_browser.js
 
+      - name: Chat continuity and saved conversations
+        run: node scripts/test_chat_continuity_browser.js
+
+      - name: Startup and on-demand Trading Lab
+        run: node scripts/test_startup_browser.js
+
       - name: Manual scanner chart on mobile and desktop
         run: node scripts/test_manual_chart_browser.js
 
