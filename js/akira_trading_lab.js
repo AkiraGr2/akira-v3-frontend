@@ -2600,11 +2600,15 @@
       const root=document.getElementById('tradingSection'),pane=document.getElementById('tab-market');
       if(!root||!pane)return;
       root.classList.add('ak-simple-trading');
+      const title=root.querySelector('.ak-trading-title-group h2');if(title)title.textContent='Trading Lab';
+      const subtitle=root.querySelector('.ak-trading-title-group p');if(subtitle)subtitle.textContent='Elige el mercado y observa los avisos en el gráfico.';
       const make=(id,label)=>{let d=document.getElementById(id);if(d)return d;d=document.createElement('details');d.id=id;d.className='ak-simple-details';const summary=document.createElement('summary');summary.textContent=label;d.append(summary);pane.append(d);return d;};
       const results=make('simpleTradingResults','Resultados y explicación');
       const history=make('simpleTradingHistory','Consultar precios anteriores');
       const options=make('simpleTradingOptions','Más opciones del gráfico');
       const signal=make('simpleTradingSignal','Ver entrada y practicar');
+      const allDetails=make('simpleTradingDetails','Detalles y ajustes');
+      for(const node of [results,history,options,signal])allDetails.append(node);
       const auto=document.getElementById('automaticStrategyInfo');
       const explanation=auto?.nextElementSibling;
       const originalReport=document.getElementById('multiScalpResearchResults')?.closest('details');
@@ -2613,10 +2617,10 @@
       const grid=pane.querySelector('.ak-market-data-grid');if(grid)history.append(grid);
       const settings=pane.querySelector('.ak-market-settings');if(settings){settings.open=false;options.append(settings);}
       const panel=document.getElementById('scannerSignalContainer');if(panel)signal.append(panel);
-      for(const id of ['btnToggleEMA','btnToggleTheme']){const node=document.getElementById(id);if(node)options.append(node);}
+      for(const id of ['btnToggleEMA','btnToggleTheme','btnToggleSniper']){const node=document.getElementById(id);if(node)options.append(node);}
       const hidden=['canvasAccountTelemetryRibbon','canvasOhlcInspector','chartMarketCategory','chartMarketTfPill','chartAccuracyBadge','btnHeaderTelegramAlerts','platformSpecialDeck','btnScannerBacktest','btnJumpToStart','btnScrollLeft','btnScrollRight','btnFitAllHistory','btnToggleMargin','vScrollBadge'];
       for(const id of hidden){const node=document.getElementById(id);if(node)node.hidden=true;}
-      for(const node of root.querySelectorAll('.ak-radar-settings,.ak-scanner-replay-card,.ak-slider-wrap,.ak-trading-badge-group .sentinel,.ak-trading-badge-group .free,[data-ttab="sentinel"],[data-ttab="tvchart"],[data-ttab="connections"]'))node.hidden=true;
+      for(const node of root.querySelectorAll('.ak-radar-settings,.ak-scanner-replay-card,.ak-slider-wrap,.ak-trading-badge-group .sentinel,.ak-trading-badge-group .free,[data-ttab="sentinel"],[data-ttab="tvchart"],[data-ttab="connections"],[data-ttab="simulator"]'))node.hidden=true;
       for(const b of root.querySelectorAll('.ak-chart-header-tf [data-tf]')){b.hidden=!['M1','M5'].includes(b.dataset.tf);b.textContent=b.dataset.tf==='M1'?'1 min':b.dataset.tf==='M5'?'5 min':b.dataset.tf;}
       const labels={btnToggleLevels:'Ver objetivos',btnToggleSniper:'Ver avisos ✓',btnToggleEMA:'Líneas de tendencia',btnToggleHarmonics:'Patrones del gráfico',btnJumpToLive:'Volver al presente',btnResetView:'Centrar gráfico',exportAnticipationJournal:'Descargar mi historial'};
       for(const [id,label] of Object.entries(labels)){const node=document.getElementById(id);if(node)node.textContent=label;}
@@ -2633,11 +2637,19 @@
       }
       this.renderTickRadar();
       this.manualSpike?.mount();
+      const manualDetails=document.getElementById('manualSpikeDetails');if(manualDetails)allDetails.prepend(manualDetails);
+      const radar=document.getElementById('tickRadarCard');if(radar)allDetails.append(radar);
       if(plan&&!document.getElementById('simpleHarmonicStatus')){const status=document.createElement('p');status.id='simpleHarmonicStatus';status.style.cssText='margin:8px 12px;color:#cbd5e1;font-size:13px;line-height:1.5';status.textContent='Patrones: esperando precios para analizar.';plan.after(status);}
       let warning=document.getElementById('simpleTradingWarning');
-      if(!warning&&plan){warning=document.createElement('p');warning.id='simpleTradingWarning';warning.textContent='Solo práctica: estas estrategias no han demostrado ganancias. Las pruebas de spikes dieron pérdidas. No se envían operaciones a tu cuenta.';plan.before(warning);}
+      if(!warning&&plan){warning=document.createElement('p');warning.id='simpleTradingWarning';warning.textContent='Experimental para demo · rentabilidad no demostrada.';plan.before(warning);}
+      if(warning)allDetails.prepend(warning);
+      const harmonicStatus=document.getElementById('simpleHarmonicStatus');if(harmonicStatus)allDetails.append(harmonicStatus);
       if(!document.getElementById('simpleTradingStyle')){const style=document.createElement('style');style.id='simpleTradingStyle';style.textContent=`
         .ak-simple-trading [hidden]{display:none!important}
+        .ak-simple-trading .ak-trading-hero{display:none}
+        .ak-simple-trading #manualSpikeCard{padding:8px 12px;font-size:12px;margin-top:4px;border-radius:0;border-left:0;border-right:0}
+        .ak-simple-trading #manualSpikeStatus{margin:4px 0;line-height:1.4}
+        .ak-simple-trading #manualCopyAll{padding:4px 8px;min-height:32px;font-size:12px}
         .ak-simple-trading .ak-trading-hero{padding:14px!important;margin-bottom:12px!important}
         .ak-simple-trading .ak-trading-title-group h2{font-size:20px!important}
         .ak-simple-trading .ak-trading-title-group p{font-size:13px!important;line-height:1.5}
@@ -3373,7 +3385,7 @@
       // Margen de respiración natural del 10% estilo Deriv Trader y TradingView
       // (Mantiene las proporciones exactas de las velas sin aplastarlas jamás)
       const manual=this.manualSpike?.plan;
-      if(this.showSLTP!==false&&manual?.marketId===this.selectedMarket&&(!manual.expired||this.manualSpike.active())){minPrice=Math.min(minPrice,manual.sl,manual.tp3);maxPrice=Math.max(maxPrice,manual.sl,manual.tp3);}
+      if(this.showLevels&&manual?.marketId===this.selectedMarket&&(!manual.expired||this.manualSpike.active())){minPrice=Math.min(minPrice,manual.sl,manual.tp3);maxPrice=Math.max(maxPrice,manual.sl,manual.tp3);}
       const rawSpan = (maxPrice - minPrice) || 1;
       const vPad = rawSpan * 0.10;
       minPrice -= vPad;
@@ -4562,7 +4574,8 @@
         ctx.fillText("El histórico describe ciclos pasados; no predice el siguiente spike", chartWidth / 2, hudY + 27);
         ctx.restore();
       }
-      this.manualSpike?.draw(ctx,getY,chartWidth);
+      const manualIndex=this.manualSpike?.plan?allCandles.findLastIndex(c=>c.epoch<=this.manualSpike.plan.signalEpoch):-1;
+      this.manualSpike?.draw(ctx,getY,chartWidth,{entryX:manualIndex>=startIdx&&manualIndex<endIdx?getScreenX(manualIndex):NaN,height});
     }
 
     renderCandleHistoryTable() {
