@@ -7971,8 +7971,10 @@ if __name__ == "__main__":
   window.AkiraTradingLab = new AkiraTradingLab();
 
   document.addEventListener("DOMContentLoaded", () => {
-    setTimeout(() => {
-      if (window.AkiraTradingLab) window.AkiraTradingLab.init();
-    }, 450);
+    // Opening Home/Chat must not render a hidden chart or start Deriv traffic.
+    // showSection('trading') already initializes the lab on demand.
+    if (document.getElementById('tradingSection')?.classList.contains('active')) {
+      window.AkiraTradingLab.init();
+    }
   });
 })();

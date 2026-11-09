@@ -74,18 +74,18 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Akira">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-dispatch@3.0.1/dist/d3-dispatch.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-quadtree@3.0.1/dist/d3-quadtree.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-timer@3.0.1/dist/d3-timer.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-force@3.0.0/dist/d3-force.min.js"></script>
+<script defer src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/d3-dispatch@3.0.1/dist/d3-dispatch.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/d3-quadtree@3.0.1/dist/d3-quadtree.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/d3-timer@3.0.1/dist/d3-timer.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/d3-force@3.0.0/dist/d3-force.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./css/akira-brain-space.css?v=akira-brain-space-v1">
 <link rel="stylesheet" href="./css/akira-cognitive-workspace-v2.css?v=akira-cognitive-workspace-v2">
 <link rel="stylesheet" href="./css/akira-office-2p5d.css?v=akira-office-2p5d-v5-f15-hive-panel">
-<link rel="stylesheet" href="./css/akira-reference-design-v2.css?v=akira-reference-design-v1-living-plasma-canvas">
+<link rel="stylesheet" href="./css/akira-reference-design-v2.css?v=20261109-chat">
   <link rel="stylesheet" href="./css/akira_modern_cyber.css?v=akira-cyber-v20-touch-action-none">
 
 <style>
@@ -456,6 +456,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
     </div>
   </div>
   <button class="btn-new pixel-btn" onclick="if(window.akiraConversations){akiraConversations.newChat()}else{newChat()}">+ Nuevo chat</button>
+  <details class="ak-chat-history"><summary>Tus conversaciones</summary><div class="history" id="historyList"></div></details>
   <div class="nav">
     <div class="ak-nav-category-title">Principal</div>
     <button class="nav-btn active" id="btn-home" type="button" onclick="showSection('home')">
@@ -503,7 +504,6 @@ body{background:var(--bg);color:var(--text);font-family:'Pixelify Sans', sans-se
     </div>
     <div class="ak-telemetry-sub"><span data-akira-capability-summary>Sin verificar</span> · Render 0$</div>
   </div>
-  <div class="history" id="historyList"></div>
 </div>
 <div class="main">
   <div class="topbar">
@@ -2893,7 +2893,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_entity.js?v=akira-quantum-sigil-v1"></script>
 <script src="./js/three.min.js"></script>
 <script src="./js/akira_quantum_orb.js?v=akira-quantum-orb-v2"></script>
-<script src="./js/akira_voice_live.js?v=akira-voice-live-v15-mobile-uncontested"></script>
+<script src="./js/akira_voice_live.js?v=20261109-chat"></script>
 <script src="./js/akira_monetization.js?v=akira-monetize-v2"></script>
 <script src="./js/akira_office_hologram.js?v=20261030-audited-entry-trading"></script>
 <script src="./js/akira_hive_catalog.js?v=akira-hive-v1"></script>
@@ -2914,7 +2914,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_tick_probability.js?v=20261108"></script>
 <script src="./js/akira_manual_spike_plan.js?v=20261108"></script>
 <script src="./js/akira_manual_spike_ui.js?v=20261109-chart"></script>
-<script src="./js/akira_trading_lab.js?v=20261109-chart"></script>
+<script src="./js/akira_trading_lab.js?v=20261109-chat"></script>
 <script src="./js/akira_python_repl.js?v=akira-python-v1"></script>
 <script src="./js/akira_search_vector.js?v=akira-vector-v1"></script>
 <script src="./js/akira_cron_scheduler.js?v=20261030-audited-entry-trading"></script>
@@ -2934,9 +2934,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script src="./js/akira_live_web.js?v=akira-web-v1"></script>
 <script src="./js/akira_knowledge_pipeline.js?v=akira-ingest-v1"></script>
 <script src="./js/akira_autonomous_evolution.js?v=20261030-audited-entry-trading"></script>
-<script src="./js/akira_brain.js?v=akira-brain-v8"></script>
+<script src="./js/akira_brain.js?v=20261109-chat"></script>
 <script src="./js/akira_extras.js?v=akira-final-v5"></script>
-<script src="./js/akira_conversations.js?v=akira-conv-v8-resilient"></script>
+<script src="./js/akira_conversations.js?v=20261109-chat"></script>
 <script src="./js/akira_learning.js?v=20261030-audited-entry-trading"></script>
 <script src="./js/akira_admin.js?v=20261031-inventory-1"></script>
 <script>

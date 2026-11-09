@@ -135,6 +135,17 @@ function isImageIntent(txt){
   return l.includes("crea la imagen") || l.includes("crear imagen") || l.includes("genera imagen") || l.includes("generar imagen") || l.includes("haz una imagen") || l.includes("imagen de un gato") || l.includes("crea un gato") || (l.includes("imagen") && l.includes("bogot"));
 }
 async function sendMsg(){
+  if (window.akiraChatSending) return;
+  window.akiraChatSending = true;
+  const button = document.getElementById('sendBtn');
+  if (button) button.disabled = true;
+  try { return await _sendMsg(); }
+  finally {
+    window.akiraChatSending = false;
+    if (button) button.disabled = false;
+  }
+}
+async function _sendMsg(){
   const inp=document.getElementById('msg');
   if(!inp) return;
   let txt=inp.value.trim();
@@ -157,6 +168,8 @@ async function sendMsg(){
   const currentImage = selectedImageBase64;
   const msgToSend = txt || (hasImage ? "Qué ves en esta imagen?" : "");
   const exchangeId = _newChatExchangeId();
+  let conversationKey = window.akiraConversations?.currentId;
+  const requestConversationId = window.akiraConversations?.getConversationIdForRequest();
   inp.value=''; clearImagePreview();
   const tid=addTyping();
   // FASE 11.0 (2026-10-01): guardado de mensaje del usuario DESHABILITADO.
@@ -171,7 +184,7 @@ async function sendMsg(){
     const payload = {message:msgToSend,user_id:uid,user_api_key:uk,chat_exchange_id:exchangeId};
     if(hasImage && currentImage) payload.image_base64 = currentImage;
     try {
-      const _cid = (window.akiraConversations && window.akiraConversations.getConversationIdForRequest) ? window.akiraConversations.getConversationIdForRequest() : null;
+      const _cid = requestConversationId;
       if (_cid) payload.conversation_id = _cid;
     } catch(_){}
     const r = await fetch(backend + "/api/chat", {method:'POST',headers:_akiraH(),body:JSON.stringify(payload)});
@@ -179,7 +192,8 @@ async function sendMsg(){
     const d = await r.json();
     try {
       if (d && d.conversation_id && window.akiraConversations && window.akiraConversations.onConversationIdReceived) {
-        window.akiraConversations.onConversationIdReceived(d.conversation_id, d.conversation_message_count);
+        window.akiraConversations.onConversationIdReceived(d.conversation_id, d.conversation_message_count, conversationKey);
+        conversationKey = d.conversation_id;
       }
     } catch(_){}
     removeTyping(tid); if(orb)orb.classList.remove('thinking');
@@ -193,7 +207,7 @@ async function sendMsg(){
       }
       BACKEND_HEALTHY = true;
     }
-    addMsg(resp,'akira');
+    addMsg(resp,'akira',null,conversationKey);
     // FASE 11.0 (2026-10-01): guardado de respuesta de Akira DESHABILITADO.
     // try{ await saveNeuronaHibrida(d.response || "", 'motora', 5, ['akira_response']); }catch(e){}
     Promise.resolve(countNeuronas()).catch(()=>{});
@@ -203,7 +217,7 @@ async function sendMsg(){
     BACKEND_HEALTHY = false;
     logAutoRepair(`Error chat ${e.message} -> AUTO OFF y reintento`);
     try{window.akiraEntitySetState&&window.akiraEntitySetState('error',".akira-global-entity");setTimeout(()=>window.akiraEntitySetState&&window.akiraEntitySetState('idle',".akira-global-entity"),1600);}catch(_){}
-    addMsg('⏳ Akira está reconectando el backend. Puedes reintentar en unos segundos.','akira');
+    addMsg('No se pudo completar el mensaje. Tu conversación se conserva; vuelve a intentarlo.','akira',null,conversationKey);
     setTimeout(()=>{ checkBackendHealth(); }, 5000);
   }
 }
@@ -226,6 +240,8 @@ async function sendMsgStream(){
   const currentImage = selectedImageBase64;
   const msgToSend = txt || (hasImage ? "Qué ves en esta imagen?" : "");
   const exchangeId = _newChatExchangeId();
+  let conversationKey = window.akiraConversations?.currentId;
+  const requestConversationId = window.akiraConversations?.getConversationIdForRequest();
   inp.value=''; clearImagePreview();
   // FASE 11.0 (2026-10-01): guardado de mensaje del usuario (stream) DESHABILITADO.
   // try{ await saveNeuronaHibrida(msgToSend + (hasImage ? " [imagen]" : ""), 'sensorial', 6, ['user_input']); }catch(e){}
@@ -263,7 +279,7 @@ async function sendMsgStream(){
     const payload = {message:msgToSend,user_id:uid,user_api_key:uk,chat_exchange_id:exchangeId};
     if(hasImage && currentImage) payload.image_base64 = currentImage;
     try {
-      const _cid = (window.akiraConversations && window.akiraConversations.getConversationIdForRequest) ? window.akiraConversations.getConversationIdForRequest() : null;
+      const _cid = requestConversationId;
       if (_cid) payload.conversation_id = _cid;
     } catch(_){}
     const r = await fetch(backend + "/api/chat/stream", {method:'POST',headers:_akiraH(),body:JSON.stringify(payload)});
@@ -302,10 +318,11 @@ async function sendMsgStream(){
               }
               try {
                 if (window.akiraConversations && window.akiraConversations.recordMessage) {
-                  window.akiraConversations.recordMessage('akira', fullText);
+                  window.akiraConversations.recordMessage('akira', fullText, conversationKey);
                 }
                 if (j.conversation_id && window.akiraConversations && window.akiraConversations.onConversationIdReceived) {
-                  window.akiraConversations.onConversationIdReceived(j.conversation_id, j.conversation_message_count);
+                  window.akiraConversations.onConversationIdReceived(j.conversation_id, j.conversation_message_count, conversationKey);
+                  conversationKey = j.conversation_id;
                 }
               } catch(_){}
               // FASE 11.0 (2026-10-01): guardado de respuesta de Akira (stream) DESHABILITADO.
@@ -320,6 +337,7 @@ async function sendMsgStream(){
         }
       }
     }
+    if (!streamFinished) throw new Error("stream_incomplete");
   }catch(e){
     console.error("sendMsgStream error", e);
     STREAM_FAIL_COUNT++;
@@ -344,17 +362,20 @@ async function sendMsgStream(){
       const payload2 = {message:msgToSend,user_id:uid,user_api_key:uk,chat_exchange_id:exchangeId};
       if(hasImage && currentImage) payload2.image_base64 = currentImage;
       try {
-        const _cid2 = (window.akiraConversations && window.akiraConversations.getConversationIdForRequest) ? window.akiraConversations.getConversationIdForRequest() : null;
+        const _cid2 = requestConversationId;
         if (_cid2) payload2.conversation_id = _cid2;
       } catch(_){}
       const r2 = await fetch(backend + "/api/chat", {method:'POST',headers:_akiraH(),body:JSON.stringify(payload2)});
+      if (!r2.ok) throw new Error("Chat error " + r2.status);
       const d2 = await r2.json();
       try {
         if (d2 && d2.conversation_id && window.akiraConversations && window.akiraConversations.onConversationIdReceived) {
-          window.akiraConversations.onConversationIdReceived(d2.conversation_id, d2.conversation_message_count);
+          window.akiraConversations.onConversationIdReceived(d2.conversation_id, d2.conversation_message_count, conversationKey);
+                  conversationKey = d2.conversation_id;
         }
       } catch(_){}
-      let resp2 = d2.response||'Conexión restablecida';
+      let resp2 = d2.response||'No se recibió respuesta';
+      window.akiraConversations?.recordMessage('akira', resp2, conversationKey);
       try{const entity=row.querySelector("[data-akira-entity]");if(entity&&entity.__akiraEntity)entity.__akiraEntity.setState("success");}catch(_){}
       try{window.akiraEntitySetState&&window.akiraEntitySetState("success",".akira-global-entity");}catch(_){}
       if(b) b.innerHTML = escapeHtml(resp2).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
@@ -365,30 +386,38 @@ async function sendMsgStream(){
       return;
     }catch(e2){
       if(b) b.innerHTML = '⏳ Akira reconectando colmena... reintento automático en 3s';
-      setTimeout(async ()=>{
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      {
         try{
           const payload3 = {message:msgToSend,user_id:uid,user_api_key:uk,chat_exchange_id:exchangeId};
           try {
-            const _cid3 = (window.akiraConversations && window.akiraConversations.getConversationIdForRequest) ? window.akiraConversations.getConversationIdForRequest() : null;
+            const _cid3 = requestConversationId;
             if (_cid3) payload3.conversation_id = _cid3;
           } catch(_){}
           const r3 = await fetch(backend + "/api/chat", {method:'POST',headers:_akiraH(),body:JSON.stringify(payload3)});
+          if (!r3.ok) throw new Error("Chat error " + r3.status);
           const d3 = await r3.json();
           try {
             if (d3 && d3.conversation_id && window.akiraConversations && window.akiraConversations.onConversationIdReceived) {
-              window.akiraConversations.onConversationIdReceived(d3.conversation_id, d3.conversation_message_count);
+              window.akiraConversations.onConversationIdReceived(d3.conversation_id, d3.conversation_message_count, conversationKey);
+                  conversationKey = d3.conversation_id;
             }
           } catch(_){}
           try{const entity=row.querySelector("[data-akira-entity]");if(entity&&entity.__akiraEntity)entity.__akiraEntity.setState("success");}catch(_){}
           try{window.akiraEntitySetState&&window.akiraEntitySetState("success",".akira-global-entity");}catch(_){}
-          if(b) b.innerHTML = escapeHtml(d3.response||'Conexión restablecida').replace(/\n/g,'<br>');
-        }catch(_){ if(b) b.innerHTML = '✅ Colmena activa, reintenta en 5s'; }
-      }, 3000);
+          window.akiraConversations?.recordMessage('akira', d3.response || 'No se recibió respuesta', conversationKey);
+          if(b) b.innerHTML = escapeHtml(d3.response||'No se recibió respuesta').replace(/\n/g,'<br>');
+        }catch(_){ if(b) b.textContent = 'No se pudo completar el mensaje. Tu conversación se conserva; vuelve a intentarlo.'; }
+      }
     }
     if(orb)orb.classList.remove('thinking');
   }
 }
-function addMsg(t,who,imgBase64=null){
+function addMsg(t,who,imgBase64=null,conversationId=null){
+  if (conversationId && conversationId !== window.akiraConversations?.currentId) {
+    window.akiraConversations?.recordMessage(who, t, conversationId);
+    return;
+  }
   const inner=document.getElementById('msgsInner');
   if(!inner) return;
   const welcome = document.getElementById('akiraChatWelcomeStage');

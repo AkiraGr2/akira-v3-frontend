@@ -4,7 +4,7 @@ const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),
   const root=path.resolve(__dirname,'..');
   const scripts=['akira_reference_scanner','akira_scalp_research_core','akira_trading_scanner_core','akira_spike_anticipation','akira_trading_lab'];
   const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');
-    if(url.pathname==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="background:#080c14;color:#e2e8f0;margin:0"><div id="tradingSection"></div>'+scripts.map(s=>`<script src="/js/${s}.js"></script>`).join(''));return;}
+    if(url.pathname==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="background:#080c14;color:#e2e8f0;margin:0"><div id="tradingSection" class="active"></div>'+scripts.map(s=>`<script src="/js/${s}.js"></script>`).join(''));return;}
     const file=path.join(root,url.pathname);if(!file.startsWith(root)||!fs.existsSync(file)){res.writeHead(404);res.end();return;}
     res.setHeader('Content-Type',file.endsWith('.js')?'application/javascript':'application/json');res.end(fs.readFileSync(file));
   });await new Promise(r=>server.listen(0,'127.0.0.1',r));

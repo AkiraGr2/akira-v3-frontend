@@ -759,6 +759,14 @@
     }
 
     async processUserVoiceInput(query) {
+      if (window.akiraChatSending) {
+        this.setSubtitles('Espera a que termine la respuesta anterior.');
+        return;
+      }
+      window.akiraChatSending = true;
+      window.addMsg?.(query, 'user');
+      let conversationKey = window.akiraConversations?.currentId;
+      const conversationId = window.akiraConversations?.getConversationIdForRequest();
       this.isThinking = true;
       this.updateHUD("Pensando...", "thinking");
       this.updateMasterButton("thinking", "🧠 Akira respondiendo...", "Inferencia rápida en la colmena...");
@@ -773,6 +781,9 @@
           fast_voice: true,
           voice_mode: true
         };
+        if (conversationId) payload.conversation_id = conversationId;
+        payload.chat_exchange_id = typeof window._newChatExchangeId === 'function'
+          ? window._newChatExchangeId() : crypto.randomUUID();
 
         const response = await fetch(backend + "/api/chat", {
           method: "POST",
@@ -780,8 +791,14 @@
           body: JSON.stringify(payload)
         });
 
+        if (!response.ok) throw new Error('Chat ' + response.status);
         const data = await response.json();
-        const replyText = data.response || data.reply || "Te escuché perfectamente, Jhon.";
+        if (data.conversation_id) {
+          window.akiraConversations?.onConversationIdReceived(data.conversation_id, data.conversation_message_count, conversationKey);
+          conversationKey = data.conversation_id;
+        }
+        const replyText = data.response || data.reply || 'No se recibió respuesta. Vuelve a intentarlo.';
+        window.addMsg?.(replyText, 'akira', null, conversationKey);
 
         // Abort immediately if user stopped, closed modal, or canceled while waiting
         if (!this.active) {
@@ -799,6 +816,8 @@
         }
         this.isThinking = false;
         this.speakReply("Te escucho un poco entrecortado, ¿me repites por favor?");
+      } finally {
+        window.akiraChatSending = false;
       }
     }
 
