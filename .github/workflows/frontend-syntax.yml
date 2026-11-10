@@ -45,6 +45,7 @@ jobs:
           node test_tick_radar.js
           node --check js/akira_manual_spike_ui.js
           node test_manual_spike_plan.js
+          node test_boom300_candidate.js
           node test_tick_probability.js
           node test_manual_spike_ui.js
           node --check js/akira_reference_scanner.js

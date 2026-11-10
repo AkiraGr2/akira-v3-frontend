@@ -35,8 +35,14 @@
    const slow=med(this.changes.slice(-20).map(Math.abs))<=.8*med(this.changes.slice(-80,-20).map(Math.abs));
    const edge=this.prediction&&(this.prediction.within60>this.prediction.baseline60+.05||this.prediction.within300>this.prediction.baseline300+.05);
    const active=this.active();
-   if(!observed?.event&&!active&&!this.dailyLocked()&&this.app.anticipationMonitor?.ready&&this.app.scalpPracticeEnabled!==false&&this.changes.length===300&&bars.length>=20&&drift&&slow&&edge&&epoch-(this.lastPlanAt||0)>=300){
-    const p=api.makePlan({marketId:this.market,price,epoch,bars,changes:this.changes,spec:this.specs[this.market],selectedTarget:'tp'+this.target});
+   const candidate=this.market==='BOOM300N';
+   const lastExit=Math.max(0,...Object.values(this.tracking?.scenarios||{}).map(s=>s.exitEpoch||0));
+   const freshBar=bars.at(-1)?.epoch!==this.candidateBar;
+   const eligible=candidate?freshBar&&epoch>=lastExit+120:!observed?.event&&this.changes.length===300&&bars.length>=20&&drift&&slow&&edge&&epoch-(this.lastPlanAt||0)>=300;
+   if(!active&&!this.dailyLocked()&&this.app.anticipationMonitor?.ready&&this.app.scalpPracticeEnabled!==false&&eligible){
+    if(candidate)this.candidateBar=bars.at(-1)?.epoch;
+    const p=candidate?api.makeBoom300Candidate({marketId:this.market,bars,epoch,selectedTarget:'tp'+this.target},root.AkiraScalpResearchCore):api.makePlan({marketId:this.market,price,epoch,bars,changes:this.changes,spec:this.specs[this.market],selectedTarget:'tp'+this.target});
+    if(p&&this.journal.some(s=>s.id===p.id))return;
     if(p){this.tracking=null;this.plan={...p,probability:{...this.prediction},fillPolicy:'first_tick_after_5_seconds_max_20_seconds',specification:this.specs[this.market]?{...this.specs[this.market]}:null,sizing:api.sizePlan(p,this.app.accountSize||50,this.specs[this.market])};this.lastPlanAt=epoch;this.journal.push(this.plan);this.journal=this.journal.slice(-500);this.save();}
    }
    this.render();
@@ -46,7 +52,7 @@
    const style=el('style');style.textContent='#manualSpikeCard{padding:16px;border:1px solid #334155;border-radius:12px;background:#101827;color:#e2e8f0;line-height:1.5}#manualSpikeCard button,#manualSpikeCard input,#manualSpikeCard select{background:#172638;color:#e2e8f0;border:1px solid #436176;border-radius:6px;padding:7px;max-width:100%;font:inherit}#manualSpikeCard button{cursor:pointer}#manualSpikeCard button:disabled{opacity:.45;cursor:default}#manualSpikeCard details{margin-top:12px}#manualSpikeLevels span{font-variant-numeric:tabular-nums;align-self:center}';card.append(style);
    card.append(el('strong','Entradas para copiar a MetaTrader'));
    const info=el('p','Práctica demo · tú colocas la operación. Akira no opera tu cuenta.');info.style.color='#fcd58a';card.append(info);
-   const evidence=el('details');evidence.append(el('summary','Resultado de las pruebas'));evidence.append(el('p','Disparador por ticks: 27 avisos en el histórico estudiado, 3 resultados positivos y 24 stops con TP1. El conjunto perdió incluso antes de costes. No es una estrategia validada para ganar dinero.'));card.append(evidence);
+   const evidence=el('details');evidence.append(el('summary','Resultado de las pruebas'));evidence.append(el('p','Boom 300 usa la candidata EMA200/RSI M1: positiva en seis sesiones recientes, negativa en octubre. En la comprobación posterior del 9 de noviembre dio 4 entradas y 4 pérdidas; no está validada para dinero real. Otros Boom/Crash conservan el disparador por ticks: 27 avisos en el histórico estudiado, 3 resultados positivos y 24 stops con TP1. El conjunto perdió incluso antes de costes. No es una estrategia validada para ganar dinero.'));card.append(evidence);
    const probability=el('p');probability.id='manualSpikeProbability';card.append(probability);
    const status=el('p');status.id='manualSpikeStatus';card.append(status);
    const balanceLabel=el('label','Saldo USD '),balance=el('input');balance.type='number';balance.min='1';balance.step='.01';balance.value=String(this.app.accountSize||50);balance.style.width='100px';balance.addEventListener('change',()=>{const n=Number(balance.value);if(n>0&&Number.isFinite(n)){this.app.accountSize=n;localStorage.setItem('akira_trading_custom_capital',String(n));this.render();}});balanceLabel.append(balance);card.append(balanceLabel);
@@ -89,7 +95,7 @@
    const probability=document.getElementById('manualSpikeProbability');probability.textContent=live&&this.prediction?`Estimación experimental: próximo minuto ${(this.prediction.within60*100).toFixed(0)} % · próximos 5 min ${(this.prediction.within300*100).toFixed(0)} %. Probabilidad de salto, no de ganar.`:'Probabilidad: preparando datos o sin estimación disponible.';
    const state=p&&live&&!p.closed&&!p.expired?api.state(p,this.last.price,now):'paused';
    const copy=document.getElementById('manualCopyAll');if(copy){copy.hidden=!p;copy.disabled=state!=='available';}
-   document.getElementById('manualSpikeStatus').textContent=!live?'Esperando precios recientes.':this.dailyLocked()?'Pausa de práctica: pérdida diaria simulada del 2 % alcanzada.':!p?'Buscando condiciones por ticks. No hay una entrada disponible.':p.closed?'Seguimiento interrumpido: recorrido incompleto.':state==='available'?`Entrada experimental ${p.type==='BUY'?'COMPRA':'VENTA'} · ${this.market} · ${new Date(p.signalEpoch*1000).toLocaleTimeString()} · válida ${Math.max(0,Math.ceil(p.signalEpoch+20-now))} s`:(this.active()?'Aviso vencido para entrar; el seguimiento del aviso continúa.':'Entrada vencida: no entrar tarde. Niveles conservados para revisar.');
+   document.getElementById('manualSpikeStatus').textContent=!live?'Esperando precios recientes.':this.dailyLocked()?'Pausa de práctica: pérdida diaria simulada del 2 % alcanzada.':!p?(this.market==='BOOM300N'?'Boom 300 · candidata de compras M1. Esperando tendencia y retroceso; sesión 08:00–16:00 Colombia, con calentamiento.':'Buscando condiciones por ticks. No hay una entrada disponible.'):p.closed?'Seguimiento interrumpido: recorrido incompleto.':state==='available'?`Entrada experimental ${p.type==='BUY'?'COMPRA':'VENTA'} · ${this.market} · ${new Date(p.signalEpoch*1000).toLocaleTimeString()} · válida ${Math.max(0,Math.ceil(p.signalEpoch+20-now))} s`:(this.active()?'Aviso vencido para entrar; el seguimiento del aviso continúa.':'Entrada vencida: no entrar tarde. Niveles conservados para revisar.');
    const levels=document.getElementById('manualSpikeLevels');const signature=p?`${p.id}:${state}`:'none';
    if(levels.dataset.signature!==signature){levels.dataset.signature=signature;levels.replaceChildren();if(p)for(const[k,label]of [['entry','Entrada'],['sl','SL'],['tp1','TP1'],['tp2','TP2'],['tp3','TP3']]){const value=p[k].toFixed(this.app.getMarketDecimals(this.market));levels.append(el('span',`${label}: ${value}`));const b=el('button','Copiar '+label);b.type='button';b.disabled=state!=='available';b.addEventListener('click',async()=>{try{if(p.closed||p.expired||!this.last||Date.now()/1000-this.last.epoch>5||api.state(p,this.last.price,Date.now()/1000)!=='available')return;await navigator.clipboard.writeText(value);b.textContent='Copiado';}catch(_){b.textContent='Selecciona el precio';}});levels.append(b);}}
    const size=p?.sizing||null;
@@ -123,4 +129,3 @@
  }
  root.AkiraManualSpikeUI={Controller};
 })(typeof window!=='undefined'?window:globalThis);
-

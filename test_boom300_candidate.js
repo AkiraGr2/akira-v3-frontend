@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict'),api=require('./js/akira_manual_spike_plan');
+const start=Date.parse('2026-11-09T11:00:00Z')/1000;
+const bars=Array.from({length:200},(_,i)=>({epoch:start+i*60,open:100,close:99.9,high:100.1,low:99.8}));
+const core={ema:a=>a.map(()=>99),rsi:a=>a.map(()=>20),volatility:a=>({atr:a.map(()=>1)})};
+const input={marketId:'BOOM300N',bars,epoch:start+200*60};
+const p=api.makeBoom300Candidate(input,core);assert.ok(p);assert.equal(p.type,'BUY');assert.equal(p.tp1,p.entry+3);assert.equal(p.sl,p.entry-2);
+for(const marketId of ['CRASH300N','BOOM500','XAUUSD','BOOM100'])assert.equal(api.makeBoom300Candidate({...input,marketId},core),null);
+assert.equal(api.makeBoom300Candidate({...input,bars:bars.slice(1)},core),null);
+assert.equal(api.makeBoom300Candidate({...input,epoch:input.epoch+6},core),null);
+assert.equal(api.makeBoom300Candidate({...input,bars:bars.filter((_,i)=>i!==50)},core),null);
+assert.deepEqual(api.makeBoom300Candidate({...input,bars:[...bars,{epoch:input.epoch,open:1,high:999,low:1,close:999}]},core),p);
+assert.equal(api.makeBoom300Candidate(input,{...core,rsi:a=>a.map(()=>50)}),null);
+assert.equal(api.makeBoom300Candidate(input,{...core,ema:a=>a.map(()=>101)}),null);
+console.log('PASS Boom300 routing, closed-candle timing, warmup, gaps, fixed levels, RSI and trend gates');
