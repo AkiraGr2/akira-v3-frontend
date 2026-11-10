@@ -29,6 +29,19 @@
       selectedTarget:TARGETS.includes(input.selectedTarget)?input.selectedTarget:'tp1',
       medianTick,medianRange,experimental:true,executionMode:'manual',eligibleForOrders:false});
   }
+  function makeBoom300Candidate({marketId,bars,epoch,selectedTarget='tp1'}={},core){
+    if(marketId!=='BOOM300N'||!core||!finite(epoch)||!Array.isArray(bars))return null;
+    const midnight=Math.floor(epoch/86400)*86400;
+    if(epoch<midnight+13*3600||epoch>midnight+21*3600-321)return null;
+    const closed=bars.filter(b=>b.epoch>=midnight+11*3600&&b.epoch+60<=epoch);
+    if(closed.length<200||epoch-closed.at(-1).epoch-60>5)return null;
+    if(closed.some((b,i)=>![b.open,b.high,b.low,b.close].every(positive)||b.high<Math.max(b.open,b.close)||b.low>Math.min(b.open,b.close)||(i&&b.epoch!==closed[i-1].epoch+60)))return null;
+    const i=closed.length-1,b=closed[i],ema=core.ema(closed.map(x=>x.close),200)[i],rsi=core.rsi(closed)[i],atr=core.volatility(closed).atr[i];
+    if(!(atr>0&&b.close>ema&&rsi<30&&b.close<b.open&&b.high-b.low<=atr))return null;
+    const risk=2*atr,entry=b.close,signalEpoch=b.epoch+60;
+    if(entry-risk<=0)return null;
+    return {id:`boom300-ema-rsi-v1:${signalEpoch}`,version:'boom300-ema-rsi-v1',strategy:'boom300-ema-rsi-v1',marketId,type:'BUY',signalEpoch,entry,risk,sl:entry-risk,tp1:entry+1.5*risk,tp2:entry+2*risk,tp3:entry+3*risk,entryValidUntil:(signalEpoch+20)*1000,maxHoldSeconds:300,selectedTarget:TARGETS.includes(selectedTarget)?selectedTarget:'tp1',experimental:true,executionMode:'manual',eligibleForOrders:false};
+  }
   function state(plan,price,epoch){
     if(!plan||!positive(price)||!finite(epoch)||epoch<plan.signalEpoch)return 'unavailable';
     if(epoch>plan.signalEpoch+20)return 'expired';
@@ -82,6 +95,6 @@
     }
     out.lastEpoch=epoch;out.lastPrice=price;return out;
   }
-  const api={VERSION,makePlan,sizePlan,state,startTracking,advanceTracking};
+  const api={VERSION,makePlan,makeBoom300Candidate,sizePlan,state,startTracking,advanceTracking};
   root.AkiraManualSpikePlan=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);
