@@ -859,7 +859,18 @@
 
       // Primary: High-Definition Colombian Neural Voice (Salomé Neural CO via /api/tts)
       const backend = localStorage.getItem("akira_backend_url") || "https://akira-empresa.onrender.com";
-      const ttsUrl = backend + "/api/tts?text=" + encodeURIComponent(cleanVoiceText.slice(0, 850));
+      const chunks = [];
+      let remaining = cleanVoiceText;
+      while (remaining.length) {
+        let end = Math.min(850, remaining.length);
+        if (end < remaining.length) {
+          const space = remaining.lastIndexOf(' ', end);
+          if (space > 0) end = space;
+        }
+        chunks.push(remaining.slice(0, end));
+        remaining = remaining.slice(end).trimStart();
+      }
+      let chunkIndex = 0;
 
       const audio = new Audio();
       audio.crossOrigin = "anonymous";
@@ -905,32 +916,38 @@
       };
 
       audio.onended = () => {
-        finalizeSpeech();
+        if (!this.active || !this.isSpeaking || this.currentAudio !== audio) return;
+        chunkIndex++;
+        if (chunkIndex < chunks.length) playChunk();
+        else finalizeSpeech();
       };
 
       let fallbackTriggered = false;
       const triggerFallback = (reason) => {
         if (fallbackTriggered) return;
         // MUST NEVER FALLBACK IF USER STOPPED, HIT FINALIZAR, OR IS NO LONGER SPEAKING
-        if (!this.active || !this.isSpeaking) return;
+        if (!this.active || !this.isSpeaking || this.currentAudio !== audio) return;
         fallbackTriggered = true;
         console.warn("[AkiraVoiceLive] Neural TTS fallback to local synthesis:", reason);
         if (speakWaveInterval) clearInterval(speakWaveInterval);
         this.currentAudio = null;
-        this.speakWithLocalSynthesis(cleanVoiceText);
+        audio.onended = null;
+        audio.onerror = null;
+        audio.pause();
+        this.speakWithLocalSynthesis(chunks.slice(chunkIndex).join(' '));
       };
 
       audio.onerror = (e) => {
         triggerFallback(e);
       };
 
-      audio.src = ttsUrl;
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          triggerFallback(err);
-        });
-      }
+      const playChunk = () => {
+        if (!this.active || !this.isSpeaking || this.currentAudio !== audio) return;
+        audio.src = backend + "/api/tts?text=" + encodeURIComponent(chunks[chunkIndex]);
+        const playPromise = audio.play();
+        if (playPromise !== undefined) playPromise.catch(triggerFallback);
+      };
+      playChunk();
     }
 
     speakWithLocalSynthesis(cleanVoiceText) {

@@ -23,6 +23,9 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Complete Live voice playback
+        run: node test_live_voice.js
+
       - name: Automatic strategy mobile test
         run: node scripts/test_anticipation_browser.js
 
