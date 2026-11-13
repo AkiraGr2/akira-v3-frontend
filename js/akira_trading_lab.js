@@ -1424,7 +1424,7 @@
       this.automaticProfile=profile;
       this.scannerStrategy=profile.id==='spike'?'anticipation':profile.id==='reference'?'reference_sniper':'multi_scalp';
       const node=document.getElementById('automaticStrategyInfo');
-      if(node)node.textContent=`Automática: ${this.manualSpike?.supports()?(this.manualSpike.practiceMode==='regular'?'Demo de spikes · zonas extremas M1 + contexto M5':this.selectedMarket==='BOOM300N'?'Boom 300 · compras por tendencia y retroceso M1':'Escáner por ticks · niveles manuales M1/M5'):profile.label} · experimental, sin rentabilidad validada`;
+      if(node)node.textContent=`Automática: ${this.manualSpike?.supports()?(this.manualSpike.practiceMode==='turn'?'Giros · rechazo M1 con contexto M5':this.manualSpike.practiceMode==='regular'?'Demo de spikes · zonas extremas M1 + contexto M5':this.selectedMarket==='BOOM300N'?'Boom 300 · compras por tendencia y retroceso M1':'Escáner por ticks · niveles manuales M1/M5'):profile.label} · experimental, sin rentabilidad validada`;
     }
 
     observeAutomaticTick(price,epoch) {

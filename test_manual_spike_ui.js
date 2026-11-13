@@ -40,3 +40,7 @@ c.market='CRASH500';app.selectedMarket=c.market;c.plan={...p,marketId:c.market,t
 assert.equal(c.editLevels({sl:110,tp1:90,tp2:80,tp3:70}),null);
 assert.ok(c.editLevels({sl:90,tp1:110,tp2:120,tp3:130}));
 console.log('PASS editable levels: directional ordering, invalid values, immutable original, chart annotations');
+delete c.plan.customLevels;c.tracking={scenarios:{tp1:{status:'target'},tp2:{status:'tracking'},tp3:{status:'tracking'}}};texts.length=0;
+c.draw(ctx,v=>v,320,{entryX:100,height:500});assert.ok(texts.some(t=>t.startsWith('TP1 ')&&t.endsWith(' ✓')));assert.ok(texts.some(t=>t.startsWith('TP2 ')&&!t.endsWith(' ✓')));
+c.plan.customLevels={sl:110,tp1:90,tp2:80,tp3:70};texts.length=0;c.draw(ctx,v=>v,320,{entryX:100,height:500});assert.ok(texts.some(t=>t.startsWith('TP1 ')&&t.endsWith(' *')));assert.ok(!texts.some(t=>t.startsWith('TP1 ')&&t.endsWith(' ✓')));
+console.log('PASS reached-target markers: simulated original targets only, custom levels never inherit results');
