@@ -42,6 +42,22 @@
     if(entry-risk<=0)return null;
     return {id:`boom300-ema-rsi-v1:${signalEpoch}`,version:'boom300-ema-rsi-v1',strategy:'boom300-ema-rsi-v1',marketId,type:'BUY',signalEpoch,entry,risk,sl:entry-risk,tp1:entry+1.5*risk,tp2:entry+2*risk,tp3:entry+3*risk,entryValidUntil:(signalEpoch+20)*1000,maxHoldSeconds:300,selectedTarget:TARGETS.includes(selectedTarget)?selectedTarget:'tp1',experimental:true,executionMode:'manual',eligibleForOrders:false};
   }
+  function makeRegularDemoPlan({marketId,bars,epoch,selectedTarget='tp1'}={},core){
+    if(!/^(BOOM|CRASH)(300N|500|1000)$/.test(marketId)||!core||!finite(epoch)||!Array.isArray(bars))return null;
+    const closed=bars.filter(b=>b&&finite(b.epoch)&&b.epoch+60<=epoch).slice(-240);
+    if(closed.length<240||epoch-closed.at(-1).epoch-60>5)return null;
+    if(closed.some((b,i)=>![b.open,b.high,b.low,b.close].every(positive)||b.high<Math.max(b.open,b.close)||b.low>Math.min(b.open,b.close)||b.epoch%60!==0||(i&&b.epoch!==closed[i-1].epoch+60)))return null;
+    const higher=core.aggregateM5(closed).slice(-12);if(higher.length!==12)return null;
+    const low=Math.min(...higher.map(b=>b.low)),high=Math.max(...higher.map(b=>b.high)),i=closed.length-1,b=closed[i];
+    const rsi=core.rsi(closed)[i],atr=core.volatility(closed).atr[i],buy=marketId.startsWith('BOOM');
+    if(!(high>low&&atr>0&&finite(rsi)))return null;
+    const position=(b.close-low)/(high-low);
+    if(buy?position>.2||rsi>20:position<.8||rsi<80)return null;
+    const sign=buy?1:-1,entry=b.close,risk=2*atr,signalEpoch=b.epoch+60;
+    const sl=entry-sign*risk,tp1=entry+sign*1.5*risk,tp2=entry+sign*2*risk,tp3=entry+sign*3*risk;
+    if(![sl,tp1,tp2,tp3].every(positive))return null;
+    return {id:`spike-regular-demo-v1:${marketId}:${signalEpoch}`,version:'spike-regular-demo-v1',strategy:'spike-regular-demo-v1',marketId,type:buy?'BUY':'SELL',signalEpoch,entry,risk,sl,tp1,tp2,tp3,entryValidUntil:(signalEpoch+20)*1000,maxHoldSeconds:300,selectedTarget:TARGETS.includes(selectedTarget)?selectedTarget:'tp1',experimental:true,executionMode:'manual',eligibleForOrders:false};
+  }
   function state(plan,price,epoch){
     if(!plan||!positive(price)||!finite(epoch)||epoch<plan.signalEpoch)return 'unavailable';
     if(epoch>plan.signalEpoch+20)return 'expired';
@@ -95,6 +111,6 @@
     }
     out.lastEpoch=epoch;out.lastPrice=price;return out;
   }
-  const api={VERSION,makePlan,makeBoom300Candidate,sizePlan,state,startTracking,advanceTracking};
+  const api={VERSION,makePlan,makeBoom300Candidate,makeRegularDemoPlan,sizePlan,state,startTracking,advanceTracking};
   root.AkiraManualSpikePlan=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);
