@@ -57,6 +57,17 @@ function fixture(manual = false) {
 
 async function main() {
   {
+    const f=fixture(true),a=f.app;a.init();const socket=f.sockets[0];socket.open();
+    const request=socket.sent.find(r=>r.time);
+    socket.message({req_id:request.req_id,time:1700000120});
+    assert.equal(a.marketNow(),1700000120);
+    a.handleDerivLiveTick({quote:100,symbol:'BOOM1000',epoch:1700000120});
+    assert.equal(a.manualSpike.last.price,100,'server time tolerates device clock skew');
+    f.advance(1000);assert.equal(a.marketNow(),1700000121);
+    a.retireDerivSocket();assert.equal(a.derivClock,null);
+  }
+
+  {
     const f=fixture(true),a=f.app;a.init();const socket=f.sockets[0];socket.open();f.history(socket);
     a.handleDerivLiveTick({quote:100,symbol:'BOOM1000',epoch:1700000000});
     assert.equal(a.manualSpike.market,'BOOM1000');assert.equal(a.manualSpike.last.price,100);
@@ -133,7 +144,7 @@ async function main() {
   }
   {
     const f=fixture();f.app.initDerivWebSocket();const socket=f.sockets[0];socket.open();f.history(socket);
-    f.advance(25000);assert.equal(socket.sent.at(-1).ping,1);
+    f.advance(25000);assert.equal(socket.sent.filter(r=>r.ping).at(-1).ping,1);
     socket.message({msg_type:"ping",ping:"pong"});
     f.advance(25000);socket.message({msg_type:"ping",ping:"pong"});
     f.advance(25000);assert.equal(f.app.hasLiveDerivFeed(),false,"pong alone cannot keep a stale market ready");

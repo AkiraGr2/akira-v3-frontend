@@ -111,6 +111,18 @@
     }
     out.lastEpoch=epoch;out.lastPrice=price;return out;
   }
-  const api={VERSION,makePlan,makeBoom300Candidate,makeRegularDemoPlan,sizePlan,state,startTracking,advanceTracking};
+  function observeLevels(plan,path,price,epoch){
+    if(!plan||!positive(price)||!finite(epoch)||epoch<plan.signalEpoch)return path||null;
+    if(path&&path.status!=='watching')return path;
+    if(path&&epoch<=path.lastEpoch)return path;
+    const out=path?{...path,hits:{...path.hits}}:{status:'watching',startedAt:epoch,lastEpoch:epoch,hits:{},kind:'price_observation_not_trade'};
+    if(path&&epoch-path.lastEpoch>5){out.status='interrupted';return out;}
+    out.lastEpoch=epoch;const sign=plan.type==='BUY'?1:-1;
+    if(sign*(price-plan.sl)<=0){out.status='stop';out.stopAt=epoch;return out;}
+    for(const key of TARGETS)if(!out.hits[key]&&sign*(price-plan[key])>=0)out.hits[key]=epoch;
+    if(out.hits.tp3)out.status='targets';
+    return out;
+  }
+  const api={VERSION,makePlan,makeBoom300Candidate,makeRegularDemoPlan,sizePlan,state,startTracking,advanceTracking,observeLevels};
   root.AkiraManualSpikePlan=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);
