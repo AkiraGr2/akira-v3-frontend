@@ -7,9 +7,11 @@
   constructor(app){this.app=app;this.market=null;this.plan=null;this.tracking=null;this.changes=[];this.last=null;this.prediction=null;this.model=null;this.target=1;this.journal=[];this.specs={};
    try{const j=JSON.parse(localStorage.getItem(KEY)||'[]');if(Array.isArray(j))this.journal=j.filter(x=>x&&typeof x.id==='string'&&Number.isFinite(x.signalEpoch)).slice(-500);const s=JSON.parse(localStorage.getItem(SPEC)||'{}');if(s&&typeof s==='object'&&!Array.isArray(s))this.specs=s;}catch(_){}
    for(const p of this.journal)for(const v of Object.values(p.simulation?.scenarios||{}))if(v.status==='tracking'){p.closed='interrupted';Object.assign(v,{status:'data_gap',exitPrice:null,resultR:null});}
+   for(const p of this.journal)for(const key of ['pricePath','customPricePath'])if(p[key]?.status==='watching')p[key].status='interrupted';
    this.practiceMode='regular';this.turnVariant='rejection';try{const m=localStorage.getItem('akira_spike_practice_mode');if(['selective','turn'].includes(m))this.practiceMode=m;if(localStorage.getItem('akira_turn_variant')==='confirmation')this.turnVariant='confirmation';}catch(_){}
    this.save();
   }
+  now(){return this.app.marketNow?.()??Date.now()/1000;}
   supports(){return supported(this.app.selectedMarket);}
   viewPlan(){const p=this.plan;if(!p||!p.customLevels)return p;const view={...p,...p.customLevels};view.sizing=root.AkiraManualSpikePlan.sizePlan(view,p.sizing?.balance||this.app.accountSize||50,p.specification);return view;}
   editLevels(values){
@@ -17,15 +19,15 @@
    const keys=['sl','tp1','tp2','tp3'];if(keys.some(k=>!Number.isFinite(values[k])||values[k]<=0))return 'Escribe cuatro precios positivos válidos.';
    const s=p.type==='BUY'?1:-1;if(s*(p.entry-values.sl)<=0||s*(values.tp1-p.entry)<=0||s*(values.tp2-values.tp1)<=0||s*(values.tp3-values.tp2)<=0)return 'En compra: SL < entrada < TP1 < TP2 < TP3. En venta, el orden es inverso.';
    if(p.specification?.minStopDistance>Math.abs(p.entry-values.sl))return 'El stop queda demasiado cerca según la especificación de tu cuenta.';
-   p.customLevels=Object.fromEntries(keys.map(k=>[k,values[k]]));p.customLevelsEditedAt=Date.now()/1000;this.save();this.render();return null;
+   p.customLevels=Object.fromEntries(keys.map(k=>[k,values[k]]));p.customLevelsEditedAt=this.now();p.customPricePath=null;this.save();this.render();return null;
   }
   active(){return Boolean(this.tracking&&Object.values(this.tracking.scenarios).some(s=>s.status==='tracking'));}
   select(id){if(id===this.market)return;this.pause();this.market=id;this.plan=null;this.changes=[];this.last=null;this.lastPlanAt=0;this.prediction=null;this.tracker=supported(id)&&root.AkiraTickProbability?new root.AkiraTickProbability.Tracker(id):null;this.populateSpec();this.render();}
-  pause(){if(this.plan&&!this.plan.closed){if(this.active()){for(const s of Object.values(this.tracking.scenarios))if(s.status==='tracking')Object.assign(s,{status:'data_gap',exitPrice:null,resultR:null});this.plan.simulation=this.tracking;}this.plan.closed='interrupted';this.save();}this.tracking=null;this.last=null;this.changes=[];this.prediction=null;this.eventEpochs=[];this.eventCoverageFrom=null;if(this.market&&root.AkiraTickProbability)this.tracker=new root.AkiraTickProbability.Tracker(this.market);this.render();}
+  pause(){if(this.plan&&!this.plan.closed){for(const key of ['pricePath','customPricePath'])if(this.plan[key]?.status==='watching')this.plan[key].status='interrupted';if(this.active()){for(const s of Object.values(this.tracking.scenarios))if(s.status==='tracking')Object.assign(s,{status:'data_gap',exitPrice:null,resultR:null});this.plan.simulation=this.tracking;}this.plan.closed='interrupted';this.save();}this.tracking=null;this.last=null;this.changes=[];this.prediction=null;this.eventEpochs=[];this.eventCoverageFrom=null;if(this.market&&root.AkiraTickProbability)this.tracker=new root.AkiraTickProbability.Tracker(this.market);this.render();}
   populateSpec(){if(!this.specInputs)return;const spec=this.specs[this.market]||{};for(const[k,n]of Object.entries(this.specInputs))n.value=Number.isFinite(spec[k])?String(spec[k]):'';this.specConfirm.checked=false;this.specMessage.textContent='Símbolo: '+this.market;}
   save(){try{localStorage.setItem(KEY,JSON.stringify(this.journal.slice(-500)));}catch(_){this.storageError=true;}}
   tick(price,epoch){
-   if(!supported(this.market)||!Number.isFinite(price)||!Number.isFinite(epoch)||Math.abs(Date.now()/1000-epoch)>5)return;
+   if(!supported(this.market)||!Number.isFinite(price)||!Number.isFinite(epoch)||Math.abs(this.now()-epoch)>5)return;
    if(this.last&&epoch<this.last.epoch)return;
    if(this.last&&epoch===this.last.epoch){if(price!==this.last.price)this.pause();return;}
    if(this.last&&epoch-this.last.epoch>5)this.pause();
@@ -57,7 +59,20 @@
     if(p&&this.journal.some(s=>s.id===p.id))return;
     if(p){this.tracking=null;this.plan={...p,probability:{...this.prediction},fillPolicy:'first_tick_after_5_seconds_max_20_seconds',specification:this.specs[this.market]?{...this.specs[this.market]}:null,sizing:api.sizePlan(p,this.app.accountSize||50,this.specs[this.market])};this.lastPlanAt=epoch;this.journal.push(this.plan);this.journal=this.journal.slice(-500);this.save();}
    }
+   if(this.plan&&!this.plan.closed){this.plan.pricePath=api.observeLevels(this.plan,this.plan.pricePath,price,epoch);if(this.plan.customLevels)this.plan.customPricePath=api.observeLevels(this.viewPlan(),this.plan.customPricePath,price,epoch);this.save();}
    this.render();
+  }
+  priceStatus(){
+   const p=this.viewPlan();if(!p)return '';
+   const path=p.customLevels?p.customPricePath:p.pricePath,kind=p.customLevels?'ajustados':'propuestos';
+   if(path?.status==='stop')return `El precio cruzó el SL ${p.customLevels?'ajustado':'propuesto'}. No confirma una operación en MT5.`;
+   if(path?.status==='targets')return `El precio alcanzó los tres objetivos ${kind}.`;
+   const hits=Object.keys(path?.hits||{}).map(k=>k.toUpperCase()).join(', ');
+   if(path?.status==='interrupted')return 'Seguimiento incompleto por desconexión; no se inventa el recorrido.';
+   const simulation=this.tracking||p.simulation;
+   if(path?.status==='watching')return `Seguimos observando el precio${hits?' · alcanzó '+hits:''}.`;
+   if(simulation&&Object.values(simulation.scenarios).some(x=>x.status==='stop'))return 'La simulación alcanzó el SL.';
+   return '';
   }
   mount(){const anchor=document.getElementById('chartTradePlan');if(!anchor||document.getElementById('manualSpikeCard'))return;
    const card=el('section');card.id='manualSpikeCard';card.className='ak-simple-details';
@@ -78,7 +93,7 @@
    this.levelInputs={};for(const k of ['sl','tp1','tp2','tp3']){const row=el('label',k.toUpperCase()+' '),input=el('input');input.id='manualEdit_'+k;input.type='number';input.step='any';input.min='0';input.style.width='100%';row.style.cssText='display:block;margin:8px 0';row.append(input);editor.append(row);this.levelInputs[k]=input;}
    const editMessage=el('p');editMessage.id='manualEditMessage';editMessage.setAttribute('role','status');
    const apply=el('button','Aplicar al gráfico');apply.type='button';apply.addEventListener('click',()=>{if(this.editorPlanId!==this.plan?.id){editMessage.textContent='El aviso cambió. Revisa los precios nuevos.';return;}const error=this.editLevels(Object.fromEntries(Object.entries(this.levelInputs).map(([k,n])=>[k,n.value.trim()===''?NaN:Number(n.value)])));editMessage.textContent=error||'Ajustes personales aplicados. La propuesta original queda guardada.';});
-   const reset=el('button','Restaurar propuesta');reset.type='button';reset.addEventListener('click',()=>{if(!this.plan)return;delete this.plan.customLevels;delete this.plan.customLevelsEditedAt;this.editorPlanId=null;this.save();this.render();editMessage.textContent='Niveles originales restaurados.';});editor.append(apply,reset,editMessage);card.append(editor);
+   const reset=el('button','Restaurar propuesta');reset.type='button';reset.addEventListener('click',()=>{if(!this.plan)return;delete this.plan.customLevels;delete this.plan.customLevelsEditedAt;delete this.plan.customPricePath;this.editorPlanId=null;this.save();this.render();editMessage.textContent='Niveles originales restaurados.';});editor.append(apply,reset,editMessage);card.append(editor);
    const risk=el('p');risk.id='manualSpikeRisk';card.append(risk);
    card.append(el('p','El historial sigue cada aviso con 5 segundos de reacción simulada y hasta 5 minutos de duración. Tu operación real se coloca y se cierra desde MetaTrader.'));
    const result=el('p');result.id='manualSpikeOutcome';card.append(result);
@@ -88,40 +103,41 @@
    fields.pipSize='Tamaño del pip (opcional, solo si MT5 lo especifica)';
    const inputs={};for(const [key,label]of Object.entries(fields)){const row=el('label',label+' ');row.style.cssText='display:block;margin:8px 0';const input=el('input');input.type='number';input.min='0';input.step='any';input.required=key!=='pipSize';input.style.cssText='width:100%;box-sizing:border-box';inputs[key]=input;row.append(input);configuration.append(row);}
    const confirmLabel=el('label'),confirm=el('input');confirm.type='checkbox';confirmLabel.append(confirm,document.createTextNode(' Confirmo que corresponden al símbolo seleccionado y a mi cuenta en USD.'));configuration.append(confirmLabel);
-   const save=el('button','Guardar especificaciones');save.type='button';save.addEventListener('click',()=>{if(!confirm.checked||Object.values(inputs).some(n=>(n.required&&n.value==='')||!n.checkValidity())){message.textContent='Completa todos los datos y confirma el símbolo.';return;}const spec={verified:true,currency:'USD',marketId:this.market,source:'user_mt5_specification',verifiedAt:Date.now()/1000};for(const[k,n]of Object.entries(inputs))if(n.value!=='')spec[k]=Number(n.value);this.specs[this.market]=spec;try{localStorage.setItem(SPEC,JSON.stringify(this.specs));message.textContent='Datos guardados para los próximos avisos; declarados por ti, no consultados al broker.';}catch(_){message.textContent='No se pudo guardar.';}this.render();});configuration.append(save);const message=el('p');configuration.append(message);card.append(configuration);
+   const save=el('button','Guardar especificaciones');save.type='button';save.addEventListener('click',()=>{if(!confirm.checked||Object.values(inputs).some(n=>(n.required&&n.value==='')||!n.checkValidity())){message.textContent='Completa todos los datos y confirma el símbolo.';return;}const spec={verified:true,currency:'USD',marketId:this.market,source:'user_mt5_specification',verifiedAt:this.now()};for(const[k,n]of Object.entries(inputs))if(n.value!=='')spec[k]=Number(n.value);this.specs[this.market]=spec;try{localStorage.setItem(SPEC,JSON.stringify(this.specs));message.textContent='Datos guardados para los próximos avisos; declarados por ti, no consultados al broker.';}catch(_){message.textContent='No se pudo guardar.';}this.render();});configuration.append(save);const message=el('p');configuration.append(message);card.append(configuration);
    this.specInputs=inputs;this.specConfirm=confirm;this.specMessage=message;this.populateSpec();
    const exportButton=el('button','Descargar historial de avisos');exportButton.type='button';exportButton.addEventListener('click',()=>{const u=URL.createObjectURL(new Blob([JSON.stringify({version:1,source:'local_demo_not_mt5',journal:this.journal},null,2)],{type:'application/json'}));const a=el('a');a.href=u;a.download='akira-entradas-manuales.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);});card.append(exportButton);
    const details=el('details');details.id='manualSpikeDetails';details.append(el('summary','Precios, historial y configuración'));
    for(const node of Array.from(card.children))if(node!==status&&node!==style)details.append(node);
    const badge=el('small','Escáner experimental · operación manual');badge.style.color='#fcd58a';card.prepend(badge);
-   const copy=el('button','Copiar entrada y objetivos');copy.id='manualCopyAll';copy.type='button';copy.addEventListener('click',async()=>{const p=this.viewPlan(),now=Date.now()/1000;if(!p||p.closed||p.expired||!this.last||now-this.last.epoch>5||root.AkiraManualSpikePlan.state(p,this.last.price,now)!=='available')return;try{await navigator.clipboard.writeText([this.market+' '+(p.type==='BUY'?'COMPRA':'VENTA'),...['entry','sl','tp1','tp2','tp3'].map(k=>k.toUpperCase()+': '+p[k].toFixed(this.app.getMarketDecimals(this.market)))].join('\n'));copy.textContent='Precios copiados';}catch(_){details.open=true;}});const edit=el('button','Ajustar SL / TP');edit.id='manualEditOpen';edit.type='button';edit.addEventListener('click',()=>{const outer=document.getElementById('simpleTradingDetails');if(outer)outer.open=true;details.open=true;editor.open=true;editor.scrollIntoView({block:'nearest',behavior:'smooth'});});card.append(copy,edit,details);
+   const copy=el('button','Copiar entrada y objetivos');copy.id='manualCopyAll';copy.type='button';copy.addEventListener('click',async()=>{const p=this.viewPlan(),now=this.now();if(!p||p.closed||p.expired||!this.last||now-this.last.epoch>5||root.AkiraManualSpikePlan.state(p,this.last.price,now)!=='available')return;try{await navigator.clipboard.writeText([this.market+' '+(p.type==='BUY'?'COMPRA':'VENTA'),...['entry','sl','tp1','tp2','tp3'].map(k=>k.toUpperCase()+': '+p[k].toFixed(this.app.getMarketDecimals(this.market)))].join('\n'));copy.textContent='Precios copiados';}catch(_){details.open=true;}});const edit=el('button','Ajustar SL / TP');edit.id='manualEditOpen';edit.type='button';edit.addEventListener('click',()=>{const outer=document.getElementById('simpleTradingDetails');if(outer)outer.open=true;details.open=true;editor.open=true;editor.scrollIntoView({block:'nearest',behavior:'smooth'});});const focus=el('button','Ver señal');focus.id='manualFocusSignal';focus.type='button';focus.addEventListener('click',()=>{this.app.visibleBars=18;this.app.scrollOffset=0;this.app.verticalOffset=0;this.app.requestCanvasRedraw?.();});const reconnect=el('button','Reconectar precios');reconnect.id='manualReconnect';reconnect.type='button';reconnect.addEventListener('click',()=>{clearTimeout(this.app.derivReconnectTimer);this.app.derivReconnectTimer=null;this.app.retireDerivSocket?.();this.app.invalidateDerivFeed?.('Reconectando precios');this.app.initDerivWebSocket?.();});card.append(copy,edit,focus,reconnect,details);
    anchor.after(card);this.interval ||= setInterval(()=>this.render(),1000);
    if(!this.loading){this.loading=true;fetch('./research/tick-probability-v1.json?v=20261103').then(r=>{if(!r.ok)throw Error();return r.json();}).then(m=>{this.model=m;}).catch(()=>{this.modelError=true;});}
    this.render();
   }
   dailyLocked(){
-   const day=e=>new Date(e*1000).toLocaleDateString('en-CA',{timeZone:'America/Bogota'}),today=day(Date.now()/1000);let net=0,balance=null;
+   const day=e=>new Date(e*1000).toLocaleDateString('en-CA',{timeZone:'America/Bogota'}),today=day(this.now());let net=0,balance=null;
    for(const p of this.journal){const z=p.sizing,t=p.simulation,v=t?.scenarios?.[t.selectedTarget];if(!z?.lot||!Number.isFinite(v?.exitPrice)||!Number.isFinite(v?.exitEpoch)||day(v.exitEpoch)!==today)continue;balance??=z.balance;const delta=(v.exitPrice-t.entry)*(p.type==='BUY'?1:-1);net+=(delta*(delta>=0?z.priceValueProfitPerLot:z.priceValueLossPerLot)-z.costPerLot)*z.lot;}
    return balance!==null&&net<=-.02*balance;
   }
   start(){
    if(!this.plan||!this.last||this.tracking||this.plan.expired||this.plan.closed||this.dailyLocked())return;
-   const api=root.AkiraManualSpikePlan,now=Date.now()/1000;
+   const api=root.AkiraManualSpikePlan,now=this.now();
    if(now<this.last.epoch||now-this.last.epoch>5||this.last.epoch<this.plan.signalEpoch+5||api.state(this.plan,this.last.price,now)!=='available')return;
    this.plan.sizing=api.sizePlan({...this.plan,entry:this.last.price},this.plan.sizing?.balance||50,this.plan.specification);
    this.tracking=api.startTracking(this.plan,this.last.price,this.last.epoch);this.plan.simulation=this.tracking;this.save();this.render();
   }
   render(){const card=document.getElementById('manualSpikeCard');if(!card)return;card.hidden=!supported(this.app.selectedMarket);const extra=document.getElementById('manualSpikeDetails');if(extra)extra.hidden=card.hidden;if(card.hidden)return;
-   const now=Date.now()/1000,live=this.last&&now>=this.last.epoch&&now-this.last.epoch<=5,p=this.viewPlan(),api=root.AkiraManualSpikePlan;
+   const now=this.now(),live=this.last&&now>=this.last.epoch&&now-this.last.epoch<=5,p=this.viewPlan(),api=root.AkiraManualSpikePlan;
    const editor=document.getElementById('manualLevelEditor');if(editor)editor.hidden=!p;
    if(p&&this.levelInputs&&this.editorPlanId!==p.id){this.editorPlanId=p.id;for(const[k,n]of Object.entries(this.levelInputs))n.value=String(p[k]);const m=document.getElementById('manualEditMessage');if(m)m.textContent='';}
    const probability=document.getElementById('manualSpikeProbability');const variantRow=document.getElementById('manualTurnVariantRow');if(variantRow)variantRow.hidden=this.practiceMode!=='turn';probability.textContent=this.practiceMode==='turn'?'Giros · demo. Rechazo de un extremo; no es una predicción del próximo spike.':this.practiceMode==='regular'?'Modo demo por zonas extremas. No se asigna un porcentaje de acierto.':live&&this.prediction?`Estimación experimental: próximo minuto ${(this.prediction.within60*100).toFixed(0)} % · próximos 5 min ${(this.prediction.within300*100).toFixed(0)} %. Probabilidad de salto, no de ganar.`:'Probabilidad: preparando datos o sin estimación disponible.';
    const state=p&&live&&!p.closed&&!p.expired?api.state(p,this.last.price,now):'paused';
-   const edit=document.getElementById('manualEditOpen');if(edit)edit.hidden=!p;const copy=document.getElementById('manualCopyAll');if(copy){copy.hidden=!p;copy.disabled=state!=='available';}
-   document.getElementById('manualSpikeStatus').textContent=!live?'Esperando precios recientes.':this.dailyLocked()?'Pausa de práctica: pérdida diaria simulada del 2 % alcanzada.':!p?(this.practiceMode==='turn'?'Giros · esperando rechazo de un extremo en M1 y contexto M5 completo.':this.practiceMode==='regular'?'Demo de spikes · esperando zona extrema y RSI. Revisa cada cierre M1; requiere 240 velas completas del historial.':this.market==='BOOM300N'?'Boom 300 · candidata de compras M1. Esperando tendencia y retroceso; sesión 08:00–16:00 Colombia, con calentamiento.':'Buscando condiciones por ticks. No hay una entrada disponible.'):p.closed?'Seguimiento interrumpido: recorrido incompleto.':state==='available'?`Entrada experimental ${p.type==='BUY'?'COMPRA':'VENTA'} · ${this.market} · ${new Date(p.signalEpoch*1000).toLocaleTimeString()} · válida ${Math.max(0,Math.ceil(p.signalEpoch+20-now))} s`:(this.active()?'Aviso vencido para entrar; el seguimiento del aviso continúa.':'Entrada vencida: no entrar tarde. Niveles conservados para revisar.');
+   const focus=document.getElementById('manualFocusSignal');if(focus)focus.hidden=!p;const reconnect=document.getElementById('manualReconnect');if(reconnect)reconnect.hidden=Boolean(live);const edit=document.getElementById('manualEditOpen');if(edit)edit.hidden=!p;const copy=document.getElementById('manualCopyAll');if(copy){copy.hidden=!p;copy.disabled=state!=='available';}
+   document.getElementById('manualSpikeStatus').textContent=!live?`Sin precios recientes para ${this.market}. Revisa la conexión${this.last?' · último tick '+new Date(this.last.epoch*1000).toLocaleTimeString():''}.`:this.dailyLocked()?'Pausa de práctica: pérdida diaria simulada del 2 % alcanzada.':!p?(this.practiceMode==='turn'?'Giros · esperando rechazo de un extremo en M1 y contexto M5 completo.':this.practiceMode==='regular'?'Demo de spikes · esperando zona extrema y RSI. Revisa cada cierre M1; requiere 240 velas completas del historial.':this.market==='BOOM300N'?'Boom 300 · candidata de compras M1. Esperando tendencia y retroceso; sesión 08:00–16:00 Colombia, con calentamiento.':'Buscando condiciones por ticks. No hay una entrada disponible.'):p.closed?'Seguimiento interrumpido: recorrido incompleto.':state==='available'?`Entrada experimental ${p.type==='BUY'?'COMPRA':'VENTA'} · ${this.market} · ${new Date(p.signalEpoch*1000).toLocaleTimeString()} · quedan ${Math.max(0,Math.ceil(p.signalEpoch+20-now))} s para abrir`:'Cerró el plazo para abrir esta entrada. '+(this.priceStatus()||'Niveles conservados para revisar.');
+   if(p&&state==='available'&&this.priceStatus())document.getElementById('manualSpikeStatus').textContent+=' '+this.priceStatus();
    if(p?.strategy==='turn-demo-v1')document.getElementById('manualSpikeStatus').textContent+=' '+({after_spike:'El salto ya había ocurrido: no fue anticipado.',no_prior_spike_observed:'Sin salto previo observado; no asegura que llegue uno.',unknown:'Sin historial de ticks suficiente para clasificar el salto.'}[p.spikeTiming]);
    const levels=document.getElementById('manualSpikeLevels');const signature=p?`${p.id}:${state}:${p.sl}:${p.tp1}:${p.tp2}:${p.tp3}`:'none';
-   if(levels.dataset.signature!==signature){levels.dataset.signature=signature;levels.replaceChildren();if(p)for(const[k,label]of [['entry','Entrada'],['sl','SL'],['tp1','TP1'],['tp2','TP2'],['tp3','TP3']]){const value=p[k].toFixed(this.app.getMarketDecimals(this.market));levels.append(el('span',`${label}: ${value}`));const b=el('button','Copiar '+label);b.type='button';b.disabled=state!=='available';b.addEventListener('click',async()=>{try{if(p.closed||p.expired||!this.last||Date.now()/1000-this.last.epoch>5||api.state(p,this.last.price,Date.now()/1000)!=='available')return;await navigator.clipboard.writeText(value);b.textContent='Copiado';}catch(_){b.textContent='Selecciona el precio';}});levels.append(b);}}
+   if(levels.dataset.signature!==signature){levels.dataset.signature=signature;levels.replaceChildren();if(p)for(const[k,label]of [['entry','Entrada'],['sl','SL'],['tp1','TP1'],['tp2','TP2'],['tp3','TP3']]){const value=p[k].toFixed(this.app.getMarketDecimals(this.market));levels.append(el('span',`${label}: ${value}`));const b=el('button','Copiar '+label);b.type='button';b.disabled=state!=='available';b.addEventListener('click',async()=>{try{if(p.closed||p.expired||!this.last||this.now()-this.last.epoch>5||api.state(p,this.last.price,this.now())!=='available')return;await navigator.clipboard.writeText(value);b.textContent='Copiado';}catch(_){b.textContent='Selecciona el precio';}});levels.append(b);}}
    const size=p?.sizing||null;
    const distance=p?Math.abs(p.entry-p.sl):null,spec=p?.specification;
    const distanceText=distance===null?'':` Distancia al SL: ${distance.toFixed(this.app.getMarketDecimals(this.market))} en precio`+(spec?.pipSize>0?` (${(distance/spec.pipSize).toFixed(1)} pips según tu especificación).`:'.');
@@ -134,20 +150,20 @@
    const p=this.viewPlan();if(!p||p.marketId!==this.app.selectedMarket||this.app.showLevels===false)return;
    const x=view.entryX,height=view.height||ctx.canvas.height;
    if(!Number.isFinite(x)||x<0||x>width)return;
-   const live=this.last&&Date.now()/1000-this.last.epoch<=5;
-   const valid=live&&!p.expired&&!p.closed&&root.AkiraManualSpikePlan.state(p,this.last.price,Date.now()/1000)==='available';
+   const live=this.last&&this.now()-this.last.epoch<=5;
+   const valid=live&&!p.expired&&!p.closed&&root.AkiraManualSpikePlan.state(p,this.last.price,this.now())==='available';
    ctx.save();ctx.beginPath();ctx.rect(0,0,width,height);ctx.clip();ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.textBaseline='alphabetic';
-   ctx.globalAlpha=valid?1:.65;
+   ctx.globalAlpha=1;
    const entryY=getY(p.entry),slY=getY(p.sl),tpY=getY(p.tp3);
    ctx.fillStyle='rgba(244,63,94,.10)';ctx.fillRect(x,Math.min(entryY,slY),width-x,Math.abs(entryY-slY));
    ctx.fillStyle='rgba(16,185,129,.09)';ctx.fillRect(x,Math.min(entryY,tpY),width-x,Math.abs(entryY-tpY));
    const rows=[['entry','#e2e8f0','Entrada'],['sl','#fb7185','SL'],['tp1','#34d399','TP1'],['tp2','#2dd4bf','TP2'],['tp3','#38bdf8','TP3']].map(([key,color,label])=>({key,color,label,y:getY(p[key])})).sort((a,b)=>a.y-b.y);
-   let previous=5;for(let i=0;i<rows.length;i++){const r=rows[i];r.labelY=Math.max(previous,Math.min(height-24-(rows.length-1-i)*23,r.y-10));previous=r.labelY+23;}
-   for(const r of rows){const reached=!p.customLevels&&this.tracking?.scenarios?.[r.key]?.status==='target';const text=r.label+' '+p[r.key].toFixed(this.app.getMarketDecimals(this.market))+(p.customLevels&&r.key!=='entry'?' *':reached?' ✓':''),boxW=Math.min(width-8,ctx.measureText(text).width+16),left=width-boxW-4;
-    ctx.strokeStyle=r.color;ctx.fillStyle=r.color;ctx.lineWidth=r.key==='entry'?2:1;ctx.setLineDash(r.key==='entry'?[]:[5,4]);ctx.beginPath();ctx.moveTo(x,r.y);ctx.lineTo(width,r.y);ctx.stroke();ctx.setLineDash([]);
+   let previous=-20;for(const r of rows){r.labelY=Math.max(previous+26,Math.max(6,Math.min(height-27,r.y-10)));previous=r.labelY;}const overflow=Math.max(0,rows.at(-1).labelY-(height-27));for(const r of rows)r.labelY-=overflow;
+   for(const r of rows){const reached=!p.customLevels&&(this.tracking||p.simulation)?.scenarios?.[r.key]?.status==='target';const text=r.label+' '+p[r.key].toFixed(this.app.getMarketDecimals(this.market))+(p.customLevels&&r.key!=='entry'?' *':reached?' ✓':''),boxW=Math.min(width-8,ctx.measureText(text).width+16),left=width-boxW-4;
+    ctx.strokeStyle=r.color;ctx.fillStyle=r.color;ctx.lineWidth=r.key==='entry'?2:1;ctx.setLineDash(r.key==='entry'?[]:[5,4]);ctx.beginPath();ctx.moveTo(0,r.y);ctx.lineTo(width,r.y);ctx.stroke();ctx.setLineDash([]);
     ctx.beginPath();ctx.moveTo(left,r.y);ctx.lineTo(left,r.labelY+10);ctx.stroke();ctx.fillStyle='#101827';ctx.fillRect(left,r.labelY,boxW,21);ctx.strokeRect(left,r.labelY,boxW,21);ctx.fillStyle=r.color;ctx.fillText(text,left+7,r.labelY+14);
    }
-   if(this.app.showSniper!==false){ctx.font='bold 18px sans-serif';ctx.fillStyle=valid?'#34d399':'#94a3b8';ctx.fillText('✓',Math.max(3,x-8),Math.max(20,Math.min(height-30,entryY+(p.type==='BUY'?25:-16))));ctx.font='bold 11px sans-serif';ctx.fillText((p.type==='BUY'?'COMPRA':'VENTA')+(valid?'':' · vencida'),Math.max(4,Math.min(x,width-125)),Math.max(14,Math.min(height-12,entryY+(p.type==='BUY'?40:-30))));}
+   if(this.app.showSniper!==false){ctx.font='bold 18px sans-serif';ctx.fillStyle=valid?'#34d399':'#94a3b8';ctx.fillText('✓',Math.max(3,x-8),Math.max(20,Math.min(height-30,entryY+(p.type==='BUY'?25:-16))));ctx.font='bold 11px sans-serif';ctx.fillText((p.type==='BUY'?'COMPRA':'VENTA')+(valid?'':this.active()?' · seguimiento':' · aviso anterior'),Math.max(4,Math.min(x,width-125)),Math.max(14,Math.min(height-12,entryY+(p.type==='BUY'?40:-30))));}
    ctx.restore();
   }
  }

@@ -38,3 +38,23 @@ let gap=api.advanceTracking(track,110,epoch+12);assert.equal(gap.scenarios.tp1.s
 const sell=api.advanceTracking(api.startTracking(crash,100,epoch+5),90,epoch+6);assert.equal(sell.scenarios.tp3.resultR,3);
 let timed=api.startTracking(plan,100,epoch);for(let t=1;t<=300;t++)timed=api.advanceTracking(timed,100,epoch+t);assert.equal(timed.scenarios.tp1.status,'time_exit');
 console.log('PASS manual spike plan: causal fixed levels, expiry, verified contract costs, conservative lot, M1/M5 invariance, independent target paths and gaps');
+{
+const follow = require('./js/akira_manual_spike_plan.js');
+const sell = {type:'SELL',signalEpoch:100,entry:100,sl:102,tp1:98,tp2:96,tp3:94};
+let path=follow.observeLevels(sell,null,100,100);
+for(let t=101;t<=125;t++)path=follow.observeLevels(sell,path,100,t);
+assert.equal(path.status,'watching','entry expiry must not end level observation');
+path=follow.observeLevels(sell,path,102.1,126);
+assert.equal(path.status,'stop');
+assert.equal(follow.observeLevels(sell,path,94,127).status,'stop','later targets cannot erase a stop');
+let gap=follow.observeLevels(sell,null,100,100);
+assert.equal(follow.observeLevels(sell,gap,94,110).status,'interrupted');
+let targets=follow.observeLevels(sell,null,100,100);
+targets=follow.observeLevels(sell,targets,97,101);
+assert.equal(targets.hits.tp1,101);
+targets=follow.observeLevels(sell,targets,93,102);
+assert.equal(targets.status,'targets');
+assert.equal(targets.kind,'price_observation_not_trade');
+console.log('PASS price observation after expiry, stop permanence, gaps and target crossings');
+
+}

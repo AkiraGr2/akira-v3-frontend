@@ -426,7 +426,17 @@
       this.updateWsConnectionBadge(false);
     }
 
+    clockMilliseconds() { return typeof performance!=='undefined' ? performance.now() : Date.now(); }
+    marketNow() {
+      const c=this.derivClock,elapsed=c?this.clockMilliseconds()-c.receivedAt:Infinity;
+      return c&&elapsed>=0&&elapsed<90000 ? c.epoch+elapsed/1000 : Date.now()/1000;
+    }
+    requestDerivClock(socket) {
+      this.derivClockRequest={id:++this.derivRequestSerial,sentAt:this.clockMilliseconds()};
+      socket.send(JSON.stringify({time:1,req_id:this.derivClockRequest.id}));
+    }
     retireDerivSocket() {
+      this.derivClock=null;this.derivClockRequest=null;
       const socket = this.derivWs;
       clearTimeout(this.scannerHistoryRetryTimer);
       this.derivWs = null; // Retired socket events cannot affect its replacement.
@@ -500,6 +510,7 @@
           this.isDerivWsConnected = true;
           this.updateWsConnectionBadge(true);
           this.subscribeToCurrentMarketDeriv();
+          this.requestDerivClock(socket);
           this.wsPingInterval = setInterval(() => {
             if (!current() || socket.readyState !== WebSocket.OPEN) return;
             const now = Date.now();
@@ -510,7 +521,7 @@
               this.scheduleDerivReconnect();
               return;
             }
-            try { socket.send(JSON.stringify({ping:1})); } catch (_) { socket.close(); }
+            try { socket.send(JSON.stringify({ping:1})); this.requestDerivClock(socket); } catch (_) { socket.close(); }
           }, 25000);
         };
         socket.onmessage = event => {
@@ -518,6 +529,11 @@
           try {
             const data = JSON.parse(event.data);
             this.lastDerivMessageAt = Date.now();
+            if (this.derivClockRequest&&Number(data.req_id)===this.derivClockRequest.id) {
+              const elapsed=this.clockMilliseconds()-this.derivClockRequest.sentAt;
+              if(!data.error&&Number.isFinite(data.time)&&data.time>0&&elapsed>=0&&elapsed<=2000)this.derivClock={epoch:data.time+elapsed/2000,receivedAt:this.clockMilliseconds()};
+              this.derivClockRequest=null;return;
+            }
             if (data.msg_type === "ping" || data.ping === "pong") return;
             if (!this.activeDerivRequestIds.has(Number(data.req_id))) return;
             if (data.error) {
@@ -1428,7 +1444,7 @@
     }
 
     observeAutomaticTick(price,epoch) {
-      if(!Number.isFinite(epoch)||Math.abs(Date.now()/1000-epoch)>10)return;
+      if(!Number.isFinite(epoch)||Math.abs(this.marketNow()-epoch)>10)return;
       this.assignAutomaticProfile();
       const monitor=this.anticipationMonitor;
       if(this.manualSpike?.supports()) {
@@ -3385,7 +3401,7 @@
       // Margen de respiración natural del 10% estilo Deriv Trader y TradingView
       // (Mantiene las proporciones exactas de las velas sin aplastarlas jamás)
       const manual=this.manualSpike?.viewPlan();
-      if(this.showLevels&&manual?.marketId===this.selectedMarket&&(!manual.expired||this.manualSpike.active())){minPrice=Math.min(minPrice,manual.sl,manual.tp3);maxPrice=Math.max(maxPrice,manual.sl,manual.tp3);}
+      if(this.showLevels&&manual?.marketId===this.selectedMarket&&(!manual.expired||this.manualSpike.active()||manual.pricePath?.status==='watching')){minPrice=Math.min(minPrice,manual.sl,manual.tp3);maxPrice=Math.max(maxPrice,manual.sl,manual.tp3);}
       const rawSpan = (maxPrice - minPrice) || 1;
       const vPad = rawSpan * 0.10;
       minPrice -= vPad;
@@ -3461,10 +3477,11 @@
       ctx.stroke();
 
       // Slots Horizontales (Velas + Espacio Libre a la Derecha)
-      const freeRightSlots = (safeScroll === 0) ? this.rightMarginBars : 0;
+      const reserve=manual&&this.showLevels?Math.min(170,chartWidth*.42):0;
+      const freeRightSlots = (safeScroll === 0) ? Math.max(this.rightMarginBars,reserve?visibleCount*reserve/(chartWidth-reserve):0) : 0;
       const totalSlots = visibleCount + freeRightSlots;
       const stepX = chartWidth / totalSlots;
-      const candleWidth = Math.max(4, Math.floor(stepX * 0.72));
+      const candleWidth = Math.max(1, Math.min(stepX*.8,Math.floor(stepX*.72)));
 
       // Área sombreada de proyección futura
       if (freeRightSlots > 0) {
