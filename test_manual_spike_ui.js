@@ -26,3 +26,17 @@ assert.equal(texts.filter(t=>/^(Entrada|SL|TP[123]) /.test(t)).length,5);assert.
 texts.length=0;app.showLevels=false;c.draw(ctx,v=>v,320,{entryX:100,height:500});assert.equal(texts.length,0);
 app.showLevels=true;c.draw(ctx,v=>v,320,{entryX:NaN,height:500});assert.equal(texts.length,0,'no marker outside the visible candle range');
 console.log('PASS chart overlays: five prices, candle marker, hidden levels and no invented offscreen entry');
+// Personal chart levels never rewrite the scanner's entry, expiry or simulated results.
+app.showLevels=true;c.plan={...p};const original=JSON.stringify(c.plan);
+assert.equal(c.editLevels({sl:90,tp1:110,tp2:120,tp3:130}),null);
+assert.equal(c.viewPlan().sl,90);assert.equal(c.plan.sl,JSON.parse(original).sl);
+assert.equal(c.viewPlan().risk,c.plan.risk,'Editing must not extend entry price validity');
+assert.equal(c.viewPlan().signalEpoch,c.plan.signalEpoch);
+assert.ok(c.editLevels({sl:101,tp1:110,tp2:120,tp3:130}));
+assert.ok(c.editLevels({sl:90,tp1:120,tp2:110,tp3:130}));
+assert.ok(c.editLevels({sl:NaN,tp1:110,tp2:120,tp3:130}));
+texts.length=0;c.draw(ctx,v=>v,320,{entryX:100,height:500});assert.ok(texts.some(t=>t==='SL 90.000 *'));
+c.market='CRASH500';app.selectedMarket=c.market;c.plan={...p,marketId:c.market,type:'SELL'};
+assert.equal(c.editLevels({sl:110,tp1:90,tp2:80,tp3:70}),null);
+assert.ok(c.editLevels({sl:90,tp1:110,tp2:120,tp3:130}));
+console.log('PASS editable levels: directional ordering, invalid values, immutable original, chart annotations');

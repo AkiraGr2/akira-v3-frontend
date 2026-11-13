@@ -11,6 +11,14 @@
    this.save();
   }
   supports(){return supported(this.app.selectedMarket);}
+  viewPlan(){const p=this.plan;if(!p||!p.customLevels)return p;const view={...p,...p.customLevels};view.sizing=root.AkiraManualSpikePlan.sizePlan(view,p.sizing?.balance||this.app.accountSize||50,p.specification);return view;}
+  editLevels(values){
+   const p=this.plan;if(!p||p.marketId!==this.market)return 'Primero debe aparecer un aviso.';
+   const keys=['sl','tp1','tp2','tp3'];if(keys.some(k=>!Number.isFinite(values[k])||values[k]<=0))return 'Escribe cuatro precios positivos válidos.';
+   const s=p.type==='BUY'?1:-1;if(s*(p.entry-values.sl)<=0||s*(values.tp1-p.entry)<=0||s*(values.tp2-values.tp1)<=0||s*(values.tp3-values.tp2)<=0)return 'En compra: SL < entrada < TP1 < TP2 < TP3. En venta, el orden es inverso.';
+   if(p.specification?.minStopDistance>Math.abs(p.entry-values.sl))return 'El stop queda demasiado cerca según la especificación de tu cuenta.';
+   p.customLevels=Object.fromEntries(keys.map(k=>[k,values[k]]));p.customLevelsEditedAt=Date.now()/1000;this.save();this.render();return null;
+  }
   active(){return Boolean(this.tracking&&Object.values(this.tracking.scenarios).some(s=>s.status==='tracking'));}
   select(id){if(id===this.market)return;this.pause();this.market=id;this.plan=null;this.changes=[];this.last=null;this.lastPlanAt=0;this.prediction=null;this.tracker=supported(id)&&root.AkiraTickProbability?new root.AkiraTickProbability.Tracker(id):null;this.populateSpec();this.render();}
   pause(){if(this.plan&&!this.plan.closed){if(this.active()){for(const s of Object.values(this.tracking.scenarios))if(s.status==='tracking')Object.assign(s,{status:'data_gap',exitPrice:null,resultR:null});this.plan.simulation=this.tracking;}this.plan.closed='interrupted';this.save();}this.tracking=null;this.last=null;this.changes=[];this.prediction=null;if(this.market&&root.AkiraTickProbability)this.tracker=new root.AkiraTickProbability.Tracker(this.market);this.render();}
@@ -61,6 +69,12 @@
    const balanceLabel=el('label','Saldo USD '),balance=el('input');balance.type='number';balance.min='1';balance.step='.01';balance.value=String(this.app.accountSize||50);balance.style.width='100px';balance.addEventListener('change',()=>{const n=Number(balance.value);if(n>0&&Number.isFinite(n)){this.app.accountSize=n;localStorage.setItem('akira_trading_custom_capital',String(n));this.render();}});balanceLabel.append(balance);card.append(balanceLabel);
    const targetLabel=el('label',' Objetivo para el próximo aviso '),select=el('select');for(let i=1;i<=3;i++){const o=el('option','TP'+i);o.value=String(i);select.append(o);}select.addEventListener('change',()=>{this.target=Number(select.value);this.render();});targetLabel.append(select);card.append(targetLabel);
    const levels=el('div');levels.id='manualSpikeLevels';levels.style.cssText='display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0';card.append(levels);
+   const editor=el('details');editor.id='manualLevelEditor';editor.append(el('summary','Ajustar mi stop y mis objetivos'));
+   editor.append(el('p','Cambias los niveles dibujados y copiados para este aviso. La entrada original y su vencimiento se conservan. El historial sigue evaluando la propuesta original; estos ajustes no modifican MetaTrader.'));
+   this.levelInputs={};for(const k of ['sl','tp1','tp2','tp3']){const row=el('label',k.toUpperCase()+' '),input=el('input');input.id='manualEdit_'+k;input.type='number';input.step='any';input.min='0';input.style.width='100%';row.style.cssText='display:block;margin:8px 0';row.append(input);editor.append(row);this.levelInputs[k]=input;}
+   const editMessage=el('p');editMessage.id='manualEditMessage';editMessage.setAttribute('role','status');
+   const apply=el('button','Aplicar al gráfico');apply.type='button';apply.addEventListener('click',()=>{if(this.editorPlanId!==this.plan?.id){editMessage.textContent='El aviso cambió. Revisa los precios nuevos.';return;}const error=this.editLevels(Object.fromEntries(Object.entries(this.levelInputs).map(([k,n])=>[k,n.value.trim()===''?NaN:Number(n.value)])));editMessage.textContent=error||'Ajustes personales aplicados. La propuesta original queda guardada.';});
+   const reset=el('button','Restaurar propuesta');reset.type='button';reset.addEventListener('click',()=>{if(!this.plan)return;delete this.plan.customLevels;delete this.plan.customLevelsEditedAt;this.editorPlanId=null;this.save();this.render();editMessage.textContent='Niveles originales restaurados.';});editor.append(apply,reset,editMessage);card.append(editor);
    const risk=el('p');risk.id='manualSpikeRisk';card.append(risk);
    card.append(el('p','El historial sigue cada aviso con 5 segundos de reacción simulada y hasta 5 minutos de duración. Tu operación real se coloca y se cierra desde MetaTrader.'));
    const result=el('p');result.id='manualSpikeOutcome';card.append(result);
@@ -76,7 +90,7 @@
    const details=el('details');details.id='manualSpikeDetails';details.append(el('summary','Precios, historial y configuración'));
    for(const node of Array.from(card.children))if(node!==status&&node!==style)details.append(node);
    const badge=el('small','Escáner experimental · operación manual');badge.style.color='#fcd58a';card.prepend(badge);
-   const copy=el('button','Copiar entrada y objetivos');copy.id='manualCopyAll';copy.type='button';copy.addEventListener('click',async()=>{const p=this.plan,now=Date.now()/1000;if(!p||p.closed||p.expired||!this.last||now-this.last.epoch>5||root.AkiraManualSpikePlan.state(p,this.last.price,now)!=='available')return;try{await navigator.clipboard.writeText([this.market+' '+(p.type==='BUY'?'COMPRA':'VENTA'),...['entry','sl','tp1','tp2','tp3'].map(k=>k.toUpperCase()+': '+p[k].toFixed(this.app.getMarketDecimals(this.market)))].join('\n'));copy.textContent='Precios copiados';}catch(_){details.open=true;}});card.append(copy,details);
+   const copy=el('button','Copiar entrada y objetivos');copy.id='manualCopyAll';copy.type='button';copy.addEventListener('click',async()=>{const p=this.viewPlan(),now=Date.now()/1000;if(!p||p.closed||p.expired||!this.last||now-this.last.epoch>5||root.AkiraManualSpikePlan.state(p,this.last.price,now)!=='available')return;try{await navigator.clipboard.writeText([this.market+' '+(p.type==='BUY'?'COMPRA':'VENTA'),...['entry','sl','tp1','tp2','tp3'].map(k=>k.toUpperCase()+': '+p[k].toFixed(this.app.getMarketDecimals(this.market)))].join('\n'));copy.textContent='Precios copiados';}catch(_){details.open=true;}});const edit=el('button','Ajustar SL / TP');edit.id='manualEditOpen';edit.type='button';edit.addEventListener('click',()=>{const outer=document.getElementById('simpleTradingDetails');if(outer)outer.open=true;details.open=true;editor.open=true;editor.scrollIntoView({block:'nearest',behavior:'smooth'});});card.append(copy,edit,details);
    anchor.after(card);this.interval ||= setInterval(()=>this.render(),1000);
    if(!this.loading){this.loading=true;fetch('./research/tick-probability-v1.json?v=20261103').then(r=>{if(!r.ok)throw Error();return r.json();}).then(m=>{this.model=m;}).catch(()=>{this.modelError=true;});}
    this.render();
@@ -94,23 +108,25 @@
    this.tracking=api.startTracking(this.plan,this.last.price,this.last.epoch);this.plan.simulation=this.tracking;this.save();this.render();
   }
   render(){const card=document.getElementById('manualSpikeCard');if(!card)return;card.hidden=!supported(this.app.selectedMarket);const extra=document.getElementById('manualSpikeDetails');if(extra)extra.hidden=card.hidden;if(card.hidden)return;
-   const now=Date.now()/1000,live=this.last&&now>=this.last.epoch&&now-this.last.epoch<=5,p=this.plan,api=root.AkiraManualSpikePlan;
+   const now=Date.now()/1000,live=this.last&&now>=this.last.epoch&&now-this.last.epoch<=5,p=this.viewPlan(),api=root.AkiraManualSpikePlan;
+   const editor=document.getElementById('manualLevelEditor');if(editor)editor.hidden=!p;
+   if(p&&this.levelInputs&&this.editorPlanId!==p.id){this.editorPlanId=p.id;for(const[k,n]of Object.entries(this.levelInputs))n.value=String(p[k]);const m=document.getElementById('manualEditMessage');if(m)m.textContent='';}
    const probability=document.getElementById('manualSpikeProbability');probability.textContent=this.practiceMode==='regular'?'Modo demo por zonas extremas. No se asigna un porcentaje de acierto.':live&&this.prediction?`Estimación experimental: próximo minuto ${(this.prediction.within60*100).toFixed(0)} % · próximos 5 min ${(this.prediction.within300*100).toFixed(0)} %. Probabilidad de salto, no de ganar.`:'Probabilidad: preparando datos o sin estimación disponible.';
    const state=p&&live&&!p.closed&&!p.expired?api.state(p,this.last.price,now):'paused';
-   const copy=document.getElementById('manualCopyAll');if(copy){copy.hidden=!p;copy.disabled=state!=='available';}
+   const edit=document.getElementById('manualEditOpen');if(edit)edit.hidden=!p;const copy=document.getElementById('manualCopyAll');if(copy){copy.hidden=!p;copy.disabled=state!=='available';}
    document.getElementById('manualSpikeStatus').textContent=!live?'Esperando precios recientes.':this.dailyLocked()?'Pausa de práctica: pérdida diaria simulada del 2 % alcanzada.':!p?(this.practiceMode==='regular'?'Demo de spikes · esperando zona extrema y RSI. Revisa cada cierre M1; requiere 240 velas completas del historial.':this.market==='BOOM300N'?'Boom 300 · candidata de compras M1. Esperando tendencia y retroceso; sesión 08:00–16:00 Colombia, con calentamiento.':'Buscando condiciones por ticks. No hay una entrada disponible.'):p.closed?'Seguimiento interrumpido: recorrido incompleto.':state==='available'?`Entrada experimental ${p.type==='BUY'?'COMPRA':'VENTA'} · ${this.market} · ${new Date(p.signalEpoch*1000).toLocaleTimeString()} · válida ${Math.max(0,Math.ceil(p.signalEpoch+20-now))} s`:(this.active()?'Aviso vencido para entrar; el seguimiento del aviso continúa.':'Entrada vencida: no entrar tarde. Niveles conservados para revisar.');
-   const levels=document.getElementById('manualSpikeLevels');const signature=p?`${p.id}:${state}`:'none';
+   const levels=document.getElementById('manualSpikeLevels');const signature=p?`${p.id}:${state}:${p.sl}:${p.tp1}:${p.tp2}:${p.tp3}`:'none';
    if(levels.dataset.signature!==signature){levels.dataset.signature=signature;levels.replaceChildren();if(p)for(const[k,label]of [['entry','Entrada'],['sl','SL'],['tp1','TP1'],['tp2','TP2'],['tp3','TP3']]){const value=p[k].toFixed(this.app.getMarketDecimals(this.market));levels.append(el('span',`${label}: ${value}`));const b=el('button','Copiar '+label);b.type='button';b.disabled=state!=='available';b.addEventListener('click',async()=>{try{if(p.closed||p.expired||!this.last||Date.now()/1000-this.last.epoch>5||api.state(p,this.last.price,Date.now()/1000)!=='available')return;await navigator.clipboard.writeText(value);b.textContent='Copiado';}catch(_){b.textContent='Selecciona el precio';}});levels.append(b);}}
    const size=p?.sizing||null;
    const distance=p?Math.abs(p.entry-p.sl):null,spec=p?.specification;
    const distanceText=distance===null?'':` Distancia al SL: ${distance.toFixed(this.app.getMarketDecimals(this.market))} en precio`+(spec?.pipSize>0?` (${(distance/spec.pipSize).toFixed(1)} pips según tu especificación).`:'.');
    document.getElementById('manualSpikeRisk').textContent=`Presupuesto de riesgo: $${((size?.balance||this.app.accountSize||50)*.01).toFixed(2)} (1 %). `+(size?.lot?`Lote: ${size.lot} · pérdida planificada $${size.plannedLoss.toFixed(2)} · objetivos netos estimados: TP1 $${size.netTargets.tp1.toFixed(2)}, TP2 $${size.netTargets.tp2.toFixed(2)}, TP3 $${size.netTargets.tp3.toFixed(2)}. No son ganancias garantizadas.`:(size?.reason||'Lote pendiente de especificaciones MT5.'))+' El cierre real puede superar el riesgo planificado.';
    const labels={tracking:'en seguimiento',target:'objetivo alcanzado',stop:'stop alcanzado',time_exit:'plazo agotado',data_gap:'datos incompletos'};
-   document.getElementById('manualSpikeRisk').textContent+=distanceText;
+   document.getElementById('manualSpikeRisk').textContent+=distanceText+(p?.customLevels?' Ajustes personales: el lote estimado se recalcula; el historial conserva los niveles originales.':'');
    document.getElementById('manualSpikeOutcome').textContent=this.tracking?'Seguimiento hipotético del aviso, no resultado MT5: '+Object.entries(this.tracking.scenarios).map(([k,s])=>`${k.toUpperCase()}: ${labels[s.status]||s.status}`).join(' · '):'TP1, TP2 y TP3 son alternativas; no se suman. Ninguna configuración tiene rentabilidad acreditada.';
   }
   draw(ctx,getY,width,view={}){
-   const p=this.plan;if(!p||p.marketId!==this.app.selectedMarket||this.app.showLevels===false)return;
+   const p=this.viewPlan();if(!p||p.marketId!==this.app.selectedMarket||this.app.showLevels===false)return;
    const x=view.entryX,height=view.height||ctx.canvas.height;
    if(!Number.isFinite(x)||x<0||x>width)return;
    const live=this.last&&Date.now()/1000-this.last.epoch<=5;
@@ -122,7 +138,7 @@
    ctx.fillStyle='rgba(16,185,129,.09)';ctx.fillRect(x,Math.min(entryY,tpY),width-x,Math.abs(entryY-tpY));
    const rows=[['entry','#e2e8f0','Entrada'],['sl','#fb7185','SL'],['tp1','#34d399','TP1'],['tp2','#2dd4bf','TP2'],['tp3','#38bdf8','TP3']].map(([key,color,label])=>({key,color,label,y:getY(p[key])})).sort((a,b)=>a.y-b.y);
    let previous=5;for(let i=0;i<rows.length;i++){const r=rows[i];r.labelY=Math.max(previous,Math.min(height-24-(rows.length-1-i)*23,r.y-10));previous=r.labelY+23;}
-   for(const r of rows){const text=r.label+' '+p[r.key].toFixed(this.app.getMarketDecimals(this.market)),boxW=Math.min(width-8,ctx.measureText(text).width+16),left=width-boxW-4;
+   for(const r of rows){const text=r.label+' '+p[r.key].toFixed(this.app.getMarketDecimals(this.market))+(p.customLevels&&r.key!=='entry'?' *':''),boxW=Math.min(width-8,ctx.measureText(text).width+16),left=width-boxW-4;
     ctx.strokeStyle=r.color;ctx.fillStyle=r.color;ctx.lineWidth=r.key==='entry'?2:1;ctx.setLineDash(r.key==='entry'?[]:[5,4]);ctx.beginPath();ctx.moveTo(x,r.y);ctx.lineTo(width,r.y);ctx.stroke();ctx.setLineDash([]);
     ctx.beginPath();ctx.moveTo(left,r.y);ctx.lineTo(left,r.labelY+10);ctx.stroke();ctx.fillStyle='#101827';ctx.fillRect(left,r.labelY,boxW,21);ctx.strokeRect(left,r.labelY,boxW,21);ctx.fillStyle=r.color;ctx.fillText(text,left+7,r.labelY+14);
    }
