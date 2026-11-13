@@ -10,5 +10,14 @@ assert.ok(await page.evaluate(()=>labels.includes('✓')&&labels.some(x=>x.start
 const box=await page.locator('#chartStageContainer').boundingBox();assert.ok(box.y<480,'chart is close to top: '+box.y);
 if(process.env.AKIRA_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.AKIRA_SCREENSHOT_DIR,'chart-first-'+width+'.png')});
 await page.locator('#btnToggleLevels').click();await page.evaluate(()=>{labels=[];AkiraTradingLab.drawMarketCanvas();});assert.equal(await page.evaluate(()=>labels.some(x=>x.startsWith('TP3 '))),false);
-await page.locator('#simpleTradingDetails > summary').click();assert.equal(await page.locator('#manualSpikeDetails').isVisible(),true);assert.deepEqual(errors,[]);await page.close();}
+await page.locator('#simpleTradingDetails > summary').click();assert.equal(await page.locator('#manualSpikeDetails').isVisible(),true);await page.locator('#manualEditOpen').click();
+await page.locator('#manualEdit_sl').fill('90');await page.locator('#manualEdit_tp1').fill('110');await page.locator('#manualEdit_tp2').fill('120');await page.locator('#manualEdit_tp3').fill('130');
+await page.getByRole('button',{name:'Aplicar al gráfico',exact:true}).click();
+assert.equal(await page.evaluate(()=>AkiraTradingLab.manualSpike.viewPlan().sl),90);
+assert.notEqual(await page.evaluate(()=>AkiraTradingLab.manualSpike.plan.sl),90);
+await page.locator('#manualEdit_sl').fill('101');await page.getByRole('button',{name:'Aplicar al gráfico',exact:true}).click();
+assert.ok((await page.locator('#manualEditMessage').innerText()).includes('orden'));
+assert.equal(await page.evaluate(()=>AkiraTradingLab.manualSpike.viewPlan().sl),90);
+await page.getByRole('button',{name:'Restaurar propuesta',exact:true}).click();assert.equal(await page.evaluate(()=>Boolean(AkiraTradingLab.manualSpike.plan.customLevels)),false);
+assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);assert.deepEqual(errors,[]);await page.close();}
 console.log('PASS chart-first mobile/desktop: actual lab renderer, candle checkmark, price targets, one collapsed details section, level toggle, no overflow/errors');}finally{await browser.close();await new Promise(r=>server.close(r));}})().catch(e=>{console.error(e);process.exitCode=1});

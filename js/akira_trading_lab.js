@@ -3384,7 +3384,7 @@
 
       // Margen de respiración natural del 10% estilo Deriv Trader y TradingView
       // (Mantiene las proporciones exactas de las velas sin aplastarlas jamás)
-      const manual=this.manualSpike?.plan;
+      const manual=this.manualSpike?.viewPlan();
       if(this.showLevels&&manual?.marketId===this.selectedMarket&&(!manual.expired||this.manualSpike.active())){minPrice=Math.min(minPrice,manual.sl,manual.tp3);maxPrice=Math.max(maxPrice,manual.sl,manual.tp3);}
       const rawSpan = (maxPrice - minPrice) || 1;
       const vPad = rawSpan * 0.10;
