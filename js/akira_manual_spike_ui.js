@@ -12,6 +12,9 @@
    this.save();
   }
   now(){return this.app.marketNow?.()??Date.now()/1000;}
+  hasFreshTick(now = this.now()) {
+   return Boolean(this.last && Math.abs(now - this.last.epoch) <= 5);
+  }
   supports(){return supported(this.app.selectedMarket);}
   viewPlan(){const p=this.plan;if(!p||!p.customLevels)return p;const view={...p,...p.customLevels};view.sizing=root.AkiraManualSpikePlan.sizePlan(view,p.sizing?.balance||this.app.accountSize||50,p.specification);return view;}
   editLevels(values){
@@ -109,7 +112,7 @@
    const details=el('details');details.id='manualSpikeDetails';details.append(el('summary','Precios, historial y configuración'));
    for(const node of Array.from(card.children))if(node!==status&&node!==style)details.append(node);
    const badge=el('small','Escáner experimental · operación manual');badge.style.color='#fcd58a';card.prepend(badge);
-   const copy=el('button','Copiar entrada y objetivos');copy.id='manualCopyAll';copy.type='button';copy.addEventListener('click',async()=>{const p=this.viewPlan(),now=this.now();if(!p||p.closed||p.expired||!this.last||now-this.last.epoch>5||root.AkiraManualSpikePlan.state(p,this.last.price,now)!=='available')return;try{await navigator.clipboard.writeText([this.market+' '+(p.type==='BUY'?'COMPRA':'VENTA'),...['entry','sl','tp1','tp2','tp3'].map(k=>k.toUpperCase()+': '+p[k].toFixed(this.app.getMarketDecimals(this.market)))].join('\n'));copy.textContent='Precios copiados';}catch(_){details.open=true;}});const edit=el('button','Ajustar SL / TP');edit.id='manualEditOpen';edit.type='button';edit.addEventListener('click',()=>{const outer=document.getElementById('simpleTradingDetails');if(outer)outer.open=true;details.open=true;editor.open=true;editor.scrollIntoView({block:'nearest',behavior:'smooth'});});const focus=el('button','Ver señal');focus.id='manualFocusSignal';focus.type='button';focus.addEventListener('click',()=>{this.app.visibleBars=18;this.app.scrollOffset=0;this.app.verticalOffset=0;this.app.requestCanvasRedraw?.();});const reconnect=el('button','Reconectar precios');reconnect.id='manualReconnect';reconnect.type='button';reconnect.addEventListener('click',()=>{clearTimeout(this.app.derivReconnectTimer);this.app.derivReconnectTimer=null;this.app.retireDerivSocket?.();this.app.invalidateDerivFeed?.('Reconectando precios');this.app.initDerivWebSocket?.();});card.append(copy,edit,focus,reconnect,details);
+   const copy=el('button','Copiar entrada y objetivos');copy.id='manualCopyAll';copy.type='button';copy.addEventListener('click',async()=>{const p=this.viewPlan(),now=this.now();if(!p||p.closed||p.expired||!this.hasFreshTick(now)||root.AkiraManualSpikePlan.state(p,this.last.price,now)!=='available')return;try{await navigator.clipboard.writeText([this.market+' '+(p.type==='BUY'?'COMPRA':'VENTA'),...['entry','sl','tp1','tp2','tp3'].map(k=>k.toUpperCase()+': '+p[k].toFixed(this.app.getMarketDecimals(this.market)))].join('\n'));copy.textContent='Precios copiados';}catch(_){details.open=true;}});const edit=el('button','Ajustar SL / TP');edit.id='manualEditOpen';edit.type='button';edit.addEventListener('click',()=>{const outer=document.getElementById('simpleTradingDetails');if(outer)outer.open=true;details.open=true;editor.open=true;editor.scrollIntoView({block:'nearest',behavior:'smooth'});});const focus=el('button','Ver señal');focus.id='manualFocusSignal';focus.type='button';focus.addEventListener('click',()=>{this.app.visibleBars=18;this.app.scrollOffset=0;this.app.verticalOffset=0;this.app.requestCanvasRedraw?.();});const reconnect=el('button','Reconectar precios');reconnect.id='manualReconnect';reconnect.type='button';reconnect.addEventListener('click',()=>{clearTimeout(this.app.derivReconnectTimer);this.app.derivReconnectTimer=null;this.app.retireDerivSocket?.();this.app.invalidateDerivFeed?.('Reconectando precios');this.app.initDerivWebSocket?.();});card.append(copy,edit,focus,reconnect,details);
    anchor.after(card);this.interval ||= setInterval(()=>this.render(),1000);
    if(!this.loading){this.loading=true;fetch('./research/tick-probability-v1.json?v=20261103').then(r=>{if(!r.ok)throw Error();return r.json();}).then(m=>{this.model=m;}).catch(()=>{this.modelError=true;});}
    this.render();
@@ -127,7 +130,7 @@
    this.tracking=api.startTracking(this.plan,this.last.price,this.last.epoch);this.plan.simulation=this.tracking;this.save();this.render();
   }
   render(){const card=document.getElementById('manualSpikeCard');if(!card)return;card.hidden=!supported(this.app.selectedMarket);const extra=document.getElementById('manualSpikeDetails');if(extra)extra.hidden=card.hidden;if(card.hidden)return;
-   const now=this.now(),live=this.last&&now>=this.last.epoch&&now-this.last.epoch<=5,p=this.viewPlan(),api=root.AkiraManualSpikePlan;
+   const now=this.now(),live=this.hasFreshTick(now),p=this.viewPlan(),api=root.AkiraManualSpikePlan;
    const editor=document.getElementById('manualLevelEditor');if(editor)editor.hidden=!p;
    if(p&&this.levelInputs&&this.editorPlanId!==p.id){this.editorPlanId=p.id;for(const[k,n]of Object.entries(this.levelInputs))n.value=String(p[k]);const m=document.getElementById('manualEditMessage');if(m)m.textContent='';}
    const probability=document.getElementById('manualSpikeProbability');const variantRow=document.getElementById('manualTurnVariantRow');if(variantRow)variantRow.hidden=this.practiceMode!=='turn';probability.textContent=this.practiceMode==='turn'?'Giros · demo. Rechazo de un extremo; no es una predicción del próximo spike.':this.practiceMode==='regular'?'Modo demo por zonas extremas. No se asigna un porcentaje de acierto.':live&&this.prediction?`Estimación experimental: próximo minuto ${(this.prediction.within60*100).toFixed(0)} % · próximos 5 min ${(this.prediction.within300*100).toFixed(0)} %. Probabilidad de salto, no de ganar.`:'Probabilidad: preparando datos o sin estimación disponible.';
@@ -150,7 +153,7 @@
    const p=this.viewPlan();if(!p||p.marketId!==this.app.selectedMarket||this.app.showLevels===false)return;
    const x=view.entryX,height=view.height||ctx.canvas.height;
    if(!Number.isFinite(x)||x<0||x>width)return;
-   const live=this.last&&this.now()-this.last.epoch<=5;
+   const live=this.hasFreshTick();
    const valid=live&&!p.expired&&!p.closed&&root.AkiraManualSpikePlan.state(p,this.last.price,this.now())==='available';
    ctx.save();ctx.beginPath();ctx.rect(0,0,width,height);ctx.clip();ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.textBaseline='alphabetic';
    ctx.globalAlpha=1;
