@@ -514,7 +514,10 @@
           this.wsPingInterval = setInterval(() => {
             if (!current() || socket.readyState !== WebSocket.OPEN) return;
             const now = Date.now();
-            if (now - this.lastDerivMessageAt > 60000 ||
+            const lastScannerTick = this.manualSpike?.last;
+            const scannerStalled = this.manualSpike?.market === this.selectedMarket &&
+              lastScannerTick && this.marketNow() - lastScannerTick.epoch > 15;
+            if (scannerStalled || now - this.lastDerivMessageAt > 60000 ||
                 (this.dataFeedKeys[this.selectedMarket] && now - this.lastMarketMessageAt > 60000)) {
               this.retireDerivSocket();
               this.invalidateDerivFeed("Datos Deriv desactualizados; señales y práctica pausadas mientras se recupera el feed.");
@@ -3481,6 +3484,16 @@
       const freeRightSlots = (safeScroll === 0) ? Math.max(this.rightMarginBars,reserve?visibleCount*reserve/(chartWidth-reserve):0) : 0;
       const totalSlots = visibleCount + freeRightSlots;
       const stepX = chartWidth / totalSlots;
+      let lastTimeLabelRight = 0;
+      const drawTimeLabel = (label, x) => {
+        ctx.font = "11px monospace";
+        const halfWidth = ctx.measureText(label).width / 2;
+        if (x - halfWidth < lastTimeLabelRight + 8 || x + halfWidth > chartWidth) return;
+        ctx.fillStyle = isLight ? "#475569" : "#94a3b8";
+        ctx.textAlign = "center";
+        ctx.fillText(label, x, height - 10);
+        lastTimeLabelRight = x + halfWidth;
+      };
       const candleWidth = Math.max(1, Math.min(stepX*.8,Math.floor(stepX*.72)));
 
       // Área sombreada de proyección futura
@@ -3574,12 +3587,7 @@
             }
 
             // Horas en el eje horizontal
-            if (i % 6 === 0) {
-              ctx.fillStyle = isLight ? "#64748b" : "#64748b";
-              ctx.font = "9px monospace";
-              ctx.textAlign = "center";
-              ctx.fillText(pt.time, pt.x, height - 10);
-            }
+            drawTimeLabel(pt.time, pt.x);
           });
 
           // D. Cabeza en vivo (Punto palpitante con halo)
@@ -3703,12 +3711,7 @@
           }
 
           // Horas en el eje horizontal
-          if (idx % 6 === 0) {
-            ctx.fillStyle = isLight ? "#64748b" : "#64748b";
-            ctx.font = "9px monospace";
-            ctx.textAlign = "center";
-            ctx.fillText(c.time, x, height - 10);
-          }
+          drawTimeLabel(c.time, x);
         });
       }
 
