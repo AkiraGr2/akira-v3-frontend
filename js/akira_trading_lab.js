@@ -2670,6 +2670,12 @@
       const labels={btnToggleLevels:'Ver objetivos',btnToggleSniper:'Ver avisos ✓',btnToggleEMA:'Líneas de tendencia',btnToggleHarmonics:'Patrones del gráfico',btnJumpToLive:'Volver al presente',btnResetView:'Centrar gráfico',exportAnticipationJournal:'Descargar mi historial'};
       for(const [id,label] of Object.entries(labels)){const node=document.getElementById(id);if(node)node.textContent=label;}
       const plan=document.getElementById('chartTradePlan');
+      if(plan && !document.getElementById('simpleHarmonicStatus')){
+        const label=document.createElement('small');
+        label.id='simpleHarmonicStatus';
+        label.hidden=true;
+        plan.after(label);
+      }
       this.manualSpike?.mount();
       if(!document.getElementById('simpleTradingStyle')){const style=document.createElement('style');style.id='simpleTradingStyle';style.textContent=`
         .ak-simple-trading [hidden]{display:none!important}
@@ -3729,6 +3735,7 @@
 
       const harmonicStatus=document.getElementById('simpleHarmonicStatus');
       const geom=this.showHarmonics?this.detectHarmonicPivots(allCandles):null;
+      if(harmonicStatus)harmonicStatus.hidden=!geom;
       if(harmonicStatus)harmonicStatus.textContent=!this.showHarmonics?'Patrones ocultos. Activa «Patrones del gráfico» para verlos.':geom?
         'Patrón '+geom.patternName+' confirmado en '+this.selectedTimeframe+'. '+(geom.idxD<startIdx?'Está en el historial; desplaza el gráfico hacia atrás.':'Marcado en amarillo; por sí solo no es una entrada.'):
         'Patrones activos · todavía no hay un armónico confirmado en estas velas.';
