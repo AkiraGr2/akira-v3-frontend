@@ -57,6 +57,15 @@ function fixture(manual = false) {
 
 async function main() {
   {
+    const app=fixture().app;
+    const prices=[4,5,8,6,4,6,10,6,4,6,8,6,5];
+    const bars=prices.map(close=>({high:close+.1,low:close-.1,close}));
+    assert.equal(app.confirmedShoulders(bars),null,'neckline must break');
+    bars.push({high:4,low:2.9,close:3});
+    assert.deepEqual(Array.from(app.confirmedShoulders(bars),p=>p.index),[2,4,6,8,10]);
+    assert.equal(app.confirmedShoulders(bars.map(b=>({high:20-b.low,low:20-b.high,close:20-b.close}))).length,5);
+  }
+  {
     const f=fixture(true),a=f.app;a.init();const socket=f.sockets[0];socket.open();
     const request=socket.sent.find(r=>r.time);
     socket.message({req_id:request.req_id,time:1700000120});

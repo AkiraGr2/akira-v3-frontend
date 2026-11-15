@@ -27,7 +27,7 @@
     return Object.freeze({id:`${VERSION}:${marketId}:${epoch}`,version:VERSION,strategy:VERSION,marketId,type:sign===1?'BUY':'SELL',
       signalEpoch:epoch,entry:price,sl,tp1,tp2,tp3,risk,entryValidUntil:(epoch+20)*1000,maxHoldSeconds:300,
       selectedTarget:TARGETS.includes(input.selectedTarget)?input.selectedTarget:'tp1',
-      medianTick,medianRange,experimental:true,executionMode:'manual',eligibleForOrders:false});
+      medianTick,medianRange,analysisNote:'Retroceso por ticks y cercanía al extremo M1',experimental:true,executionMode:'manual',eligibleForOrders:false});
   }
   function makeBoom300Candidate({marketId,bars,epoch,selectedTarget='tp1'}={},core){
     if(marketId!=='BOOM300N'||!core||!finite(epoch)||!Array.isArray(bars))return null;
@@ -40,7 +40,7 @@
     if(!(atr>0&&b.close>ema&&rsi<30&&b.close<b.open&&b.high-b.low<=atr))return null;
     const risk=2*atr,entry=b.close,signalEpoch=b.epoch+60;
     if(entry-risk<=0)return null;
-    return {id:`boom300-ema-rsi-v1:${signalEpoch}`,version:'boom300-ema-rsi-v1',strategy:'boom300-ema-rsi-v1',marketId,type:'BUY',signalEpoch,entry,risk,sl:entry-risk,tp1:entry+1.5*risk,tp2:entry+2*risk,tp3:entry+3*risk,entryValidUntil:(signalEpoch+20)*1000,maxHoldSeconds:300,selectedTarget:TARGETS.includes(selectedTarget)?selectedTarget:'tp1',experimental:true,executionMode:'manual',eligibleForOrders:false};
+    return {id:`boom300-ema-rsi-v1:${signalEpoch}`,version:'boom300-ema-rsi-v1',strategy:'boom300-ema-rsi-v1',analysisNote:`Retroceso sobre media 200 · RSI ${rsi.toFixed(1)}`,marketId,type:'BUY',signalEpoch,entry,risk,sl:entry-risk,tp1:entry+1.5*risk,tp2:entry+2*risk,tp3:entry+3*risk,entryValidUntil:(signalEpoch+20)*1000,maxHoldSeconds:300,selectedTarget:TARGETS.includes(selectedTarget)?selectedTarget:'tp1',experimental:true,executionMode:'manual',eligibleForOrders:false};
   }
   function makeRegularDemoPlan({marketId,bars,epoch,selectedTarget='tp1'}={},core){
     if(!/^(BOOM|CRASH)(300N|500|1000)$/.test(marketId)||!core||!finite(epoch)||!Array.isArray(bars))return null;
@@ -56,7 +56,7 @@
     const sign=buy?1:-1,entry=b.close,risk=2*atr,signalEpoch=b.epoch+60;
     const sl=entry-sign*risk,tp1=entry+sign*1.5*risk,tp2=entry+sign*2*risk,tp3=entry+sign*3*risk;
     if(![sl,tp1,tp2,tp3].every(positive))return null;
-    return {id:`spike-regular-demo-v1:${marketId}:${signalEpoch}`,version:'spike-regular-demo-v1',strategy:'spike-regular-demo-v1',marketId,type:buy?'BUY':'SELL',signalEpoch,entry,risk,sl,tp1,tp2,tp3,entryValidUntil:(signalEpoch+20)*1000,maxHoldSeconds:300,selectedTarget:TARGETS.includes(selectedTarget)?selectedTarget:'tp1',experimental:true,executionMode:'manual',eligibleForOrders:false};
+    return {id:`spike-regular-demo-v1:${marketId}:${signalEpoch}`,version:'spike-regular-demo-v1',strategy:'spike-regular-demo-v1',context:{support:low,resistance:high},analysisNote:`Zona ${buy?'baja':'alta'} de M5 · RSI ${rsi.toFixed(1)}`,marketId,type:buy?'BUY':'SELL',signalEpoch,entry,risk,sl,tp1,tp2,tp3,entryValidUntil:(signalEpoch+20)*1000,maxHoldSeconds:300,selectedTarget:TARGETS.includes(selectedTarget)?selectedTarget:'tp1',experimental:true,executionMode:'manual',eligibleForOrders:false};
   }
   function state(plan,price,epoch){
     if(!plan||!positive(price)||!finite(epoch)||epoch<plan.signalEpoch)return 'unavailable';

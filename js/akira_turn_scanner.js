@@ -21,7 +21,7 @@
   const signalEpoch=current.epoch+60;
   const priorEvents=eventEpochs.filter(t=>Number.isFinite(t)&&t>=r.epoch&&t<=epoch);
   const spikeTiming=priorEvents.length?'after_spike':Number.isFinite(eventCoverageFrom)&&eventCoverageFrom<=r.epoch?'no_prior_spike_observed':'unknown';
-  return {id:`${VERSION}:${marketId}:${variant}:${signalEpoch}`,version:VERSION,strategy:VERSION,variant,marketId,type:buy?'BUY':'SELL',signalEpoch,detectedAt:epoch,rejectionEpoch:r.epoch,entry,sl,tp1,tp2,tp3,risk,entryValidUntil:(signalEpoch+20)*1000,maxHoldSeconds:300,selectedTarget:['tp1','tp2','tp3'].includes(selectedTarget)?selectedTarget:'tp1',spikeTiming,priorSpikeEpochs:priorEvents,scale,context:{support:low,resistance:high,m5Low:Math.min(...higher.map(x=>x.low)),m5High:Math.max(...higher.map(x=>x.high))},experimental:true,executionMode:'manual',eligibleForOrders:false};
+  return {id:`${VERSION}:${marketId}:${variant}:${signalEpoch}`,version:VERSION,strategy:VERSION,variant,marketId,type:buy?'BUY':'SELL',signalEpoch,detectedAt:epoch,rejectionEpoch:r.epoch,entry,sl,tp1,tp2,tp3,risk,entryValidUntil:(signalEpoch+20)*1000,maxHoldSeconds:300,selectedTarget:['tp1','tp2','tp3'].includes(selectedTarget)?selectedTarget:'tp1',analysisNote:variant==='confirmation'?'Rechazo M1 y cierre de confirmación':'Rechazo del extremo M1',spikeTiming,priorSpikeEpochs:priorEvents,scale,context:{support:low,resistance:high,m5Low:Math.min(...higher.map(x=>x.low)),m5High:Math.max(...higher.map(x=>x.high))},experimental:true,executionMode:'manual',eligibleForOrders:false};
  }
  const api={VERSION,makePlan};root.AkiraTurnScanner=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);
