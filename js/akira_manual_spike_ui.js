@@ -40,7 +40,7 @@
    if(observed?.event){this.eventEpochs??=[];this.eventEpochs.push(epoch);if(this.active()&&epoch>this.tracking.fillEpoch){this.plan.capturedSpikeEpochs??=[];this.plan.capturedSpikeEpochs.push(epoch);}}
    this.eventEpochs=(this.eventEpochs||[]).filter(t=>t>=epoch-600);
    if(!this.prediction||observed?.event||epoch-(this.predictionAt||0)>=10){this.predictionAt=epoch;this.prediction=this.model&&this.tracker?root.AkiraTickProbability.predict(this.model,this.market,this.tracker.features(epoch)):null;}
-   if(this.tracking){this.tracking=root.AkiraManualSpikePlan.advanceTracking(this.tracking,price,epoch);this.plan.simulation=this.tracking;this.save();}
+   if(this.active()){this.tracking=root.AkiraManualSpikePlan.advanceTracking(this.tracking,price,epoch);this.plan.simulation=this.tracking;}
    const api=root.AkiraManualSpikePlan;
    if(this.plan&&api.state(this.plan,price,epoch)!=='available')this.plan.expired=true;
    // Every candidate gets the same five-second hypothetical reaction, including losses.
@@ -59,8 +59,7 @@
    if(!active&&!this.dailyLocked()&&this.app.anticipationMonitor?.ready&&this.app.scalpPracticeEnabled!==false&&eligible){
     if(candidate)this.candidateBar=bars.at(-1)?.epoch;
     const p=turn?root.AkiraTurnScanner?.makePlan({marketId:this.market,bars,epoch,variant:this.turnVariant,selectedTarget:'tp'+this.target,eventEpochs:this.eventEpochs,eventCoverageFrom:this.eventCoverageFrom},root.AkiraScalpResearchCore):regular?api.makeRegularDemoPlan({marketId:this.market,bars,epoch,selectedTarget:'tp'+this.target},root.AkiraScalpResearchCore):candidate?api.makeBoom300Candidate({marketId:this.market,bars,epoch,selectedTarget:'tp'+this.target},root.AkiraScalpResearchCore):api.makePlan({marketId:this.market,price,epoch,bars,changes:this.changes,spec:this.specs[this.market],selectedTarget:'tp'+this.target});
-    if(p&&this.journal.some(s=>s.id===p.id))return;
-    if(p){this.tracking=null;this.plan={...p,probability:{...this.prediction},fillPolicy:'first_tick_after_5_seconds_max_20_seconds',specification:this.specs[this.market]?{...this.specs[this.market]}:null,sizing:api.sizePlan(p,this.app.accountSize||50,this.specs[this.market])};this.lastPlanAt=epoch;this.journal.push(this.plan);this.journal=this.journal.slice(-500);this.save();}
+    if(p&&!this.journal.some(s=>s.id===p.id)){this.tracking=null;this.plan={...p,probability:{...this.prediction},fillPolicy:'first_tick_after_5_seconds_max_20_seconds',specification:this.specs[this.market]?{...this.specs[this.market]}:null,sizing:api.sizePlan(p,this.app.accountSize||50,this.specs[this.market])};this.lastPlanAt=epoch;this.journal.push(this.plan);this.journal=this.journal.slice(-500);}
    }
    if(this.plan&&!this.plan.closed){this.plan.pricePath=api.observeLevels(this.plan,this.plan.pricePath,price,epoch);if(this.plan.customLevels)this.plan.customPricePath=api.observeLevels(this.viewPlan(),this.plan.customPricePath,price,epoch);this.save();}
    this.render();
