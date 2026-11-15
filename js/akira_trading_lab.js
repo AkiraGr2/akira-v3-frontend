@@ -426,6 +426,33 @@
       this.updateWsConnectionBadge(false);
     }
 
+    confirmedShoulders(bars) {
+      // Two closed neighbors on each side confirm the pivot. Require a neckline break.
+      for (const sign of [1,-1]) {
+        const peaks = [];
+        const peak = b => sign === 1 ? b.high : -b.low;
+        const valley = b => sign === 1 ? b.low : -b.high;
+        for (let i=Math.max(2,bars.length-48); i<bars.length-2; i++) {
+          if ([-2,-1,1,2].every(offset => peak(bars[i]) > peak(bars[i+offset]))) peaks.push(i);
+        }
+        if (peaks.length < 3) continue;
+        const [a,b,c] = peaks.slice(-3);
+        const trough = (left,right) => {
+          let index = left+1;
+          for(let i=index+1;i<right;i++) if(valley(bars[i])<valley(bars[index])) index=i;
+          return index;
+        };
+        const l=trough(a,b), r=trough(b,c);
+        const depth=peak(bars[b])-Math.max(valley(bars[l]),valley(bars[r]));
+        if(depth<=0 || peak(bars[b])-Math.max(peak(bars[a]),peak(bars[c]))<depth*.15 ||
+            Math.abs(peak(bars[a])-peak(bars[c]))>depth*.3) continue;
+        const neckline=i=>valley(bars[l])+(i-l)*(valley(bars[r])-valley(bars[l]))/(r-l);
+        if (!bars.slice(c+1).some((bar,k)=>sign*bar.close<neckline(c+1+k))) continue;
+        return [a,l,b,r,c].map((index,k)=>({index,price:sign*(k%2?valley(bars[index]):peak(bars[index]))}));
+      }
+      return null;
+    }
+
     clockMilliseconds() { return typeof performance!=='undefined' ? performance.now() : Date.now(); }
     marketNow() {
       const c=this.derivClock,elapsed=c?this.clockMilliseconds()-c.receivedAt:Infinity;
@@ -4592,6 +4619,44 @@
         ctx.fillStyle = isLight ? "#0f172a" : "#cbd5e1";
         ctx.font = "bold 9px monospace";
         ctx.fillText("El histórico describe ciclos pasados; no predice el siguiente spike", chartWidth / 2, hudY + 27);
+        ctx.restore();
+      }
+      if (this.showHarmonics && candleCount > 0) {
+        ctx.save();
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'left';
+        const closed = allCandles.slice(0, Math.min(endIdx, allCandles.length - 1));
+        const recent = closed.slice(-20);
+        const signalVisible = manual && manual.signalEpoch >= allCandles[startIdx].epoch &&
+          manual.signalEpoch < allCandles[endIdx-1].epoch + this.getGranularitySeconds();
+        const levels = (signalVisible && manual.context) || (recent.length === 20 ? {
+          support: Math.min(...recent.map(bar => bar.low)),
+          resistance: Math.max(...recent.map(bar => bar.high))
+        } : {});
+        for (const [key, label, color] of [['support','Soporte','#6ee7b7'],['resistance','Resistencia','#fda4af']]) {
+          const y = getY(levels[key]);
+          if (!Number.isFinite(y) || y < paddingY || y > height-paddingY) continue;
+          ctx.strokeStyle = ctx.fillStyle = color;
+          ctx.setLineDash([2,5]);
+          ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(chartWidth,y); ctx.stroke();
+          ctx.fillText(label+' '+levels[key].toFixed(this.getMarketDecimals(this.selectedMarket)), 6, y-3);
+        }
+        ctx.setLineDash([]);
+        const points = this.confirmedShoulders(closed);
+        if (points && points.every(point => point.index >= startIdx)) {
+          ctx.strokeStyle = ctx.fillStyle = '#c4b5fd';
+          ctx.beginPath();
+          points.forEach((point,i) => {
+            const x = getScreenX(point.index), y = getY(point.price);
+            if (i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+            if (i % 2 === 0) ctx.fillText(i === 2 ? 'Cabeza' : 'Hombro', x-10, y-4);
+          });
+          ctx.stroke();
+        }
+        if (signalVisible && manual.analysisNote) {
+          ctx.fillStyle = isLight ? '#334155' : '#e2e8f0';
+          ctx.fillText('✓ '+manual.analysisNote, 6, 15);
+        }
         ctx.restore();
       }
       const manualIndex=this.manualSpike?.plan?allCandles.findLastIndex(c=>c.epoch<=this.manualSpike.plan.signalEpoch):-1;
