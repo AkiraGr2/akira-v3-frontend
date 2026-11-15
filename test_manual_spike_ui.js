@@ -44,3 +44,10 @@ delete c.plan.customLevels;c.tracking={scenarios:{tp1:{status:'target'},tp2:{sta
 c.draw(ctx,v=>v,320,{entryX:100,height:500});assert.ok(texts.some(t=>t.startsWith('TP1 ')&&t.endsWith(' ✓')));assert.ok(texts.some(t=>t.startsWith('TP2 ')&&!t.endsWith(' ✓')));
 c.plan.customLevels={sl:110,tp1:90,tp2:80,tp3:70};texts.length=0;c.draw(ctx,v=>v,320,{entryX:100,height:500});assert.ok(texts.some(t=>t.startsWith('TP1 ')&&t.endsWith(' *')));assert.ok(!texts.some(t=>t.startsWith('TP1 ')&&t.endsWith(' ✓')));
 console.log('PASS reached-target markers: simulated original targets only, custom levels never inherit results');
+{
+ const scanner = new context.AkiraManualSpikeUI.Controller(app);
+ scanner.last = {price:100,epoch:now};
+ assert.equal(scanner.hasFreshTick(now-0.5),true,'fresh tick slightly ahead of clock');
+ assert.equal(scanner.hasFreshTick(now+5.1),false,'stale price');
+ assert.equal(scanner.hasFreshTick(now-5.1),false,'future price outside accepted tolerance');
+}
