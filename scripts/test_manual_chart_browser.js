@@ -35,6 +35,8 @@ const anchored = await page.evaluate(() => {
  }finally{Object.assign(proto,original);bars.forEach((bar,i)=>Object.assign(bar,initial[i]));app.drawMarketCanvas();}
 });
 assert.ok(anchored,'support and resistance align with the correct wick and price at width '+width);
+assert.ok(await page.evaluate(()=>{const a=AkiraTradingLab,p=a.manualSpike.viewPlan(),pip=a.getChartPipSize(p.marketId);
+return ['sl','tp1','tp2','tp3'].every(k=>labels.includes((k==='sl'?'−':'+')+(Math.abs(p[k]-p.entry)/pip).toLocaleString('es-CO',{maximumFractionDigits:2})+' pips'));}), 'all four distances appear on the chart');
 const box=await page.locator('#chartStageContainer').boundingBox();assert.ok(box.y<480,'chart is close to top: '+box.y);
 if(process.env.AKIRA_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.AKIRA_SCREENSHOT_DIR,'chart-first-'+width+'.png')});
 await page.locator('#btnToggleLevels').click();await page.evaluate(()=>{labels=[];AkiraTradingLab.drawMarketCanvas();});assert.equal(await page.evaluate(()=>labels.some(x=>x.startsWith('TP3 '))),false);
