@@ -2648,22 +2648,21 @@
       root.classList.add('ak-simple-trading');
       const title=root.querySelector('.ak-trading-title-group h2');if(title)title.textContent='Trading Lab';
       const subtitle=root.querySelector('.ak-trading-title-group p');if(subtitle)subtitle.textContent='Elige el mercado y observa los avisos en el gráfico.';
-      const make=(id,label)=>{let d=document.getElementById(id);if(d)return d;d=document.createElement('details');d.id=id;d.className='ak-simple-details';const summary=document.createElement('summary');summary.textContent=label;d.append(summary);pane.append(d);return d;};
-      const results=make('simpleTradingResults','Resultados y explicación');
-      const history=make('simpleTradingHistory','Consultar precios anteriores');
-      const options=make('simpleTradingOptions','Más opciones del gráfico');
-      const signal=make('simpleTradingSignal','Ver entrada y practicar');
-      const allDetails=make('simpleTradingDetails','Detalles y ajustes');
-      for(const node of [results,history,options,signal])allDetails.append(node);
-      const auto=document.getElementById('automaticStrategyInfo');
-      const explanation=auto?.nextElementSibling;
-      const originalReport=document.getElementById('multiScalpResearchResults')?.closest('details');
-      if(originalReport)originalReport.open=false;
-      for(const node of [auto,explanation,document.getElementById('anticipationJournalSummary'),document.getElementById('exportAnticipationJournal'),document.getElementById('scalpPracticeToggle')?.closest('label'),document.getElementById('multiScalpResearchSummary'),originalReport])if(node)results.append(node);
-      const grid=pane.querySelector('.ak-market-data-grid');if(grid)history.append(grid);
-      const settings=pane.querySelector('.ak-market-settings');if(settings){settings.open=false;options.append(settings);}
-      const panel=document.getElementById('scannerSignalContainer');if(panel)signal.append(panel);
-      for(const id of ['btnToggleEMA','btnToggleTheme','btnToggleSniper']){const node=document.getElementById(id);if(node)options.append(node);}
+      // Legacy market listeners still use these nodes. Keep them outside the visible chart.
+      const archive = pane.querySelector('[data-market-internals]') || document.createElement('div');
+      archive.dataset.marketInternals = '';
+      archive.hidden = true;
+      archive.inert = true;
+      pane.append(archive);
+      const strategy = document.getElementById('automaticStrategyInfo');
+      const strategyDescription = strategy?.nextElementSibling;
+      for (const node of [strategy,strategyDescription,document.getElementById('anticipationJournalSummary'),
+        document.getElementById('exportAnticipationJournal'),document.getElementById('scalpPracticeToggle')?.closest('label'),
+        document.getElementById('multiScalpResearchSummary'),document.getElementById('multiScalpResearchResults')?.closest('details'),
+        pane.querySelector('.ak-market-data-grid'),pane.querySelector('.ak-market-settings'),
+        document.getElementById('scannerSignalContainer'),...['btnToggleEMA','btnToggleTheme','btnToggleSniper'].map(id=>document.getElementById(id))]) {
+        if(node && !archive.contains(node)) archive.append(node);
+      }
       const hidden=['canvasAccountTelemetryRibbon','canvasOhlcInspector','chartMarketCategory','chartMarketTfPill','chartAccuracyBadge','btnHeaderTelegramAlerts','platformSpecialDeck','btnScannerBacktest','btnJumpToStart','btnScrollLeft','btnScrollRight','btnFitAllHistory','btnToggleMargin','vScrollBadge'];
       for(const id of hidden){const node=document.getElementById(id);if(node)node.hidden=true;}
       for(const node of root.querySelectorAll('.ak-radar-settings,.ak-scanner-replay-card,.ak-slider-wrap,.ak-trading-badge-group .sentinel,.ak-trading-badge-group .free,[data-ttab="sentinel"],[data-ttab="tvchart"],[data-ttab="connections"],[data-ttab="simulator"]'))node.hidden=true;
@@ -2671,25 +2670,13 @@
       const labels={btnToggleLevels:'Ver objetivos',btnToggleSniper:'Ver avisos ✓',btnToggleEMA:'Líneas de tendencia',btnToggleHarmonics:'Patrones del gráfico',btnJumpToLive:'Volver al presente',btnResetView:'Centrar gráfico',exportAnticipationJournal:'Descargar mi historial'};
       for(const [id,label] of Object.entries(labels)){const node=document.getElementById(id);if(node)node.textContent=label;}
       const plan=document.getElementById('chartTradePlan');
-      if(plan&&this.tickRadar&&!document.getElementById('tickRadarCard')){
-        const card=document.createElement('details');card.id='tickRadarCard';card.className='ak-simple-details';
-        const title=document.createElement('summary');title.textContent='Radar de saltos · mercado seleccionado';card.append(title);
-        const status=document.createElement('p');status.id='tickRadarStatus';card.append(status);
-        const math=document.createElement('p');math.id='tickRadarMath';card.append(math);
-        const note=document.createElement('p');note.textContent='El contador no predice el próximo salto ni autoriza una entrada. Observación desde que abres este mercado; no reconstruimos ticks a partir de velas. Los saltos se detectan por su tamaño frente a los 300 cambios anteriores.';card.append(note);
-        const button=document.createElement('button');button.type='button';button.textContent='Descargar observaciones';button.className='ak-btn secondary';
-        button.addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(this.tickRadar.export(),null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='akira-radar-ticks.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});card.append(button);plan.after(card);
-        this.tickRadarRefreshTimer ||= setInterval(()=>this.renderTickRadar(),1000);
+      if(plan && !document.getElementById('simpleHarmonicStatus')){
+        const label=document.createElement('small');
+        label.id='simpleHarmonicStatus';
+        label.hidden=true;
+        plan.after(label);
       }
-      this.renderTickRadar();
       this.manualSpike?.mount();
-      const manualDetails=document.getElementById('manualSpikeDetails');if(manualDetails)allDetails.prepend(manualDetails);
-      const radar=document.getElementById('tickRadarCard');if(radar)allDetails.append(radar);
-      if(plan&&!document.getElementById('simpleHarmonicStatus')){const status=document.createElement('p');status.id='simpleHarmonicStatus';status.style.cssText='margin:8px 12px;color:#cbd5e1;font-size:13px;line-height:1.5';status.textContent='Patrones: esperando precios para analizar.';plan.after(status);}
-      let warning=document.getElementById('simpleTradingWarning');
-      if(!warning&&plan){warning=document.createElement('p');warning.id='simpleTradingWarning';warning.textContent='Experimental para demo · rentabilidad no demostrada.';plan.before(warning);}
-      if(warning)allDetails.prepend(warning);
-      const harmonicStatus=document.getElementById('simpleHarmonicStatus');if(harmonicStatus)allDetails.append(harmonicStatus);
       if(!document.getElementById('simpleTradingStyle')){const style=document.createElement('style');style.id='simpleTradingStyle';style.textContent=`
         .ak-simple-trading [hidden]{display:none!important}
         .ak-simple-trading .ak-trading-hero{display:none}
@@ -3748,6 +3735,7 @@
 
       const harmonicStatus=document.getElementById('simpleHarmonicStatus');
       const geom=this.showHarmonics?this.detectHarmonicPivots(allCandles):null;
+      if(harmonicStatus)harmonicStatus.hidden=!geom;
       if(harmonicStatus)harmonicStatus.textContent=!this.showHarmonics?'Patrones ocultos. Activa «Patrones del gráfico» para verlos.':geom?
         'Patrón '+geom.patternName+' confirmado en '+this.selectedTimeframe+'. '+(geom.idxD<startIdx?'Está en el historial; desplaza el gráfico hacia atrás.':'Marcado en amarillo; por sí solo no es una entrada.'):
         'Patrones activos · todavía no hay un armónico confirmado en estas velas.';
