@@ -3239,39 +3239,19 @@
 
     calculateSniperChannel(candles) {
       if (!candles || candles.length < 15) return null;
-      const N = candles.length;
-      // Ventana activa reciente de 28 velas para que el canal envuelva exactamente la acción del precio actual
-      const windowStart = Math.max(0, N - 28);
-      const activeCandles = candles.slice(windowStart);
-      const actN = activeCandles.length;
-
-      // Resistencia reciente (techo dinámico)
-      let peak1 = { idx: windowStart + 2, price: activeCandles[2].high };
-      let peak2 = { idx: windowStart + actN - 3, price: activeCandles[actN - 3].high };
-      for (let i = 1; i < Math.floor(actN * 0.5); i++) {
-        if (activeCandles[i].high > peak1.price) peak1 = { idx: windowStart + i, price: activeCandles[i].high };
-      }
-      for (let i = Math.floor(actN * 0.5); i < actN - 1; i++) {
-        if (activeCandles[i].high > peak2.price && (windowStart + i) !== peak1.idx) {
-          peak2 = { idx: windowStart + i, price: activeCandles[i].high };
+      const end = candles.length;
+      const start = Math.max(0, end - 28);
+      const middle = start + Math.floor((end - start) / 2);
+      const extreme = (from, to, key) => {
+        let idx = from;
+        for (let i = from + 1; i < to; i++) {
+          if (key === 'high' ? candles[i].high > candles[idx].high : candles[i].low < candles[idx].low) idx = i;
         }
-      }
-
-      // Soporte reciente (piso dinámico)
-      let trough1 = { idx: windowStart + 2, price: activeCandles[2].low };
-      let trough2 = { idx: windowStart + actN - 2, price: activeCandles[actN - 2].low };
-      for (let i = 1; i < Math.floor(actN * 0.5); i++) {
-        if (activeCandles[i].low < trough1.price) trough1 = { idx: windowStart + i, price: activeCandles[i].low };
-      }
-      for (let i = Math.floor(actN * 0.5); i < actN; i++) {
-        if (activeCandles[i].low < trough2.price && (windowStart + i) !== trough1.idx) {
-          trough2 = { idx: windowStart + i, price: activeCandles[i].low };
-        }
-      }
-
+        return {idx, price:candles[idx][key]};
+      };
       return {
-        resistance: { p1: peak1, p2: peak2 },
-        support: { p1: trough1, p2: trough2 }
+        resistance:{p1:extreme(start,middle,'high'),p2:extreme(middle,end,'high')},
+        support:{p1:extreme(start,middle,'low'),p2:extreme(middle,end,'low')}
       };
     }
 
@@ -3410,7 +3390,7 @@
 
       // Rango seguro en caso de vela plana o inicial
       if (!isFinite(minPrice) || !isFinite(maxPrice) || minPrice >= maxPrice) {
-        const curP = this.marketPrices[this.selectedMarket] || 100;
+        const curP = visibleCandles.at(-1).close || this.marketPrices[this.selectedMarket] || 100;
         minPrice = curP - 1;
         maxPrice = curP + 1;
       }
@@ -3418,7 +3398,19 @@
       // Margen de respiración natural del 10% estilo Deriv Trader y TradingView
       // (Mantiene las proporciones exactas de las velas sin aplastarlas jamás)
       const manual=this.manualSpike?.viewPlan();
-      if(this.showLevels&&manual?.marketId===this.selectedMarket&&(!manual.expired||this.manualSpike.active()||manual.pricePath?.status==='watching')){minPrice=Math.min(minPrice,manual.sl,manual.tp3);maxPrice=Math.max(maxPrice,manual.sl,manual.tp3);}
+        const closed = allCandles.slice(0, Math.min(endIdx, allCandles.length - 1));
+        const recent = closed.slice(-20);
+        const signalVisible = manual?.marketId === this.selectedMarket && manual.signalEpoch >= allCandles[startIdx].epoch &&
+          manual.signalEpoch < allCandles[endIdx-1].epoch + this.getGranularitySeconds();
+        const levels = (signalVisible && manual.context) || (recent.length === 20 ? {
+          support: Math.min(...recent.map(bar => bar.low)),
+          resistance: Math.max(...recent.map(bar => bar.high))
+        } : {});
+      if(this.showHarmonics && Number.isFinite(levels.support) && Number.isFinite(levels.resistance)){
+        minPrice=Math.min(minPrice,levels.support);
+        maxPrice=Math.max(maxPrice,levels.resistance);
+      }
+      if(this.showLevels&&signalVisible&&(!manual.expired||this.manualSpike.active()||manual.pricePath?.status==='watching')){minPrice=Math.min(minPrice,manual.sl,manual.tp3);maxPrice=Math.max(maxPrice,manual.sl,manual.tp3);}
       const rawSpan = (maxPrice - minPrice) || 1;
       const vPad = rawSpan * 0.10;
       minPrice -= vPad;
@@ -3734,7 +3726,7 @@
       let isBullishSignal = true;
 
       const harmonicStatus=document.getElementById('simpleHarmonicStatus');
-      const geom=this.showHarmonics?this.detectHarmonicPivots(allCandles):null;
+      const geom=this.showHarmonics?this.detectHarmonicPivots(allCandles.slice(0,Math.min(endIdx+1,totalCandles))):null;
       if(harmonicStatus)harmonicStatus.hidden=!geom;
       if(harmonicStatus)harmonicStatus.textContent=!this.showHarmonics?'Patrones ocultos. Activa «Patrones del gráfico» para verlos.':geom?
         'Patrón '+geom.patternName+' confirmado en '+this.selectedTimeframe+'. '+(geom.idxD<startIdx?'Está en el historial; desplaza el gráfico hacia atrás.':'Marcado en amarillo; por sí solo no es una entrada.'):
@@ -3865,36 +3857,22 @@
       }
 
       // 5.5 ESCÁNER SNIPER DE ALTA PRECISIÓN: LÍNEA ROJA, LÍNEA PÚRPURA Y CHULITOS (✓)
-      if (this.showSniper && allCandles.length >= 15) {
-        const chan = this.calculateSniperChannel(allCandles);
-        const getScreenX = (globalIdx) => ((globalIdx - startIdx) * stepX) + (stepX / 2);
+      if (this.showSniper && closed.length >= 15) {
+        const chan = this.calculateSniperChannel(closed);
         if (chan) {
-
-          // A. LÍNEA ROJA SUPERIOR (Resistencia / Techo Institucional)
-          const redY1 = getY(chan.resistance.p1.price);
-          const redY2 = getY(chan.resistance.p2.price);
-          const redX1 = Math.max(0, getScreenX(chan.resistance.p1.idx));
-          const redX2 = chartWidth;
-
-          ctx.strokeStyle = isLight ? "#dc2626" : "#ef4444";
-          ctx.lineWidth = 2.8;
+          ctx.save();
           ctx.beginPath();
-          ctx.moveTo(redX1, redY1);
-          ctx.lineTo(redX2, redY2);
-          ctx.stroke();
-
-          // B. LÍNEA PÚRPURA INFERIOR (Soporte Dinámico / Línea de Tendencia)
-          const purpY1 = getY(chan.support.p1.price);
-          const purpY2 = getY(chan.support.p2.price);
-          const purpX1 = Math.max(0, getScreenX(chan.support.p1.idx));
-          const purpX2 = chartWidth;
-
-          ctx.strokeStyle = isLight ? "#7c3aed" : "#a855f7";
-          ctx.lineWidth = 2.8;
-          ctx.beginPath();
-          ctx.moveTo(purpX1, purpY1);
-          ctx.lineTo(purpX2, purpY2);
-          ctx.stroke();
+          ctx.rect(0,paddingY,chartWidth,chartHeight);
+          ctx.clip();
+          for(const [line,color] of [[chan.resistance,isLight?'#dc2626':'#ef4444'],[chan.support,isLight?'#7c3aed':'#a855f7']]){
+            ctx.strokeStyle=color;
+            ctx.lineWidth=2.8;
+            ctx.beginPath();
+            ctx.moveTo(getScreenX(line.p1.idx),getY(line.p1.price));
+            ctx.lineTo(getScreenX(line.p2.idx),getY(line.p2.price));
+            ctx.stroke();
+          }
+          ctx.restore();
 
           // ZONA DE ORDER BLOCK INSTITUCIONAL (SMC DEMAND / SUPPLY MITIGATION)
           const activeOb = (this.currentSignal && this.currentSignal.orderBlock) || (this.spikeRadar && this.spikeRadar.orderBlock);
@@ -4613,14 +4591,6 @@
         ctx.save();
         ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'left';
-        const closed = allCandles.slice(0, Math.min(endIdx, allCandles.length - 1));
-        const recent = closed.slice(-20);
-        const signalVisible = manual && manual.signalEpoch >= allCandles[startIdx].epoch &&
-          manual.signalEpoch < allCandles[endIdx-1].epoch + this.getGranularitySeconds();
-        const levels = (signalVisible && manual.context) || (recent.length === 20 ? {
-          support: Math.min(...recent.map(bar => bar.low)),
-          resistance: Math.max(...recent.map(bar => bar.high))
-        } : {});
         for (const [key, label, color] of [['support','Soporte','#6ee7b7'],['resistance','Resistencia','#fda4af']]) {
           const y = getY(levels[key]);
           if (!Number.isFinite(y) || y < paddingY || y > height-paddingY) continue;

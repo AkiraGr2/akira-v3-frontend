@@ -7,6 +7,34 @@ const browser=await chromium.launch({headless:true,...(process.env.AKIRA_CHROME_
 await page.evaluate(()=>{const a=window.AkiraTradingLab;const now=Math.floor(Date.now()/1000),t=Math.floor(now/60)*60;const bars=Array.from({length:45},(_,i)=>({epoch:t-(44-i)*60,time:new Date((t-(44-i)*60)*1000).toISOString().slice(11,16),open:100+Math.sin(i/3)*.3,high:100.6,low:99.4,close:100+Math.cos(i/3)*.3}));a.manualSpike.select(a.selectedMarket);a.candles[a.selectedMarket]=bars;a.marketPrices[a.selectedMarket]=100;a.dataFeedKeys[a.selectedMarket]=a.selectedMarket+':M1';a.feedProblem=null;a.anticipationMonitor.history(bars);const p=window.AkiraManualSpikePlan.makePlan({marketId:a.selectedMarket,price:100,epoch:now,bars,changes:Array(300).fill(-.01)});a.manualSpike.plan={...p};a.manualSpike.last={price:100,epoch:now};a.manualSpike.render();window.labels=[];const draw=CanvasRenderingContext2D.prototype.fillText;CanvasRenderingContext2D.prototype.fillText=function(t,...args){labels.push(String(t));return draw.call(this,t,...args);};a.drawMarketCanvas();});
 assert.equal(await page.locator('#simpleTradingDetails').count(),0);assert.equal(await page.locator('#manualSpikeDetails').isVisible(),false);assert.equal(await page.locator('#manualCopyAll').isVisible(),true);
 assert.ok(await page.evaluate(()=>labels.includes('✓')&&labels.some(x=>x.startsWith('TP3 '))));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+// Compare the canvas paths themselves: both line endpoints must coincide with recorded wick tips.
+const anchored = await page.evaluate(() => {
+ const app=window.AkiraTradingLab,bars=app.candles[app.selectedMarket];
+ const initial=bars.map(bar=>({...bar}));
+ const proto=CanvasRenderingContext2D.prototype, names=['beginPath','moveTo','lineTo','stroke'];
+ const original=Object.fromEntries(names.map(name=>[name,proto[name]]));
+ let points=[];const wicks=[],lines=[];
+ try {
+   for (const [i,bar] of bars.entries()){bar.high=101+i/100;bar.low=99-i/100;}
+   bars[18].high=104;bars[33].high=103;bars[22].low=96;bars[35].low=95;
+   bars.at(-1).high=112;bars.at(-1).low=89;
+   for(const name of names)proto[name]=function(...args){
+     if(name==='beginPath')points=[];
+     if(name==='moveTo'||name==='lineTo')points.push(args);
+     if(name==='stroke' && points.length===2){
+       if(Math.abs(this.lineWidth-1.3)<.001)wicks.push(points);
+       if(Math.abs(this.lineWidth-2.8)<.001 && ['#ef4444','#a855f7'].includes(this.strokeStyle))lines.push({color:this.strokeStyle,points});
+     }
+     return original[name].apply(this,args);
+   };
+   app.drawMarketCanvas();
+   return [['#ef4444',[18,33],0],['#a855f7',[22,35],1]].every(([color,indices,tip])=>{
+     const line=lines.find(l=>l.color===color);
+     return indices.every((idx,k)=>line&&wicks[idx]&&line.points[k].every((v,axis)=>Math.abs(v-wicks[idx][tip][axis])<0.001));
+   });
+ }finally{Object.assign(proto,original);bars.forEach((bar,i)=>Object.assign(bar,initial[i]));app.drawMarketCanvas();}
+});
+assert.ok(anchored,'support and resistance align with the correct wick and price at width '+width);
 const box=await page.locator('#chartStageContainer').boundingBox();assert.ok(box.y<480,'chart is close to top: '+box.y);
 if(process.env.AKIRA_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.AKIRA_SCREENSHOT_DIR,'chart-first-'+width+'.png')});
 await page.locator('#btnToggleLevels').click();await page.evaluate(()=>{labels=[];AkiraTradingLab.drawMarketCanvas();});assert.equal(await page.evaluate(()=>labels.some(x=>x.startsWith('TP3 '))),false);
