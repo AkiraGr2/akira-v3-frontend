@@ -129,12 +129,37 @@
    ctx.fillStyle='rgba(244,63,94,.10)';ctx.fillRect(x,Math.min(entryY,slY),width-x,Math.abs(entryY-slY));
    ctx.fillStyle='rgba(16,185,129,.09)';ctx.fillRect(x,Math.min(entryY,tpY),width-x,Math.abs(entryY-tpY));
    const rows=[['entry','#e2e8f0','Entrada'],['sl','#fb7185','SL'],['tp1','#34d399','TP1'],['tp2','#2dd4bf','TP2'],['tp3','#38bdf8','TP3']].map(([key,color,label])=>({key,color,label,y:getY(p[key])})).sort((a,b)=>a.y-b.y);
-   let previous=-20;for(const r of rows){r.labelY=Math.max(previous+26,Math.max(6,Math.min(height-27,r.y-10)));previous=r.labelY;}const overflow=Math.max(0,rows.at(-1).labelY-(height-27));for(const r of rows)r.labelY-=overflow;
-   for(const r of rows){const reached=!p.customLevels&&(this.tracking||p.simulation)?.scenarios?.[r.key]?.status==='target';const text=r.label+' '+p[r.key].toFixed(this.app.getMarketDecimals(this.market))+(p.customLevels&&r.key!=='entry'?' *':reached?' ✓':''),boxW=Math.min(width-8,ctx.measureText(text).width+16),left=width-boxW-4;
-    ctx.strokeStyle=r.color;ctx.fillStyle=r.color;ctx.lineWidth=r.key==='entry'?2:1;ctx.setLineDash(r.key==='entry'?[]:[5,4]);ctx.beginPath();ctx.moveTo(0,r.y);ctx.lineTo(width,r.y);ctx.stroke();ctx.setLineDash([]);
-    ctx.beginPath();ctx.moveTo(left,r.y);ctx.lineTo(left,r.labelY+10);ctx.stroke();ctx.fillStyle='#101827';ctx.fillRect(left,r.labelY,boxW,21);ctx.strokeRect(left,r.labelY,boxW,21);ctx.fillStyle=r.color;ctx.fillText(text,left+7,r.labelY+14);
+   const configured=p.specification?.verified && p.specification.marketId===this.market ? p.specification.pipSize : null;
+   const pip=configured>0 ? configured : this.app.getChartPipSize?.(this.market);
+   const boxHeight=32, gap=3;
+   let nextTop=4;
+   for(const row of rows){
+    row.labelY=Math.max(nextTop,row.y-boxHeight/2);
+    nextTop=row.labelY+boxHeight+gap;
    }
-   if(this.app.showSniper!==false){ctx.font='bold 18px sans-serif';ctx.fillStyle=valid?'#34d399':'#94a3b8';ctx.fillText('✓',Math.max(3,x-8),Math.max(20,Math.min(height-30,entryY+(p.type==='BUY'?25:-16))));ctx.font='bold 11px sans-serif';ctx.fillText((p.type==='BUY'?'COMPRA':'VENTA')+(valid?'':this.active()?' · seguimiento':' · aviso anterior'),Math.max(4,Math.min(x,width-125)),Math.max(14,Math.min(height-12,entryY+(p.type==='BUY'?40:-30))));}
+   let bottom=height-4;
+   for(const row of [...rows].reverse()){
+    row.labelY=Math.min(row.labelY,bottom-boxHeight);
+    bottom=row.labelY-gap;
+   }
+   for(const r of rows){
+    const reached=!p.customLevels&&(this.tracking||p.simulation)?.scenarios?.[r.key]?.status==='target';
+    const text=r.label+' '+p[r.key].toFixed(this.app.getMarketDecimals(this.market))+
+      (p.customLevels&&r.key!=='entry'?' *':reached?' ✓':'');
+    const distance=Math.abs(p[r.key]-p.entry);
+    const detail=r.key==='entry'?(p.type==='BUY'?'COMPRA':'VENTA'):
+      (r.key==='sl'?'−':'+')+(pip>0?(distance/pip).toLocaleString('es-CO',{maximumFractionDigits:2})+' pips':distance.toFixed(this.app.getMarketDecimals(this.market))+' de precio');
+    const boxW=Math.min(width-8,Math.max(ctx.measureText(text).width,ctx.measureText(detail).width)+16);
+    const left=width-boxW-4;
+    ctx.strokeStyle=r.color;ctx.fillStyle=r.color;ctx.lineWidth=r.key==='entry'?2:1;ctx.setLineDash(r.key==='entry'?[]:[5,4]);ctx.beginPath();ctx.moveTo(0,r.y);ctx.lineTo(width,r.y);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(left-6,r.y);ctx.lineTo(left,r.labelY+boxHeight/2);ctx.stroke();
+    ctx.fillStyle='#101827';ctx.fillRect(left,r.labelY,boxW,boxHeight);ctx.strokeRect(left,r.labelY,boxW,boxHeight);
+    ctx.fillStyle=r.color;ctx.fillText(text,left+7,r.labelY+13);ctx.fillText(detail,left+7,r.labelY+26);
+   }
+   if(this.app.showSniper!==false){
+    ctx.font='bold 18px sans-serif';ctx.fillStyle=valid?'#34d399':'#94a3b8';
+    ctx.fillText('✓',Math.max(3,x-12),Math.max(20,Math.min(height-10,entryY+(p.type==='BUY'?23:-8))));
+   }
    ctx.restore();
   }
  }

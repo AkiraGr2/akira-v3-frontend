@@ -322,6 +322,8 @@
       });
     }
 
+    getChartPipSize(marketId) { return MARKETS[marketId]?.pipSize; }
+
     getMarketDecimals(marketId = this.selectedMarket) {
       const m = MARKETS[marketId];
       if (!m) return 4;
