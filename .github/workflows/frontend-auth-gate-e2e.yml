@@ -103,6 +103,27 @@ jobs:
             await verifyAllowedSession("bjhon9161@gmail.com", true);
             await verifyAllowedSession("jnicolaslp41@gmail.com", false);
 
+            const desktop = await browser.newPage({viewport:{width:1366,height:768}});
+            await desktop.addInitScript(()=>{
+              localStorage.setItem("akira_backend_url",location.origin);
+              localStorage.setItem("akira_session_token","desktop-test-session");
+              localStorage.setItem("akira_session_exp","4102444800");
+            });
+            let ready=false;
+            await desktop.route("**/api/v8/me",route=>route.fulfill({
+              status:ready?200:503,contentType:"application/json",
+              body:JSON.stringify(ready?{authenticated:true,is_authorized:true,email:"demo@example.test"}:{})
+            }));
+            await desktop.goto(base,{waitUntil:"domcontentloaded"});
+            await desktop.locator("#akiraRetrySession").waitFor({state:"visible"});
+            if(!await desktop.evaluate(()=>document.body.classList.contains("akira-auth-locked")&&Boolean(localStorage.getItem("akira_session_token")))){
+              throw Error("Temporary outage must lock desktop and preserve session");
+            }
+            ready=true;
+            await desktop.locator("#akiraRetrySession").click();
+            await desktop.waitForFunction(()=>!document.body.classList.contains("akira-auth-locked"));
+            await desktop.close();
+
             const rejected = await browser.newPage({viewport:{width:390,height:844}});
             rejected.on("pageerror", err => errors.push(String(err && err.message || err)));
             await rejected.addInitScript(() => {
