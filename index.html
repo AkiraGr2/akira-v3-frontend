@@ -1653,6 +1653,7 @@ async function akiraVerifySession(){
   if(akiraSessionCheckPromise && akiraSessionCheckToken===t){
     return akiraSessionCheckPromise;
   }
+  if(akiraSessionCheckToken===t && window.akiraSessionState?.authenticated===true && Date.now()-akiraSessionCheckAt<10000)return window.akiraSessionState;
   akiraSessionCheckToken=t;
   akiraSessionCheckAt=Date.now();
   akiraSessionCheckPromise=(async ()=>{

@@ -76,7 +76,7 @@ jobs:
               });
               await page.goto(base, {waitUntil:"domcontentloaded", timeout:30000});
               try {
-                await page.waitForFunction(() => !document.body.classList.contains("akira-auth-locked"), null, {timeout:20000,polling:100});
+                await page.locator("body:not(.akira-auth-locked)").waitFor({state:"attached",timeout:20000});
               } catch(error) {
                 const diagnostic = await page.evaluate(() => ({
                   locked:document.body.classList.contains("akira-auth-locked"),
@@ -121,7 +121,7 @@ jobs:
             }
             ready=true;
             await desktop.locator("#akiraRetrySession").click();
-            await desktop.waitForFunction(()=>!document.body.classList.contains("akira-auth-locked"));
+            await desktop.locator("body:not(.akira-auth-locked)").waitFor({state:"attached"});
             await desktop.close();
 
             const rejected = await browser.newPage({viewport:{width:390,height:844}});
