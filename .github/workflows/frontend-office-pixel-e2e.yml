@@ -137,7 +137,7 @@ jobs:
             };
 
             await page.route(/\/api\/v8\/me(?:\?.*)?$/, route => route.fulfill({
-              status:200, contentType:"application/json",
+              status:f15ForceStatusUnauthorized ? 401 : 200, contentType:"application/json",
               body:JSON.stringify({
                 ok:true, authenticated:true, is_owner:true,
                 email:"f15-owner@example.test", expires_at:4102444800
@@ -346,7 +346,7 @@ jobs:
               null, {timeout:10000}
             );
 
-            // Unauthorized backend responses must invalidate the shared session, not
+            // A module 401 confirmed by /me must invalidate the shared session, not
             // leave a stale bearer token in the browser. Hive mutation buttons stay disabled.
             f15CapabilityStatus.capability.verification_state = "unverified";
             f15CapabilityStatus.capability.availability_state = "degraded";

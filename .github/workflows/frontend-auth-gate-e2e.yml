@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "index.html"
+      - "test_session_continuity.js"
       - "js/**"
       - ".github/workflows/frontend-auth-gate-e2e.yml"
   workflow_dispatch:
@@ -19,6 +20,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Verify 24-hour session continuity
+        run: node test_session_continuity.js
 
       - name: Install Playwright
         run: npm install --no-save --no-package-lock playwright@1.55.0

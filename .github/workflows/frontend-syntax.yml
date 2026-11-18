@@ -212,7 +212,7 @@ jobs:
           const learning = fs.readFileSync("js/akira_learning.js", "utf8");
           const extras = fs.readFileSync("js/akira_extras.js", "utf8");
           const brain = fs.readFileSync("js/akira_brain.js", "utf8");
-          if (!index.includes("function akiraVerifySession()")) throw new Error("central session verifier missing");
+          if (!index.includes("function akiraVerifySession(")) throw new Error("central session verifier missing");
           if (!index.includes("function akiraClearSession(reason)")) throw new Error("central session clear helper missing");
           if (!index.includes("function akiraHandleAuthFailure(status)")) throw new Error("central 401 handler missing");
           if (!index.includes("/api/v8/me")) throw new Error("frontend session verifier must use /api/v8/me");

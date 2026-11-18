@@ -1603,7 +1603,9 @@ function akiraAuthErrorText(status){
   return "";
 }
 function akiraHandleAuthFailure(status){
-  if(Number(status)===401) akiraClearSession("unauthorized");
+  // A module may use a different credential or return a delayed 401. Only /me
+  // can reject the current application session.
+  if(Number(status)===401) akiraVerifySession(true).catch(()=>{});
   return Number(status)||0;
 }
 
@@ -1619,6 +1621,7 @@ function akiraAuthHeaders(){
   return h;
 }
 
+let akiraVerifiedSessionToken="";
 let akiraSessionCheckPromise=null;
 let akiraSessionCheckToken="";
 let akiraSessionCheckAt=0;
@@ -1628,6 +1631,8 @@ function _akiraApplyVerifiedSession(d,status){
   localStorage.setItem("akira_user_email",String(d.email||""));
   const info=document.getElementById("userInfo");
   if(info){info.style.display="block";info.textContent=String(d.email||"")+" · sesión verificada";}
+  akiraVerifiedSessionToken=localStorage.getItem("akira_session_token")||"";
+  if(Number.isFinite(Number(d.expires_at)) && Number(d.expires_at)>0)localStorage.setItem("akira_session_exp",String(d.expires_at));
   window.akiraSessionState=d;
   akiraSetEntryAccess(true,"Sesión verificada.");
   const result=Object.assign({ok:true,status:status||200},d);
@@ -1641,7 +1646,7 @@ function _akiraApplyVerifiedSession(d,status){
   return result;
 }
 
-async function akiraVerifySession(){
+async function akiraVerifySession(force=false){
   const b=localStorage.getItem("akira_backend_url")||"https://akira-empresa.onrender.com";
   const t=localStorage.getItem("akira_session_token");
   const exp=parseInt(localStorage.getItem("akira_session_exp")||"0",10);
@@ -1653,17 +1658,19 @@ async function akiraVerifySession(){
   if(akiraSessionCheckPromise && akiraSessionCheckToken===t){
     return akiraSessionCheckPromise;
   }
-  if(akiraSessionCheckToken===t && window.akiraSessionState?.authenticated===true && Date.now()-akiraSessionCheckAt<10000)return window.akiraSessionState;
+  if(!force && akiraSessionCheckToken===t && window.akiraSessionState?.authenticated===true && Date.now()-akiraSessionCheckAt<10000)return Object.assign({ok:true,status:200},window.akiraSessionState);
   akiraSessionCheckToken=t;
   akiraSessionCheckAt=Date.now();
   akiraSessionCheckPromise=(async ()=>{
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),15000);
     try{
-      const r=await fetch(b+"/api/v8/me",{headers:akiraAuthHeaders(),cache:"no-store"});
+      const r=await fetch(b+"/api/v8/me",{headers:akiraAuthHeaders(),cache:"no-store",signal:controller.signal});
       let d=null;
       try{d=await r.json();}catch(e){}
       if(localStorage.getItem("akira_session_token")!==t)return {ok:false,superseded:true};
       if(r.status===401){
-        akiraHandleAuthFailure(401);
+        akiraClearSession("server_session_rejected");
         return {ok:false,status:401,authenticated:false,data:d};
       }
       if(r.ok && d && d.authenticated===true && (d.is_authorized===true || d.is_owner===true)){
@@ -1680,6 +1687,7 @@ async function akiraVerifySession(){
       akiraSessionTemporarilyUnavailable(t);
       return {ok:false,status:0,authenticated:false,error:String((e&&e.message)||e)};
     }finally{
+      clearTimeout(timeout);
       if(akiraSessionCheckToken===t) akiraSessionCheckPromise=null;
     }
   })();
@@ -1692,6 +1700,14 @@ window.akiraAuthHeaders=akiraAuthHeaders;
 window.akiraVerifySession=akiraVerifySession;
 function akiraSessionTemporarilyUnavailable(token){
   if(localStorage.getItem("akira_session_token")!==token)return;
+  const exp=Number(localStorage.getItem("akira_session_exp")||0);
+  // Keep an already verified session usable through network outages. This does
+  // not authorize any server request: every endpoint still validates the token.
+  if(token===akiraVerifiedSessionToken && exp>Date.now()/1000 && window.akiraSessionState?.authenticated===true){
+    const status=document.getElementById("accountSessionText");
+    if(status)status.textContent="Sesión conservada · reconectando";
+    return;
+  }
   window.akiraSessionState=null;
   akiraSetEntryAccess(false,"Tu sesión está guardada. El servidor aún no pudo comprobarla.","retry");
 }
