@@ -36,4 +36,3 @@ function fixture(){
   fresh.setResponse(503);await fresh.ctx.akiraVerifySession();assert.equal(fresh.classes.has('akira-auth-locked'),true);
   console.log('PASS: 23h continuity, offline/503, unrelated 401 revalidation, 24h expiry, server 401/403 rejection, unverified gate');
 })().catch(e=>{console.error(e);process.exitCode=1});
-
