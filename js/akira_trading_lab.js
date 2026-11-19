@@ -1595,6 +1595,8 @@
       const m=MARKETS[marketId],bar=bars.at(-1),round=x=>Number(x.toFixed(this.getMarketDecimals(marketId)));
       this.currentSignal={id,strategy:'reference_sniper_v1',marketId,marketName:m.name,timeframe,type:setup.type,
         entry:round(setup.entryReference),sl:round(setup.stop),tp1:round(setup.tp1),tp2:round(setup.tp2),tp3:round(setup.tp3),
+        context:{support:setup.support,resistance:setup.resistance,supportConfirmedEpoch:bar.epoch,resistanceConfirmedEpoch:bar.epoch},
+        analysisNote:setup.type==='SELL'?'Resistencia → rechazo → caída confirmada':'Soporte → rechazo → subida confirmada',
         pattern:'Chulito de referencia · reconstrucción experimental',smc:'Zona de 20 velas → rechazo → ruptura al cierre. No es el indicador original.',
         confluences:['Zona previa','Rechazo cerrado','Ruptura confirmada'],confluence:3,riskRewardTargets:[1,2,3],
         entryCandleIdx:bar.index,createdCandleIndex:bar.index,signalCandleEpoch:bar.epoch,entryTime:setup.signalEpoch*1000,
@@ -3401,13 +3403,12 @@
       // (Mantiene las proporciones exactas de las velas sin aplastarlas jamás)
       const manual=this.manualSpike?.viewPlan();
         const closed = allCandles.slice(0, Math.min(endIdx, allCandles.length - 1));
-        const recent = closed.slice(-20);
         const signalVisible = manual?.marketId === this.selectedMarket && manual.signalEpoch >= allCandles[startIdx].epoch &&
           manual.signalEpoch < allCandles[endIdx-1].epoch + this.getGranularitySeconds();
-        const levels = (signalVisible && manual.context) || (recent.length === 20 ? {
-          support: Math.min(...recent.map(bar => bar.low)),
-          resistance: Math.max(...recent.map(bar => bar.high))
-        } : {});
+        const reference = this.currentSignal?.marketId === this.selectedMarket && this.currentSignal?.strategy === 'reference_sniper_v1' && this.currentSignal.timeframe === this.selectedTimeframe ? this.currentSignal : null;
+        const referenceVisible = reference && reference.signalCandleEpoch >= allCandles[startIdx].epoch && reference.signalCandleEpoch <= allCandles[endIdx-1].epoch;
+        const levels = (signalVisible && manual.context) || (referenceVisible && reference.context) ||
+          window.AkiraTradingScannerCore?.confirmedStructure(closed) || {};
       if(this.showHarmonics && Number.isFinite(levels.support) && Number.isFinite(levels.resistance)){
         minPrice=Math.min(minPrice,levels.support);
         maxPrice=Math.max(maxPrice,levels.resistance);
@@ -4598,7 +4599,10 @@
           if (!Number.isFinite(y) || y < paddingY || y > height-paddingY) continue;
           ctx.strokeStyle = ctx.fillStyle = color;
           ctx.setLineDash([2,5]);
-          ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(chartWidth,y); ctx.stroke();
+          const anchor = levels[key+'ConfirmedEpoch'];
+          const anchorIndex = Number.isFinite(anchor) ? allCandles.findIndex(c=>c.epoch===anchor) : -1;
+          const fromX = anchorIndex >= startIdx ? getScreenX(anchorIndex) : 0;
+          ctx.beginPath(); ctx.moveTo(fromX,y); ctx.lineTo(chartWidth,y); ctx.stroke();
           ctx.fillText(label+' '+levels[key].toFixed(this.getMarketDecimals(this.selectedMarket)), 6, y-3);
         }
         ctx.setLineDash([]);
@@ -4613,9 +4617,10 @@
           });
           ctx.stroke();
         }
-        if (signalVisible && manual.analysisNote) {
+        const analysisNote = signalVisible ? manual.analysisNote : referenceVisible ? reference.analysisNote : null;
+        if (analysisNote) {
           ctx.fillStyle = isLight ? '#334155' : '#e2e8f0';
-          ctx.fillText('✓ '+manual.analysisNote, 6, 15);
+          ctx.fillText('✓ '+analysisNote, 6, 15, chartWidth-12);
         }
         ctx.restore();
       }

@@ -205,3 +205,14 @@ assert.ok(tradingLab.includes("no incluye parciales, spread, comisiones ni desli
 assert.ok(!tradingLab.includes("escáner de alta precisión que usa Sebas Ramírez"), "scanner must not imply unverified endorsement or accuracy");
 
 console.log("Trading scanner checks passed (confirmed pivots, harmonic ratios, entry gates, historical cycles, no fabricated alerts, Pine safeguards).");
+const {confirmedStructure}=require('./js/akira_trading_scanner_core.js');
+const structuralBars=[100,101,104,102,100,98,96,98,99].map((v,i)=>({epoch:1800000000+i*60,open:v,close:v,high:v+.5,low:v-.5}));
+assert.equal(confirmedStructure(structuralBars.slice(0,4),2).resistance,undefined,'no pivot before right-hand confirmation');
+const firstStructure=confirmedStructure(structuralBars.slice(0,5),2);
+assert.equal(firstStructure.resistance,104.5);
+assert.equal(firstStructure.resistanceConfirmedEpoch,structuralBars[4].epoch,'display starts at confirmation, not hindsight pivot');
+const bothStructure=confirmedStructure(structuralBars,2);
+assert.equal(bothStructure.support,95.5);assert.equal(bothStructure.resistance,104.5);
+assert.deepEqual(confirmedStructure(structuralBars.slice(0,5),2),firstStructure,'replaying prefix preserves decision');
+assert.deepEqual(confirmedStructure([{...structuralBars[0],high:NaN}],2),{});
+console.log('PASS confirmed structure: causal confirmation anchors and exact prices. Context only, not trading signals.');
