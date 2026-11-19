@@ -51,5 +51,16 @@ assert.equal(await page.evaluate(()=>AkiraTradingLab.manualSpike.viewPlan().sl),
 await page.getByRole('button',{name:'Restaurar propuesta',exact:true}).click();assert.equal(await page.evaluate(()=>Boolean(AkiraTradingLab.manualSpike.plan.customLevels)),false);
 assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.evaluate(()=>{const a=AkiraTradingLab,c=a.manualSpike,now=Math.floor(Date.now()/1000),t=Math.floor(now/60)*60;const bars=Array.from({length:65},(_,i)=>({epoch:t-(65-i)*60,open:100,high:101,low:99,close:100}));bars[64]={epoch:t-60,open:100,high:100.5,low:98,close:100};c.turnVariant='rejection';c.plan=AkiraTurnScanner.makePlan({marketId:c.market,bars,epoch:t,eventEpochs:[t-30],eventCoverageFrom:t-400},AkiraScalpResearchCore);c.last={price:100,epoch:now};c.render();});
 assert.ok((await page.locator('#manualSpikeStatus').innerText()).includes('no fue anticipado'));
+const referenceLabels=await page.evaluate(()=>{
+ const a=AkiraTradingLab;const bars=a.candles[a.selectedMarket].map(b=>({...b}));
+ a.selectedMarket='XAUUSD';a.selectedTimeframe='M1';a.candles.XAUUSD=bars;a.marketPrices.XAUUSD=bars.at(-1).close;
+ a.manualSpike.plan=null;a.showHarmonics=true;
+ a.currentSignal={strategy:'reference_sniper_v1',marketId:'XAUUSD',timeframe:'M1',type:'SELL',signalCandleEpoch:bars.at(-2).epoch,
+ context:{support:98.25,resistance:102.75,supportConfirmedEpoch:bars.at(-2).epoch,resistanceConfirmedEpoch:bars.at(-2).epoch},
+ analysisNote:'Resistencia → rechazo → caída confirmada'};
+ labels=[];a.drawMarketCanvas();return labels;
+});
+assert.ok(referenceLabels.some(x=>x.startsWith('Resistencia 102.75')),'reference resistance stays frozen');
+assert.ok(referenceLabels.some(x=>x.includes('rechazo → caída confirmada')),'gold rationale is drawn on chart');
 assert.deepEqual(errors,[]);await page.close();}
 console.log('PASS chart-first mobile/desktop: actual lab renderer, candle checkmark, price targets, one collapsed details section, level toggle, no overflow/errors');}finally{await browser.close();await new Promise(r=>server.close(r));}})().catch(e=>{console.error(e);process.exitCode=1});

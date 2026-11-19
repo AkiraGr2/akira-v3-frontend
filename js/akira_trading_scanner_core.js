@@ -68,6 +68,25 @@
     return swings.slice(-Math.max(5, limit || 20));
   }
 
+  // Context only: a confirmed pivot is not an entry recommendation.
+  // Anchor at the confirmation candle, never backdate to the pivot candle.
+  function confirmedStructure(candles, strength = 3) {
+    const radius = Math.max(2, Math.floor(strength));
+    if (!Number.isFinite(radius) || !Array.isArray(candles)) return {};
+    if (candles.some((b,i) => !b || ![b.epoch,b.open,b.high,b.low,b.close].every(finite) ||
+      b.low > Math.min(b.open,b.close) || b.high < Math.max(b.open,b.close) ||
+      (i && b.epoch <= candles[i-1].epoch))) return {};
+    const points = findConfirmedSwings(candles, radius, candles.length);
+    const result = {};
+    for (const [kind,key] of [['low','support'],['high','resistance']]) {
+      const point = points.findLast(p => p.kind === kind);
+      if (!point) continue;
+      result[key] = point.price;
+      result[key+'ConfirmedEpoch'] = candles[point.index+radius].epoch;
+    }
+    return result;
+  }
+
   function between(value, range) {
     return value >= range[0] && value <= range[1];
   }
@@ -364,7 +383,7 @@
     };
   }
 
-  const api = { buildSpikeScalpSetup, resolveSpikeScalpExit, averageTrueRange, findConfirmedSwings, detectHarmonicPattern, rejectionDirection, spikeCycleStats, validateEntryConditions, resolveTerminalOutcome, simulateSignalOutcomes, summarizeBacktest, validateHarmonicSequence: projectPattern };
+  const api = { confirmedStructure, buildSpikeScalpSetup, resolveSpikeScalpExit, averageTrueRange, findConfirmedSwings, detectHarmonicPattern, rejectionDirection, spikeCycleStats, validateEntryConditions, resolveTerminalOutcome, simulateSignalOutcomes, summarizeBacktest, validateHarmonicSequence: projectPattern };
   root.AkiraTradingScannerCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
